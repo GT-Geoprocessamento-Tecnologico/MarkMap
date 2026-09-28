@@ -1,0 +1,436 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Semantic design tokens. Light + dark paired so every surface has a
+   matched ink value that meets AA contrast by default. Values are subject
+   to design iteration but the token *names* are stable. */
+@layer base {
+  :root {
+    /* Contour brand (#173): warm paper neutrals + deep sage accent.
+       The three --brand-* hues are the mark's contours (sage, clay,
+       mauve) and the only place the full triad appears; UI chrome
+       leans on sage alone so the accent stays calm. */
+    --surface-0: 45 30% 98%;        /* page background (warm paper) */
+    --surface-0-ink: 40 12% 13%;
+    --surface-1: 45 27% 96%;        /* elevated card */
+    --surface-1-ink: 40 12% 13%;
+    --surface-2: 45 22% 93%;        /* inputs, popovers */
+    --surface-2-ink: 40 12% 13%;
+    --muted: 40 7% 44%;
+    --muted-ink: 40 12% 13%;
+    --accent: 124 8% 38%;           /* deep sage; white ink passes AA */
+    --accent-ink: 0 0% 100%;
+    --success: 142 60% 30%;
+    --warn: 33 85% 47%;
+    --danger: 0 68% 49%;
+    --info: 205 75% 42%;
+    --focus-ring: 124 8% 38%;
+    --border: 43 18% 87%;
+    --radius: 0.5rem;
+    --brand-sage: 124 8% 40%;
+    --brand-clay: 33 33% 54%;
+    --brand-mauve: 350 18% 46%;
+  }
+
+  .dark {
+    --surface-0: 40 9% 7%;          /* warm charcoal, not blue-black */
+    --surface-0-ink: 43 20% 93%;
+    --surface-1: 40 8% 11%;
+    --surface-1-ink: 43 20% 93%;
+    --surface-2: 40 7% 14%;
+    --surface-2-ink: 43 20% 93%;
+    /* muted is overwhelmingly used as secondary TEXT (2000+ sites) and
+       only rarely as a bg (always opacity-modified), so its dark value
+       must stay readable on surface-0..2. The original 27% lightness
+       was near-invisible (<2:1); 63% lands ~5.5:1 on surface-1. */
+    --muted: 40 9% 63%;
+    --muted-ink: 43 20% 93%;
+    --accent: 118 16% 66%;          /* lifted sage; dark ink passes AA */
+    --accent-ink: 40 9% 10%;
+    --success: 142 45% 55%;
+    --warn: 35 80% 58%;
+    --danger: 0 65% 62%;
+    --info: 205 70% 60%;
+    --focus-ring: 118 16% 66%;
+    --border: 40 7% 20%;
+    --brand-sage: 118 16% 66%;
+    --brand-clay: 33 42% 67%;
+    --brand-mauve: 350 25% 66%;
+  }
+
+  html,
+  body {
+    @apply h-full;
+  }
+  body {
+    background: hsl(var(--surface-0));
+    color: hsl(var(--surface-0-ink));
+    font-feature-settings:
+      'cv02',
+      'cv03',
+      'cv04',
+      'cv11';
+  }
+
+  /* iOS Safari auto-zooms when the user taps an input whose computed
+     font-size is below 16px. The page then scrolls left/right because
+     the viewport stays at the zoomed scale, breaking layouts that
+     assume 100vw. Pin the form-control font-size to >=16px on touch
+     devices via @media (pointer: coarse) so we don't enlarge the
+     desktop UI. The text-base utility classes we use elsewhere are
+     already 16px; this catches the smaller utility classes
+     (text-xs/text-sm) we use on dense forms and search inputs. */
+  @media (pointer: coarse) {
+    input[type='text'],
+    input[type='email'],
+    input[type='url'],
+    input[type='password'],
+    input[type='search'],
+    input[type='tel'],
+    input[type='number'],
+    input[type='date'],
+    input[type='datetime-local'],
+    input[type='time'],
+    input[type='month'],
+    input[type='week'],
+    select,
+    textarea {
+      font-size: 16px;
+    }
+  }
+
+  /* Respect user's motion preference across the app. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+/* Feature popup content. MapLibre owns the outer chrome; these rules
+   style what we inject via setHTML so the popup matches the portal
+   look instead of browser defaults. */
+.gg-popup {
+  font: 500 13px/1.4 ui-sans-serif, system-ui, sans-serif;
+  color: hsl(var(--surface-1-ink));
+}
+.gg-popup-title {
+  font-weight: 600;
+  font-size: 14px;
+  padding-bottom: 6px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid hsl(var(--border));
+}
+.gg-popup dl {
+  display: grid;
+  grid-template-columns: minmax(60px, auto) 1fr;
+  gap: 2px 10px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.gg-popup dt {
+  color: hsl(var(--muted));
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.gg-popup dd {
+  word-break: break-word;
+}
+.gg-popup-empty {
+  color: hsl(var(--muted));
+  font-style: italic;
+  font-size: 12px;
+}
+/* Editor-tracking footer (#39). Quiet under the body so it reads as
+   provenance rather than data, and uses muted color + smaller text
+   so it never competes with attributes for attention. */
+.gg-popup-meta {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid hsl(var(--border));
+  color: hsl(var(--muted));
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+/* MapLibre owns the popup's outer chrome and hardcodes it to a white
+   card with a white tip. That white never followed the theme, so in
+   dark mode the popup body (themed .gg-popup text, near-white
+   --surface-1-ink) rendered white-on-white and vanished. Bind the
+   chrome to the same surface tokens the injected content uses so the
+   popup keeps real contrast in both light and dark. */
+/* Popups must always win the stack inside the map container. The
+   3D point-cloud overlay mounts a deck.gl canvas over the map, and
+   without an explicit z-index the popup (z auto) loses to it and
+   renders BEHIND the points (user feedback). 30 clears the deck
+   canvas and our own map chips (z-10) while staying below page
+   chrome. */
+.maplibregl-popup {
+  z-index: 30;
+}
+/* The 3D overlay library's gear-button + panel UI is standalone-
+   viewer chrome (drop-file, load-URL, global styling). In maps the
+   layer panel owns styling per layer, so the control mounts with
+   this class and stays hidden; its deck canvas mounts on the map
+   itself and keeps rendering. */
+.gg-lidar-hidden {
+  display: none !important;
+}
+/* Specificity note: the 3D overlay library's lazily-imported
+   style.css bundles a copy of MapLibre's core popup styles (white
+   card). It loads AFTER this sheet, so equal-specificity selectors
+   lose the cascade the moment a map shows a point cloud and the
+   popup reverts to white-on-white in dark mode. Every popup rule
+   here carries an extra .maplibregl-popup ancestor to outrank the
+   core selectors regardless of load order. */
+.maplibregl-popup .maplibregl-popup-content {
+  background: hsl(var(--surface-1));
+  color: hsl(var(--surface-1-ink));
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.18);
+  padding: 10px 12px;
+}
+/* The tip is a CSS triangle drawn with a single colored border edge;
+   which edge depends on the popup anchor, so every anchor variant has
+   to be pointed at the surface color or it reverts to white. */
+.maplibregl-popup.maplibregl-popup-anchor-top .maplibregl-popup-tip,
+.maplibregl-popup.maplibregl-popup-anchor-top-left .maplibregl-popup-tip,
+.maplibregl-popup.maplibregl-popup-anchor-top-right .maplibregl-popup-tip {
+  border-bottom-color: hsl(var(--surface-1));
+}
+.maplibregl-popup.maplibregl-popup-anchor-bottom .maplibregl-popup-tip,
+.maplibregl-popup.maplibregl-popup-anchor-bottom-left .maplibregl-popup-tip,
+.maplibregl-popup.maplibregl-popup-anchor-bottom-right .maplibregl-popup-tip {
+  border-top-color: hsl(var(--surface-1));
+}
+.maplibregl-popup.maplibregl-popup-anchor-left .maplibregl-popup-tip {
+  border-right-color: hsl(var(--surface-1));
+}
+.maplibregl-popup.maplibregl-popup-anchor-right .maplibregl-popup-tip {
+  border-left-color: hsl(var(--surface-1));
+}
+.maplibregl-popup .maplibregl-popup-close-button {
+  color: hsl(var(--muted));
+  font-size: 16px;
+  padding: 0 6px;
+}
+.maplibregl-popup .maplibregl-popup-close-button:hover {
+  background: transparent;
+  color: hsl(var(--surface-1-ink));
+}
+
+/* Dual-thumb range slider used for layer scale/visibility ranges.
+   Two stacked <input type="range"> elements share a track; only the
+   thumbs receive pointer events so each can be dragged independently.
+   The active band between them is drawn as a separate <div>. */
+.gg-dual-range {
+  position: relative;
+  height: 1.5rem;
+}
+.gg-dual-range__track {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 0.375rem;
+  border-radius: 9999px;
+  background: hsl(var(--border));
+}
+.gg-dual-range__fill {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 0.375rem;
+  border-radius: 9999px;
+  background: hsl(var(--accent));
+}
+.gg-dual-range__input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  pointer-events: none;
+}
+.gg-dual-range__input:focus {
+  outline: none;
+}
+.gg-dual-range__input::-webkit-slider-runnable-track {
+  background: transparent;
+  border: 0;
+  height: 100%;
+}
+.gg-dual-range__input::-moz-range-track {
+  background: transparent;
+  border: 0;
+  height: 100%;
+}
+.gg-dual-range__input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  pointer-events: auto;
+  position: relative;
+  height: 1rem;
+  width: 1rem;
+  border-radius: 9999px;
+  background: hsl(var(--surface-0));
+  border: 2px solid hsl(var(--accent));
+  cursor: grab;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+  margin-top: 0;
+}
+.gg-dual-range__input::-webkit-slider-thumb:active {
+  cursor: grabbing;
+}
+.gg-dual-range__input::-moz-range-thumb {
+  pointer-events: auto;
+  height: 1rem;
+  width: 1rem;
+  border-radius: 9999px;
+  background: hsl(var(--surface-0));
+  border: 2px solid hsl(var(--accent));
+  cursor: grab;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+.gg-dual-range__input:focus-visible::-webkit-slider-thumb {
+  box-shadow:
+    0 0 0 3px hsl(var(--focus-ring) / 0.35),
+    0 1px 2px rgba(0, 0, 0, 0.15);
+}
+.gg-dual-range__input:focus-visible::-moz-range-thumb {
+  box-shadow:
+    0 0 0 3px hsl(var(--focus-ring) / 0.35),
+    0 1px 2px rgba(0, 0, 0, 0.15);
+}
+.gg-dual-range__now {
+  position: absolute;
+  top: 50%;
+  width: 2px;
+  height: 0.9rem;
+  margin-left: -1px;
+  transform: translateY(-50%);
+  background: hsl(var(--danger));
+  border-radius: 1px;
+  pointer-events: none;
+}
+.gg-dual-range__now::after {
+  /* Little triangle tick below the bar so the current-zoom marker
+     reads clearly even when it sits on top of the accent-colored
+     selected range. Mimics the indicator style in the ArcGIS
+     Visibility slider. */
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  transform: translateX(-50%);
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid hsl(var(--danger));
+}
+/* In-range: draw in the success color so "yes, the layer is showing
+   at the current zoom" reads at a glance. Out-of-range keeps the
+   default danger red. */
+.gg-dual-range__now--in {
+  background: hsl(var(--success));
+}
+.gg-dual-range__now--in::after {
+  border-top-color: hsl(var(--success));
+}
+.gg-dual-range__now--out {
+  background: hsl(var(--danger));
+}
+.gg-dual-range__now--out::after {
+  border-top-color: hsl(var(--danger));
+}
+
+/* Themed-app container widget styling. When a content widget renders
+   inside an app-bar / dock-panel / slideout / foldable-group, the
+   container's wrapper carries a `data-*-child` attribute. These
+   rules strip the widget's own card chrome (background, border,
+   shadow, rounded corners) so the widget reads as part of the
+   container instead of as a separate floating box.
+
+   Targets ToolWidgetSlot's button (class `group/tool` -> CSS
+   `group\/tool`) and the standard widget card wrappers. Specificity
+   stays low so authors who want a per-widget treatment can still
+   override at the widget level. */
+[data-app-bar-child] button.group\/tool {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+[data-app-bar-child] button.group\/tool:hover {
+  background: hsl(var(--app-surface-2, var(--surface-2)));
+}
+[data-app-bar-child] button.group\/tool[aria-pressed='true'] {
+  background: hsl(var(--app-accent, var(--accent)) / 0.1);
+  color: hsl(var(--app-accent, var(--accent)));
+}
+
+/* Dock-panel and foldable-group children: their own card chrome
+   would double the chrome (panel + widget border = busy). Strip
+   the rounded border + background so the widget content sits flush
+   inside the container's own region. */
+[data-dock-panel-child] > section,
+[data-dock-panel-child] > div.rounded-md,
+[data-foldable-child] > section,
+[data-foldable-child] > div.rounded-md {
+  border: none;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* #259 slice 4: print mode for the Editor / Viewer runtime. The Print
+   button on the runtime adds the `print-runtime` class to <body> just
+   before invoking window.print() and removes it after. While the
+   class is present (and `@media print` is active) we hide everything
+   that's not the map canvas: the page header, the runtime header
+   strip, the layer panel, the attribute table, the search bar, the
+   tool palette overlays, and the Print button itself. The remaining
+   canvas surface fills the page so the print preview shows the map.
+
+   Future Print Template work (#132) will replace this with a
+   selected layout (header / legend / scale-bar baked into the
+   printable surface). For now the floor is "print what you see"
+   without the chrome. */
+@media print {
+  body.print-runtime header,
+  body.print-runtime nav,
+  body.print-runtime [data-print-hide],
+  body.print-runtime .maplibregl-ctrl-attrib,
+  body.print-runtime .maplibregl-ctrl-bottom-right,
+  body.print-runtime .maplibregl-ctrl-top-right,
+  body.print-runtime .maplibregl-ctrl-top-left {
+    display: none !important;
+  }
+  body.print-runtime,
+  body.print-runtime main,
+  body.print-runtime [data-runtime-canvas],
+  body.print-runtime .maplibregl-map {
+    width: 100% !important;
+    height: 100% !important;
+    max-width: none !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+  }
+  /* Print page should size to landscape Letter by default; the
+     user can override in the print dialog if their workflow wants
+     portrait. */
+  @page {
+    size: landscape;
+    margin: 0.5cm;
+  }
+}

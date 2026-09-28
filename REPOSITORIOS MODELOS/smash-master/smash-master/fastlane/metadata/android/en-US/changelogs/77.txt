@@ -1,0 +1,6 @@
+News:
+
+- new fullscreen map view
+- support for mutiple storages on devices that support them
+- several fixes 
+- new languages: Tamil is now fully translated, together with: Italian, English, Catalan, Chinese, Czech, German, Japanese and some more partially translated.  See: https://hosted.weblate.org/projects/smash/#languages

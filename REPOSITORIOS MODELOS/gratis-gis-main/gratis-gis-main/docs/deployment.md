@@ -1,0 +1,135 @@
+# Deployment
+
+GratisGIS runs on one Linux host with Docker Compose. The public demo
+runs the exact stack described here on a small VPS, so everything below
+is the tested path, not aspiration.
+
+## Requirements
+
+- A Linux server you can SSH into. The public demo runs on 4 CPU cores
+  and 8 GB RAM, which is a comfortable baseline for a small
+  organization and enough for the heavier analysis tiers; 2 cores and
+  4 GB can boot the stack for evaluation but leave little headroom.
+  20 GB or more of free disk.
+- Docker Engine with the compose v2 plugin, plus git, curl, and
+  openssl. The installer checks and tells you what is missing; it does
+  not install Docker for you.
+- Three DNS A records pointing at the server: the portal hostname, an
+  auth hostname, and a storage hostname (for example `gis.example.org`,
+  `auth.gis.example.org`, `storage.gis.example.org`). Certificates come
+  from Let's Encrypt automatically once the records resolve.
+
+## Install
+
+One command:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/palavido-dev/gratis-gis/main/infra/install.sh | bash
+```
+
+It clones the repo to `/opt/gratis-gis` (override with `GRATIS_DIR`),
+checks out the newest release tag (override with `GG_REF`), runs the
+guided setup, deploys, and prints where to sign in.
+
+The same flow by hand:
+
+```bash
+git clone https://github.com/palavido-dev/gratis-gis /opt/gratis-gis
+cd /opt/gratis-gis
+./infra/setup.sh
+./infra/deploy.sh
+```
+
+`setup.sh` asks for your domain, the Let's Encrypt email, and an
+organization name, derives the auth and storage hostnames (overridable),
+generates every secret, and writes `infra/.env.prod` (mode 600). It
+prints the initial credentials once: the portal sign-in
+(`admin` plus a generated password that Keycloak forces you to change
+on first login) and the Keycloak admin console password. Save them.
+
+Non-interactive use: `./infra/setup.sh --domain gis.example.org
+--acme-email you@example.org --yes`.
+
+`deploy.sh` builds the images, starts the stack, runs database
+migrations, and reconciles the Keycloak realm. First build takes a
+while; later deploys reuse cache.
+
+## Health checks
+
+```bash
+./infra/doctor.sh
+```
+
+Read-only diagnostics: dependencies, cores, memory, disk, DNS, the env
+file, per-container health, and the public endpoint. It also reports
+which analysis capability tiers the hardware honestly supports
+(browser-tier analysis always works because it runs on the visitor's
+machine; heavier server tiers get a recommendation based on cores,
+memory, and GPU presence). Exit code 0 means no failures.
+
+## Sizing the point-cloud scratch disk
+
+A lidar merge is the hungriest thing this stack does. LAZ decompresses
+roughly 10x, and untwine's out-of-core temp runs well past 2x the
+compressed input on top of the downloaded tiles themselves, so the
+working set for an 18 GB batch was observed north of 46 GB and still
+growing. The worker therefore refuses a merge up front unless free
+scratch is at least `MERGE_SCRATCH_FACTOR` (default 5) times the total
+tile size, and aborts mid-run if free space ever falls below
+`MERGE_MIN_FREE_GB` (default 10).
+
+Rules of thumb:
+
+- Give the `pointcloud-scratch` volume several times your largest
+  planned batch. County-scale lidar wants its own disk.
+- Never share the scratch volume with object storage or backups; an
+  overrunning merge must not be able to threaten live data. The
+  guards protect against it, but placement is the real fix.
+- Merge time is estimated up front from `MERGE_DOWNLOAD_MIB_PER_SEC`,
+  `MERGE_UNTWINE_SEC_PER_GIB`, and `MERGE_PER_TILE_OVERHEAD_SEC`, and
+  a job whose estimate exceeds `MERGE_TIME_CEILING_SEC` (default 90%
+  of the worker's `MERGE_TIMEOUT_SEC`) is refused before it queues.
+  The defaults are deliberately conservative. Each completed merge
+  logs a `MERGE_STATS` line in the pointcloud-worker output; use it
+  to re-derive the rates for your hardware:
+  `MERGE_UNTWINE_SEC_PER_GIB = untwine_secs / (in_bytes / GiB)` and
+  `MERGE_DOWNLOAD_MIB_PER_SEC = in_bytes / MiB / download_secs`.
+
+## What runs
+
+Docker Compose starts: the portal API (two replicas) and web UI, a
+background worker, PostgreSQL with PostGIS, Keycloak 26 (identity),
+MinIO (object storage), pg_tileserv (vector tiles straight from
+PostGIS), Caddy (reverse proxy with automatic HTTPS), a one-shot
+migration container, and two Chromium instances used for print
+rendering. Internal services are only reachable on the compose network;
+Caddy is the only thing listening on 80/443.
+
+## Upgrades
+
+```bash
+cd /opt/gratis-gis
+./infra/deploy.sh
+```
+
+The deploy script checks out the newest release tag (override with
+`GG_REF`), rebuilds, applies database migrations, and swaps
+containers. Run one deploy at a time and let it finish. Back up
+before upgrading; the full procedure, including rollback, is in
+[UPGRADING.md](./UPGRADING.md).
+
+## Backups
+
+Portal admins can create and download backup archives from the Backup
+page in the portal's admin area (database plus uploaded files). For
+host-level backups, snapshot the Docker volumes for PostgreSQL and
+MinIO while the stack is stopped, plus your `infra/.env.prod`. Keep
+`.env.prod` safe either way: `CREDENTIAL_ENCRYPTION_KEY` cannot be
+regenerated without losing encrypted credentials.
+
+## Optional pieces
+
+- Geocoding: a self-hosted Nominatim can back the portal's geocoder;
+  see `infra/NOMINATIM.md`.
+- The maintenance and golden-snapshot scripts in `infra/` exist for the
+  public demo's nightly reset and are not part of a normal deployment.

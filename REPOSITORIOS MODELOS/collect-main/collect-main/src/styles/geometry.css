@@ -1,0 +1,2464 @@
+/* -------------------------------------------------------------------------
+   Geometry audit
+
+   One spacing system, one content-gutter system, and one alignment contract.
+   Contributor and admin keep their fixed surface identity, but every screen
+   now shares the same measured rhythm.
+   ------------------------------------------------------------------------- */
+:root {
+  color-scheme: light;
+  --canvas: #f5f5f7;
+  --paper: #ffffff;
+  --text: #1d1d1f;
+  --secondary: #636366;
+  --tertiary: #707075;
+  --separator: rgba(60, 60, 67, 0.29);
+  --separator-light: rgba(60, 60, 67, 0.18);
+  --grouped: rgba(118, 118, 128, 0.12);
+  --grouped-strong: #e5e5ea;
+  --brand: #000000;
+  --focus: #1d1d1f;
+  --focus-ring: rgba(0, 0, 0, 0.16);
+  --error: #d70015;
+  --destructive: #d70015;
+  --glass: rgba(245, 245, 247, 0.86);
+  --chrome: rgba(245, 245, 247, 0.92);
+  --accent: #000000;
+  --accent-hover: #1c1c1e;
+  --accent-text: #ffffff;
+  --selection-bg: rgba(0, 0, 0, 0.9);
+  --floating-shadow: 0 8px 28px rgba(0, 0, 0, 0.14);
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 40px;
+  --space-9: 48px;
+  --page-gutter: 16px;
+  --page-gutter-wide: 24px;
+  --content-max: 720px;
+  --admin-content-max: 960px;
+  --flow-max: 560px;
+  --flow-content-max: 520px;
+  --control-height: 44px;
+  --row-height: 68px;
+  --control-radius: 999px;
+  --radius-small: 12px;
+  --radius-medium: 16px;
+  --group-radius: 20px;
+  --radius: 12px;
+  --radius-large: 20px;
+
+  --type-caption-2: 0.6875rem;
+  --type-caption: 0.75rem;
+  --type-footnote: 0.8125rem;
+  --type-subheadline: 0.9375rem;
+  --type-body: 1.0625rem;
+  --type-title-3: 1.25rem;
+  --type-title-2: 1.375rem;
+  --tracking-title: -0.022em;
+  --tracking-wordmark: -0.04em;
+
+  /* Motion & Spring Physics Tokens */
+  --ease-spring: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-spring-snappy: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring-bouncy: cubic-bezier(0.34, 1.36, 0.64, 1);
+  --ease-smooth: cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+:root[data-collect-surface="admin"],
+.app-shell[data-mode="admin"],
+.auth-page[data-role="admin"],
+.auth-page[data-surface="admin"],
+.page-admin,
+.page-admin-project,
+.hp-iphone-dark {
+  color-scheme: dark;
+  --canvas: #000000;
+  --paper: #1c1c1e;
+  --text: #f5f5f7;
+  --secondary: #aeaeb2;
+  --tertiary: #8e8e93;
+  --separator: rgba(235, 235, 245, 0.28);
+  --separator-light: rgba(235, 235, 245, 0.16);
+  --grouped: rgba(118, 118, 128, 0.28);
+  --grouped-strong: rgba(118, 118, 128, 0.46);
+  --brand: #ffffff;
+  --focus: #ffffff;
+  --focus-ring: rgba(255, 255, 255, 0.28);
+  --error: #ff6961;
+  --destructive: #ff453a;
+  --glass: rgba(28, 28, 30, 0.86);
+  --chrome: rgba(28, 28, 30, 0.92);
+  --accent: #ffffff;
+  --accent-hover: #f2f2f7;
+  --accent-text: #000000;
+  --selection-bg: rgba(255, 255, 255, 0.9);
+  --floating-shadow: 0 8px 30px rgba(0, 0, 0, 0.42);
+}
+
+html,
+body {
+  min-height: 100%;
+  background: var(--canvas);
+  /* Installed PWA: never rubber-band the page when there is nothing to
+     scroll. Long screens still scroll normally; only the empty overscroll
+     (the iOS bounce with no overflowing content) is removed. */
+  overscroll-behavior: none;
+}
+html {
+  color-scheme: light;
+}
+html[data-collect-surface="admin"] {
+  color-scheme: dark;
+}
+body {
+  min-height: 100dvh;
+  overflow-x: hidden;
+  font-size: var(--type-body);
+  line-height: 1.45;
+}
+button,
+a,
+input,
+textarea,
+select,
+label {
+  touch-action: manipulation;
+}
+button {
+  -webkit-user-select: none;
+  user-select: none;
+}
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+h1 {
+  font-size: clamp(2.125rem, 5vw, 2.75rem);
+  line-height: 1.06;
+  letter-spacing: var(--tracking-title);
+}
+h2 {
+  font-size: var(--type-title-2);
+  line-height: 1.18;
+  letter-spacing: -0.018em;
+}
+h3 {
+  font-size: var(--type-body);
+  line-height: 1.24;
+  letter-spacing: -0.012em;
+}
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+}
+
+/* Shared navigation chrome */
+.app-shell {
+  min-height: 100dvh;
+  background: var(--canvas);
+}
+.app-shell[data-mode="admin"],
+.auth-page[data-role="admin"] {
+  color-scheme: dark;
+}
+.app-shell[data-mode="contributor"],
+.auth-page[data-role="contributor"] {
+  color-scheme: light;
+}
+
+.topbar {
+  height: calc(52px + env(safe-area-inset-top));
+  padding-top: env(safe-area-inset-top);
+  border-bottom-color: var(--separator-light);
+  background: var(--glass);
+}
+.topbar-inner {
+  width: min(100%, var(--admin-content-max));
+  height: 52px;
+  margin: 0 auto;
+  padding-right: var(--page-gutter-wide);
+  padding-left: var(--page-gutter-wide);
+}
+.app-shell[data-mode="contributor"] .topbar-inner {
+  width: min(100%, var(--content-max));
+}
+.wordmark {
+  min-height: var(--control-height);
+  display: inline-flex;
+  align-items: center;
+}
+.collect-wordmark {
+  letter-spacing: var(--tracking-wordmark);
+}
+.collect-mark {
+  transform: translateY(-0.5px);
+}
+.topbar-admin .wordmark-dot {
+  color: var(--secondary);
+}
+.account-button {
+  width: var(--control-height);
+  height: var(--control-height);
+  min-height: var(--control-height);
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border-radius: 50%;
+  color: var(--secondary);
+}
+.account-button:hover {
+  color: var(--text);
+  background: var(--grouped);
+}
+.account-menu {
+  top: 48px;
+  width: min(280px, calc(100vw - 32px));
+  padding: 6px;
+  border-color: var(--separator-light);
+  border-radius: var(--radius-medium);
+  background: var(--paper);
+}
+.account-menu button {
+  min-height: var(--control-height);
+  border-radius: var(--radius-small);
+}
+
+/* Page frame and common vertical rhythm */
+.main-shell {
+  min-height: calc(100dvh - 52px - env(safe-area-inset-top));
+}
+.page {
+  width: min(100%, var(--content-max));
+  margin: 0 auto;
+  padding: var(--space-7) var(--page-gutter-wide)
+    calc(72px + env(safe-area-inset-bottom));
+}
+.page-admin,
+.page-admin-project {
+  width: min(100%, var(--admin-content-max));
+}
+.page-wizard {
+  width: min(100%, 760px);
+}
+.page-heading {
+  margin-bottom: var(--space-6);
+}
+.page-heading h1,
+.wizard-heading h1,
+.project-intro-copy h1,
+.admin-project-header h1 {
+  margin-top: 2px;
+}
+.back-row {
+  min-height: var(--control-height);
+  margin-bottom: var(--space-6);
+}
+.back-button {
+  min-height: var(--control-height);
+  gap: 6px;
+  font-size: 1rem;
+  font-weight: 600;
+}
+.page-note {
+  margin-top: var(--space-6);
+}
+.primary-action-dock {
+  display: block;
+}
+.primary-action-dock-draft {
+  display: grid;
+  gap: 2px;
+}
+.draft-restart-action {
+  width: 100%;
+  min-height: var(--control-height);
+  padding: 0 var(--space-4);
+  border: 0;
+  border-radius: var(--control-radius);
+  background: transparent;
+  color: var(--destructive);
+  font-size: var(--type-footnote);
+  font-weight: 600;
+}
+.draft-restart-action:disabled {
+  color: var(--tertiary);
+}
+.admin-context-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+.primary-action-dock > .button {
+  width: 100%;
+}
+.admin-context-actions > .button {
+  flex: 1 1 auto;
+}
+.admin-context-actions-single {
+  width: 100%;
+}
+.project-intro {
+  margin-bottom: var(--space-6);
+}
+.project-intro-copy p {
+  margin-top: var(--space-2);
+}
+.project-instructions {
+  margin-bottom: var(--space-6);
+  line-height: 1.5;
+}
+.project-list-detail {
+  margin-top: 0;
+}
+.project-footnote {
+  margin-top: var(--space-6);
+}
+
+/* Contributor roster actions and the administrator profile sheet */
+.contributor-row .admin-project-actions {
+  flex: 0 0 auto;
+}
+
+.admin-project-actions-menu .action-danger {
+  color: var(--destructive);
+}
+
+.profile-section {
+  margin-bottom: var(--space-5);
+}
+
+.profile-section h3 {
+  margin-bottom: var(--space-2);
+  color: var(--secondary);
+  font-size: var(--type-footnote);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.profile-attention-list {
+  border-top: 1px solid var(--separator-light);
+}
+
+.attention-row {
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--separator-light);
+}
+
+.attention-row-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.attention-row-copy strong {
+  overflow: hidden;
+  font-size: var(--type-footnote);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attention-row-copy span {
+  color: var(--secondary);
+  font-size: var(--type-caption);
+}
+
+.attention-outcome {
+  flex: 0 0 auto;
+  font-size: var(--type-caption);
+  font-weight: 600;
+}
+
+.attention-outcome-failed {
+  color: var(--destructive);
+}
+
+/* Grouped rows: one separator per boundary, one gutter per group */
+.project-list,
+.recent-observation-list,
+.admin-project-list,
+.readiness-list,
+.schema-list,
+.contributor-list {
+  overflow: hidden;
+  border: 1px solid var(--separator-light);
+  border-radius: var(--group-radius);
+  background: var(--paper);
+  box-shadow: none;
+}
+/* The roster's per-row action menu is absolutely positioned below the row;
+   let it escape the grouped box instead of being clipped away. The rounded
+   corners stay clean because the rows themselves carry no background. */
+.contributor-list {
+  overflow: visible;
+}
+/* An empty list is a row of its own: it keeps the row gutter instead of
+   starting against the card border. */
+.contributor-list .empty-list-state,
+.schema-list .empty-list-state,
+.project-list .empty-list-state,
+.recent-observation-list .empty-list-state {
+  padding-right: var(--space-4);
+  padding-left: var(--space-4);
+}
+.project-row-wrap + .project-row-wrap,
+.list-row + .list-row,
+.admin-project-card + .admin-project-card {
+  border-top: 1px solid var(--separator-light);
+}
+
+/* Status cards keep card gutters on their rows and drop the trailing
+   separator, matching the other inset lists in the app. */
+.recent-observation-list .recent-observation-row {
+  padding: 0 var(--space-4);
+}
+
+.project-list .list-row:last-child,
+.recent-observation-list .recent-observation-row:last-child {
+  border-bottom: 0;
+}
+.recent-observation-flag {
+  font-weight: 600;
+  color: var(--text);
+}
+.project-row,
+.list-row {
+  min-height: var(--row-height);
+  padding: var(--space-3) var(--space-4);
+  border: 0;
+  background: transparent;
+}
+.project-row-copy,
+.list-row-copy,
+.resume-copy {
+  min-width: 0;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.project-row-copy strong,
+.list-row-copy strong,
+.resume-copy strong {
+  font-size: var(--type-subheadline);
+  font-weight: 600;
+  line-height: 1.25;
+}
+.project-row-copy span,
+.list-row-copy span,
+.resume-copy span {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--secondary);
+  font-size: var(--type-footnote);
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.project-row-meta {
+  min-width: 0;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--secondary);
+  font-size: var(--type-caption);
+  line-height: 1.25;
+}
+.project-row-meta span {
+  max-width: 130px;
+  text-align: right;
+  white-space: normal;
+}
+.project-row-mark,
+.organization-mark {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  border-radius: 12px;
+}
+.resume-row {
+  min-height: var(--row-height);
+  margin-top: var(--space-4);
+  border: 1px solid var(--separator-light);
+  border-radius: var(--group-radius);
+  background: var(--grouped);
+}
+.download-offline-button {
+  min-height: var(--control-height);
+  margin: 0 var(--space-4) var(--space-3);
+  border-radius: var(--control-radius);
+}
+
+/* Admin dashboard and detail */
+.admin-section {
+  margin-bottom: var(--space-8);
+}
+.admin-workspace-access {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--space-6);
+  margin-bottom: var(--space-4);
+}
+.admin-access-trigger {
+  color: var(--tertiary);
+  font-size: var(--type-footnote);
+  gap: var(--space-2);
+  transition: color 0.15s ease;
+}
+.admin-access-trigger:hover {
+  color: var(--secondary);
+}
+.admin-readiness {
+  margin-top: var(--space-8);
+}
+.section-heading-row {
+  margin-bottom: var(--space-3);
+}
+.admin-heading {
+  gap: var(--space-6);
+}
+.admin-project-card {
+  min-height: 72px;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) auto;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: 0;
+  background: var(--paper);
+}
+.admin-project-leading {
+  gap: var(--space-3);
+}
+.admin-project-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+.admin-project-stats span {
+  min-width: 0;
+  overflow: hidden;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.readiness-list > div,
+.schema-field-row,
+.contributor-row {
+  padding-right: var(--space-4);
+  padding-left: var(--space-4);
+}
+.readiness-list > div {
+  min-height: 64px;
+}
+.schema-field-row {
+  min-height: 64px;
+  /* The read-only schema list renders a single copy cell (label + type);
+     the four-column grid below is legacy. Keep one column so labels render
+     at full width on every surface. */
+  grid-template-columns: minmax(0, 1fr);
+}
+.contributor-row {
+  min-height: 68px;
+}
+.admin-project-header {
+  gap: var(--space-6);
+  margin-bottom: var(--space-6);
+}
+.admin-project-header .lede {
+  margin-top: var(--space-2);
+}
+.admin-metrics {
+  gap: var(--space-8);
+  margin-bottom: var(--space-6);
+  padding: var(--space-4) 0;
+}
+.admin-tabs {
+  width: fit-content;
+  max-width: 100%;
+  gap: var(--space-1);
+  min-height: var(--control-height);
+  margin-bottom: var(--space-6);
+  padding: var(--space-1);
+  overflow-x: auto;
+  border: 1px solid var(--separator-light);
+  border-radius: 999px;
+  background: var(--grouped);
+  scrollbar-width: none;
+}
+.admin-tabs::-webkit-scrollbar {
+  display: none;
+}
+.admin-tabs button {
+  min-height: var(--control-height);
+  padding: 0 var(--space-4);
+  border: 0;
+  border-radius: 999px;
+  font-size: var(--type-footnote);
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+.admin-tabs button.tab-active {
+  border: 0;
+  background: var(--paper);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+}
+.panel-heading {
+  gap: var(--space-6);
+}
+/* This layer resets h1/h2/h3/p margins, so the intended heading rhythm has
+   to be restated here or the subtitle sits flush against its heading. */
+.panel-heading p {
+  margin-top: var(--space-2);
+}
+.section-heading-row h2 {
+  font-size: 1rem;
+}
+.section-heading-row p {
+  margin-top: var(--space-1);
+}
+.panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+.schema-list,
+.contributor-list {
+  margin-top: var(--space-5);
+}
+.schema-field-row > div,
+.contributor-copy {
+  min-width: 0;
+}
+.schema-field-row strong,
+.contributor-copy strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Setup wizard */
+.wizard-heading {
+  margin-bottom: var(--space-6);
+}
+.wizard-heading .lede {
+  margin-top: var(--space-2);
+}
+.wizard-steps {
+  gap: var(--space-5);
+  min-height: var(--control-height);
+  margin-bottom: var(--space-6);
+  scrollbar-width: none;
+}
+.wizard-steps::-webkit-scrollbar {
+  display: none;
+}
+.wizard-step {
+  min-height: var(--control-height);
+}
+.wizard-form {
+  gap: var(--space-6);
+}
+.wizard-form > div:first-child {
+  margin-bottom: 0;
+}
+.wizard-form > div:first-child p {
+  margin-top: var(--space-2);
+}
+.wizard-form > label {
+  gap: var(--space-2);
+}
+.builder-row {
+  min-height: 72px;
+  padding: var(--space-3) 0;
+}
+.builder-controls {
+  gap: var(--space-2);
+}
+.builder-controls > div {
+  gap: var(--space-2);
+}
+.builder-required input {
+  width: 18px;
+  height: 18px;
+}
+.add-field-row {
+  min-height: var(--control-height);
+}
+.schema-builder-note,
+.publish-receipt {
+  gap: var(--space-2);
+  line-height: 1.4;
+}
+.wizard-actions {
+  gap: var(--space-2);
+  margin-top: 0;
+}
+.wizard-actions .button {
+  min-width: 104px;
+}
+
+/* Auth entry */
+.auth-page {
+  min-height: 100dvh;
+  align-items: stretch;
+  justify-content: flex-start;
+  padding: max(64px, calc(64px + env(safe-area-inset-top)))
+    max(16px, env(safe-area-inset-right))
+    calc(28px + env(safe-area-inset-bottom))
+    max(16px, env(safe-area-inset-left));
+}
+.auth-brand,
+.auth-mark,
+.auth-card {
+  width: min(100%, 420px);
+  margin-right: auto;
+  margin-left: auto;
+}
+.auth-brand {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-start;
+}
+.auth-mark {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-6);
+}
+.auth-card {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.auth-card h1 {
+  margin: 2px 0 var(--space-3);
+  font-size: clamp(2rem, 8vw, 2.375rem);
+}
+.auth-card > p,
+.auth-sent > p {
+  max-width: 390px;
+  line-height: 1.5;
+}
+.auth-steps {
+  margin-top: var(--space-5);
+  border: 1px solid var(--separator-light);
+  border-radius: var(--radius-small);
+  background: var(--paper);
+}
+.auth-steps li {
+  padding-right: var(--space-3);
+  padding-left: var(--space-3);
+}
+.auth-label {
+  margin-top: var(--space-6);
+}
+/* Shared controls */
+.button {
+  min-height: var(--control-height);
+  gap: var(--space-2);
+  border-radius: var(--control-radius);
+  padding-right: var(--space-4);
+  padding-left: var(--space-4);
+  font-size: var(--type-body);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.button > svg,
+.text-button > svg,
+.back-button > svg {
+  flex: 0 0 auto;
+}
+.collector-topbar .back-button {
+  width: fit-content;
+  padding: 0 var(--space-3);
+  border-radius: 999px;
+  background: var(--grouped);
+}
+.text-button,
+.back-button,
+.recovery-button {
+  min-height: var(--control-height);
+}
+.field-input,
+.builder-inline-input,
+.builder-key-input,
+.builder-select {
+  min-height: var(--control-height);
+  border-radius: var(--control-radius);
+  background: var(--paper);
+  color: var(--text);
+  font-size: var(--type-body);
+}
+/* One inner inset for every text control, on the 4pt grid. Earlier values
+   (13px for inputs, 9px for the schema editor, 10px for its option rows)
+   put stacked controls on four different text columns. */
+.field-input,
+.builder-inline-input,
+.builder-key-input,
+.builder-select,
+.builder-config-input {
+  padding-right: var(--space-4);
+  padding-left: var(--space-4);
+}
+.builder-inline-input,
+.builder-key-input,
+.builder-select,
+.builder-config-input {
+  padding-right: var(--space-3);
+  padding-left: var(--space-3);
+}
+/* The guided flow keeps its larger, rounder control inset. */
+.flow-step .field-input {
+  padding-right: var(--space-5);
+  padding-left: var(--space-5);
+}
+.number-input-wrap .field-input {
+  padding-right: 78px;
+}
+.input-with-clear > .field-input {
+  padding-right: 52px;
+}
+.flow-step .input-with-clear > .field-input {
+  padding-right: 56px;
+}
+.flow-step .input-with-clear-textarea > .field-input {
+  padding-right: var(--space-5);
+}
+.field-textarea {
+  border-radius: var(--radius-medium);
+}
+.choice-button > span:first-child,
+.capture-copy,
+.media-caption > span,
+.repeatable-child {
+  min-width: 0;
+}
+.choice-button {
+  min-height: 48px;
+}
+.capture-copy strong,
+.capture-copy span {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  line-height: 1.35;
+}
+.capture-card .button {
+  flex: 0 0 auto;
+}
+.icon-button {
+  width: var(--control-height);
+  height: var(--control-height);
+}
+.media-remove {
+  width: var(--control-height);
+  height: var(--control-height);
+}
+
+/* Collection flow */
+.collector-flow {
+  position: fixed;
+  z-index: 30;
+  top: var(--visual-viewport-top, 0);
+  right: 0;
+  left: 0;
+  width: 100%;
+  max-width: none;
+  min-height: 0;
+  height: var(--visual-viewport-height, 100dvh);
+}
+.collector-flow .collector-topbar {
+  height: calc(52px + env(safe-area-inset-top));
+  min-height: calc(52px + env(safe-area-inset-top));
+  padding-top: env(safe-area-inset-top);
+  padding-right: max(16px, env(safe-area-inset-right));
+  padding-left: max(16px, env(safe-area-inset-left));
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-rows: 52px;
+  gap: 8px;
+}
+.collector-title {
+  min-width: 0;
+  max-width: min(240px, 42vw);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  justify-self: center;
+}
+.collector-title strong,
+.collector-title span {
+  display: block;
+  text-align: center;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.collector-save-state {
+  min-width: 0;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.flow-progress {
+  width: min(var(--flow-content-max), calc(100% - 32px));
+  margin: 0 auto;
+}
+.flow-body {
+  align-items: stretch;
+  overscroll-behavior: contain;
+}
+.permission-gate {
+  width: min(100%, var(--flow-max));
+  margin: auto;
+  padding: var(--space-7) var(--space-5)
+    calc(var(--space-7) + env(safe-area-inset-bottom));
+}
+.permission-gate .button {
+  min-height: 52px;
+}
+.flow-step {
+  width: min(100%, var(--flow-max));
+  min-height: 100%;
+  margin: 0 auto;
+  padding: clamp(28px, 7vh, 48px) var(--space-5) var(--space-7);
+}
+.step-heading-screen {
+  padding: 0 0 var(--space-6);
+}
+.step-label-row {
+  gap: var(--space-4);
+}
+.step-description {
+  margin-top: var(--space-3);
+  line-height: 1.5;
+}
+.step-control {
+  margin-top: var(--space-6);
+}
+.flow-step .field-input {
+  min-height: 56px;
+}
+.flow-step .choice-button {
+  min-height: 56px;
+  align-items: center;
+  /* The 1px border is part of the inset: 19 + 1 puts this label on the same
+     column as the text inside .field-input on the previous step. */
+  padding-right: calc(var(--space-5) - 1px);
+  padding-left: calc(var(--space-5) - 1px);
+  line-height: 1.3;
+}
+.flow-step .capture-card {
+  min-height: 84px;
+}
+.flow-actions {
+  justify-content: center;
+  gap: var(--space-3);
+  padding-top: var(--space-3);
+  padding-right: max(
+    16px,
+    env(safe-area-inset-right),
+    calc((100vw - var(--flow-max)) / 2)
+  );
+  padding-bottom: calc(var(--space-3) + env(safe-area-inset-bottom));
+  padding-left: max(
+    16px,
+    env(safe-area-inset-left),
+    calc((100vw - var(--flow-max)) / 2)
+  );
+}
+.flow-back {
+  min-width: 96px;
+  min-height: 50px;
+}
+.flow-continue {
+  min-height: 52px;
+}
+html[data-keyboard-open="true"] .flow-actions {
+  padding-bottom: var(--space-2);
+}
+html[data-keyboard-open="true"] .flow-back {
+  display: none;
+}
+
+/* Every mobile task follows the same keyboard-aware viewport. */
+html[data-keyboard-open="true"] .sheet-backdrop,
+html[data-keyboard-open="true"] .dialog-backdrop {
+  top: var(--visual-viewport-top, 0);
+  bottom: auto;
+  height: var(--visual-viewport-height, 100dvh);
+}
+html[data-keyboard-open="true"] .bottom-sheet,
+html[data-keyboard-open="true"] .confirmation-dialog {
+  max-height: calc(var(--visual-viewport-height, 100dvh) - 8px);
+}
+html[data-keyboard-open="true"] .auth-page {
+  position: fixed;
+  top: var(--visual-viewport-top, 0);
+  right: 0;
+  left: 0;
+  height: var(--visual-viewport-height, 100dvh);
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+html[data-keyboard-open="true"] .page-wizard {
+  padding-bottom: 92px;
+}
+html[data-keyboard-open="true"] .page-wizard .wizard-actions {
+  position: fixed;
+  z-index: 45;
+  top: calc(
+    var(--visual-viewport-top, 0px) + var(--visual-viewport-height, 100dvh) -
+      76px
+  );
+  right: 0;
+  bottom: auto;
+  left: 0;
+  min-height: 76px;
+  margin: 0;
+  padding: var(--space-3) max(var(--space-4), env(safe-area-inset-right))
+    var(--space-3) max(var(--space-4), env(safe-area-inset-left));
+  border-top: 1px solid var(--separator-light);
+  background: var(--chrome);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+  backdrop-filter: blur(22px) saturate(180%);
+}
+html[data-keyboard-open="true"] .page-wizard .wizard-actions .button-secondary {
+  display: none;
+}
+
+/* Sheets, dialogs, and transient messages */
+.sheet-backdrop {
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.32);
+}
+.bottom-sheet {
+  width: min(560px, 100%);
+  max-height: min(760px, calc(100dvh - 16px));
+  padding: 12px 20px calc(20px + env(safe-area-inset-bottom));
+  border-radius: 22px;
+}
+.sheet-handle {
+  margin-bottom: var(--space-6);
+}
+.sheet-heading {
+  gap: var(--space-4);
+}
+.sheet-copy {
+  margin: var(--space-4) 0 var(--space-5);
+}
+.dialog-backdrop {
+  padding: 16px;
+}
+.confirmation-dialog {
+  width: min(100%, 420px);
+  padding: var(--space-6);
+  border-radius: var(--radius-medium);
+}
+.dialog-copy p {
+  margin-top: var(--space-2);
+}
+.dialog-actions {
+  gap: var(--space-2);
+  margin-top: var(--space-6);
+}
+.toast {
+  width: fit-content;
+  max-width: min(420px, calc(100vw - 32px));
+}
+.app-shell[data-view="home"] .toast {
+  bottom: calc(72px + env(safe-area-inset-bottom));
+}
+
+/* Mobile navigation */
+.mobile-tabbar {
+  display: none;
+}
+
+/* Mobile geometry */
+@media (max-width: 680px) {
+  .topbar {
+    height: calc(68px + env(safe-area-inset-top));
+    padding-top: env(safe-area-inset-top);
+    border-bottom: 0;
+    background: transparent;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .topbar-inner {
+    width: calc(100% - (2 * var(--page-gutter))) !important;
+    height: 52px;
+    margin: 8px var(--page-gutter) 0;
+    padding: 0;
+  }
+  .topbar-home .wordmark,
+  .topbar-project .wordmark,
+  .topbar-admin .wordmark,
+  .topbar-admin-project .wordmark,
+  .topbar-home .account-button,
+  .topbar-project .account-button,
+  .topbar-admin .account-button,
+  .topbar-admin-project .account-button {
+    border: 1px solid var(--separator-light);
+    background: var(--glass);
+    box-shadow: var(--floating-shadow);
+    -webkit-backdrop-filter: blur(22px) saturate(180%);
+    backdrop-filter: blur(22px) saturate(180%);
+  }
+  .topbar-home .wordmark,
+  .topbar-project .wordmark,
+  .topbar-admin .wordmark,
+  .topbar-admin-project .wordmark {
+    padding: 0 var(--space-4);
+    border-radius: var(--control-radius);
+  }
+  .topbar-new-project {
+    display: none;
+  }
+  .app-shell[data-view="new-project"] .main-shell {
+    min-height: 100dvh;
+  }
+  .collector-topbar .back-button,
+  .wizard-back-button {
+    width: var(--control-height);
+    min-width: var(--control-height);
+    padding: 0;
+    justify-content: center;
+  }
+  .collector-topbar .back-button-label,
+  .wizard-back-button .back-button-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  .main-shell {
+    min-height: calc(100dvh - 68px - env(safe-area-inset-top));
+  }
+  .page {
+    padding-top: 28px;
+    padding-right: var(--page-gutter);
+    padding-bottom: calc(
+      58px + max(var(--space-3, 12px), env(safe-area-inset-bottom)) + 16px
+    );
+    padding-left: var(--page-gutter);
+  }
+  .page-wizard {
+    width: 100%;
+  }
+  .admin-heading {
+    display: block;
+    gap: var(--space-4);
+  }
+  .primary-action-dock,
+  .admin-context-actions {
+    position: fixed;
+    z-index: 18;
+    right: max(var(--space-3), env(safe-area-inset-right));
+    bottom: max(var(--space-2), env(safe-area-inset-bottom));
+    left: max(var(--space-3), env(safe-area-inset-left));
+    width: auto;
+    padding: 6px;
+    border: 1px solid var(--separator-light);
+    border-radius: 999px;
+    background: var(--glass);
+    -webkit-backdrop-filter: blur(22px) saturate(180%);
+    backdrop-filter: blur(22px) saturate(180%);
+    box-shadow: var(--floating-shadow);
+  }
+  .primary-action-dock .button,
+  .admin-context-actions .button {
+    min-height: 52px;
+    border-radius: 999px;
+  }
+  .primary-action-dock-draft {
+    border-radius: 28px;
+  }
+  .primary-action-dock-draft .draft-restart-action {
+    min-height: var(--control-height);
+  }
+  .project-row-meta span {
+    max-width: 92px;
+  }
+  .admin-project-card {
+    /* Same gutter as every other grouped row on this surface. */
+    gap: var(--space-2);
+  }
+  .admin-project-stats {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+    gap: var(--space-3);
+    padding-left: 52px;
+    font-size: var(--type-caption-2);
+  }
+  .admin-project-stats span {
+    text-align: left;
+  }
+  .admin-project-card > svg {
+    grid-column: auto;
+    grid-row: auto;
+  }
+  .admin-project-header {
+    display: flex;
+  }
+  .admin-metrics {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-5);
+    overflow: visible;
+  }
+  .admin-metrics > div {
+    min-width: 0;
+  }
+  .admin-metrics > div:last-child {
+    grid-column: 1 / -1;
+  }
+  .panel-heading {
+    display: block;
+  }
+  .panel-actions {
+    margin-top: 0;
+  }
+  .panel-actions .button {
+    flex: 1 1 auto;
+  }
+  .admin-tabs {
+    width: 100%;
+    gap: var(--space-1);
+    margin-right: 0;
+    margin-left: 0;
+    padding: var(--space-1);
+  }
+  .admin-tabs button {
+    min-width: max-content;
+    flex: 1 0 auto;
+    padding-right: var(--space-3);
+    padding-left: var(--space-3);
+  }
+  .schema-field-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-2);
+  }
+  .schema-type,
+  .schema-required {
+    display: none;
+  }
+  .builder-row {
+    grid-template-columns: 24px minmax(0, 1fr) var(--control-height);
+    gap: var(--space-2);
+    align-items: start;
+  }
+  .builder-controls {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-2);
+  }
+  .builder-controls > div {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .builder-required {
+    grid-column: 2;
+    grid-row: 2;
+  }
+  .wizard-actions {
+    justify-content: stretch;
+  }
+  .wizard-actions .button {
+    flex: 1 1 0;
+  }
+  .auth-page {
+    padding-top: max(48px, calc(48px + env(safe-area-inset-top)));
+  }
+  .auth-card > p,
+  .auth-sent > p {
+    max-width: none;
+  }
+  .collector-title {
+    max-width: 38vw;
+  }
+  .collector-save-state {
+    max-width: 96px;
+  }
+  .flow-step {
+    padding-right: var(--space-4);
+    padding-left: var(--space-4);
+  }
+  .flow-actions {
+    width: calc(100% - 24px);
+    margin: 0 12px max(8px, env(safe-area-inset-bottom));
+    padding: 6px;
+    border: 1px solid var(--separator-light);
+    border-radius: 999px;
+    background: var(--glass);
+    -webkit-backdrop-filter: blur(22px) saturate(180%);
+    backdrop-filter: blur(22px) saturate(180%);
+    box-shadow: var(--floating-shadow);
+  }
+  .flow-back {
+    min-width: 88px;
+    background: var(--grouped);
+  }
+  .flow-continue {
+    border-radius: 999px;
+  }
+  html[data-keyboard-open="true"] .flow-actions {
+    width: calc(100% - 16px);
+    margin: 0 8px 4px;
+    padding: 4px;
+  }
+  .sheet-backdrop,
+  .dialog-backdrop {
+    padding: 0;
+  }
+  .bottom-sheet {
+    max-height: calc(100dvh - 8px);
+    padding-right: var(--page-gutter);
+    padding-left: var(--page-gutter);
+    /* Edge to edge on a phone: side borders sit off screen and would only
+       push every row inside the sheet 1px off the page gutter. */
+    border-right: 0;
+    border-left: 0;
+    border-radius: 22px 22px 0 0;
+  }
+  .confirmation-dialog {
+    width: 100%;
+    padding: 22px var(--page-gutter) calc(16px + env(safe-area-inset-bottom));
+    border-radius: 22px 22px 0 0;
+    border-bottom: 0;
+  }
+  .dialog-actions {
+    flex-direction: column;
+  }
+  .dialog-actions .button {
+    width: 100%;
+  }
+  .mobile-tabbar {
+    position: fixed;
+    right: max(var(--space-3, 12px), env(safe-area-inset-right));
+    bottom: max(var(--space-3, 12px), env(safe-area-inset-bottom));
+    left: max(var(--space-3, 12px), env(safe-area-inset-left));
+    z-index: 30;
+    min-height: 58px;
+    display: flex;
+    align-items: center;
+    padding: 4px;
+    border: 1px solid var(--separator-light);
+    border-radius: 999px;
+    background: var(--glass);
+    -webkit-backdrop-filter: blur(25px) saturate(190%);
+    backdrop-filter: blur(25px) saturate(190%);
+    box-shadow: var(--floating-shadow);
+    transition:
+      background-color 0.22s var(--ease-spring),
+      transform 0.22s var(--ease-spring);
+  }
+  .mobile-tabbar button {
+    min-width: 0;
+    min-height: 48px;
+    flex: 1 1 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 2px 4px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--secondary);
+    font-size: var(--type-caption-2);
+    font-weight: 500;
+    transform: scale(1);
+    transition:
+      transform 0.16s var(--ease-spring-snappy, cubic-bezier(0.16, 1, 0.3, 1)),
+      background-color 0.22s var(--ease-spring, cubic-bezier(0.2, 0.8, 0.2, 1)),
+      color 0.22s var(--ease-spring, cubic-bezier(0.2, 0.8, 0.2, 1));
+  }
+  .mobile-tabbar button:active {
+    transform: scale(0.92);
+  }
+  .mobile-tabbar button svg {
+    width: 20px;
+    height: 20px;
+  }
+  .mobile-tabbar button.mobile-tab-active {
+    background: var(--paper);
+    color: var(--text);
+    font-weight: 600;
+    box-shadow:
+      0 1px 4px rgba(0, 0, 0, 0.08),
+      0 0 0 0.5px var(--separator-light);
+  }
+  .mobile-tabbar button.mobile-tab-active svg {
+    animation: tab-icon-pop 0.24s var(--ease-spring-bouncy);
+  }
+}
+
+@keyframes tab-icon-pop {
+  0% {
+    transform: scale(0.85);
+  }
+  60% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Keep accessibility preferences intact after the geometry cascade. */
+@media (prefers-contrast: more) {
+  :root:not([data-collect-surface="admin"]) {
+    --text: #000000;
+    --secondary: #303038;
+    --tertiary: #50505a;
+    --separator: rgba(0, 0, 0, 0.52);
+    --separator-light: rgba(0, 0, 0, 0.34);
+    --grouped: rgba(118, 118, 128, 0.2);
+    --focus-ring: rgba(0, 0, 0, 0.38);
+  }
+  :root[data-collect-surface="admin"],
+  .app-shell[data-mode="admin"],
+  .auth-page[data-role="admin"],
+  .auth-page[data-surface="admin"],
+  .page-admin,
+  .page-admin-project,
+  .hp-iphone-dark {
+    --text: #ffffff;
+    --secondary: #f2f2f7;
+    --tertiary: #d1d1d6;
+    --separator: rgba(255, 255, 255, 0.68);
+    --separator-light: rgba(255, 255, 255, 0.42);
+    --grouped: rgba(118, 118, 128, 0.34);
+    --focus-ring: rgba(255, 255, 255, 0.42);
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .topbar,
+  .collector-topbar,
+  .collector-action-bar,
+  .flow-actions,
+  .primary-action-dock,
+  .admin-context-actions,
+  .mobile-tabbar,
+  .account-menu {
+    background: var(--paper);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .sheet-backdrop {
+    background: rgba(0, 0, 0, 0.48);
+  }
+}
+@media (max-width: 680px) and (prefers-reduced-transparency: reduce) {
+  .topbar {
+    background: transparent;
+  }
+  .topbar-inner {
+    background: transparent;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .topbar .wordmark,
+  .topbar .account-button {
+    background: var(--paper);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .button,
+  .project-row,
+  .flow-progress span,
+  .flow-step,
+  .button-spinner {
+    transition: none;
+    animation: none;
+  }
+}
+
+/* Compact profile metrics. Semantic color reinforces a visible number; it is
+   never the only score signal. */
+.score-ring {
+  --score-color: var(--tertiary);
+  position: relative;
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-items: center;
+  color: var(--score-color);
+}
+.score-ring-medium {
+  --score-color: #ff9500;
+}
+.score-ring-high {
+  --score-color: #34c759;
+}
+.score-ring-low {
+  --score-color: #ff3b30;
+}
+:root[data-collect-surface="admin"] .score-ring-medium {
+  --score-color: #ff9f0a;
+}
+:root[data-collect-surface="admin"] .score-ring-high {
+  --score-color: #30d158;
+}
+:root[data-collect-surface="admin"] .score-ring-low {
+  --score-color: #ff453a;
+}
+.score-ring svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  transform: rotate(-90deg);
+}
+.score-ring circle {
+  fill: none;
+  stroke-width: 3;
+}
+.score-ring-track {
+  stroke: var(--grouped-strong);
+}
+.score-ring-value {
+  stroke: currentColor;
+  stroke-linecap: round;
+}
+.score-ring strong {
+  color: var(--text);
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+}
+.account-menu {
+  width: min(330px, calc(100vw - 32px));
+}
+.account-profile {
+  padding: 8px;
+  border-bottom: 1px solid var(--separator-light);
+  margin-bottom: 5px;
+}
+.account-profile-metrics {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 6px;
+}
+.account-metric {
+  min-width: 0;
+  min-height: 64px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  padding: 9px 10px;
+  border-radius: 11px;
+  background: var(--grouped);
+}
+.account-metric > strong {
+  color: var(--text);
+  font-size: 1.25rem;
+  font-variant-numeric: tabular-nums;
+}
+.account-metric > span,
+.account-metric-score > span > span {
+  color: var(--secondary);
+  font-size: 0.6875rem;
+  line-height: 1.3;
+}
+.account-menu .account-metric-score {
+  min-height: 64px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 9px;
+  padding: 8px 9px;
+  text-align: left;
+}
+.account-metric-score > span {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.account-metric-score > span > strong {
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+.account-metric-score > svg {
+  color: var(--secondary);
+}
+.account-score-explainer {
+  margin-top: 6px;
+  padding: 10px 11px;
+  border-radius: 10px;
+  background: var(--grouped);
+}
+.account-score-explainer strong {
+  font-size: 0.75rem;
+}
+.account-score-explainer p {
+  margin-top: 4px;
+  color: var(--secondary);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+.account-consent-status {
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 4px 0;
+  color: var(--secondary);
+  font-size: 0.6875rem;
+}
+.account-menu .account-menu-device-link {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+}
+.account-menu-device-link > svg:last-child {
+  color: var(--secondary);
+}
+.device-link-actions {
+  display: grid;
+  gap: var(--space-2);
+}
+
+/* Contributor home keeps exactly one project context and one primary action. */
+.collection-context {
+  display: block;
+  margin: 0 0 var(--space-4);
+  padding: 0;
+  border: 0;
+}
+.project-picker-label {
+  width: 100%;
+}
+.project-picker-label select {
+  width: 100%;
+  max-width: none;
+  background: var(--paper);
+}
+.collection-status .section-heading-row {
+  align-items: flex-start;
+}
+.collection-status .section-heading-row p {
+  margin-top: 4px;
+}
+.app-credit {
+  min-height: var(--control-height);
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 5px;
+  margin-top: var(--space-5, 20px);
+  margin-bottom: 0;
+  color: var(--tertiary);
+  font-size: 0.6875rem;
+}
+.app-credit .collect-brand,
+.app-credit .collect-brand-compact,
+.app-credit .regola-brand,
+.app-credit .regola-brand-compact,
+.app-credit > span:last-child {
+  align-items: baseline;
+}
+.app-credit .collect-wordmark,
+.app-credit .collect-brand .collect-wordmark,
+.app-credit .collect-brand-compact .collect-wordmark,
+.app-credit .regola-wordmark,
+.app-credit .regola-brand .regola-wordmark,
+.app-credit .regola-brand-compact .regola-wordmark {
+  font-family:
+    "Archivo",
+    "Archivo Variable",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    Helvetica,
+    Arial,
+    sans-serif;
+  color: var(--tertiary);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: var(--tracking-wordmark, -0.04em);
+  line-height: 1;
+  transition: color 0.22s var(--ease-spring);
+}
+.app-credit a {
+  min-height: var(--control-height);
+  display: inline-flex;
+  align-items: center;
+  color: inherit;
+  text-decoration: none;
+  transition: opacity 0.16s var(--ease-spring-snappy);
+}
+.app-credit a:hover {
+  opacity: 0.85;
+  color: var(--secondary);
+}
+.app-credit a:active {
+  opacity: 0.55;
+}
+.auth-page .app-credit {
+  margin-top: auto;
+  padding-top: var(--space-7);
+}
+
+/* Project privacy reads like a native settings disclosure, not legal fine
+   print or a second scroll container. */
+.project-guidance {
+  margin-bottom: var(--space-6);
+}
+.project-guidance h2 {
+  margin-bottom: var(--space-2);
+  font-size: 1rem;
+}
+.project-instructions {
+  margin: 0;
+}
+.privacy-summary-copy {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.privacy-summary-copy strong {
+  font-size: 0.9375rem;
+}
+.privacy-summary-copy span {
+  color: var(--secondary);
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+.privacy-facts {
+  margin: 0;
+  padding: 0 var(--space-4) var(--space-2) 43px;
+}
+.privacy-facts > div {
+  display: grid;
+  grid-template-columns: 94px minmax(0, 1fr);
+  gap: var(--space-3);
+  padding: 11px 0;
+  border-top: 1px solid var(--separator-light);
+}
+.privacy-facts dt {
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+.privacy-facts dd {
+  margin: 0;
+  color: var(--secondary);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+/* Consent uses the page scroll and semantic sections, avoiding a nested legal
+   text box that is difficult to read with VoiceOver or large text. */
+.consent-page {
+  justify-content: flex-start;
+}
+.consent-card {
+  width: min(100%, 560px);
+}
+.consent-statement {
+  margin: var(--space-6) 0 var(--space-5);
+}
+.consent-statement h2 {
+  margin-bottom: var(--space-3);
+  font-size: 1rem;
+}
+.consent-statement p,
+.consent-statement li {
+  color: var(--secondary);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+.consent-statement p + p,
+.consent-statement ol + p {
+  margin-top: var(--space-3);
+}
+.consent-statement ol {
+  display: grid;
+  gap: var(--space-3);
+  margin: var(--space-4) 0;
+  padding-left: 24px;
+}
+.consent-statement li {
+  padding-left: 4px;
+}
+.consent-record-disclosure {
+  margin-bottom: var(--space-4);
+}
+
+/* Admin hierarchy: list rows first, rare project actions in a menu, technical
+   schema identifiers behind disclosure, and no decorative duplicate stats. */
+.admin-project-card {
+  /* Two children (copy, chevron). A third track kept an extra column gap
+     reserved, so the chevron stopped 8px short of every other list row. */
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+.admin-project-leading p {
+  white-space: normal;
+}
+.admin-project-title-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: 3px;
+}
+.admin-project-header {
+  align-items: flex-start;
+}
+.admin-project-actions {
+  position: relative;
+  flex: 0 0 auto;
+}
+.admin-project-actions > summary {
+  width: var(--control-height);
+  height: var(--control-height);
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--text);
+  cursor: pointer;
+  list-style: none;
+}
+.admin-project-actions > summary::-webkit-details-marker {
+  display: none;
+}
+.admin-project-actions > summary:hover,
+.admin-project-actions[open] > summary {
+  background: var(--grouped);
+}
+.admin-project-actions-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 20;
+  width: max-content;
+  min-width: 190px;
+  padding: 6px;
+  border: 1px solid var(--separator-light);
+  border-radius: 13px;
+  background: var(--paper);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+}
+/* Contributor-row dropdowns must never be clipped by the grouped roster
+   box: when there is more room above the row than below it, the menu flips
+   upward so every action stays visible. */
+.admin-project-actions.menu-up .admin-project-actions-menu {
+  top: auto;
+  bottom: calc(100% + 8px);
+}
+.admin-project-actions-menu button {
+  width: 100%;
+  min-height: var(--control-height);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.875rem;
+  text-align: left;
+}
+.admin-project-actions-menu button:hover,
+.admin-project-actions-menu button:focus-visible {
+  background: var(--grouped);
+}
+.admin-project-actions-menu .menu-separator {
+  display: block;
+  height: 1px;
+  margin: 6px 0;
+  background: var(--separator-light);
+}
+.admin-project-actions-menu button {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.admin-project-actions-menu {
+  max-width: min(280px, calc(100vw - 24px));
+}
+
+.schema-field-row > div span {
+  font-family: inherit;
+  font-size: 0.75rem;
+}
+.builder-primary-controls {
+  display: block;
+}
+.builder-primary-controls .builder-select {
+  width: 100%;
+}
+.builder-advanced {
+  margin-top: 4px;
+}
+.builder-advanced summary {
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  color: var(--secondary);
+  cursor: pointer;
+  font-size: 0.75rem;
+}
+.builder-advanced label {
+  display: grid;
+  gap: 5px;
+  color: var(--secondary);
+  font-size: 0.75rem;
+}
+.contributor-row {
+  gap: var(--space-3);
+}
+.contributor-row .button-quiet {
+  flex: 0 0 auto;
+}
+.contributor-row .admin-project-actions {
+  flex: 0 0 auto;
+}
+.admin-project-actions-menu .action-danger {
+  color: var(--destructive);
+}
+.contributor-list + .info-disclosure {
+  margin-top: var(--space-3);
+}
+
+/* Administrator contributor-profile sheet (research record, devices,
+   attention history — read through the admin's own RLS privileges). */
+.profile-section {
+  margin-bottom: var(--space-5);
+}
+.profile-section h3 {
+  margin-bottom: var(--space-2);
+  color: var(--secondary);
+  font-size: var(--type-footnote);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.profile-attention-list {
+  border-top: 1px solid var(--separator-light);
+}
+.attention-row {
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--separator-light);
+}
+.attention-row-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.attention-row-copy strong {
+  overflow: hidden;
+  font-size: var(--type-footnote);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.attention-row-copy span {
+  color: var(--secondary);
+  font-size: var(--type-caption);
+}
+.attention-outcome {
+  flex: 0 0 auto;
+  font-size: var(--type-caption);
+  font-weight: 600;
+}
+.attention-outcome-failed {
+  color: var(--destructive);
+}
+.export-panel > .button {
+  margin-top: var(--space-2);
+}
+
+/* Progressive disclosure keeps supporting context out of the primary reading
+   path. Errors, required actions, receipts, and irreversible warnings never use
+   this treatment. */
+.info-disclosure {
+  border-top: 1px solid var(--separator-light);
+  color: var(--secondary);
+}
+.info-disclosure summary {
+  min-height: var(--control-height);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.3;
+  list-style: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.info-disclosure summary::-webkit-details-marker {
+  display: none;
+}
+.info-disclosure summary > svg:first-child,
+.info-disclosure-chevron {
+  color: var(--tertiary);
+}
+.info-disclosure-chevron {
+  transition: transform 160ms ease;
+}
+.info-disclosure[open] .info-disclosure-chevron {
+  transform: rotate(180deg);
+}
+.info-disclosure-content {
+  max-width: 36rem;
+  /* A full-bleed disclosure keeps its body on the container gutter: the
+     summary icon is a section marker, not a text column. */
+  padding: 0 0 var(--space-3);
+  color: var(--secondary);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+.info-disclosure-content > * + * {
+  margin-top: var(--space-2);
+}
+.info-disclosure summary:focus-visible {
+  border-radius: var(--radius-small);
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .info-disclosure-chevron {
+    transition: none;
+  }
+}
+
+.wizard-disclosure {
+  overflow: hidden;
+  border: 1px solid var(--separator-light);
+  border-radius: var(--radius-medium);
+  background: var(--paper);
+}
+.wizard-disclosure > summary,
+.profile-disclosure > summary {
+  min-height: 56px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  cursor: pointer;
+  list-style: none;
+}
+.wizard-disclosure > summary::-webkit-details-marker,
+.profile-disclosure > summary::-webkit-details-marker,
+.profile-attention > summary::-webkit-details-marker {
+  display: none;
+}
+.wizard-disclosure > summary > span,
+.profile-disclosure > summary > span,
+.profile-action-row > span {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.wizard-disclosure > summary strong,
+.profile-disclosure > summary strong,
+.profile-action-row strong {
+  color: var(--text);
+  font-size: 0.9375rem;
+}
+.wizard-disclosure > summary span span,
+.profile-disclosure > summary span span,
+.profile-action-row span span {
+  color: var(--secondary);
+  font-size: 0.75rem;
+}
+.wizard-disclosure[open] > summary > svg,
+.profile-disclosure[open] > summary > svg:last-child {
+  transform: rotate(180deg);
+}
+.wizard-disclosure > label,
+.wizard-disclosure-fields > label {
+  display: grid;
+  gap: var(--space-2);
+  padding: 0 var(--space-4) var(--space-4);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+.wizard-disclosure-fields {
+  display: grid;
+  gap: 0;
+}
+.dataset-metadata {
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--separator-light);
+  border-radius: var(--radius-medium);
+}
+.builder-controls > .builder-advanced {
+  margin-top: var(--space-2);
+}
+
+.profile-sheet {
+  width: min(520px, 100%);
+}
+.profile-sheet .sheet-heading {
+  margin-bottom: var(--space-2);
+}
+.profile-email {
+  margin: 0 0 var(--space-1);
+  overflow: hidden;
+  color: var(--secondary);
+  font-size: var(--type-footnote);
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.profile-organization {
+  margin: 0 0 var(--space-5);
+  color: var(--tertiary);
+  font-size: var(--type-caption);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.profile-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  overflow: hidden;
+  margin-bottom: var(--space-4);
+  border: 1px solid var(--separator-light);
+  border-radius: var(--radius-medium);
+  background: var(--grouped);
+}
+.profile-metrics > div {
+  min-height: 84px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  padding: var(--space-4);
+}
+.profile-metrics > div + div {
+  border-left: 1px solid var(--separator-light);
+}
+.profile-metrics > div > strong {
+  font-size: 1.625rem;
+  letter-spacing: var(--tracking-title);
+}
+.profile-metrics > div > span,
+.profile-attention > summary > span {
+  color: var(--secondary);
+  font-size: 0.75rem;
+}
+/* The administrator variant states facts ("Granted", "Not granted"), not
+   counts, so the value keeps body type instead of the 26px number style. */
+.profile-metrics-facts > div > strong {
+  font-size: var(--type-body);
+  font-weight: 600;
+  letter-spacing: normal;
+}
+.profile-attention {
+  grid-column: 1 / -1;
+  border-top: 1px solid var(--separator-light);
+}
+.profile-attention > summary {
+  min-height: 64px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  cursor: pointer;
+  list-style: none;
+}
+.profile-attention > summary > svg:last-child {
+  color: var(--secondary);
+}
+.profile-attention > p {
+  /* The explanation starts where the summary label starts: row padding,
+     the 44px score ring, and the row gap. Any other value reads crooked. */
+  margin: 0 var(--space-4) var(--space-4)
+    calc(var(--space-4) + 44px + var(--space-3));
+  color: var(--secondary);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+.profile-status-list {
+  margin-bottom: var(--space-4);
+  border-top: 1px solid var(--separator-light);
+}
+.profile-status-list > div {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  border-bottom: 1px solid var(--separator-light);
+  font-size: 0.8125rem;
+}
+.profile-status-list dt {
+  color: var(--secondary);
+}
+.profile-status-list dd {
+  font-weight: 600;
+  text-align: right;
+}
+.profile-actions-list {
+  display: grid;
+  gap: var(--space-2);
+  overflow: visible;
+  border: 0;
+}
+.profile-action-row {
+  width: 100%;
+  min-height: 56px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--separator-light);
+  border-radius: var(--radius-medium);
+  background: var(--paper);
+  color: var(--text);
+  text-align: left;
+}
+.profile-actions-list .profile-disclosure {
+  border: 1px solid var(--separator-light);
+  border-radius: var(--radius-medium);
+  background: var(--paper);
+}
+.profile-disclosure > summary {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+.profile-disclosure > ol,
+.profile-disclosure > dl {
+  margin: 0;
+  /* Disclosed text starts on the summary label column: summary padding,
+     the 17px icon, and the summary gap. */
+  padding: 0 var(--space-4) var(--space-4)
+    calc(var(--space-4) + 17px + var(--space-3));
+  color: var(--secondary);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+.profile-disclosure > ol {
+  /* Ordered markers hang on that same column, so the numbers line up with
+     the label instead of floating between two edges. */
+  padding-left: calc(var(--space-4) + 17px + var(--space-3) + var(--space-5));
+}
+.profile-privacy {
+  border-top: 1px solid var(--separator-light);
+}
+.profile-privacy dl > div {
+  margin-bottom: var(--space-3);
+}
+.profile-privacy dt {
+  color: var(--text);
+  font-weight: 600;
+}
+.profile-privacy dd {
+  /* Reset the user-agent 40px definition indent: the description belongs on
+     the same left edge as its term. */
+  margin: 2px 0 0;
+}
+.profile-privacy .button {
+  /* The control spans the panel: the width must subtract both margins,
+     otherwise the right edge stops short of every neighbouring row. */
+  width: calc(100% - (2 * var(--space-4)));
+  margin: 0 var(--space-4) var(--space-4);
+}
+.profile-about-content {
+  display: grid;
+  gap: var(--space-2);
+  /* Same text column as the other disclosures. */
+  padding: 0 var(--space-4) var(--space-4)
+    calc(var(--space-4) + 17px + var(--space-3));
+  color: var(--secondary);
+  font-size: var(--type-footnote);
+  line-height: 1.5;
+}
+.profile-about-identity {
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.profile-about-identity .collect-wordmark {
+  color: var(--text);
+  font-size: 1rem;
+}
+.profile-about-content a:not(.profile-feedback) {
+  color: var(--text);
+}
+.profile-about-legal {
+  color: var(--tertiary);
+  font-size: 0.6875rem;
+}
+.profile-about-legal a {
+  color: var(--tertiary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color 0.15s ease;
+}
+.profile-about-legal a:hover {
+  color: var(--secondary);
+}
+.profile-feedback {
+  /* Controls span the panel rather than the text column, so this one steps
+     back out of the icon indent and matches the other panel buttons.
+     `width: auto` is required: a 100% width would move the box instead of
+     widening it and leave the right edge short. */
+  width: auto;
+  margin-left: calc(-1 * (17px + var(--space-3)));
+  justify-content: center;
+  color: var(--text);
+  text-decoration: none;
+}
+.profile-signout {
+  width: 100%;
+  min-height: 48px;
+  margin-top: var(--space-3);
+  border: 0;
+  background: transparent;
+  color: var(--destructive);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.sync-last-success {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin: var(--space-4) 0;
+  border-top: 1px solid var(--separator-light);
+  color: var(--secondary);
+  font-size: 0.8125rem;
+}
+.sync-last-success strong {
+  color: var(--text);
+  text-align: right;
+}
+.sync-attention-disclosure {
+  margin-bottom: var(--space-4);
+}
+.sync-recovery-disclosure {
+  margin-top: var(--space-3);
+}
+.sync-recovery-disclosure[open] {
+  padding-bottom: var(--space-2);
+}
+
+.consent-summary {
+  overflow: hidden;
+  margin: var(--space-5) 0 var(--space-4);
+  border: 1px solid var(--separator-light);
+  border-radius: var(--radius-medium);
+}
+.consent-summary > div {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.75fr) minmax(0, 1.5fr);
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--separator-light);
+}
+.consent-summary > div:last-child {
+  border-bottom: 0;
+}
+.consent-summary dt {
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+.consent-summary dd {
+  color: var(--secondary);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+/* Both consent disclosures are the shared full-bleed row, so they only need
+   their spacing here. */
+.consent-full-statement {
+  margin-top: var(--space-4);
+}
+/* Quiet decline sits under the primary action and shares its width, so the
+   two decisions read as one column instead of a left-aligned afterthought. */
+.consent-decline {
+  width: 100%;
+  justify-content: center;
+  margin-top: var(--space-2);
+  color: var(--secondary);
+}
+/* The code sub-form needs the same rhythm the other sign-in methods get
+   from their labels. */
+.auth-code {
+  display: grid;
+  gap: var(--space-3);
+}
+.consent-full-statement .consent-statement {
+  max-height: 42vh;
+  overflow: auto;
+  margin-bottom: var(--space-4);
+}
+
+@media (max-width: 680px) {
+  .privacy-facts {
+    padding-left: var(--space-4);
+  }
+  .privacy-facts > div {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+  .consent-summary > div {
+    grid-template-columns: 1fr;
+    gap: 3px;
+  }
+  .contributor-row .button {
+    width: var(--control-height);
+    padding: 0;
+  }
+  .contributor-row .button span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+}

@@ -1,0 +1,90 @@
+<Capabilities xmlns="http://www.opengis.net/wmts/1.0" xmlns:ows="http://www.opengis.net/ows/1.1" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:gml="http://www.opengis.net/gml" xsi:schemaLocation="http://www.opengis.net/wmts/1.0 http://schemas.opengis.net/wmts/1.0/wmtsGetCapabilities_response.xsd" version="1.0.0">
+    <ows:ServiceIdentification>
+        <ows:Title>Web Map Tile Service by TiTiler</ows:Title>
+        <ows:ServiceType>OGC WMTS</ows:ServiceType>
+        <ows:ServiceTypeVersion>1.0.0</ows:ServiceTypeVersion>
+    </ows:ServiceIdentification>
+    <ows:ServiceProvider>
+        <ows:ProviderName>TiTiler</ows:ProviderName>
+        <ows:ProviderSite xlink:href="https://developmentseed.org/titiler/"/>
+        <ows:ServiceContact/>
+    </ows:ServiceProvider>
+    <ows:OperationsMetadata>
+        <ows:Operation name="GetCapabilities">
+            <ows:DCP>
+                <ows:HTTP>
+                    <ows:Get xlink:href="{{ request.url | escape }}">
+                        <ows:Constraint name="GetEncoding">
+                            <ows:AllowedValues>
+                                <ows:Value>RESTful</ows:Value>
+                            </ows:AllowedValues>
+                        </ows:Constraint>
+                    </ows:Get>
+                </ows:HTTP>
+            </ows:DCP>
+        </ows:Operation>
+        <ows:Operation name="GetTile">
+            <ows:DCP>
+                <ows:HTTP>
+                    <ows:Get xlink:href="{{ request.url | escape }}">
+                        <ows:Constraint name="GetEncoding">
+                            <ows:AllowedValues>
+                                <ows:Value>RESTful</ows:Value>
+                            </ows:AllowedValues>
+                        </ows:Constraint>
+                    </ows:Get>
+                </ows:HTTP>
+            </ows:DCP>
+        </ows:Operation>
+    </ows:OperationsMetadata>
+    <Contents>
+    {% for layer in layers -%}
+        <Layer>
+            <ows:Title>{{ layer.title }}</ows:Title>
+            <ows:Identifier>{{ layer.identifier }}</ows:Identifier>
+            <ows:{{ layer.bbox_crs_type }} crs="{{ layer.bbox_crs_uri }}">
+                <ows:LowerCorner>{{ layer.bbox[0] }} {{ layer.bbox[1] }}</ows:LowerCorner>
+                <ows:UpperCorner>{{ layer.bbox[2] }} {{ layer.bbox[3] }}</ows:UpperCorner>
+            </ows:{{ layer.bbox_crs_type }}>
+            <Style isDefault="true">
+                <ows:Title>{{ layer.title }}</ows:Title>
+                <ows:Identifier>{{ layer.identifier }}</ows:Identifier>
+            </Style>
+            <Format>{{ media_type }}</Format>
+            <TileMatrixSetLink>
+                <TileMatrixSet>{{ layer.tms_identifier }}</TileMatrixSet>
+                <TileMatrixSetLimits>
+                {% for limit  in layer.tms_limits %}
+                    <TileMatrixLimits>
+                    <TileMatrix>{{ limit.tileMatrix }}</TileMatrix>
+                    <MinTileRow>{{ limit.minTileRow }}</MinTileRow>
+                    <MaxTileRow>{{ limit.maxTileRow }}</MaxTileRow>
+                    <MinTileCol>{{ limit.minTileCol }}</MinTileCol>
+                    <MaxTileCol>{{ limit.maxTileCol }}</MaxTileCol>
+                    </TileMatrixLimits>
+                {% endfor %}
+                </TileMatrixSetLimits>
+            </TileMatrixSetLink>
+            <ResourceURL format="{{ media_type }}" resourceType="tile" template="{{ layer.tiles_url }}?{{ layer.query_string | escape }}" />
+        </Layer>
+    {%- endfor %}
+    {% for tms in tileMatrixSets -%}
+        <TileMatrixSet>
+            <ows:Identifier>{{ tms.id }}</ows:Identifier>
+            <ows:SupportedCRS>{{ tms.crs }}</ows:SupportedCRS>
+            {% for matrix in tms.matrices %}
+            <TileMatrix>
+                <ows:Identifier>{{ matrix.id }}</ows:Identifier>
+                <ScaleDenominator>{{ matrix.scaleDenominator }}</ScaleDenominator>
+                <TopLeftCorner>{{ matrix.pointOfOrigin[0] }} {{ matrix.pointOfOrigin[1] }}</TopLeftCorner>
+                <TileWidth>{{ matrix.tileWidth }}</TileWidth>
+                <TileHeight>{{ matrix.tileHeight }}</TileHeight>
+                <MatrixWidth>{{ matrix.matrixWidth }}</MatrixWidth>
+                <MatrixHeight>{{ matrix.matrixHeight }}</MatrixHeight>
+            </TileMatrix>
+            {% endfor %}
+        </TileMatrixSet>
+    {%- endfor %}
+    </Contents>
+    <ServiceMetadataURL xlink:href="{{ request.url | escape }}" />
+</Capabilities>

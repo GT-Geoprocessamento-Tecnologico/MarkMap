@@ -1,0 +1,251 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+'use client';
+
+import 'maplibre-gl/dist/maplibre-gl.css';
+import { useEffect, useRef, useState } from 'react';
+import * as maplibregl from 'maplibre-gl';
+import { ensureMapLibreWorker } from '@/lib/maplibre-runtime';
+import { Crosshair, MapPin, X } from 'lucide-react';
+import { useT } from '@/lib/i18n/locale-context';
+
+/**
+ * Inset MapLibre canvas that lets the user pick an area of interest
+ * for the items list. Pan / zoom to the area, then click "Use this
+ * area" to fire a spatial filter against /api/portal/items?bbox=...
+ *
+ * Stays small intentionally (~360px tall): this is a discovery aid,
+ * not a full map editor. The single OSM raster source keeps the
+ * dependency footprint identical to what the geo_boundary editor and
+ * map canvas already use.
+ *
+ * The component does not own the result list. It calls back with the
+ * captured bbox + buffer; the parent fetches the items.
+ */
+interface Props {
+  /** Initial bbox to seed the camera (skips the world view). */
+  initialBbox?: [number, number, number, number];
+  /** Initial buffer in km (defaults to 0). */
+  initialBufferKm?: number;
+  /** Currently fetching the spatial result. Used to disable the apply button. */
+  busy?: boolean;
+  /** User clicked "Use this area"; receives the current camera bbox. */
+  onApply: (bbox: [number, number, number, number], bufferKm: number) => void;
+  /** User clicked "Cancel". The parent typically just hides the panel. */
+  onClose: () => void;
+}
+
+const OSM_STYLE: maplibregl.StyleSpecification = {
+  version: 8,
+  sources: {
+    osm: {
+      type: 'raster',
+      tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+      tileSize: 256,
+      attribution: '(c) OpenStreetMap contributors',
+    },
+  },
+  layers: [{ id: 'osm', type: 'raster', source: 'osm' }],
+};
+
+export function AreaSearchPanel({
+  initialBbox,
+  initialBufferKm = 0,
+  busy = false,
+  onApply,
+  onClose,
+}: Props) {
+  const t = useT();
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<maplibregl.Map | null>(null);
+  const [bufferKm, setBufferKm] = useState<number>(initialBufferKm);
+  const [bufferText, setBufferText] = useState<string>(String(initialBufferKm));
+
+  // Boot a single map instance for the lifetime of this panel.
+  useEffect(() => {
+    if (!containerRef.current) return;
+    ensureMapLibreWorker();
+    const map = new maplibregl.Map({
+      container: containerRef.current,
+      style: OSM_STYLE,
+      center: [0, 20],
+      zoom: 1,
+      attributionControl: { compact: true },
+    });
+    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+    mapRef.current = map;
+
+    // Fit to seed bbox if we have one. Padding keeps the bbox edges
+    // off the canvas border so the user sees a bit of context.
+    if (initialBbox) {
+      const [w, s, e, n] = initialBbox;
+      map.once('load', () => {
+        map.fitBounds(
+          [
+            [w, s],
+            [e, n],
+          ],
+          { padding: 24, animate: false },
+        );
+      });
+    }
+
+    // #86: live area filter. As the user pans / zooms, fire onApply
+    // with the new viewport so the items list updates without a
+    // separate "Use this area" click. Debounced ~350ms so a drag
+    // settles before the parent fetches; the existing parent-side
+    // logic cancels in-flight requests when a newer apply
+    // supersedes them, so out-of-order responses can't paint stale
+    // results.
+    let debounceHandle: number | null = null;
+    const onMoveEnd = () => {
+      if (debounceHandle !== null) window.clearTimeout(debounceHandle);
+      debounceHandle = window.setTimeout(() => {
+        const m = mapRef.current;
+        if (!m) return;
+        const b = m.getBounds();
+        liveApplyRef.current?.(
+          [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()],
+          bufferKmRef.current,
+        );
+      }, 350);
+    };
+    map.on('moveend', onMoveEnd);
+
+    return () => {
+      if (debounceHandle !== null) window.clearTimeout(debounceHandle);
+      map.off('moveend', onMoveEnd);
+      map.remove();
+      mapRef.current = null;
+    };
+    // initialBbox is captured at first mount; subsequent changes are
+    // intentionally ignored so panning the map doesn't get reset by a
+    // stale parent prop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /**
+   * #86: ref-shadowed copies of the live-apply callback + buffer so
+   * the moveend listener bound at mount can read fresh values
+   * without re-binding (which would re-attach to maplibre on every
+   * render and miss the early move events).
+   */
+  const liveApplyRef = useRef<typeof onApply | null>(onApply);
+  liveApplyRef.current = onApply;
+  const bufferKmRef = useRef<number>(bufferKm);
+  bufferKmRef.current = bufferKm;
+
+  function flyToMyLocation() {
+    const map = mapRef.current;
+    if (!map || typeof navigator === 'undefined' || !navigator.geolocation) {
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        map.flyTo({
+          center: [pos.coords.longitude, pos.coords.latitude],
+          zoom: 11,
+          duration: 600,
+        });
+      },
+      () => {
+        /* permission denied or no fix available; silently no-op */
+      },
+      { enableHighAccuracy: false, timeout: 4000, maximumAge: 60_000 },
+    );
+  }
+
+  function handleApply() {
+    const map = mapRef.current;
+    if (!map) return;
+    const b = map.getBounds();
+    const bbox: [number, number, number, number] = [
+      b.getWest(),
+      b.getSouth(),
+      b.getEast(),
+      b.getNorth(),
+    ];
+    onApply(bbox, bufferKm);
+  }
+
+  function handleBufferChange(raw: string) {
+    setBufferText(raw);
+    const n = Number(raw);
+    if (Number.isFinite(n) && n >= 0) {
+      setBufferKm(n);
+    }
+  }
+
+  return (
+    <div className="mb-4 overflow-hidden rounded-lg border border-border bg-surface-1 shadow-sm">
+      <div className="flex items-center justify-between gap-3 border-b border-border px-3 py-2">
+        <div className="flex items-center gap-2 text-sm text-ink-1">
+          <Crosshair className="h-4 w-4 text-accent" />
+          <span className="font-medium">{t('areaSearch.title')}</span>
+          <span className="text-xs text-muted">
+            {t('areaSearch.hint')}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted hover:bg-surface-2 hover:text-ink-1"
+          aria-label={t('areaSearch.close')}
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+      <div
+        ref={containerRef}
+        className="h-[320px] w-full"
+        style={{ position: 'relative' }}
+      />
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-surface-2 px-3 py-2">
+        <button
+          type="button"
+          onClick={flyToMyLocation}
+          className="inline-flex h-7 items-center gap-1 rounded-md border border-border bg-surface-1 px-2 text-xs text-ink-1 hover:bg-surface-2"
+          title={t('areaSearch.myLocationTitle')}
+        >
+          <MapPin className="h-3 w-3" />
+          {t('areaSearch.myLocation')}
+        </button>
+        <label className="inline-flex items-center gap-2 text-xs text-muted">
+          {t('areaSearch.padAreaBy')}
+          <input
+            type="number"
+            inputMode="decimal"
+            min={0}
+            step={1}
+            value={bufferText}
+            onChange={(e) => handleBufferChange(e.target.value)}
+            className="h-7 w-20 rounded-md border border-border bg-surface-1 px-2 text-xs text-ink-1 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/30"
+          />
+          km
+        </label>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-7 items-center rounded-md border border-border bg-surface-1 px-2.5 text-xs text-ink-1 hover:bg-surface-2"
+          >
+            {t('common.cancel')}
+          </button>
+          {/* #86: the area filter is live (debounced moveend pushes
+              the new bbox to onApply). The button is kept as a
+              "force a refetch right now" affordance for users who
+              want to skip the debounce, and as a fallback when
+              JS-side moveend somehow doesn't fire. Disabled state
+              shows the live in-flight refetch. */}
+          <button
+            type="button"
+            onClick={handleApply}
+            disabled={busy}
+            className="inline-flex h-7 items-center rounded-md border border-accent bg-accent px-2.5 text-xs font-medium text-white hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {busy ? t('areaSearch.searching') : t('areaSearch.refreshNow')}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

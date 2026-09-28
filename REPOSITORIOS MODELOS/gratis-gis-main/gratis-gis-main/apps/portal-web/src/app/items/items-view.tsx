@@ -1,0 +1,2613 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+'use client';
+
+import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
+import {
+  Check,
+  Crosshair,
+  FolderPlus,
+  Grid3x3,
+  List as ListIcon,
+  Loader2,
+  SlidersHorizontal,
+  Trash2,
+  UserRound,
+  Users as UsersIcon,
+  X,
+} from 'lucide-react';
+import {
+  PrincipalPicker,
+  type PrincipalOption,
+} from '@/components/principal-picker';
+import { ShareExpiryPicker } from '@/components/share-expiry-picker';
+import { DependentsWarning } from '@/components/dependents-warning';
+import { ItemCard } from '@gratis-gis/ui';
+import type {
+  FolderData,
+  ItemAccess,
+  ItemType,
+  ItemWithShares,
+  WebAppData,
+  WebAppTemplate,
+} from '@gratis-gis/shared-types';
+import { isItemType } from '@gratis-gis/shared-types';
+import {
+  getItemHref,
+  getItemTypeAccent,
+  getItemDisplayIcon,
+  getItemDisplayLabel,
+  getItemTypeLabel,
+  hasRuntime,
+} from '@/lib/item-type-icon';
+import { FilterPopover } from './filter-popover';
+import { ItemSharingIndicator } from '@/components/item-sharing-indicator';
+import { PublicCascadeDialog } from '@/components/public-cascade-dialog';
+import { ReassignOwnerDialog } from '@/components/reassign-owner-dialog';
+import { AreaSearchPanel } from './area-search-panel';
+import { AddToFolderDialog } from './add-to-folder-dialog';
+import { DataPreviewDrawer } from './data-preview-drawer';
+import { ItemRowMenu } from './item-row-menu';
+import { ITEM_DRAG_MIME, type FolderRailNode } from './folder-rail';
+import { useT } from '@/lib/i18n/locale-context';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
+
+/**
+ * Client-side wrapper around the items list. Owns three bits of UI
+ * state that don't warrant a round-trip to the server:
+ *
+ *   - view mode (card vs list): persists via localStorage so the
+ *     user's preference sticks between visits
+ *   - type filters: one or more item types can be toggled on; empty
+ *     means "show all"
+ *   - group-by: 'none' (flat list), 'type', 'access'. Owner grouping
+ *     is an obvious future addition but needs a user/name lookup we
+ *     don't carry on the list response today.
+ *
+ * The server hands us the first page of the item list (with shares
+ * joined, capped at the API's 500-row default page); a "Load more"
+ * control appends further pages client-side via ?offset=. Filtering
+ * and grouping run in-memory over whatever has been loaded, which is
+ * fine for org-sized lists. If it stops being fine we can push the
+ * filters back to the API without changing this component's public
+ * shape.
+ */
+interface Props {
+  items: ItemWithShares[];
+  currentUser: { id: string; orgRole: string };
+  /**
+   * Folders the user can pick as targets for the "Add to folder"
+   * bulk action. Server-fetched alongside items so the picker
+   * dialog renders without a round-trip. Default empty so the
+   * component still works in contexts that haven't wired folders
+   * yet (e.g. tests).
+   */
+  folders?: FolderRailNode[];
+  /**
+   * When viewing inside a specific folder (?folder=<id>), the
+   * server passes the folder item here so per-row kebabs can
+   * offer "Remove from this folder" without a round-trip. Null
+   * when viewing the unfiltered items list (#92).
+   */
+  activeFolder?: { id: string; title: string } | null | undefined;
+  /**
+   * #80: geo_boundary items in the org, plumbed through to the
+   * bulk-share modal so the Geographic-scope picker (parity with
+   * the per-item Sharing panel) has its options. Empty array is
+   * fine -- the picker shows a "no boundaries available" hint.
+   */
+  geoBoundaries?: Array<{ id: string; title: string }>;
+}
+
+type ViewMode = 'card' | 'list';
+type GroupBy = 'none' | 'type' | 'access';
+type SortBy =
+  | 'updated-desc'
+  | 'updated-asc'
+  | 'created-desc'
+  | 'created-asc'
+  | 'title-asc'
+  | 'title-desc';
+
+const VIEW_MODE_KEY = 'gg.items.view';
+const GROUP_BY_KEY = 'gg.items.groupBy';
+const SORT_BY_KEY = 'gg.items.sortBy';
+
+// Stable list of sort keys. Validation (localStorage rehydrate) and
+// the select options both walk this; the user-facing labels resolve
+// through i18n via sortLabel() so a returning user's stored key still
+// validates regardless of the active locale.
+const SORT_KEYS: SortBy[] = [
+  'updated-desc',
+  'updated-asc',
+  'created-desc',
+  'created-asc',
+  'title-asc',
+  'title-desc',
+];
+
+type TranslateFn = (
+  key: string,
+  params?: Record<string, string | number>,
+) => string;
+
+/** Mirrors the API's server-side default page size for GET /items.
+ *  Used both to ask for explicit pages and as the "batch came back
+ *  exactly full, there may be more" heuristic. */
+const LIST_PAGE_SIZE = 500;
+
+/**
+ * The list endpoint strips data_json by default and instead
+ * annotates web_app rows with a `_template` discriminator (one
+ * string instead of the whole app config). Rebuild the minimal
+ * `data.template` shape those rows used to carry so everything
+ * downstream (the template facet, getItemHref / hasRuntime deep
+ * links, the kebab's Open action) keeps reading the field it has
+ * always read.
+ */
+function withListTemplateShim(it: ItemWithShares): ItemWithShares {
+  if (it.type !== 'web_app') return it;
+  if (it.data !== undefined && it.data !== null) return it;
+  const tpl = (it as ItemWithShares & { _template?: string | null })
+    ._template;
+  if (!tpl) return it;
+  return { ...it, data: { template: tpl } };
+}
+
+function sortLabel(t: TranslateFn, key: SortBy): string {
+  return t(`items.sort.${key}`);
+}
+
+export function ItemsView({
+  items: serverItems,
+  currentUser,
+  folders = [],
+  activeFolder = null,
+  geoBoundaries = [],
+}: Props) {
+  const t = useT();
+  // The server render is capped at the API's default page size (500)
+  // now, so the view keeps its own tail of pages fetched via "Load
+  // more". Reset whenever a fresh first page arrives (navigation,
+  // router.refresh) so pages from different filter sets never mix.
+  const [extraItems, setExtraItems] = useState<ItemWithShares[]>([]);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
+  // null = no client page fetched yet; derive "maybe more" from the
+  // first page instead. The API emits X-Total-Count, but the BFF
+  // proxy only forwards an allowlist of response headers that does
+  // not include it, so the client sizes pages by batch fullness: a
+  // batch that came back exactly full may have more behind it.
+  const [tailBatchFull, setTailBatchFull] = useState<boolean | null>(null);
+  useEffect(() => {
+    setExtraItems([]);
+    setTailBatchFull(null);
+    setLoadMoreError(null);
+  }, [serverItems]);
+  // Merge the server page with client-loaded pages, de-duped by id
+  // (an item edited mid-paging can shift across the updatedAt sort
+  // and reappear), and rebuild the lite `_template` annotation into
+  // the `data.template` shape downstream code reads.
+  const items = useMemo(() => {
+    const merged: ItemWithShares[] = [];
+    const seen = new Set<string>();
+    for (const it of [...serverItems, ...extraItems]) {
+      if (seen.has(it.id)) continue;
+      seen.add(it.id);
+      merged.push(withListTemplateShim(it));
+    }
+    return merged;
+  }, [serverItems, extraItems]);
+  const maybeMoreItems =
+    tailBatchFull ?? serverItems.length === LIST_PAGE_SIZE;
+  // Initial defaults match the "manage my own portal" workflow most
+  // users hit: a dense list grouped by type, A-Z so the same item is
+  // always in the same spot. The localStorage rehydrate below
+  // overrides these for returning users who picked something else.
+  // Cards stays available for the discovery contexts where it earns
+  // its place (Featured Items, basemap picker, map / dashboard
+  // browsing); it's just no longer the default for inventory
+  // management.
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [groupBy, setGroupBy] = useState<GroupBy>('type');
+  const [sortBy, setSortBy] = useState<SortBy>('title-asc');
+  const [typeFilter, setTypeFilter] = useState<Set<ItemType>>(new Set());
+  // #258: secondary facet for `web_app` items, surfaced in the
+  // filter popover under Type. Lets "show me my editors" remain a
+  // single filter action after the editor type folded into web_app
+  // templates. Empty Set means "all templates" (no narrowing).
+  const [templateFilter, setTemplateFilter] = useState<Set<WebAppTemplate>>(
+    new Set(),
+  );
+  // #87: owner filter. Empty Set means "all owners" (no narrowing).
+  // Multi-select unions ("show items owned by alice OR bob"); same
+  // semantics as the existing type / template filters. Only useful
+  // when scope='all' (the My-items scope inherently restricts to
+  // the current user); the popover hides the section when scope is
+  // mine to keep the panel quiet.
+  const [ownerFilter, setOwnerFilter] = useState<Set<string>>(new Set());
+  // Access facet: narrow to Public / Org / Private. The group-by
+  // control could already group by access, but there was no way to
+  // filter to a single access level, so finding "my one public item"
+  // in a long list meant scrolling. Empty Set means "all"; multi-
+  // select unions (public OR org), same OR semantics as type / owner.
+  const [accessFilter, setAccessFilter] = useState<Set<ItemAccess>>(new Set());
+  // #91: tag filter. Click a tag chip on a card to add it; click
+  // again to remove. AND semantics within tagFilter (item must
+  // carry every selected tag) -- different from owner / type
+  // facets which OR. Reason: clicking two tags reads as "narrow to
+  // the intersection," matching how AGO and most file managers
+  // treat label combinations.
+  const [tagFilter, setTagFilter] = useState<Set<string>>(new Set());
+  function onToggleTag(tag: string) {
+    setTagFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(tag)) next.delete(tag);
+      else next.add(tag);
+      return next;
+    });
+  }
+  // Bulk-select state: ids of items the current user has ticked for
+  // ownership reassignment. Kept as a Set so toggles are O(1). Only
+  // items the user can manage (their own + all for admins) can land
+  // here: gating happens in ItemGrid where each row is rendered.
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [showReassign, setShowReassign] = useState(false);
+  const [bulkSaving, setBulkSaving] = useState(false);
+  const [bulkError, setBulkError] = useState<string | null>(null);
+  // "Add to folder" dialog. Distinct from the reassign flow because
+  // the saving state and target picker shape differ; sharing one
+  // generic dialog would have ended up with too many branches.
+  const [showAddToFolder, setShowAddToFolder] = useState(false);
+  const [folderSaving, setFolderSaving] = useState(false);
+  // Bulk Share dialog (#77): pick a principal + permission, fan
+  // out to one share-write per selected item. Items the caller
+  // can't admin are silently skipped server-side.
+  const [showBulkShare, setShowBulkShare] = useState(false);
+  // #310: queue of item ids to walk after a bulk flip to public.
+  // Each id is fed into the cascade dialog one at a time so the
+  // author confirms each parent's dependency tree separately
+  // (an admin might want to expose Map A's layers but not Map B's).
+  const [bulkCascadeIds, setBulkCascadeIds] = useState<string[]>([]);
+  // Bulk Move-to-Trash confirmation (#77). Soft-delete only;
+  // permanent purge stays a per-item action on the recycle-bin
+  // page so a misclick on the items list can't lose data.
+  const [showBulkTrash, setShowBulkTrash] = useState(false);
+  // Active preview drawer's item (#82). Set from the per-row
+  // kebab's "Preview data" item. Null = drawer hidden.
+  const [previewItem, setPreviewItem] = useState<ItemWithShares | null>(null);
+  // ?addToFolder=<id> query param flips this view into "pick items
+  // to add to a specific folder" mode. The user got here from the
+  // folder detail page's "Add items" button; we know the target
+  // folder up front, so the bulk action skips the picker dialog
+  // entirely and goes straight to "Add to <folder name>". After
+  // success we send the user back to the folder detail page.
+  const searchParams = useSearchParams();
+  const addToFolderId = searchParams?.get('addToFolder') ?? null;
+  const targetFolder = addToFolderId
+    ? folders.find((f) => f.id === addToFolderId) ?? null
+    : null;
+  // Spatial-filter state (#24 + #29). When `spatialActive` is set, the
+  // page renders `spatialItems` instead of the server-rendered `items`.
+  // The fetch is fired by AreaSearchPanel's "Use this area" button. We
+  // keep both the request (for the chip label + repaint on close) and
+  // the result so dismissing the panel doesn't drop the filter.
+  const [areaPanelOpen, setAreaPanelOpen] = useState(false);
+  const [spatialBusy, setSpatialBusy] = useState(false);
+  const [spatialError, setSpatialError] = useState<string | null>(null);
+  const [spatialActive, setSpatialActive] = useState<{
+    bbox: [number, number, number, number];
+    bufferKm: number;
+  } | null>(null);
+  const [spatialItems, setSpatialItems] = useState<ItemWithShares[] | null>(
+    null,
+  );
+  const router = useRouter();
+
+  // Rehydrate persisted preferences on mount. Running this lazily
+  // (not as a useState initializer) keeps the component SSR-safe:
+  // the first render always matches the server's defaults
+  // ("list", "type", "title-asc"); a returning user's localStorage
+  // picks overwrite them client-side before paint.
+  useEffect(() => {
+    try {
+      const vm = localStorage.getItem(VIEW_MODE_KEY);
+      if (vm === 'card' || vm === 'list') setViewMode(vm);
+      const gb = localStorage.getItem(GROUP_BY_KEY);
+      if (gb === 'none' || gb === 'type' || gb === 'access') setGroupBy(gb);
+      const sb = localStorage.getItem(SORT_BY_KEY);
+      if (sb && (SORT_KEYS as string[]).includes(sb)) setSortBy(sb as SortBy);
+    } catch {
+      /* no localStorage, fall through to defaults */
+    }
+  }, []);
+
+  // Hydrate the type filter from `?type=foo,bar` on mount so a
+  // bookmarked / shared link with filters lands in the same state.
+  // Mount-only: subsequent toggles flow through the URL writer
+  // below and we don't want to fight the user. Unknown / stale type
+  // values are dropped silently rather than 400ing.
+  useEffect(() => {
+    const raw = searchParams?.get('type');
+    if (!raw) return;
+    const parsed = raw
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s): s is ItemType => isItemType(s));
+    if (parsed.length > 0) setTypeFilter(new Set(parsed));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional mount-only hydrate
+  }, []);
+
+  // Same mount-only hydrate for the template facet. Right now the
+  // only valid template is 'editor' (#258); future templates land
+  // here as the union widens. We keep the filter values lenient: an
+  // unknown template string just gets dropped instead of erroring.
+  useEffect(() => {
+    const raw = searchParams?.get('template');
+    if (!raw) return;
+    const parsed = raw
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s): s is WebAppTemplate => s === 'editor');
+    if (parsed.length > 0) setTemplateFilter(new Set(parsed));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional mount-only hydrate
+  }, []);
+
+  // Mirror the type filter back to the URL so reload + share work.
+  // We use `window.history.replaceState` rather than `router.replace`
+  // because the latter triggers a server round-trip in the App
+  // Router, which would re-fetch the items list every time the user
+  // toggles a chip. The URL change is purely cosmetic + bookmarkable;
+  // the items list is already client-filtered.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    if (typeFilter.size === 0) {
+      if (!url.searchParams.has('type')) return;
+      url.searchParams.delete('type');
+    } else {
+      const next = Array.from(typeFilter).sort().join(',');
+      if (url.searchParams.get('type') === next) return;
+      url.searchParams.set('type', next);
+    }
+    window.history.replaceState({}, '', url.toString());
+  }, [typeFilter]);
+
+  // Mirror the template filter back to the URL too, same pattern
+  // as the type filter. Param name is 'template' so a bookmarked
+  // "?type=web_app&template=editor" survives reload.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    if (templateFilter.size === 0) {
+      if (!url.searchParams.has('template')) return;
+      url.searchParams.delete('template');
+    } else {
+      const next = Array.from(templateFilter).sort().join(',');
+      if (url.searchParams.get('template') === next) return;
+      url.searchParams.set('template', next);
+    }
+    window.history.replaceState({}, '', url.toString());
+  }, [templateFilter]);
+
+  function persistView(next: ViewMode) {
+    setViewMode(next);
+    try {
+      localStorage.setItem(VIEW_MODE_KEY, next);
+    } catch {
+      /* non-fatal */
+    }
+  }
+  function persistGroup(next: GroupBy) {
+    setGroupBy(next);
+    try {
+      localStorage.setItem(GROUP_BY_KEY, next);
+    } catch {
+      /* non-fatal */
+    }
+  }
+  function persistSort(next: SortBy) {
+    setSortBy(next);
+    try {
+      localStorage.setItem(SORT_BY_KEY, next);
+    } catch {
+      /* non-fatal */
+    }
+  }
+
+  // Effective dataset: spatial-filter results when active, otherwise
+  // the full server-rendered list. Type filtering and sorting always
+  // run client-side over whichever set is in play. Folders are
+  // intentionally hidden from the grid; they surface only through
+  // the FolderRail tree on the left so the grid stays a content
+  // surface rather than mixing organization and content. See
+  // docs/folders.md.
+  //
+  // Folder + spatial intersection (#101): when the user is browsing
+  // inside a folder AND has an active area filter, narrow the
+  // spatial result to items that are also in the folder's children.
+  // Without this, the spatial query (which is server-fetched against
+  // the org without folder context) blew past the folder scope and
+  // showed every spatially-matching item in the org -- which was
+  // also why an empty folder appeared to show "all items" once a
+  // user opened the area filter.
+  const sourceItems = (() => {
+    let pool: ItemWithShares[];
+    if (spatialActive && spatialItems) {
+      if (activeFolder) {
+        const allowed = new Set(items.map((it) => it.id));
+        pool = spatialItems.filter((it) => allowed.has(it.id));
+      } else {
+        pool = spatialItems;
+      }
+    } else {
+      pool = items;
+    }
+    return pool.filter((it) => it.type !== 'folder');
+  })();
+
+  // Present-in-data type counts, sorted by descending count so the
+  // most common types sit at the front of the filter bar. Counts
+  // reflect the active spatial-search result when one is in play, so
+  // the chips don't promise types the visible set doesn't contain.
+  const typeCounts = useMemo(() => {
+    const counts = new Map<ItemType, number>();
+    for (const it of sourceItems)
+      counts.set(it.type, (counts.get(it.type) ?? 0) + 1);
+    // Order the facet by its user-facing label, not by count. Sorting
+    // by count reshuffles the list every time the item mix changes, so
+    // a type never sits in a predictable spot and you have to re-scan
+    // the whole list to find one. Alphabetical by label keeps each type
+    // in the place your eye expects (#207). getItemTypeLabel is the same
+    // label the popover renders, so the visible order matches the sort.
+    return Array.from(counts.entries()).sort((a, b) =>
+      getItemTypeLabel(a[0]).localeCompare(getItemTypeLabel(b[0]), undefined, {
+        sensitivity: 'base',
+      }),
+    );
+  }, [sourceItems]);
+
+  // #258: web_app template counts. Walks the same sourceItems pool
+  // and pulls each web_app's `data.template` discriminator. Items
+  // without a template (the legacy "external link" web_app shape)
+  // are bucketed under '__none__' and filtered out of the popover
+  // surface. Driven off the data so adding new templates (viewer,
+  // survey-response, custom) shows up automatically without UI
+  // changes -- they just need to be written into items by the
+  // wizard / migration.
+  const templateCounts = useMemo(() => {
+    const counts = new Map<WebAppTemplate, number>();
+    for (const it of sourceItems) {
+      if (it.type !== 'web_app') continue;
+      const t = (it.data as WebAppData | null | undefined)?.template;
+      if (!t) continue;
+      counts.set(t, (counts.get(t) ?? 0) + 1);
+    }
+    return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
+  }, [sourceItems]);
+
+  // #87: owner facet. Build counts from sourceItems so the filter
+  // popover only shows owners actually present in the list (matches
+  // how the type / template facets work). Map ownerId -> count.
+  const ownerCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const it of sourceItems) {
+      counts.set(it.ownerId, (counts.get(it.ownerId) ?? 0) + 1);
+    }
+    return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
+  }, [sourceItems]);
+
+  // Access-level counts for the facet, in a fixed visibility order
+  // (public first: it's the level users most often hunt for in a
+  // long list). Only levels actually present get a chip.
+  const accessCounts = useMemo(() => {
+    const counts = new Map<ItemAccess, number>();
+    for (const it of sourceItems) {
+      counts.set(it.access, (counts.get(it.access) ?? 0) + 1);
+    }
+    const order: ItemAccess[] = ['public', 'org', 'private'];
+    return order
+      .filter((a) => counts.has(a))
+      .map((a) => [a, counts.get(a) ?? 0] as [ItemAccess, number]);
+  }, [sourceItems]);
+  // #87: build owner labels from whatever the parent payload happens
+  // to embed (item.owner is included on the items-list response when
+  // available; falls back to a short uuid prefix). Avoids a separate
+  // /api/users round-trip just to populate the filter chips.
+  const ownerLabels = useMemo(() => {
+    const out: Record<string, string> = {};
+    for (const it of sourceItems) {
+      if (out[it.ownerId]) continue;
+      const ownerInfo = (
+        it as unknown as {
+          owner?: { fullName?: string | null; username?: string | null };
+        }
+      ).owner;
+      const label =
+        ownerInfo?.fullName?.trim() ||
+        ownerInfo?.username?.trim() ||
+        `${it.ownerId.slice(0, 8)}...`;
+      out[it.ownerId] = label;
+    }
+    return out;
+  }, [sourceItems]);
+  function onToggleOwner(userId: string) {
+    setOwnerFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(userId)) next.delete(userId);
+      else next.add(userId);
+      return next;
+    });
+  }
+  function onToggleAccess(a: ItemAccess) {
+    setAccessFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(a)) next.delete(a);
+      else next.add(a);
+      return next;
+    });
+  }
+
+  const filteredItems = useMemo(() => {
+    let pool =
+      typeFilter.size === 0
+        ? sourceItems
+        : sourceItems.filter((it) => typeFilter.has(it.type));
+    // Template facet narrows web_app items; non-web_app items pass
+    // through untouched (the facet is meaningless for them). Lets a
+    // user combine "Map + web_app:editor" in one query without
+    // losing the maps from the result.
+    if (templateFilter.size > 0) {
+      pool = pool.filter((it) => {
+        if (it.type !== 'web_app') return true;
+        const t = (it.data as WebAppData | null | undefined)?.template;
+        return t ? templateFilter.has(t) : false;
+      });
+    }
+    // #87: owner facet. Multi-select unions (alice OR bob).
+    if (ownerFilter.size > 0) {
+      pool = pool.filter((it) => ownerFilter.has(it.ownerId));
+    }
+    // Access facet. Multi-select unions (public OR org).
+    if (accessFilter.size > 0) {
+      pool = pool.filter((it) => accessFilter.has(it.access));
+    }
+    // #91: tag facet. AND semantics: items must carry every active
+    // tag. (Owner/type/template were OR; tags are AND because
+    // "narrow by tag combination" is the natural read.)
+    if (tagFilter.size > 0) {
+      const required = Array.from(tagFilter);
+      pool = pool.filter((it) => {
+        const tags = Array.isArray(it.tags) ? it.tags : [];
+        return required.every((t) => tags.includes(t));
+      });
+    }
+    // Sort on every filter/sort change. copyWithin keeps the original
+    // array intact (it's the server prop).
+    const sorted = [...pool];
+    sorted.sort((a, b) => compareItems(a, b, sortBy));
+    return sorted;
+  }, [
+    sourceItems,
+    typeFilter,
+    templateFilter,
+    ownerFilter,
+    accessFilter,
+    tagFilter,
+    sortBy,
+  ]);
+
+  function toggleType(t: ItemType) {
+    setTypeFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(t)) next.delete(t);
+      else next.add(t);
+      return next;
+    });
+  }
+
+  function toggleTemplate(t: WebAppTemplate) {
+    setTemplateFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(t)) next.delete(t);
+      else next.add(t);
+      return next;
+    });
+  }
+
+  function clearFilters() {
+    setTypeFilter(new Set());
+    setTemplateFilter(new Set());
+    setAccessFilter(new Set());
+  }
+
+  async function applyAreaSearch(
+    bbox: [number, number, number, number],
+    bufferKm: number,
+  ) {
+    setSpatialBusy(true);
+    setSpatialError(null);
+    try {
+      const params = new URLSearchParams();
+      params.set('bbox', bbox.join(','));
+      if (bufferKm > 0) params.set('buffer', String(bufferKm));
+      const res = await fetch(`/api/portal/items?${params.toString()}`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        const msg =
+          (body as { message?: string | string[] }).message ??
+          `HTTP ${res.status}`;
+        throw new Error(Array.isArray(msg) ? msg.join('; ') : msg);
+      }
+      const next = (await res.json()) as ItemWithShares[];
+      // Same lite-row shim the main list applies; spatial results
+      // come from the same endpoint and ship without data_json.
+      setSpatialItems(next.map(withListTemplateShim));
+      setSpatialActive({ bbox, bufferKm });
+      // #86 follow-up: do NOT close the panel on apply. Pre-#86 the
+      // apply was driven by the explicit "Use this area" button so
+      // closing was the right semantic ("I'm done; apply this").
+      // With live debounced moveend driving apply, closing on every
+      // settle destroys the maplibre map underneath the user's
+      // hands -- the user pans once, the apply succeeds, the panel
+      // unmounts, and the next gesture lands on the items page.
+      // Leave the panel mounted; the user closes it explicitly via
+      // the X / Cancel button when they're done.
+    } catch (e) {
+      setSpatialError(e instanceof Error ? e.message : t('items.searchFailed'));
+    } finally {
+      setSpatialBusy(false);
+    }
+  }
+
+  function clearAreaSearch() {
+    setSpatialActive(null);
+    setSpatialItems(null);
+    setSpatialError(null);
+  }
+
+  /**
+   * Fetch the next page of the list. Reproduces the server
+   * component's query (scope + free-text search) and walks offset
+   * past everything already held; the id de-dupe in the `items`
+   * merge absorbs rows that shift across page boundaries when
+   * something is edited mid-paging.
+   */
+  async function loadMoreItems() {
+    setLoadingMore(true);
+    setLoadMoreError(null);
+    try {
+      const params = new URLSearchParams();
+      const scopeParam = searchParams?.get('scope');
+      const legacyMine = searchParams?.get('mine');
+      const scopeIsMine =
+        scopeParam === 'all'
+          ? false
+          : scopeParam === 'mine'
+            ? true
+            : legacyMine === 'true'
+              ? true
+              : legacyMine === 'false'
+                ? false
+                : true;
+      if (scopeIsMine) params.set('mine', 'true');
+      const q = searchParams?.get('q');
+      if (q) params.set('q', q);
+      params.set('limit', String(LIST_PAGE_SIZE));
+      params.set('offset', String(serverItems.length + extraItems.length));
+      const res = await fetch(`/api/portal/items?${params.toString()}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const batch = (await res.json()) as ItemWithShares[];
+      setExtraItems((prev) => [...prev, ...batch]);
+      setTailBatchFull(batch.length === LIST_PAGE_SIZE);
+    } catch (e) {
+      setLoadMoreError(
+        e instanceof Error ? e.message : 'Could not load more items.',
+      );
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
+  /**
+   * Append the currently-selected items to the chosen folder. The
+   * server's cycle-detection runs on save; we de-dupe on the client
+   * so the request body is the smallest reasonable payload. Existing
+   * memberships stay untouched (an item already in the folder is a
+   * no-op rather than an error).
+   *
+   * In add-to-folder mode (?addToFolder=<id>), success redirects
+   * back to the folder detail page so the user lands inside the
+   * folder they just curated. Outside that mode the user stays on
+   * the items list.
+   */
+  async function handleAddToFolder(folderId: string) {
+    setFolderSaving(true);
+    setBulkError(null);
+    try {
+      // Fetch the current folder so we know the existing childItemIds
+      // and don't have to trust the rail snapshot to be up to date.
+      const fres = await fetch(`/api/portal/items/${folderId}`);
+      if (!fres.ok) {
+        throw new Error(t('items.folderLoadFailed', { status: fres.status }));
+      }
+      const folder = (await fres.json()) as { data: FolderData | null };
+      const existing = Array.isArray(folder.data?.childItemIds)
+        ? folder.data!.childItemIds
+        : [];
+      const seen = new Set(existing);
+      const toAdd = Array.from(selected).filter((id) => !seen.has(id));
+      if (toAdd.length === 0) {
+        setShowAddToFolder(false);
+        setSelected(new Set());
+        return;
+      }
+      const next: FolderData = {
+        version: 1,
+        childItemIds: [...existing, ...toAdd],
+      };
+      const pres = await fetch(`/api/portal/items/${folderId}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ data: next }),
+      });
+      if (!pres.ok) {
+        const body = await pres.json().catch(() => ({}));
+        const msg =
+          (body as { message?: string | string[] }).message ??
+          `HTTP ${pres.status}`;
+        throw new Error(Array.isArray(msg) ? msg.join('; ') : msg);
+      }
+      setShowAddToFolder(false);
+      setSelected(new Set());
+      // In targeted add-to-folder mode, send the user back to the
+      // folder detail page so they land where the new contents are
+      // visible. Otherwise stay on the items page (the rail will
+      // reflect the new membership on next refresh).
+      if (addToFolderId === folderId) {
+        router.push(`/items/${folderId}`);
+      } else {
+        router.refresh();
+      }
+    } catch (e) {
+      setBulkError(e instanceof Error ? e.message : t('items.addToFolderFailed'));
+    } finally {
+      setFolderSaving(false);
+    }
+  }
+
+  /**
+   * Splice a single item out of activeFolder.data.childItemIds (#92).
+   * Same fetch -> patch shape as handleAddToFolder; the item itself
+   * is untouched. The kebab entry that calls this is only rendered
+   * when activeFolder is non-null, so we guard but expect the
+   * folder ref to be present.
+   */
+  async function handleRemoveFromFolder(itemId: string) {
+    if (!activeFolder) return;
+    setBulkError(null);
+    try {
+      const fres = await fetch(`/api/portal/items/${activeFolder.id}`);
+      if (!fres.ok) {
+        throw new Error(t('items.folderLoadFailed', { status: fres.status }));
+      }
+      const folder = (await fres.json()) as { data: FolderData | null };
+      const existing = Array.isArray(folder.data?.childItemIds)
+        ? folder.data!.childItemIds
+        : [];
+      if (!existing.includes(itemId)) {
+        // Already not in the folder; refresh anyway in case the
+        // server has a different view than our row state.
+        router.refresh();
+        return;
+      }
+      const next: FolderData = {
+        version: 1,
+        childItemIds: existing.filter((id) => id !== itemId),
+      };
+      const pres = await fetch(`/api/portal/items/${activeFolder.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ data: next }),
+      });
+      if (!pres.ok) {
+        const body = await pres.json().catch(() => ({}));
+        const msg =
+          (body as { message?: string | string[] }).message ??
+          `HTTP ${pres.status}`;
+        throw new Error(Array.isArray(msg) ? msg.join('; ') : msg);
+      }
+      router.refresh();
+    } catch (e) {
+      setBulkError(
+        e instanceof Error ? e.message : t('items.removeFromFolderFailed'),
+      );
+    }
+  }
+
+  // Items the user can manage (toggle into the selection). Admins can
+  // manage everything; everyone else only their own. Bulk ops act
+  // exclusively on this subset so the action bar can't trigger a 403
+  // partway through a batch.
+  const manageableIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const it of filteredItems) {
+      if (currentUser.orgRole === 'admin' || it.ownerId === currentUser.id) {
+        ids.add(it.id);
+      }
+    }
+    return ids;
+  }, [filteredItems, currentUser]);
+
+  function toggleSelected(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function selectAllVisible() {
+    // Ticking the header checkbox ticks every manageable row in the
+    // current filtered view. If they're already all selected, this
+    // clears just the visible-and-manageable ones (leaving any
+    // stale selections from a previous filter alone).
+    setSelected((prev) => {
+      const next = new Set(prev);
+      const allSelected = Array.from(manageableIds).every((id) => next.has(id));
+      if (allSelected) {
+        for (const id of manageableIds) next.delete(id);
+      } else {
+        for (const id of manageableIds) next.add(id);
+      }
+      return next;
+    });
+  }
+
+  function clearSelection() {
+    setSelected(new Set());
+  }
+
+  /**
+   * Bulk soft-delete (#77). Iterates the selection and calls
+   * DELETE /items/:id, which the API treats as "move to trash"
+   * (deletedAt set, recoverable from the recycle bin). Items the
+   * caller can't admin 403 silently and we count them as skipped;
+   * the user never has to know which specific row tripped the
+   * gate. router.refresh() reloads the list so the trashed items
+   * disappear without a manual refresh.
+   */
+  async function handleBulkTrash() {
+    setBulkSaving(true);
+    setBulkError(null);
+    let done = 0;
+    let skipped = 0;
+    try {
+      for (const id of selected) {
+        try {
+          const res = await fetch(`/api/portal/items/${id}`, {
+            method: 'DELETE',
+          });
+          if (res.ok || res.status === 204) {
+            done += 1;
+          } else {
+            skipped += 1;
+          }
+        } catch {
+          skipped += 1;
+        }
+      }
+      if (done === 0 && skipped > 0) {
+        setBulkError(t('items.bulkTrashNoneMoved'));
+      } else if (skipped > 0) {
+        setBulkError(
+          t('items.bulkTrashPartial', { done, skipped }),
+        );
+      }
+      setShowBulkTrash(false);
+      setSelected(new Set());
+      router.refresh();
+    } finally {
+      setBulkSaving(false);
+    }
+  }
+
+  /**
+   * Bulk share (#77). Walks each selected item and POSTs the same
+   * share row (principalType, principalId, permission). 403 on any
+   * single item just means the caller doesn't have admin on that
+   * one; it stays an internal skip rather than aborting the rest.
+   * Re-running is safe: the share endpoint upserts, so the same
+   * principal getting the same permission twice is a no-op.
+   */
+  async function handleBulkShare(
+    principal: PrincipalOption,
+    permission: 'view' | 'download' | 'edit' | 'admin',
+    expiresAt: string | null,
+  ) {
+    setBulkSaving(true);
+    setBulkError(null);
+    const [principalType, principalId] = principal.id.split(':') as [
+      'user' | 'group',
+      string,
+    ];
+    let done = 0;
+    let skipped = 0;
+    try {
+      for (const id of selected) {
+        try {
+          const res = await fetch(`/api/portal/items/${id}/share`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              principalType,
+              principalId,
+              permission,
+              ...(expiresAt !== null ? { expiresAt } : {}),
+            }),
+          });
+          if (res.ok) {
+            done += 1;
+          } else {
+            skipped += 1;
+          }
+        } catch {
+          skipped += 1;
+        }
+      }
+      if (done === 0 && skipped > 0) {
+        setBulkError(t('items.bulkShareNoneWritten'));
+      } else if (skipped > 0) {
+        setBulkError(
+          t('items.bulkSharePartial', { done, skipped }),
+        );
+      }
+      setShowBulkShare(false);
+      setSelected(new Set());
+      router.refresh();
+    } finally {
+      setBulkSaving(false);
+    }
+  }
+
+  /**
+   * Bulk access-tier flip. Walks each selected item and PATCHes
+   * the access field to 'org' or 'public' (#310). Distinct from
+   * handleBulkShare because this is the item's own visibility
+   * floor, not a row in the shares table; the API enforces the
+   * same canAdmin gate either way. Items the caller can't admin
+   * skip silently and surface in the per-skip count, matching
+   * the share-bulk error UX.
+   */
+  async function handleBulkAccess(
+    next: 'org' | 'public',
+    /**
+     * #80 parity: optional tier-level boundary to apply alongside
+     * the access flip. When set, each PATCH includes the right
+     * boundary column for the chosen tier so the bulk path matches
+     * the per-item SharingPanel's Geographic-scope picker. null
+     * explicitly clears any prior boundary; undefined leaves it
+     * untouched.
+     */
+    boundaryId?: string | null,
+  ) {
+    setBulkSaving(true);
+    setBulkError(null);
+    let done = 0;
+    let skipped = 0;
+    // Capture before clearing -- the cascade prompt for next='public'
+    // walks each id's dependencies after the bulk flip, and `selected`
+    // gets reset to empty at the end of this handler.
+    const targetIds = Array.from(selected);
+    try {
+      for (const id of selected) {
+        try {
+          // Build the PATCH body. access is always set; the matching
+          // boundary column is included only when the modal supplied
+          // one (or explicit null to clear).
+          const body: Record<string, unknown> = { access: next };
+          if (boundaryId !== undefined) {
+            if (next === 'public') body.publicGeoBoundaryId = boundaryId;
+            else body.orgGeoBoundaryId = boundaryId;
+          }
+          const res = await fetch(`/api/portal/items/${id}`, {
+            method: 'PATCH',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(body),
+          });
+          if (res.ok) {
+            done += 1;
+          } else {
+            skipped += 1;
+          }
+        } catch {
+          skipped += 1;
+        }
+      }
+      if (done === 0 && skipped > 0) {
+        setBulkError(t('items.bulkAccessNoneUpdated'));
+      } else if (skipped > 0) {
+        setBulkError(
+          t('items.bulkAccessPartial', { done, skipped }),
+        );
+      }
+      setShowBulkShare(false);
+      setSelected(new Set());
+      // After a bulk flip to public, surface the cascade prompt for
+      // every item so admins don't have to remember to mark each
+      // dependency public manually. The dialog walks dependencies,
+      // hides the no-deps case silently, and runs sequentially per
+      // parent.
+      if (next === 'public' && done > 0) {
+        setBulkCascadeIds(targetIds);
+      }
+      router.refresh();
+    } finally {
+      setBulkSaving(false);
+    }
+  }
+
+  async function handleBulkReassign(
+    newOwnerId: string,
+    keepPreviousOwnerAccess: 'view' | 'download' | 'edit' | 'admin' | null,
+  ) {
+    setBulkSaving(true);
+    setBulkError(null);
+    try {
+      const res = await fetch('/api/portal/items/bulk/reassign-owner', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          itemIds: Array.from(selected),
+          newOwnerId,
+          keepPreviousOwnerAccess,
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        const msg =
+          (body as { message?: string | string[] }).message ??
+          `HTTP ${res.status}`;
+        throw new Error(Array.isArray(msg) ? msg.join('; ') : msg);
+      }
+      setShowReassign(false);
+      setSelected(new Set());
+      // Refresh the server-rendered list so ownerId / owner fields
+      // reflect the new reality. The alternative (local state patch)
+      // would be faster but would risk drift with the "keep previous
+      // access" share rows the API may or may not have created.
+      router.refresh();
+    } catch (e) {
+      setBulkError(e instanceof Error ? e.message : t('items.reassignFailed'));
+    } finally {
+      setBulkSaving(false);
+    }
+  }
+
+  return (
+    <div>
+      {targetFolder ? (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-accent/40 bg-accent/5 px-3 py-2 text-sm">
+          <div className="flex items-center gap-2 text-ink-1">
+            <FolderPlus className="h-4 w-4 text-accent" />
+            <span>
+              {t('items.addingItemsTo')}{' '}
+              <span className="font-medium">{targetFolder.title}</span>.{' '}
+              {t('items.addingItemsHint', { folder: targetFolder.title })}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => router.push(`/items/${targetFolder.id}`)}
+            className="inline-flex h-7 items-center rounded-md border border-border bg-surface-1 px-2.5 text-xs text-ink-1 hover:bg-surface-2"
+          >
+            {t('common.cancel')}
+          </button>
+        </div>
+      ) : null}
+      <Toolbar
+        viewMode={viewMode}
+        onViewMode={persistView}
+        groupBy={groupBy}
+        onGroupBy={persistGroup}
+        sortBy={sortBy}
+        onSortBy={persistSort}
+        typeFilter={typeFilter}
+        typeCounts={typeCounts}
+        onToggleType={toggleType}
+        templateFilter={templateFilter}
+        templateCounts={templateCounts}
+        onToggleTemplate={toggleTemplate}
+        onClearFilters={clearFilters}
+        totalCount={sourceItems.length}
+        filteredCount={filteredItems.length}
+        areaActive={!!spatialActive}
+        areaActiveLabel={
+          spatialActive
+            ? formatAreaLabel(spatialActive.bbox, spatialActive.bufferKm, t)
+            : null
+        }
+        areaPanelOpen={areaPanelOpen}
+        onToggleAreaPanel={() => setAreaPanelOpen((v) => !v)}
+        onClearAreaSearch={clearAreaSearch}
+        ownerFilter={ownerFilter}
+        ownerCounts={ownerCounts}
+        ownerLabels={ownerLabels}
+        onToggleOwner={onToggleOwner}
+        accessFilter={accessFilter}
+        accessCounts={accessCounts}
+        onToggleAccess={onToggleAccess}
+      />
+      {areaPanelOpen ? (
+        <AreaSearchPanel
+          {...(spatialActive ? { initialBbox: spatialActive.bbox } : {})}
+          {...(spatialActive ? { initialBufferKm: spatialActive.bufferKm } : {})}
+          busy={spatialBusy}
+          onApply={applyAreaSearch}
+          onClose={() => setAreaPanelOpen(false)}
+        />
+      ) : null}
+      {spatialError ? (
+        <div className="mb-3 rounded-md border border-danger/40 bg-danger/5 px-3 py-2 text-xs text-danger">
+          {spatialError}
+        </div>
+      ) : null}
+      {selected.size > 0 ? (
+        <BulkActionBar
+          count={selected.size}
+          onReassign={() => setShowReassign(true)}
+          onShare={() => setShowBulkShare(true)}
+          onTrash={() => setShowBulkTrash(true)}
+          onAddToFolder={
+            folders.length > 0 ? () => setShowAddToFolder(true) : undefined
+          }
+          targetFolder={targetFolder}
+          onAddToTargetFolder={
+            targetFolder
+              ? () => handleAddToFolder(targetFolder.id)
+              : undefined
+          }
+          targetFolderSaving={folderSaving}
+          onClear={clearSelection}
+        />
+      ) : null}
+      <ItemsBody
+        items={filteredItems}
+        viewMode={viewMode}
+        groupBy={groupBy}
+        currentUser={currentUser}
+        selected={selected}
+        manageableIds={manageableIds}
+        onToggleSelected={toggleSelected}
+        onToggleAll={selectAllVisible}
+        onPreview={(item) => setPreviewItem(item)}
+        onRowShare={(item) => {
+          // Reuse the existing bulk-share dialog with a one-item
+          // selection so we don't have a second dialog to maintain.
+          setSelected(new Set([item.id]));
+          setShowBulkShare(true);
+        }}
+        onRowMoveToFolder={(item) => {
+          setSelected(new Set([item.id]));
+          setShowAddToFolder(true);
+        }}
+        onRowMoveToTrash={(item) => {
+          setSelected(new Set([item.id]));
+          setShowBulkTrash(true);
+        }}
+        {...(activeFolder
+          ? {
+              onRowRemoveFromFolder: (item) =>
+                handleRemoveFromFolder(item.id),
+              activeFolderTitle: activeFolder.title,
+            }
+          : {})}
+        onTagClick={onToggleTag}
+        activeTags={tagFilter}
+      />
+      {/* Pager for the server's 500-row page cap. Hidden inside a
+          folder (folder contents are resolved whole, not paged) and
+          while an area search result is on screen (that pool came
+          from a different query). Batch-fullness heuristic; see the
+          tailBatchFull note above for why the header total is not
+          available client-side. */}
+      {!activeFolder && !spatialActive && maybeMoreItems ? (
+        <div className="mt-4 flex flex-col items-center gap-2">
+          {loadMoreError ? (
+            <p role="alert" className="text-xs text-danger">
+              {loadMoreError}
+            </p>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => void loadMoreItems()}
+            disabled={loadingMore}
+            className="inline-flex h-9 items-center gap-2 rounded-md border border-border bg-surface-1 px-4 text-sm text-ink-1 shadow-card hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {loadingMore ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading more...
+              </>
+            ) : (
+              'Load more'
+            )}
+          </button>
+          <p className="text-2xs text-muted">
+            Showing the first {items.length} items.
+          </p>
+        </div>
+      ) : null}
+      {showReassign ? (
+        <ReassignOwnerDialog
+          heading={t('items.reassignHeading', { count: selected.size })}
+          subheading={t('items.reassignSubheading')}
+          saving={bulkSaving}
+          onClose={() => {
+            if (!bulkSaving) {
+              setShowReassign(false);
+              setBulkError(null);
+            }
+          }}
+          onSubmit={handleBulkReassign}
+        />
+      ) : null}
+      {showAddToFolder ? (
+        <AddToFolderDialog
+          folders={folders}
+          itemIds={Array.from(selected)}
+          saving={folderSaving}
+          onSubmit={handleAddToFolder}
+          onClose={() => {
+            if (!folderSaving) {
+              setShowAddToFolder(false);
+              setBulkError(null);
+            }
+          }}
+        />
+      ) : null}
+      {showBulkShare ? (
+        <BulkShareDialog
+          count={selected.size}
+          saving={bulkSaving}
+          onSubmit={handleBulkShare}
+          onSubmitAccess={handleBulkAccess}
+          geoBoundaries={geoBoundaries}
+          onClose={() => {
+            if (!bulkSaving) {
+              setShowBulkShare(false);
+              setBulkError(null);
+            }
+          }}
+        />
+      ) : null}
+      {/* #310: cascade prompt fires once per bulk-public item.
+          The first id stays visible until the user confirms or
+          skips, then we shift to the next one. This lets the
+          author make different cascade choices per parent. */}
+      {bulkCascadeIds.length > 0 ? (
+        <PublicCascadeDialog
+          open={true}
+          parentId={bulkCascadeIds[0]!}
+          parentTitle={t('items.selectedItem')}
+          onClose={() => {
+            setBulkCascadeIds((prev) => prev.slice(1));
+            router.refresh();
+          }}
+        />
+      ) : null}
+      {showBulkTrash ? (
+        <BulkTrashDialog
+          count={selected.size}
+          itemIds={Array.from(selected)}
+          saving={bulkSaving}
+          onConfirm={handleBulkTrash}
+          onClose={() => {
+            if (!bulkSaving) {
+              setShowBulkTrash(false);
+              setBulkError(null);
+            }
+          }}
+        />
+      ) : null}
+      {bulkError ? (
+        <div className="fixed bottom-4 right-4 max-w-md rounded-md border border-danger/40 bg-danger/5 px-3 py-2 text-xs text-danger shadow-raised">
+          {bulkError}
+        </div>
+      ) : null}
+      {/* Quick attribute preview opened from the per-row kebab
+          (#82). Lives at the page root so it overlays the items
+          list cleanly regardless of how deep the row is. */}
+      {previewItem ? (
+        <DataPreviewDrawer
+          item={previewItem}
+          onClose={() => setPreviewItem(null)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
+/** Sticky bar that appears when one or more items are selected. */
+function BulkActionBar({
+  count,
+  onReassign,
+  onShare,
+  onTrash,
+  onAddToFolder,
+  targetFolder,
+  onAddToTargetFolder,
+  targetFolderSaving,
+  onClear,
+}: {
+  count: number;
+  onReassign: () => void;
+  onShare: () => void;
+  onTrash: () => void;
+  onAddToFolder?: (() => void) | undefined;
+  /** When set, the user came here via ?addToFolder= and we offer a
+   *  one-click "Add to <folder>" button instead of the generic
+   *  picker dialog. */
+  targetFolder?: FolderRailNode | null;
+  onAddToTargetFolder?: (() => void) | undefined;
+  targetFolderSaving?: boolean;
+  onClear: () => void;
+}) {
+  const t = useT();
+  return (
+    <div className="sticky top-0 z-10 mb-3 flex items-center justify-between gap-3 rounded-md border border-accent/30 bg-accent/5 px-3 py-2 shadow-sm">
+      <div className="flex items-center gap-3 text-sm">
+        <span className="inline-flex items-center gap-1.5 font-medium text-accent">
+          <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-accent text-2xs font-semibold text-white">
+            {count}
+          </span>
+          {t('items.selected')}
+        </span>
+        <button
+          type="button"
+          onClick={onClear}
+          className="inline-flex items-center gap-1 text-xs text-muted hover:text-ink-1"
+        >
+          <X className="h-3 w-3" />
+          {t('items.clear')}
+        </button>
+      </div>
+      <div className="flex items-center gap-2">
+        {targetFolder && onAddToTargetFolder ? (
+          <button
+            type="button"
+            onClick={onAddToTargetFolder}
+            disabled={!!targetFolderSaving}
+            className="inline-flex items-center gap-1.5 rounded-md border border-accent bg-accent px-2.5 py-1 text-xs font-medium text-white hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <FolderPlus className="h-3.5 w-3.5" />
+            {targetFolderSaving
+              ? t('items.adding')
+              : t('items.addToNamedFolder', { folder: targetFolder.title })}
+          </button>
+        ) : (
+          <>
+            {onAddToFolder ? (
+              <button
+                type="button"
+                onClick={onAddToFolder}
+                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-1 px-2.5 py-1 text-xs font-medium text-ink-1 hover:bg-surface-2"
+              >
+                <FolderPlus className="h-3.5 w-3.5" />
+                {t('items.addToFolder')}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={onShare}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-1 px-2.5 py-1 text-xs font-medium text-ink-1 hover:bg-surface-2"
+            >
+              <UsersIcon className="h-3.5 w-3.5" />
+              {t('items.share')}
+            </button>
+            <button
+              type="button"
+              onClick={onTrash}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-1 px-2.5 py-1 text-xs font-medium text-ink-1 hover:bg-danger/5 hover:text-danger"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              {t('items.moveToTrash')}
+            </button>
+            <button
+              type="button"
+              onClick={onReassign}
+              className="inline-flex items-center gap-1.5 rounded-md border border-accent bg-accent px-2.5 py-1 text-xs font-medium text-white hover:bg-accent/90"
+            >
+              <UserRound className="h-3.5 w-3.5" />
+              {t('items.reassignOwner')}
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Bulk-share dialog (#77). Mirrors the per-folder "Share all items"
+ * dialog: pick a principal, pick a permission, click Share. The
+ * parent walks the selection and POSTs share rows; this component
+ * just owns the form state.
+ */
+function BulkShareDialog({
+  count,
+  saving,
+  onSubmit,
+  onSubmitAccess,
+  onClose,
+  geoBoundaries = [],
+}: {
+  count: number;
+  saving: boolean;
+  onSubmit: (
+    principal: PrincipalOption,
+    permission: 'view' | 'download' | 'edit' | 'admin',
+    expiresAt: string | null,
+  ) => void | Promise<void>;
+  /** Bulk access-level flip (org / public). Distinct from per-share
+   *  grants because it's a property of the item, not a row in the
+   *  shares table. Provided so users can reach both kinds of share
+   *  from the same dialog without bouncing through each item's
+   *  detail page. The optional `boundaryId` lets the modal apply
+   *  the tier-level Geographic-scope clip alongside the access flip
+   *  (#80 parity with the per-item Sharing panel). */
+  onSubmitAccess: (
+    next: 'org' | 'public',
+    boundaryId?: string | null,
+  ) => void | Promise<void>;
+  onClose: () => void;
+  /** geo_boundary items in the org for the Geographic-scope picker.
+   *  Empty array is fine -- the picker shows a hint that no
+   *  boundary items exist yet. */
+  geoBoundaries?: Array<{ id: string; title: string }>;
+}) {
+  const t = useT();
+  // Tab between "share with a principal" (the existing flow) and
+  // "raise visibility for everyone in the org / on the internet"
+  // (the access-level flip). They produce different writes server
+  // side -- POST /share rows vs PATCH access -- so the UI keeps them
+  // visually separate even though they share the dialog frame.
+  const [mode, setMode] = useState<'principal' | 'org' | 'public'>(
+    'principal',
+  );
+  const [picked, setPicked] = useState<PrincipalOption | null>(null);
+  const [permission, setPermission] = useState<
+    'view' | 'download' | 'edit' | 'admin'
+  >('view');
+  const [expiresAt, setExpiresAt] = useState<string | null>(null);
+  // #80: per-tier boundary selection. Each tier has its own piece
+  // of state so toggling between Org and Public preserves the
+  // user's prior pick. null means "no clip" (the picker's empty
+  // option).
+  const [orgBoundaryId, setOrgBoundaryId] = useState<string | null>(null);
+  const [publicBoundaryId, setPublicBoundaryId] = useState<string | null>(
+    null,
+  );
+
+  async function search(q: string): Promise<PrincipalOption[]> {
+    const [usersRes, groupsRes] = await Promise.allSettled([
+      fetch(
+        `/api/portal/users${q.trim() ? `?q=${encodeURIComponent(q.trim())}` : ''}`,
+      ),
+      fetch(
+        `/api/portal/groups${q.trim() ? `?q=${encodeURIComponent(q.trim())}` : ''}`,
+      ),
+    ]);
+    const out: PrincipalOption[] = [];
+    if (usersRes.status === 'fulfilled' && usersRes.value.ok) {
+      const rows = (await usersRes.value.json()) as Array<{
+        id: string;
+        username: string;
+        fullName?: string | null;
+        avatarUrl?: string | null;
+      }>;
+      for (const r of rows) {
+        out.push({
+          id: `user:${r.id}`,
+          title: r.fullName?.trim() || r.username,
+          subtitle: r.fullName?.trim() ? r.username : null,
+          imageUrl: r.avatarUrl ?? null,
+        });
+      }
+    }
+    if (groupsRes.status === 'fulfilled' && groupsRes.value.ok) {
+      const rows = (await groupsRes.value.json()) as Array<{
+        id: string;
+        title: string;
+        description?: string | null;
+        thumbnailUrl?: string | null;
+      }>;
+      for (const r of rows) {
+        out.push({
+          id: `group:${r.id}`,
+          title: r.title,
+          subtitle: r.description ?? null,
+          imageUrl: r.thumbnailUrl ?? null,
+        });
+      }
+    }
+    return out;
+  }
+
+  return (
+    <Dialog open onOpenChange={(next) => (next ? undefined : onClose())}>
+      <DialogContent hideCloseButton srTitle={t('items.shareSelectedTitle')}>
+        <div className="border-b border-border px-4 py-3">
+          <h3 className="flex items-center gap-2 text-base font-semibold">
+            <UsersIcon className="h-4 w-4" />
+            {t('items.shareSelectedTitle')}
+          </h3>
+          <p className="mt-1 text-xs text-muted">
+            {t('items.shareSelectedBody', { count })}
+          </p>
+        </div>
+
+        <div className="space-y-3 px-4 py-4 text-sm">
+          {/* Share-target tabs: pick a user/group OR raise the
+              item's own access level. Org and Public are
+              non-additive: every selected item's access field is
+              flipped to the chosen tier in one PATCH per item.
+              Existing per-share rows on those items are left
+              untouched -- this is purely the visibility floor. */}
+          <div className="grid grid-cols-3 gap-1 rounded-md border border-border bg-surface-1 p-0.5">
+            {(
+              [
+                { key: 'principal', label: t('items.shareTabPrincipal') },
+                { key: 'org', label: t('items.shareTabOrg') },
+                { key: 'public', label: t('sharing.access.public') },
+              ] as const
+            ).map((opt) => (
+              <button
+                key={opt.key}
+                type="button"
+                onClick={() => setMode(opt.key)}
+                className={`rounded px-2 py-1 text-xs ${
+                  mode === opt.key
+                    ? 'bg-accent text-white'
+                    : 'text-muted hover:bg-surface-2 hover:text-ink-1'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+
+          {mode === 'org' ? (
+            <p className="text-xs text-muted">
+              {t('items.shareOrgBody', { count })}
+            </p>
+          ) : mode === 'public' ? (
+            <p className="text-xs text-muted">
+              {t('items.sharePublicBody', { count })}
+            </p>
+          ) : null}
+
+          {/* #80 parity: tier-level Geographic-scope picker. Same
+              affordance the per-item Sharing panel exposes. Only
+              renders for org / public modes (private has no tier
+              path to clip). The clip is enforced at the API layer;
+              data outside the boundary is not returned for that
+              tier. */}
+          {mode === 'org' || mode === 'public' ? (
+            <div className="rounded-md border border-border bg-surface-2 px-3 py-2">
+              <label
+                htmlFor={`bulk-boundary-${mode}`}
+                className="block text-2xs font-medium uppercase tracking-wide text-muted"
+              >
+                {t('items.geographicScope')}
+              </label>
+              <select
+                id={`bulk-boundary-${mode}`}
+                value={
+                  mode === 'public'
+                    ? publicBoundaryId ?? ''
+                    : orgBoundaryId ?? ''
+                }
+                onChange={(e) => {
+                  const v = e.target.value || null;
+                  if (mode === 'public') setPublicBoundaryId(v);
+                  else setOrgBoundaryId(v);
+                }}
+                disabled={geoBoundaries.length === 0}
+                className="mt-1 h-8 w-full rounded-md border border-border bg-surface-1 px-2 text-xs text-ink-1 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <option value="">
+                  {geoBoundaries.length === 0
+                    ? t('items.noBoundaryItems')
+                    : t('items.noScope')}
+                </option>
+                {geoBoundaries.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.title}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1.5 text-2xs text-muted">
+                {t('items.geoScopeHint', {
+                  via:
+                    mode === 'public'
+                      ? t('items.geoScopeViaPublic')
+                      : t('items.geoScopeViaOrg'),
+                })}
+              </p>
+            </div>
+          ) : null}
+
+          {mode !== 'principal' ? null : (
+          <div>
+            <span className="mb-1 block text-2xs font-medium uppercase tracking-wide text-muted">
+              {t('items.recipient')}
+            </span>
+            {picked ? (
+              <div className="flex items-center gap-2 rounded border border-border bg-surface-1 px-2 py-1.5 text-xs">
+                <span className="flex-1 truncate text-ink-0">
+                  {picked.title}
+                  {picked.id.startsWith('group:') ? (
+                    <span className="ml-1 text-2xs uppercase tracking-wide text-muted">
+                      {t('items.groupTag')}
+                    </span>
+                  ) : null}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setPicked(null)}
+                  className="h-6 rounded border border-border bg-surface-1 px-2 text-2xs text-muted hover:bg-surface-2 hover:text-ink-1"
+                >
+                  {t('items.clear')}
+                </button>
+              </div>
+            ) : (
+              <PrincipalPicker
+                placeholder={t('items.searchUserOrGroup')}
+                search={search}
+                onPick={setPicked}
+                emptyMessage={t('items.noMatchingUsersOrGroups')}
+                emptyInitialMessage={t('items.startTypingName')}
+              />
+            )}
+          </div>
+          )}
+
+          {mode !== 'principal' ? null : (
+          <div>
+            <span className="mb-1 block text-2xs font-medium uppercase tracking-wide text-muted">
+              {t('items.permission')}
+            </span>
+            <div className="grid grid-cols-2 gap-1">
+              {(['view', 'download', 'edit', 'admin'] as const).map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setPermission(p)}
+                  className={`rounded border px-2 py-1 text-left text-xs transition-colors ${
+                    permission === p
+                      ? 'border-accent bg-accent/5 text-ink-0'
+                      : 'border-border bg-surface-1 text-ink-1 hover:bg-surface-2'
+                  }`}
+                >
+                  <div className="font-medium capitalize">
+                    {t(`sharing.permission.${p}`)}
+                  </div>
+                  <div className="text-2xs text-muted">
+                    {t(`items.permissionDesc.${p}`)}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+          )}
+
+          {/* Optional expiry (#84). Default Never. The picker
+              writes ISO date strings, which the server stores
+              against expires_at on each share row. */}
+          {mode !== 'principal' ? null : (
+          <div>
+            <span className="mb-1 block text-2xs font-medium uppercase tracking-wide text-muted">
+              {t('sharing.expires')}
+            </span>
+            <ShareExpiryPicker
+              value={expiresAt}
+              onChange={(next) => setExpiresAt(next)}
+              variant="full"
+            />
+          </div>
+          )}
+        </div>
+
+        <div className="flex items-center justify-end gap-2 border-t border-border px-4 py-3">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={saving}
+            className="h-9 rounded-md border border-border bg-surface-1 px-3 text-sm text-ink-1 hover:bg-surface-2 disabled:opacity-50"
+          >
+            {t('common.cancel')}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (mode === 'principal') {
+                if (picked) void onSubmit(picked, permission, expiresAt);
+              } else {
+                // #80: pass the per-tier boundary along with the
+                // access flip. null when the user picked "no scope"
+                // explicitly clears any prior boundary on the
+                // affected items, matching the per-item picker
+                // semantics.
+                const boundaryId =
+                  mode === 'public' ? publicBoundaryId : orgBoundaryId;
+                void onSubmitAccess(mode, boundaryId);
+              }
+            }}
+            disabled={saving || (mode === 'principal' && !picked)}
+            className="h-9 rounded-md bg-accent px-3 text-sm font-medium text-white hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {saving ? (
+              <span className="inline-flex items-center gap-1.5">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                {t('items.sharingProgress')}
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5">
+                <Check className="h-3.5 w-3.5" />
+                {mode === 'principal'
+                  ? t('items.share')
+                  : mode === 'org'
+                    ? t('items.makeOrgVisible')
+                    : t('items.makePublic')}
+              </span>
+            )}
+          </button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * Confirmation dialog for the bulk move-to-trash action (#77). The
+ * action is reversible (items go to the recycle bin and stay there
+ * for the retention window) but a confirm step is still warranted
+ * because the items disappear from the live list. The dialog leans
+ * into "you can undo" copy so the user isn't anxious about a
+ * misclick.
+ */
+function BulkTrashDialog({
+  count,
+  itemIds,
+  saving,
+  onConfirm,
+  onClose,
+}: {
+  count: number;
+  /** Selection ids passed through to the dependents warning (#78)
+   *  so the dialog can show what will lose its reference if the
+   *  user confirms. */
+  itemIds: string[];
+  saving: boolean;
+  onConfirm: () => void | Promise<void>;
+  onClose: () => void;
+}) {
+  const t = useT();
+  return (
+    <Dialog open onOpenChange={(next) => (next ? undefined : onClose())}>
+      <DialogContent hideCloseButton srTitle={t('items.bulkTrashTitle')}>
+        <div className="border-b border-border px-4 py-3">
+          <h3 className="flex items-center gap-2 text-base font-semibold">
+            <Trash2 className="h-4 w-4 text-danger" />
+            {t('items.bulkTrashHeading', { count })}
+          </h3>
+        </div>
+        <div className="px-4 py-4 text-sm">
+          <p className="text-ink-1">
+            {t('items.bulkTrashBody', { count })}
+          </p>
+          <p className="mt-2 text-xs text-muted">
+            {t('items.skippedHint')}
+          </p>
+          {/* Aggregated warning: any other items in the org that
+              reference one or more of the selection. The component
+              filters out dependents that are themselves in the
+              selection (those are trashing too). (#78) */}
+          <DependentsWarning itemIds={itemIds} />
+        </div>
+        <div className="flex items-center justify-end gap-2 border-t border-border px-4 py-3">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={saving}
+            className="h-9 rounded-md border border-border bg-surface-1 px-3 text-sm text-ink-1 hover:bg-surface-2 disabled:opacity-50"
+          >
+            {t('common.cancel')}
+          </button>
+          <button
+            type="button"
+            onClick={() => void onConfirm()}
+            disabled={saving}
+            className="h-9 rounded-md bg-danger px-3 text-sm font-medium text-white hover:bg-danger/90 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {saving ? (
+              <span className="inline-flex items-center gap-1.5">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                {t('items.movingProgress')}
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5">
+                <Trash2 className="h-3.5 w-3.5" />
+                {t('items.moveToTrash')}
+              </span>
+            )}
+          </button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
+/**
+ * Render a one-line "Area:" chip subtitle from the captured bbox +
+ * buffer. The bbox alone is too noisy (4 floats) for a chip, so we
+ * collapse it into "centered at lat,lon, ~Wkm wide" plus the buffer
+ * if any. Coordinates rounded to 2 decimals (~1km of precision).
+ */
+function formatAreaLabel(
+  bbox: [number, number, number, number],
+  bufferKm: number,
+  t: TranslateFn,
+): string {
+  const [w, s, e, n] = bbox;
+  const cx = (w + e) / 2;
+  const cy = (s + n) / 2;
+  // Rough width in km: 1 deg lon at the centre's latitude is
+  // 111.32 * cos(lat). Width is in degrees.
+  const latRad = (cy * Math.PI) / 180;
+  const widthKm = Math.max(1, Math.round((e - w) * 111.32 * Math.cos(latRad)));
+  const center = `${cy.toFixed(2)}, ${cx.toFixed(2)}`;
+  const tail = bufferKm > 0 ? t('items.areaBuffer', { km: bufferKm }) : '';
+  return t('items.areaLabel', { center, width: widthKm, buffer: tail });
+}
+
+/**
+ * Comparator shared by every sort mode. Tie-break on id so the ordering
+ * is deterministic when two items have the same sort key.
+ */
+function compareItems(
+  a: ItemWithShares,
+  b: ItemWithShares,
+  mode: SortBy,
+): number {
+  switch (mode) {
+    case 'title-asc':
+      return a.title.localeCompare(b.title) || a.id.localeCompare(b.id);
+    case 'title-desc':
+      return b.title.localeCompare(a.title) || a.id.localeCompare(b.id);
+    case 'created-desc':
+      return (
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime() ||
+        a.id.localeCompare(b.id)
+      );
+    case 'created-asc':
+      return (
+        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime() ||
+        a.id.localeCompare(b.id)
+      );
+    case 'updated-asc':
+      return (
+        new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime() ||
+        a.id.localeCompare(b.id)
+      );
+    case 'updated-desc':
+    default:
+      return (
+        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime() ||
+        a.id.localeCompare(b.id)
+      );
+  }
+}
+
+interface ToolbarProps {
+  viewMode: ViewMode;
+  onViewMode: (next: ViewMode) => void;
+  groupBy: GroupBy;
+  onGroupBy: (next: GroupBy) => void;
+  sortBy: SortBy;
+  onSortBy: (next: SortBy) => void;
+  typeFilter: Set<ItemType>;
+  typeCounts: Array<[ItemType, number]>;
+  onToggleType: (t: ItemType) => void;
+  templateFilter: Set<WebAppTemplate>;
+  templateCounts: Array<[WebAppTemplate, number]>;
+  onToggleTemplate: (t: WebAppTemplate) => void;
+  onClearFilters: () => void;
+  totalCount: number;
+  filteredCount: number;
+  areaActive: boolean;
+  areaActiveLabel: string | null;
+  areaPanelOpen: boolean;
+  onToggleAreaPanel: () => void;
+  onClearAreaSearch: () => void;
+  /** #87: owner facet props plumbed through from ItemsView. */
+  ownerFilter: Set<string>;
+  ownerCounts: Array<[string, number]>;
+  ownerLabels: Record<string, string>;
+  onToggleOwner: (userId: string) => void;
+  /** Access facet props plumbed through from ItemsView. */
+  accessFilter: Set<ItemAccess>;
+  accessCounts: Array<[ItemAccess, number]>;
+  onToggleAccess: (a: ItemAccess) => void;
+}
+
+function Toolbar({
+  viewMode,
+  onViewMode,
+  groupBy,
+  onGroupBy,
+  sortBy,
+  onSortBy,
+  typeFilter,
+  typeCounts,
+  onToggleType,
+  templateFilter,
+  templateCounts,
+  onToggleTemplate,
+  onClearFilters,
+  totalCount,
+  filteredCount,
+  areaActive,
+  areaActiveLabel,
+  areaPanelOpen,
+  onToggleAreaPanel,
+  onClearAreaSearch,
+  ownerFilter,
+  ownerCounts,
+  ownerLabels,
+  onToggleOwner,
+  accessFilter,
+  accessCounts,
+  onToggleAccess,
+}: ToolbarProps) {
+  const t = useT();
+  // Active-filter labels for the inline summary chip below the
+  // toolbar. Type labels resolve through getItemTypeLabel so the
+  // user-facing copy matches the rest of the UI ("Map" not
+  // "web_map"). The "Area" entry is a fixed string; the area's
+  // bbox/buffer detail lives in the popover, not the summary chip,
+  // since the chip is meant to be glanceable, not informative.
+  const summaryParts: Array<{ key: string; label: string; onClear: () => void }> = [];
+  if (typeFilter.size > 0) {
+    const labels = Array.from(typeFilter)
+      .map((t) => getItemTypeLabel(t))
+      .sort()
+      .join(', ');
+    summaryParts.push({
+      key: 'type',
+      label: t('items.summaryType', { labels }),
+      onClear: onClearFilters,
+    });
+  }
+  if (templateFilter.size > 0) {
+    // Template values are short ('editor' today, viewer/survey-
+    // response/custom in the roadmap). Capitalize for display so
+    // they read as proper names rather than raw enum literals.
+    const labels = Array.from(templateFilter)
+      .map((t) => t.charAt(0).toUpperCase() + t.slice(1))
+      .sort()
+      .join(', ');
+    summaryParts.push({
+      key: 'template',
+      label: t('items.summaryTemplate', { labels }),
+      onClear: onClearFilters,
+    });
+  }
+  if (areaActive && areaActiveLabel) {
+    summaryParts.push({
+      key: 'area',
+      label: t('items.summaryArea', { label: areaActiveLabel }),
+      onClear: onClearAreaSearch,
+    });
+  }
+
+  return (
+    <div className="mb-4 space-y-2">
+      {/* Single toolbar row: view toggle, Filter pill, group-by,
+          sort, and the showing-N summary right-aligned. The chip
+          strip that used to live below this row has been folded
+          into the FilterPopover. */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="inline-flex overflow-hidden rounded-md border border-border bg-surface-1">
+          <button
+            type="button"
+            onClick={() => onViewMode('card')}
+            aria-pressed={viewMode === 'card'}
+            className={`inline-flex h-8 items-center gap-1 px-2 text-xs ${
+              viewMode === 'card'
+                ? 'bg-accent/10 text-accent'
+                : 'text-muted hover:bg-surface-2 hover:text-ink-1'
+            }`}
+            title={t('items.cardView')}
+          >
+            <Grid3x3 className="h-3.5 w-3.5" />
+            {t('items.cards')}
+          </button>
+          <button
+            type="button"
+            onClick={() => onViewMode('list')}
+            aria-pressed={viewMode === 'list'}
+            className={`inline-flex h-8 items-center gap-1 border-l border-border px-2 text-xs ${
+              viewMode === 'list'
+                ? 'bg-accent/10 text-accent'
+                : 'text-muted hover:bg-surface-2 hover:text-ink-1'
+            }`}
+            title={t('items.listView')}
+          >
+            <ListIcon className="h-3.5 w-3.5" />
+            {t('items.list')}
+          </button>
+        </div>
+
+        <FilterPopover
+          typeFilter={typeFilter}
+          typeCounts={typeCounts}
+          onToggleType={onToggleType}
+          templateFilter={templateFilter}
+          templateCounts={templateCounts}
+          onToggleTemplate={onToggleTemplate}
+          onClearTypes={onClearFilters}
+          areaActive={areaActive}
+          areaPanelOpen={areaPanelOpen}
+          onToggleAreaPanel={onToggleAreaPanel}
+          onClearAreaSearch={onClearAreaSearch}
+          ownerFilter={ownerFilter}
+          ownerCounts={ownerCounts}
+          ownerLabels={ownerLabels}
+          onToggleOwner={onToggleOwner}
+          accessFilter={accessFilter}
+          accessCounts={accessCounts}
+          onToggleAccess={onToggleAccess}
+        />
+
+        <label className="inline-flex items-center gap-1.5 text-xs text-muted">
+          {t('items.groupBy')}
+          <select
+            value={groupBy}
+            onChange={(e) => onGroupBy(e.target.value as GroupBy)}
+            className="h-8 rounded-md border border-border bg-surface-1 px-2 text-xs text-ink-1 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/30"
+          >
+            <option value="none">{t('items.groupNone')}</option>
+            <option value="type">{t('items.groupTypeOption')}</option>
+            <option value="access">{t('items.groupAccessOption')}</option>
+          </select>
+        </label>
+
+        <label className="inline-flex items-center gap-1.5 text-xs text-muted">
+          {t('items.sortLabel')}
+          <select
+            value={sortBy}
+            onChange={(e) => onSortBy(e.target.value as SortBy)}
+            className="h-8 rounded-md border border-border bg-surface-1 px-2 text-xs text-ink-1 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/30"
+          >
+            {SORT_KEYS.map((value) => (
+              <option key={value} value={value}>
+                {sortLabel(t, value)}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <p className="ml-auto text-xs text-muted">
+          {filteredCount === totalCount
+            ? t('items.itemCount', { count: totalCount })
+            : t('items.filteredOfTotal', {
+                filtered: filteredCount,
+                total: totalCount,
+              })}
+        </p>
+      </div>
+
+      {/* Inline active-filter summary. Surfaces what's filtering the
+          grid without forcing the user to open the popover, and gives
+          a one-click clear per group. Renders nothing when no filters
+          are applied so the toolbar row stays the only chrome. */}
+      {summaryParts.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {summaryParts.map((part) => (
+            <span
+              key={part.key}
+              className="inline-flex h-7 items-center gap-1.5 rounded-full border border-accent/30 bg-accent/5 px-2 text-2xs text-ink-1"
+            >
+              {part.key === 'area' ? (
+                <Crosshair className="h-3 w-3 text-accent" />
+              ) : (
+                <SlidersHorizontal className="h-3 w-3 text-accent" />
+              )}
+              {part.label}
+              <button
+                type="button"
+                onClick={part.onClear}
+                className="ml-0.5 -mr-1 inline-flex h-5 w-5 items-center justify-center rounded-full text-muted hover:bg-surface-2 hover:text-ink-1"
+                aria-label={t('items.clearFilter', { filter: part.key })}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
+interface BodyProps {
+  items: ItemWithShares[];
+  viewMode: ViewMode;
+  groupBy: GroupBy;
+  currentUser: { id: string; orgRole: string };
+  selected: Set<string>;
+  manageableIds: Set<string>;
+  onToggleSelected: (id: string) => void;
+  onToggleAll: () => void;
+  /** Per-row kebab actions (#82). Forwarded all the way down to
+   *  ItemGrid; ItemRowMenu invokes them. */
+  onPreview: (item: ItemWithShares) => void;
+  onRowShare: (item: ItemWithShares) => void;
+  onRowMoveToFolder: (item: ItemWithShares) => void;
+  onRowMoveToTrash: (item: ItemWithShares) => void;
+  /** Optional "remove from this folder" action -- only set when
+   *  the user is browsing inside a folder context (#92). */
+  onRowRemoveFromFolder?: ((item: ItemWithShares) => void) | undefined;
+  /** Title of the folder we're inside; used in the kebab label. */
+  activeFolderTitle?: string | undefined;
+  /** #91: tag-click + active set propagated down to each card. */
+  onTagClick?: (tag: string) => void;
+  activeTags?: ReadonlySet<string>;
+}
+
+function ItemsBody({
+  items,
+  viewMode,
+  groupBy,
+  currentUser,
+  selected,
+  manageableIds,
+  onToggleSelected,
+  onToggleAll,
+  onPreview,
+  onRowShare,
+  onRowMoveToFolder,
+  onRowMoveToTrash,
+  onRowRemoveFromFolder,
+  activeFolderTitle,
+  onTagClick,
+  activeTags,
+}: BodyProps) {
+  const t = useT();
+  if (items.length === 0) {
+    return (
+      <div className="rounded-lg border border-dashed border-border bg-surface-1 px-6 py-10 text-center text-sm text-muted">
+        {t('items.noItemsMatch')}
+      </div>
+    );
+  }
+
+  if (groupBy === 'none') {
+    return (
+      <ItemGrid
+        items={items}
+        viewMode={viewMode}
+        currentUser={currentUser}
+        selected={selected}
+        manageableIds={manageableIds}
+        onToggleSelected={onToggleSelected}
+        onToggleAll={onToggleAll}
+        onPreview={onPreview}
+        onRowShare={onRowShare}
+        onRowMoveToFolder={onRowMoveToFolder}
+        onRowMoveToTrash={onRowMoveToTrash}
+        {...(onRowRemoveFromFolder
+          ? { onRowRemoveFromFolder }
+          : {})}
+        {...(activeFolderTitle
+          ? { activeFolderTitle }
+          : {})}
+        {...(onTagClick ? { onTagClick } : {})}
+        {...(activeTags ? { activeTags } : {})}
+      />
+    );
+  }
+
+  // Group and render a section per bucket. Buckets are ordered
+  // alphabetically by their display label so a returning user
+  // can scan to a known group without thinking; the per-group
+  // sort dropdown handles ordering of items inside.
+  const buckets = new Map<string, ItemWithShares[]>();
+  for (const it of items) {
+    const key = groupBy === 'type' ? it.type : it.access;
+    const arr = buckets.get(key) ?? [];
+    arr.push(it);
+    buckets.set(key, arr);
+  }
+  const labelFor = (key: string) =>
+    groupBy === 'type'
+      ? getItemTypeLabel(key as ItemType)
+      : t(`sharing.access.${key}`);
+  const ordered = Array.from(buckets.entries()).sort((a, b) =>
+    labelFor(a[0]).localeCompare(labelFor(b[0]), undefined, {
+      sensitivity: 'base',
+    }),
+  );
+
+  return (
+    <div className="space-y-6">
+      {ordered.map(([key, group]) => {
+        const label = labelFor(key);
+        return (
+          <section key={key}>
+            <h2 className="mb-2 flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-muted">
+              {label}
+              <span className="text-muted">({group.length})</span>
+            </h2>
+            <ItemGrid
+              items={group}
+              viewMode={viewMode}
+              currentUser={currentUser}
+              selected={selected}
+              manageableIds={manageableIds}
+              onToggleSelected={onToggleSelected}
+              onToggleAll={onToggleAll}
+              onPreview={onPreview}
+              onRowShare={onRowShare}
+              onRowMoveToFolder={onRowMoveToFolder}
+              onRowMoveToTrash={onRowMoveToTrash}
+              {...(onRowRemoveFromFolder
+                ? { onRowRemoveFromFolder }
+                : {})}
+              {...(activeFolderTitle ? { activeFolderTitle } : {})}
+              {...(onTagClick ? { onTagClick } : {})}
+              {...(activeTags ? { activeTags } : {})}
+            />
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
+interface GridProps {
+  items: ItemWithShares[];
+  viewMode: ViewMode;
+  currentUser: { id: string; orgRole: string };
+  selected: Set<string>;
+  manageableIds: Set<string>;
+  onToggleSelected: (id: string) => void;
+  onToggleAll: () => void;
+  /** Per-row kebab actions (#82). */
+  onPreview: (item: ItemWithShares) => void;
+  onRowShare: (item: ItemWithShares) => void;
+  onRowMoveToFolder: (item: ItemWithShares) => void;
+  onRowMoveToTrash: (item: ItemWithShares) => void;
+  /** Optional remove-from-folder action when browsing inside a
+   *  folder context (#92). */
+  onRowRemoveFromFolder?: ((item: ItemWithShares) => void) | undefined;
+  /** Folder title for the kebab item label. */
+  activeFolderTitle?: string | undefined;
+  /** #91: tag-click handler + active tag set for the chip strip
+   *  on each card. Click toggles tag membership in the parent's
+   *  filter set; active tags render with the accent treatment. */
+  onTagClick?: (tag: string) => void;
+  activeTags?: ReadonlySet<string>;
+}
+
+function ItemGrid({
+  items,
+  viewMode,
+  currentUser,
+  selected,
+  manageableIds,
+  onToggleSelected,
+  onToggleAll,
+  onPreview,
+  onRowShare,
+  onRowMoveToFolder,
+  onRowMoveToTrash,
+  onRowRemoveFromFolder,
+  activeFolderTitle,
+  onTagClick,
+  activeTags,
+}: GridProps) {
+  const t = useT();
+  if (viewMode === 'card') {
+    return (
+      <div className="grid auto-rows-fr gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {items.map((item) => {
+          const canManage =
+            currentUser.id === item.ownerId || currentUser.orgRole === 'admin';
+          // Template-aware so Editor / Viewer / Survey / Custom each
+          // get their own icon instead of generic Sparkles.
+          const Icon = getItemDisplayIcon(item);
+          return (
+            <div
+              key={item.id}
+              className="group relative"
+              draggable
+              onDragStart={(e) => {
+                // Drag-into-folder support (#43). The folder rail
+                // listens for this MIME type; non-folder drop
+                // targets get a no-op since browsers ignore unknown
+                // MIME entries on dataTransfer.
+                e.dataTransfer.setData(ITEM_DRAG_MIME, item.id);
+                e.dataTransfer.setData('text/plain', item.title);
+                e.dataTransfer.effectAllowed = 'move';
+              }}
+            >
+              {canManage ? (
+                <label
+                  // Absolute-positioned checkbox so it sits on top of
+                  // the card thumbnail without disrupting the grid
+                  // cell math. Stops propagation so ticking doesn't
+                  // also trigger the card's navigation link.
+                  className={`absolute left-2 top-2 z-10 flex h-6 w-6 cursor-pointer items-center justify-center rounded border bg-surface-1/90 backdrop-blur transition-opacity ${
+                    selected.has(item.id)
+                      ? 'border-accent opacity-100'
+                      : 'border-border opacity-0 group-hover:opacity-100'
+                  }`}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selected.has(item.id)}
+                    onChange={() => onToggleSelected(item.id)}
+                    className="h-3.5 w-3.5"
+                    aria-label={t('items.selectItem', { title: item.title })}
+                  />
+                </label>
+              ) : null}
+              {/* Card-view kebab. Top-right, opacity-on-hover so it
+                  doesn't crowd the card chrome at rest. (#82) */}
+              <div
+                className="absolute right-2 top-2 z-10 rounded bg-surface-1/90 opacity-0 backdrop-blur transition-opacity group-hover:opacity-100"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ItemRowMenu
+                  itemId={item.id}
+                  itemType={item.type}
+                  itemData={item.data}
+                  canManage={canManage}
+                  onPreview={() => onPreview(item)}
+                  onShare={canManage ? () => onRowShare(item) : undefined}
+                  onMoveToFolder={
+                    canManage ? () => onRowMoveToFolder(item) : undefined
+                  }
+                  onMoveToTrash={
+                    canManage ? () => onRowMoveToTrash(item) : undefined
+                  }
+                  onRemoveFromFolder={
+                    canManage && onRowRemoveFromFolder
+                      ? () => onRowRemoveFromFolder(item)
+                      : undefined
+                  }
+                  folderTitle={activeFolderTitle}
+                />
+              </div>
+              <ItemCard
+                item={item}
+                href={getItemHref(item)}
+                // Runnable items (Editor / Viewer / Survey / Custom
+                // / data_collection) open in a new tab so the user
+                // keeps the portal tab as a back-nav anchor (#314).
+                openInNewTab={hasRuntime(item)}
+                fallbackIcon={<Icon />}
+                {...(onTagClick ? { onTagClick } : {})}
+                {...(activeTags ? { activeTags } : {})}
+                headerExtra={
+                  <ItemSharingIndicator
+                    itemId={item.id}
+                    itemTitle={item.title}
+                    access={item.access}
+                    shares={item.shares}
+                    canManage={canManage}
+                    currentUserId={currentUser.id}
+                    stopParentLink
+                  />
+                }
+              />
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  // List view: compact rows in a CSS grid so every column (checkbox,
+  // icon, title/desc, type, updated-at, sharing, chevron) aligns
+  // vertically across rows. A checkbox column was prepended to support
+  // bulk select + reassign; it's a fixed 1.5rem-wide column so the
+  // layout is pixel-stable whether or not the user has admin rights
+  // on any given row.
+  const allManageableSelected =
+    manageableIds.size > 0 &&
+    Array.from(manageableIds).every((id) => selected.has(id));
+  return (
+    <ul className="divide-y divide-border rounded-lg border border-border bg-surface-1">
+      {/* Header row. Grid template has an extra 1.5rem leading column
+          for the checkbox. The "select all visible" checkbox only
+          appears when the current user can manage at least one row
+          in this group: otherwise it'd be a no-op. */}
+      {/* Columns are added as the width to hold them appears, rather
+          than all at once. The eight-track layout needs about 696px of
+          CONTENT width (68px of fixed tracks, 128 + 128 + 112 + 144 of
+          columns, seven 12px gaps, 32px of padding) but it used to
+          switch on at the sm breakpoint, which is 640px of VIEWPORT,
+          and the list sits inside a max-w-7xl page beside a 224px
+          folder rail. At 800px that left roughly 510px for a template
+          asking for 696, and since the title track is minmax(0,1fr) it
+          is the one that collapses: it resolved to zero width, so the
+          header printed "TITMYPE" and every row showed its type where
+          its title should be. Present but invisible, on a range of
+          widths that includes any laptop at half screen.
+
+          Each tier's template must list exactly the children that are
+          not `hidden` at that tier, in DOM order, because `hidden` is
+          display:none and drops out of grid flow entirely. */}
+      <li className="hidden grid-cols-[1.5rem_1rem_minmax(0,1fr)_8rem_1.75rem] items-center gap-3 border-b border-border bg-surface-2 px-4 py-1.5 text-2xs font-medium uppercase tracking-wide text-muted md:grid lg:grid-cols-[1.5rem_1rem_minmax(0,1fr)_8rem_7rem_1.75rem] xl:grid-cols-[1.5rem_1rem_minmax(0,1fr)_8rem_8rem_7rem_9rem_1.75rem]">
+        {manageableIds.size > 0 ? (
+          <input
+            type="checkbox"
+            checked={allManageableSelected}
+            onChange={onToggleAll}
+            className="h-3.5 w-3.5 cursor-pointer"
+            aria-label={t('items.selectAll')}
+          />
+        ) : (
+          <span className="h-3.5 w-3.5" aria-hidden="true" />
+        )}
+        <span className="h-4 w-4" aria-hidden="true" />
+        <span>{t('items.colTitle')}</span>
+        <span>{t('items.colType')}</span>
+        <span className="hidden xl:block">{t('items.colOwner')}</span>
+        <span className="hidden lg:block">{t('items.colUpdated')}</span>
+        <span className="hidden xl:block">{t('sharing.sharing')}</span>
+        <span className="h-3.5 w-3.5" aria-hidden="true" />
+      </li>
+      {items.map((item) => {
+        const canManage =
+          currentUser.id === item.ownerId || currentUser.orgRole === 'admin';
+        // Use the template-aware helpers so a web_app's template
+        // (Editor / Viewer / Survey / Custom) gets its own icon
+        // and label rather than the generic Sparkles + "Web app".
+        const Icon = getItemDisplayIcon(item);
+        const accent = getItemTypeAccent(item.type);
+        // Prefer the lean owner projection joined by the API. Fall
+        // back to a truncated id for pre-existing rows that somehow
+        // reach us without it (shouldn't happen in practice).
+        const ownerLabel = item.owner
+          ? item.owner.id === currentUser.id
+            ? t('items.ownerYou')
+            : (item.owner.fullName?.trim() || item.owner.username)
+          : item.ownerId.slice(0, 8);
+        const isSelected = selected.has(item.id);
+        return (
+          <li
+            key={item.id}
+            className={`group ${isSelected ? 'bg-accent/5' : ''}`}
+            draggable
+            onDragStart={(e) => {
+              // Mirrors the card-view drag (#43). Same MIME, same
+              // payload shape, so the rail's drop handler doesn't
+              // need to care which view the user dragged from.
+              e.dataTransfer.setData(ITEM_DRAG_MIME, item.id);
+              e.dataTransfer.setData('text/plain', item.title);
+              e.dataTransfer.effectAllowed = 'move';
+            }}
+          >
+            <div className="grid grid-cols-[1.5rem_1rem_minmax(0,1fr)_1.75rem] items-center gap-3 px-4 py-2.5 hover:bg-surface-2 md:grid-cols-[1.5rem_1rem_minmax(0,1fr)_8rem_1.75rem] lg:grid-cols-[1.5rem_1rem_minmax(0,1fr)_8rem_7rem_1.75rem] xl:grid-cols-[1.5rem_1rem_minmax(0,1fr)_8rem_8rem_7rem_9rem_1.75rem]">
+              {/* Checkbox: rendered as a label that swallows its own
+                  click so the row's Link doesn't fire under it. */}
+              {canManage ? (
+                <label
+                  className="flex h-6 w-6 -ml-1 cursor-pointer items-center justify-center"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => onToggleSelected(item.id)}
+                    className="h-3.5 w-3.5 cursor-pointer"
+                    aria-label={t('items.selectItem', { title: item.title })}
+                  />
+                </label>
+              ) : (
+                <span className="h-3.5 w-3.5" aria-hidden="true" />
+              )}
+              <Link
+                href={getItemHref(item)}
+                // #314: runnable items (Editor / Viewer / Survey /
+                // Custom / data_collection) open in a new tab so the
+                // user keeps the portal tab as their back-nav
+                // anchor; non-runnable types stay in the same tab
+                // since their detail page IS the portal-shaped view.
+                {...(hasRuntime(item)
+                  ? { target: '_blank', rel: 'noopener noreferrer' }
+                  : {})}
+                className="contents"
+                aria-label={item.title}
+              >
+                <Icon className={`h-4 w-4 shrink-0 ${accent}`} />
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-ink-0">
+                    {item.title}
+                  </p>
+                  {item.description ? (
+                    <p className="truncate text-xs text-muted">
+                      {item.description}
+                    </p>
+                  ) : null}
+                </div>
+                <p className="hidden truncate text-2xs text-muted md:block">
+                  {getItemDisplayLabel(item)}
+                </p>
+                <p
+                  className="hidden truncate text-2xs text-muted xl:block"
+                  title={item.owner?.username ?? item.ownerId}
+                >
+                  {ownerLabel}
+                </p>
+                <p className="hidden text-2xs text-muted lg:block">
+                  {new Date(item.updatedAt).toLocaleDateString()}
+                </p>
+              </Link>
+              {/* Sharing + kebab sit outside the Link so their click
+                  handlers don't propagate a navigation. The kebab
+                  replaces the row's old hover-chevron now that
+                  every row has actual actions. (#82) */}
+              <div className="hidden xl:block">
+                <ItemSharingIndicator
+                  itemId={item.id}
+                  itemTitle={item.title}
+                  access={item.access}
+                  shares={item.shares}
+                  canManage={canManage}
+                  currentUserId={currentUser.id}
+                  stopParentLink
+                />
+              </div>
+              <ItemRowMenu
+                itemId={item.id}
+                itemType={item.type}
+                canManage={canManage}
+                onPreview={() => onPreview(item)}
+                onShare={canManage ? () => onRowShare(item) : undefined}
+                onMoveToFolder={
+                  canManage ? () => onRowMoveToFolder(item) : undefined
+                }
+                onMoveToTrash={
+                  canManage ? () => onRowMoveToTrash(item) : undefined
+                }
+                onRemoveFromFolder={
+                  canManage && onRowRemoveFromFolder
+                    ? () => onRowRemoveFromFolder(item)
+                    : undefined
+                }
+                folderTitle={activeFolderTitle}
+              />
+            </div>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}

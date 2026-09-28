@@ -1,0 +1,1367 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+'use client';
+
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  AlertTriangle,
+  ChevronRight,
+  ExternalLink,
+  Layers,
+  Loader2,
+  Map as MapIcon,
+  PencilRuler,
+  Play,
+  Plus,
+  Settings,
+  Trash2,
+  Wrench,
+  X,
+} from 'lucide-react';
+import { BuilderShell } from '@/components/builder-shell/builder-shell';
+import Link from 'next/link';
+import type {
+  DataLayerData,
+  DataLayerSublayer,
+  EditorData,
+  EditorFeatureTemplate,
+  EditorTarget,
+  EditorTool,
+  Item,
+  WebAppData,
+} from '@gratis-gis/shared-types';
+import { DEFAULT_EDITOR_TOOLS } from '@gratis-gis/shared-types';
+import { AddTargetDialog } from './add-target-dialog';
+import { AddFromMapDialog } from './add-from-map-dialog';
+import { PickMapDialog } from './pick-map-dialog';
+import { ConvertToCustomButton } from '../convert-to-custom';
+
+interface Props {
+  itemId: string;
+  initial: EditorData;
+  canEdit: boolean;
+}
+
+/**
+ * Editor item detail page (slice 2).
+ *
+ * Lets the owner / admin pick which data_layer sublayers this Editor
+ * exposes, configure per-layer capabilities (create / edit-geometry /
+ * edit-attributes / delete + editable fields + row scope), pick the
+ * tool palette, and tweak snap settings.
+ *
+ * Authorization is conjunctive (see docs/editing-and-collection.md):
+ * this UI can NARROW from what the underlying data_layer's
+ * `editingEnabled` + `editingPolicy` allows, but never widen. The
+ * runtime (slice 3) re-checks at request time so a stale config that
+ * lists a now-disabled layer fails closed.
+ *
+ * Persistence: PATCH /api/portal/items/<id> with `{ data: editorData }`.
+ * Same shape and dirty/save flow used by every other detail editor
+ * (map-editor, geo-boundary-editor, folder-detail).
+ *
+ * Slice 3 will add:
+ *   - Map-reference picker (mapId) so the runtime can inherit a
+ *     basemap + viewport from a chosen Map item.
+ *   - Feature template authoring per target.
+ *   - The actual editing canvas runtime.
+ */
+export function EditorDetail({ itemId, initial, canEdit }: Props) {
+  // The working copy. We seed `tools` from the default palette when
+  // the persisted shape is older than slice 1 and missing the
+  // field, so users on legacy items see something instead of an
+  // empty palette.
+  const [editor, setEditor] = useState<EditorData>(() => ({
+    ...initial,
+    tools:
+      initial.tools && initial.tools.length > 0
+        ? initial.tools
+        : DEFAULT_EDITOR_TOOLS,
+  }));
+  const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [pickingMap, setPickingMap] = useState(false);
+  const [addingFromMap, setAddingFromMap] = useState(false);
+
+  // Resolved title for the referenced map (for the reference-map
+  // chip). Fetched once when mapId changes; the editor stores only
+  // the id, not a denormalized title, so a rename of the map flows
+  // through automatically.
+  const [mapTitle, setMapTitle] = useState<string | null>(null);
+  const [mapMissing, setMapMissing] = useState(false);
+  useEffect(() => {
+    if (!editor.mapId) {
+      setMapTitle(null);
+      setMapMissing(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/portal/items/${editor.mapId}`);
+        if (cancelled) return;
+        if (!res.ok) {
+          setMapTitle(null);
+          setMapMissing(true);
+          return;
+        }
+        const item = (await res.json()) as Item;
+        setMapTitle(item.title);
+        setMapMissing(false);
+      } catch {
+        if (!cancelled) {
+          setMapTitle(null);
+          setMapMissing(true);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [editor.mapId]);
+
+  // Cache of resolved (item, sublayer) per target. Lets us render
+  // human-readable names + warn when a target points at a layer
+  // that has been deleted, renamed, or had editing turned off.
+  // Keyed by `<dataLayerId>:<layerKey>`.
+  const [resolved, setResolved] = useState<
+    Record<string, { item: Item; layer: DataLayerSublayer | null }>
+  >({});
+  const [resolving, setResolving] = useState(false);
+  const resolveSeqRef = useRef(0);
+
+  // Re-resolve metadata whenever the targets list changes ids.
+  // Fetches each unique data_layer in parallel and indexes the
+  // matched sublayer per target. Failures fall through to a
+  // "couldn't load" warning row in the UI.
+  useEffect(() => {
+    const ids = Array.from(new Set(editor.targets.map((t) => t.dataLayerId)));
+    if (ids.length === 0) {
+      setResolved({});
+      return;
+    }
+    const seq = ++resolveSeqRef.current;
+    setResolving(true);
+    let cancelled = false;
+    (async () => {
+      try {
+        const results = await Promise.all(
+          ids.map((id) =>
+            fetch(`/api/portal/items/${id}`)
+              .then((r) => (r.ok ? (r.json() as Promise<Item>) : null))
+              .catch(() => null),
+          ),
+        );
+        if (cancelled || resolveSeqRef.current !== seq) return;
+        const byId = new Map<string, Item>();
+        for (let i = 0; i < ids.length; i += 1) {
+          const it = results[i];
+          if (it) byId.set(ids[i]!, it);
+        }
+        const next: Record<string, { item: Item; layer: DataLayerSublayer | null }> = {};
+        for (const t of editor.targets) {
+          const key = `${t.dataLayerId}:${t.layerKey}`;
+          const item = byId.get(t.dataLayerId);
+          if (!item) continue;
+          const data = item.data as DataLayerData | undefined;
+          const layer =
+            data && data.version === 3
+              ? (data.layers.find((l) => l.id === t.layerKey) ?? null)
+              : null;
+          next[key] = { item, layer };
+        }
+        setResolved(next);
+      } finally {
+        if (!cancelled && resolveSeqRef.current === seq) setResolving(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [editor.targets]);
+
+  // Browser nag on unsaved changes. Same pattern as MapEditor.
+  useEffect(() => {
+    if (!dirty) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [dirty]);
+
+  const markDirty = useCallback(() => {
+    setDirty(true);
+    setSaved(false);
+  }, []);
+
+  function patchTarget(index: number, updater: (t: EditorTarget) => EditorTarget) {
+    setEditor((cur) => ({
+      ...cur,
+      targets: cur.targets.map((t, i) => (i === index ? updater(t) : t)),
+    }));
+    markDirty();
+  }
+
+  function removeTarget(index: number) {
+    setEditor((cur) => ({
+      ...cur,
+      targets: cur.targets.filter((_, i) => i !== index),
+    }));
+    markDirty();
+  }
+
+  function addTarget(input: {
+    dataLayerId: string;
+    layerKey: string;
+    layer: DataLayerSublayer;
+    dataLayerTitle: string;
+  }) {
+    // Sensible defaults derived from the picked layer:
+    //   - canCreate / delete / edit-attributes / edit-geometry default
+    //     to true (geometry only when the layer has a geometry type;
+    //     attribute-only related tables default canEditGeometry=false)
+    //   - editableFields starts as null = "all schema-editable fields"
+    //   - rowScope respects the layer's editingPolicy: own-rows-only
+    //     forces 'own' here so the picker reflects the binding
+    //     contract; the runtime would re-enforce server-side anyway.
+    const target: EditorTarget = {
+      dataLayerId: input.dataLayerId,
+      layerKey: input.layerKey,
+      canCreate: true,
+      canEditGeometry: input.layer.geometryType !== null,
+      canEditAttributes: true,
+      canDelete: true,
+      editableFields: null,
+      rowScope: input.layer.editingPolicy === 'own-rows-only' ? 'own' : 'all',
+      templates: [],
+    };
+    setEditor((cur) => ({ ...cur, targets: [...cur.targets, target] }));
+    // Pre-seed the resolved cache so the new card paints immediately
+    // without waiting for the metadata refetch.
+    setResolved((cur) => ({
+      ...cur,
+      [`${input.dataLayerId}:${input.layerKey}`]: {
+        item: {
+          id: input.dataLayerId,
+          title: input.dataLayerTitle,
+          // Synthesized minimum: only the fields the card touches
+          // are populated. Real values land on the next resolve
+          // pass.
+        } as unknown as Item,
+        layer: input.layer,
+      },
+    }));
+    markDirty();
+  }
+
+  /**
+   * Bulk-add targets from a referenced map's data_layer-backed
+   * layers (#103 / Option C). Each entry coming back from the
+   * dialog is already de-duped against the current `existingKeys`
+   * (the dialog disables already-target sublayers), but we still
+   * filter defensively here so a stale dialog state cannot
+   * insert a duplicate. Defaults match the "Add target" single-
+   * pick path: canCreate, canEditGeometry tied to geometry-type
+   * presence, attributes and delete on by default, editableFields
+   * starts as null = "all", rowScope respects own-rows-only
+   * binding.
+   */
+  function bulkAddFromMap(
+    additions: Array<{
+      dataLayerId: string;
+      layerKey: string;
+      layer: DataLayerSublayer;
+      dataLayerTitle: string;
+    }>,
+  ) {
+    if (additions.length === 0) return;
+    const seen = new Set(
+      editor.targets.map((t) => `${t.dataLayerId}:${t.layerKey}`),
+    );
+    const newTargets: EditorTarget[] = [];
+    const newResolved: typeof resolved = { ...resolved };
+    for (const a of additions) {
+      const key = `${a.dataLayerId}:${a.layerKey}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      newTargets.push({
+        dataLayerId: a.dataLayerId,
+        layerKey: a.layerKey,
+        canCreate: true,
+        canEditGeometry: a.layer.geometryType !== null,
+        canEditAttributes: true,
+        canDelete: true,
+        editableFields: null,
+        rowScope: a.layer.editingPolicy === 'own-rows-only' ? 'own' : 'all',
+        templates: [],
+      });
+      newResolved[key] = {
+        item: {
+          id: a.dataLayerId,
+          title: a.dataLayerTitle,
+        } as unknown as Item,
+        layer: a.layer,
+      };
+    }
+    if (newTargets.length === 0) return;
+    setEditor((cur) => ({ ...cur, targets: [...cur.targets, ...newTargets] }));
+    setResolved(newResolved);
+    markDirty();
+  }
+
+  /**
+   * Set the Editor's referenced map (basemap + reference-context
+   * source). Storing only the id keeps the link live: if the map
+   * is renamed or its layers change later, the editor picks that
+   * up on the next render. Pass null to clear.
+   */
+  function pickMap(mapId: string | null) {
+    setEditor((cur) => {
+      const next = { ...cur };
+      if (mapId === null) delete next.mapId;
+      else next.mapId = mapId;
+      return next;
+    });
+    markDirty();
+  }
+
+  function toggleTool(tool: EditorTool, on: boolean) {
+    setEditor((cur) => {
+      const set = new Set(cur.tools);
+      if (on) set.add(tool);
+      else set.delete(tool);
+      return { ...cur, tools: Array.from(set) };
+    });
+    markDirty();
+  }
+
+  function patchSnapping(patch: Partial<EditorData['snapping']>) {
+    setEditor((cur) => ({ ...cur, snapping: { ...cur.snapping, ...patch } }));
+    markDirty();
+  }
+
+  async function save() {
+    setError(null);
+    setSaving(true);
+    try {
+      // Wrap in the canonical WebAppData shape. The API replaces
+      // data_json wholesale, so sending raw EditorData would strip
+      // the `template` + `config` keys that isEditorItem /
+      // readEditorData rely on -- subsequent loads would route to
+      // the generic ComingSoon stub instead of the editor surface.
+      // Pre-existing #258 bug; same fix as the viewer detail save.
+      const payload: WebAppData = {
+        version: 1,
+        template: 'editor',
+        config: { template: 'editor', editor },
+      };
+      const res = await fetch(`/api/portal/items/${itemId}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ data: payload }),
+      });
+      if (!res.ok) {
+        setError(`Save failed: ${res.status} ${await res.text()}`);
+        return;
+      }
+      setDirty(false);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 1500);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function cancel() {
+    setEditor({
+      ...initial,
+      tools:
+        initial.tools && initial.tools.length > 0
+          ? initial.tools
+          : DEFAULT_EDITOR_TOOLS,
+    });
+    setDirty(false);
+    setError(null);
+  }
+
+  const existingKeys = useMemo(
+    () => new Set(editor.targets.map((t) => `${t.dataLayerId}:${t.layerKey}`)),
+    [editor.targets],
+  );
+
+  // #17 -- save bar moves to BuilderShell's toolbarRight slot.
+  const toolbarRight = (
+    <div className="flex items-center gap-2">
+      {canEdit && dirty ? (
+        <span className="rounded-full bg-warn/15 px-2 py-0.5 text-2xs font-medium text-warn">
+          Unsaved changes
+        </span>
+      ) : canEdit && saved ? (
+        <span className="text-2xs text-success">Saved</span>
+      ) : null}
+      <a
+        href={`/items/${itemId}/editor/run`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1 rounded-md border border-border bg-surface-1 px-3 py-1.5 text-sm font-medium hover:bg-surface-2"
+        title="Open this editor in a new tab"
+      >
+        <Play className="h-3.5 w-3.5" />
+        Open in workspace
+      </a>
+      {canEdit ? (
+        <>
+          <ConvertToCustomButton
+            itemId={itemId}
+            sourceTemplate="editor"
+            {...(editor.mapId ? { sourceMapId: editor.mapId } : {})}
+            sourceTargets={editor.targets}
+          />
+          <button
+            type="button"
+            onClick={cancel}
+            disabled={!dirty || saving}
+            className="rounded-md border border-border bg-surface-1 px-3 py-1.5 text-sm hover:bg-surface-2 disabled:opacity-50"
+          >
+            Discard
+          </button>
+          <button
+            type="button"
+            onClick={() => void save()}
+            disabled={!dirty || saving}
+            className="inline-flex items-center gap-1 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-accent/90 disabled:opacity-50"
+          >
+            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+            Save
+          </button>
+        </>
+      ) : null}
+    </div>
+  );
+
+  // Left rail = target layers + per-target policy editor.  This is
+  // the primary surface of an editor app; everything else (tools,
+  // snapping, reference map) wraps around the per-layer config.
+  const targetsPanel = (
+    <div className="space-y-3 p-3">
+      {canEdit ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setAddingFromMap(true)}
+            className="inline-flex items-center gap-1 rounded-md border border-border bg-surface-0 px-2 py-1 text-xs font-medium hover:bg-surface-2"
+            title="Bulk-import editable layers from a map"
+          >
+            <MapIcon className="h-3.5 w-3.5" />
+            Add from map
+          </button>
+          <button
+            type="button"
+            onClick={() => setAdding(true)}
+            className="inline-flex items-center gap-1 rounded-md border border-border bg-surface-0 px-2 py-1 text-xs font-medium hover:bg-surface-2"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Add target
+          </button>
+        </div>
+      ) : null}
+      <p className="text-2xs text-muted">
+        Layers exposed for editing. Each target narrows from what
+        the underlying data layer allows; the runtime re-checks
+        permissions per request.
+      </p>
+      {editor.targets.length === 0 ? (
+        <p className="rounded-md border border-dashed border-border px-3 py-4 text-center text-xs text-muted">
+          No target layers yet.
+          {canEdit ? ' Use "Add target" above.' : ''}
+        </p>
+      ) : (
+        <ul className="divide-y divide-border rounded-md border border-border bg-surface-0">
+          {editor.targets.map((target, index) => (
+            <TargetRow
+              key={`${target.dataLayerId}:${target.layerKey}`}
+              target={target}
+              resolved={
+                resolved[`${target.dataLayerId}:${target.layerKey}`] ?? null
+              }
+              resolving={resolving}
+              canEdit={canEdit}
+              onPatch={(updater) => patchTarget(index, updater)}
+              onRemove={() => removeTarget(index)}
+            />
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+
+  // Right rail = reference map + tool palette + snap settings.
+  // "Set once and forget" knobs that don't deserve primary space.
+  const settingsPanel = (
+    <div className="space-y-4 p-3">
+      <section>
+        <h3 className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted">
+          <MapIcon className="h-3.5 w-3.5" />
+          Reference map
+        </h3>
+        <p className="text-2xs text-muted">
+          The editor opens against this map's basemap + viewport.
+          Layers in the map that aren't editor targets render as
+          read-only reference context (snap targets, tracing aids).
+        </p>
+        {editor.mapId ? (
+          <div className="mt-2 flex items-center justify-between gap-2 rounded-md border border-border bg-surface-0 px-2 py-1.5">
+            <div className="flex min-w-0 items-center gap-2">
+              <MapIcon className="h-3.5 w-3.5 shrink-0 text-success" />
+              <span className="truncate text-xs font-medium text-ink-0">
+                {mapTitle ?? <span className="text-muted">Loading...</span>}
+              </span>
+              {mapMissing ? (
+                <span className="inline-flex items-center gap-1 rounded-full border border-warn/40 bg-warn/10 px-1.5 py-0.5 text-2xs font-medium text-warn">
+                  <AlertTriangle className="h-3 w-3" />
+                  Missing
+                </span>
+              ) : null}
+              {!mapMissing && mapTitle ? (
+                <Link
+                  href={`/items/${editor.mapId}`}
+                  className="inline-flex shrink-0 items-center gap-1 text-2xs text-muted hover:text-accent"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                </Link>
+              ) : null}
+            </div>
+            {canEdit ? (
+              <button
+                type="button"
+                onClick={() => pickMap(null)}
+                className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted hover:bg-surface-2 hover:text-danger"
+                aria-label="Clear reference map"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            ) : null}
+          </div>
+        ) : (
+          <p className="mt-2 rounded-md border border-dashed border-border px-2 py-2 text-2xs text-muted">
+            No reference map.
+            {canEdit
+              ? ' Without one, the editor opens on a default basemap.'
+              : ''}
+          </p>
+        )}
+        {canEdit ? (
+          <button
+            type="button"
+            onClick={() => setPickingMap(true)}
+            className="mt-2 inline-flex items-center gap-1 rounded-md border border-border bg-surface-0 px-2 py-1 text-xs font-medium hover:bg-surface-2"
+          >
+            {editor.mapId ? 'Change map' : 'Pick map'}
+          </button>
+        ) : null}
+      </section>
+      <section>
+        <h3 className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted">
+          <Wrench className="h-3.5 w-3.5" />
+          Tool palette
+        </h3>
+        <p className="text-2xs text-muted">
+          Which editing tools the runtime exposes. Trim for narrower
+          workflows.
+        </p>
+        <div className="mt-2 grid grid-cols-1 gap-2">
+          {ALL_TOOLS.map(({ key, label, hint }) => {
+            const on = editor.tools.includes(key);
+            return (
+              <label
+                key={key}
+                className="flex items-start gap-2 text-xs"
+                title={hint}
+              >
+                <input
+                  type="checkbox"
+                  checked={on}
+                  disabled={!canEdit}
+                  onChange={(e) => toggleTool(key, e.target.checked)}
+                  className="mt-0.5 h-3.5 w-3.5 cursor-pointer"
+                />
+                <span>
+                  <span className="font-medium text-ink-1">{label}</span>
+                  <span className="block text-2xs text-muted">{hint}</span>
+                </span>
+              </label>
+            );
+          })}
+        </div>
+      </section>
+      <section>
+        <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">
+          Snapping
+        </h3>
+        <p className="text-2xs text-muted">
+          Snap new vertices to nearby existing ones while drawing.
+        </p>
+        {/* Self-snap and tolerance are NOT offered. terra-draw 1.28
+            exposes binary toLine / toCoordinate flags rather than a
+            configurable pixel tolerance, so the runtime can only turn
+            snapping on or off. The controls were rendered anyway,
+            complete with a live "18px" readout beside a slider that
+            changed nothing, which is a stronger claim than a missing
+            feature makes. Both values survive in EditorData for any
+            editor that has them saved. */}
+        <div className="mt-2 space-y-2 text-xs">
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={editor.snapping.enabled}
+              disabled={!canEdit}
+              onChange={(e) => patchSnapping({ enabled: e.target.checked })}
+              className="h-3.5 w-3.5 cursor-pointer"
+            />
+            <span>Enable snap</span>
+          </label>
+        </div>
+      </section>
+    </div>
+  );
+
+  return (
+    <>
+      <BuilderShell
+        storageKey="builder-shell:editor"
+        backHref="/items"
+        title="Editor configuration"
+        icon={<PencilRuler className="h-4 w-4 text-purple-600 dark:text-purple-400" />}
+        toolbarRight={toolbarRight}
+        leftPanel={targetsPanel}
+        leftPanelTitle="Targets"
+        leftRailIcon={<Layers className="h-4 w-4" />}
+        rightPanel={settingsPanel}
+        rightPanelTitle="Settings"
+        rightRailIcon={<Settings className="h-4 w-4" />}
+      >
+        <div className="absolute inset-0 flex flex-col gap-4 overflow-auto p-6">
+          {error ? (
+            <div
+              className="rounded-md border border-danger/40 bg-danger/5 px-3 py-2 text-sm text-danger"
+              role="alert"
+            >
+              {error}
+            </div>
+          ) : null}
+          <div className="mx-auto max-w-2xl rounded-lg border border-dashed border-border bg-surface-1 p-8 text-center">
+            <PencilRuler className="mx-auto h-8 w-8 text-purple-300" />
+            <h2 className="mt-2 text-sm font-semibold text-ink-0">
+              Editor configuration
+            </h2>
+            <p className="mt-1 text-xs text-muted">
+              Add target layers in the left panel, configure the
+              reference map + tools + snapping on the right. Open
+              the editor to test the live runtime in a new tab.
+            </p>
+            <a
+              href={`/items/${itemId}/editor/run`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-4 inline-flex items-center gap-1 rounded-md border border-border bg-surface-0 px-3 py-1.5 text-sm font-medium hover:bg-surface-2"
+            >
+              <Play className="h-3.5 w-3.5" />
+              Open editor in a new tab
+            </a>
+          </div>
+        </div>
+      </BuilderShell>
+
+      <AddTargetDialog
+        open={adding}
+        onClose={() => setAdding(false)}
+        existingTargets={existingKeys}
+        onAdd={addTarget}
+      />
+
+      <AddFromMapDialog
+        open={addingFromMap}
+        onClose={() => setAddingFromMap(false)}
+        existingTargets={existingKeys}
+        defaultMapId={editor.mapId}
+        onAdd={bulkAddFromMap}
+      />
+
+      <PickMapDialog
+        open={pickingMap}
+        onClose={() => setPickingMap(false)}
+        onPick={(m) => pickMap(m.id)}
+      />
+    </>
+  );
+}
+
+const ALL_TOOLS: Array<{ key: EditorTool; label: string; hint: string }> = [
+  { key: 'select', label: 'Select', hint: 'Pick features to inspect or act on.' },
+  { key: 'add', label: 'Add', hint: 'Create new features.' },
+  {
+    key: 'magic',
+    label: 'Magic outline',
+    hint: 'Click a building or field on imagery; its outline is drawn for you.',
+  },
+  { key: 'edit', label: 'Edit', hint: 'Modify geometry or attributes.' },
+  { key: 'snap', label: 'Snap toggle', hint: 'Surface a snap on/off button.' },
+  { key: 'measure', label: 'Measure', hint: 'Distance and area readouts.' },
+  { key: 'undo', label: 'Undo', hint: 'Revert the last edit.' },
+  { key: 'redo', label: 'Redo', hint: 'Re-apply a reverted edit.' },
+];
+
+interface TargetRowProps {
+  target: EditorTarget;
+  resolved: { item: Item; layer: DataLayerSublayer | null } | null;
+  resolving: boolean;
+  canEdit: boolean;
+  onPatch: (updater: (t: EditorTarget) => EditorTarget) => void;
+  onRemove: () => void;
+}
+
+/**
+ * One target card. Renders capability checkboxes, fields multi-
+ * select (only when canEditAttributes is on), row-scope radio,
+ * and a templates placeholder. When the layer can't be resolved
+ * (deleted item, renamed layer key, etc.) the card surfaces a
+ * warning so the user knows the target is broken.
+ */
+function TargetRow({
+  target,
+  resolved,
+  resolving,
+  canEdit,
+  onPatch,
+  onRemove,
+}: TargetRowProps) {
+  const layer = resolved?.layer ?? null;
+  const item = resolved?.item ?? null;
+  const broken = resolved !== null && layer === null;
+  const layerEditable = layer?.editingEnabled !== false;
+  const policyForcesOwn = layer?.editingPolicy === 'own-rows-only';
+
+  // Build a stable list of (column name, label) pairs from the
+  // resolved layer schema. Empty when the layer is broken or
+  // resolving.
+  const fields = layer?.fields ?? [];
+
+  // The "all fields editable" case is encoded as null. Switching
+  // away from null to an explicit list copies every field name in
+  // so the user starts with a known-good baseline.
+  const editableSet = useMemo(
+    () =>
+      target.editableFields === null ? null : new Set(target.editableFields),
+    [target.editableFields],
+  );
+
+  return (
+    <li className="space-y-3 px-4 py-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-ink-0">
+              {item?.title ?? (
+                <span className="text-muted">Loading...</span>
+              )}
+            </span>
+            <span className="text-muted">/</span>
+            <span className="text-sm text-ink-1">
+              {layer?.label ?? target.layerKey}
+            </span>
+            {layer?.geometryType ? (
+              <span className="rounded-full bg-surface-2 px-1.5 py-0.5 text-2xs uppercase tracking-wide text-muted">
+                {layer.geometryType}
+              </span>
+            ) : null}
+          </div>
+          <div className="mt-0.5 flex items-center gap-2 text-xs text-muted">
+            {item ? (
+              <Link
+                href={`/items/${item.id}`}
+                className="inline-flex items-center gap-1 hover:text-accent"
+              >
+                Open data layer <ExternalLink className="h-3 w-3" />
+              </Link>
+            ) : null}
+            {policyForcesOwn ? (
+              <span>Layer policy: own-rows-only</span>
+            ) : null}
+            {!layerEditable ? (
+              <span className="text-warn">Editing disabled on layer</span>
+            ) : null}
+          </div>
+          {broken ? (
+            <p className="mt-2 inline-flex items-center gap-1 text-xs text-warn">
+              <AlertTriangle className="h-3.5 w-3.5" />
+              The referenced layer could not be loaded. It may have been
+              deleted or renamed.
+            </p>
+          ) : null}
+          {!broken && !layerEditable ? (
+            <p className="mt-2 text-xs text-warn">
+              The runtime will block edits on this target until the underlying
+              layer's "editing enabled" toggle is on.
+            </p>
+          ) : null}
+        </div>
+        {canEdit ? (
+          <button
+            type="button"
+            onClick={onRemove}
+            className="rounded-md p-1 text-muted hover:bg-surface-2 hover:text-danger"
+            aria-label="Remove target"
+            title="Remove target"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        ) : null}
+      </div>
+
+      {/* Capability checkboxes. canEditGeometry is force-disabled
+          for attribute-only related tables (no geometry type).
+          rowScope is force-disabled when the layer policy is
+          own-rows-only (the radio reflects the binding contract
+          rather than letting the user pick a value the runtime
+          would refuse). */}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <CheckboxRow
+          label="Create"
+          checked={target.canCreate}
+          disabled={!canEdit}
+          onChange={(v) => onPatch((t) => ({ ...t, canCreate: v }))}
+        />
+        <CheckboxRow
+          label="Edit geometry"
+          checked={target.canEditGeometry}
+          disabled={!canEdit || layer?.geometryType === null}
+          onChange={(v) => onPatch((t) => ({ ...t, canEditGeometry: v }))}
+        />
+        <CheckboxRow
+          label="Edit attributes"
+          checked={target.canEditAttributes}
+          disabled={!canEdit}
+          onChange={(v) => onPatch((t) => ({ ...t, canEditAttributes: v }))}
+        />
+        <CheckboxRow
+          label="Delete"
+          checked={target.canDelete}
+          disabled={!canEdit}
+          onChange={(v) => onPatch((t) => ({ ...t, canDelete: v }))}
+        />
+      </div>
+
+      {/* Editable fields multi-select. Hidden when canEditAttributes
+          is off because it would have no effect. null = all fields,
+          [] = no fields, [...] = explicit subset. */}
+      {target.canEditAttributes ? (
+        <div className="rounded-md border border-border bg-surface-2/40 p-3">
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-xs font-medium text-ink-1">
+              Editable fields
+            </span>
+            <div className="flex gap-2 text-2xs">
+              <button
+                type="button"
+                disabled={!canEdit || fields.length === 0}
+                onClick={() => onPatch((t) => ({ ...t, editableFields: null }))}
+                className="text-muted hover:text-accent disabled:opacity-50"
+              >
+                Allow all
+              </button>
+              <span className="text-muted">/</span>
+              <button
+                type="button"
+                disabled={!canEdit || fields.length === 0}
+                onClick={() =>
+                  onPatch((t) => ({ ...t, editableFields: [] }))
+                }
+                className="text-muted hover:text-accent disabled:opacity-50"
+              >
+                Allow none
+              </button>
+            </div>
+          </div>
+          {fields.length === 0 ? (
+            <p className="text-xs text-muted">
+              {resolving ? 'Loading fields...' : 'No fields available.'}
+            </p>
+          ) : (
+            <div className="grid grid-cols-2 gap-y-1 sm:grid-cols-3">
+              {fields.map((f) => {
+                const isOn =
+                  editableSet === null ? true : editableSet.has(f.name);
+                return (
+                  <label
+                    key={f.name}
+                    className="flex items-center gap-2 text-xs"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isOn}
+                      disabled={!canEdit}
+                      onChange={(e) => {
+                        const next = new Set(
+                          editableSet === null
+                            ? fields.map((g) => g.name)
+                            : editableSet,
+                        );
+                        if (e.target.checked) next.add(f.name);
+                        else next.delete(f.name);
+                        // Collapse "every field on" back to null so
+                        // subsequent layer-side field additions stay
+                        // editable by default. Otherwise keep the
+                        // explicit list.
+                        const allOn =
+                          fields.every((g) => next.has(g.name)) &&
+                          fields.length > 0;
+                        onPatch((t) => ({
+                          ...t,
+                          editableFields: allOn ? null : Array.from(next),
+                        }));
+                      }}
+                      className="h-3.5 w-3.5 cursor-pointer"
+                    />
+                    <span className="truncate" title={f.name}>
+                      {f.label || f.name}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          )}
+          {target.editableFields === null ? (
+            <p className="mt-2 text-2xs text-muted">
+              All current and future fields editable.
+            </p>
+          ) : (
+            <p className="mt-2 text-2xs text-muted">
+              {target.editableFields.length} of {fields.length} fields editable.
+              Future fields default to NOT editable.
+            </p>
+          )}
+        </div>
+      ) : null}
+
+      {/* Row scope. own-rows-only at the layer level forces 'own'
+          (the radio is locked and reflects the binding). Otherwise
+          authors pick. */}
+      <div className="flex items-center gap-4 text-sm">
+        <span className="text-xs font-medium text-ink-1">Row scope</span>
+        <label className="flex items-center gap-1">
+          <input
+            type="radio"
+            name={`scope-${target.dataLayerId}-${target.layerKey}`}
+            checked={target.rowScope === 'all'}
+            disabled={!canEdit || policyForcesOwn}
+            onChange={() => onPatch((t) => ({ ...t, rowScope: 'all' }))}
+            className="h-3.5 w-3.5 cursor-pointer"
+          />
+          All rows the user can see
+        </label>
+        <label className="flex items-center gap-1">
+          <input
+            type="radio"
+            name={`scope-${target.dataLayerId}-${target.layerKey}`}
+            checked={target.rowScope === 'own'}
+            disabled={!canEdit}
+            onChange={() => onPatch((t) => ({ ...t, rowScope: 'own' }))}
+            className="h-3.5 w-3.5 cursor-pointer"
+          />
+          Only rows they authored
+        </label>
+      </div>
+
+      {/* Templates placeholder. The full template authoring UI lands
+          in slice 3 alongside the runtime; for now we just
+          indicate the count so authors know it's a real concept
+          even when empty. */}
+      <TemplatesSection
+        templates={target.templates}
+        fields={fields}
+        layerGeometry={layer?.geometryType ?? null}
+        canEdit={canEdit && target.canCreate}
+        onPatch={(updater) =>
+          onPatch((t) => ({ ...t, templates: updater(t.templates) }))
+        }
+      />
+    </li>
+  );
+}
+
+interface TemplatesSectionProps {
+  templates: EditorFeatureTemplate[];
+  fields: DataLayerSublayer['fields'];
+  layerGeometry: 'point' | 'line' | 'polygon' | null;
+  canEdit: boolean;
+  onPatch: (
+    updater: (current: EditorFeatureTemplate[]) => EditorFeatureTemplate[],
+  ) => void;
+}
+
+/**
+ * Per-target Templates authoring section (#121). Templates are
+ * presets the runtime offers in Add mode: each one carries a
+ * geometry tool + a bag of preset attribute values. Picking a
+ * template at runtime overrides the default tool and pre-fills
+ * the attribute form.
+ *
+ * Authoring rules:
+ *   - Templates are only meaningful when canCreate is on. We
+ *     gate `canEdit` on both the editor's edit rights AND
+ *     target.canCreate so the section visibly disables itself
+ *     when create is off (the user gets the "this won't matter
+ *     yet" signal without us silently dropping their work).
+ *   - Geometry tool defaults to the layer's geometry type but
+ *     can be overridden per template (e.g. a non-spatial table
+ *     could expose a "polygon zone" template that draws into a
+ *     different layer the runtime will infer; v1 only the
+ *     layer's own type works at runtime, but the dropdown is
+ *     exposed for future flexibility).
+ *   - Preset attributes are a list of (fieldName, value) rows
+ *     rather than a free-form JSON editor, so the author always
+ *     picks from real schema fields. Repeated keys collapse on
+ *     save: last write wins.
+ *
+ * Out of scope for this slice (still TODOs):
+ *   - Type-aware value inputs per field (today values are typed
+ *     as strings then coerced at runtime). Pick-list domains
+ *     don't render as dropdowns yet.
+ *   - Inline preview of the configured templates as runtime
+ *     tiles.
+ */
+function TemplatesSection({
+  templates,
+  fields,
+  layerGeometry,
+  canEdit,
+  onPatch,
+}: TemplatesSectionProps) {
+  const [expanded, setExpanded] = useState<string | null>(null);
+
+  function addTemplate() {
+    const id =
+      typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? crypto.randomUUID()
+        : `tpl-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const next: EditorFeatureTemplate = {
+      id,
+      label: `Template ${templates.length + 1}`,
+      geometryTool: layerGeometry ?? 'point',
+      presetAttributes: {},
+    };
+    onPatch((cur) => [...cur, next]);
+    setExpanded(id);
+  }
+
+  function removeTemplate(id: string) {
+    onPatch((cur) => cur.filter((t) => t.id !== id));
+    if (expanded === id) setExpanded(null);
+  }
+
+  function updateTemplate(
+    id: string,
+    updater: (t: EditorFeatureTemplate) => EditorFeatureTemplate,
+  ) {
+    onPatch((cur) => cur.map((t) => (t.id === id ? updater(t) : t)));
+  }
+
+  return (
+    <div className="rounded-md border border-border bg-surface-2/40 p-3">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium text-ink-1">
+          Templates{' '}
+          <span className="font-normal text-muted">
+            ({templates.length})
+          </span>
+        </span>
+        <button
+          type="button"
+          disabled={!canEdit}
+          onClick={addTemplate}
+          className="inline-flex items-center gap-1 rounded-md border border-border bg-surface-1 px-2 py-0.5 text-2xs text-ink-1 hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <Plus className="h-3 w-3" />
+          Add template
+        </button>
+      </div>
+
+      {templates.length === 0 ? (
+        <p className="mt-2 text-2xs text-muted">
+          Templates pre-fill the attribute form when an author hits
+          Add at runtime. Useful for repeated workflows like "all
+          new observations default to species = BHCO."
+        </p>
+      ) : (
+        <ul className="mt-2 space-y-2">
+          {templates.map((tpl) => {
+            const isOpen = expanded === tpl.id;
+            const presetCount = Object.keys(tpl.presetAttributes).length;
+            return (
+              <li
+                key={tpl.id}
+                className="rounded border border-border bg-surface-1"
+              >
+                <div className="flex items-center justify-between gap-2 px-2 py-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setExpanded(isOpen ? null : tpl.id)}
+                    className="flex flex-1 items-center gap-2 text-left"
+                  >
+                    <ChevronRight
+                      className={`h-3 w-3 transition-transform ${
+                        isOpen ? 'rotate-90' : ''
+                      }`}
+                    />
+                    <span
+                      aria-hidden
+                      className="inline-block h-3 w-3 shrink-0 rounded-full border border-border"
+                      style={{
+                        backgroundColor: tpl.previewColor ?? '#a78bfa',
+                      }}
+                    />
+                    <span className="truncate text-xs font-medium text-ink-1">
+                      {tpl.label || '(unnamed template)'}
+                    </span>
+                    <span className="text-2xs uppercase tracking-wide text-muted">
+                      {tpl.geometryTool}
+                    </span>
+                    <span className="text-2xs text-muted">
+                      {presetCount} preset
+                      {presetCount === 1 ? '' : 's'}
+                    </span>
+                  </button>
+                  {canEdit ? (
+                    <button
+                      type="button"
+                      onClick={() => removeTemplate(tpl.id)}
+                      className="shrink-0 rounded p-1 text-muted hover:bg-surface-2 hover:text-danger"
+                      aria-label="Remove template"
+                      title="Remove template"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  ) : null}
+                </div>
+
+                {isOpen ? (
+                  <TemplateEditor
+                    template={tpl}
+                    fields={fields}
+                    layerGeometry={layerGeometry}
+                    canEdit={canEdit}
+                    onChange={(updater) => updateTemplate(tpl.id, updater)}
+                  />
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+interface TemplateEditorProps {
+  template: EditorFeatureTemplate;
+  fields: DataLayerSublayer['fields'];
+  layerGeometry: 'point' | 'line' | 'polygon' | null;
+  canEdit: boolean;
+  onChange: (
+    updater: (t: EditorFeatureTemplate) => EditorFeatureTemplate,
+  ) => void;
+}
+
+/**
+ * Body of an expanded template card. Edits land directly into the
+ * persisted EditorFeatureTemplate via onChange; the parent's
+ * dirty-tracking + autosave catches the mutation.
+ */
+function TemplateEditor({
+  template,
+  fields,
+  layerGeometry,
+  canEdit,
+  onChange,
+}: TemplateEditorProps) {
+  function setPresetValue(fieldName: string, value: string) {
+    onChange((t) => ({
+      ...t,
+      presetAttributes: { ...t.presetAttributes, [fieldName]: value },
+    }));
+  }
+
+  function clearPreset(fieldName: string) {
+    onChange((t) => {
+      const next = { ...t.presetAttributes };
+      delete next[fieldName];
+      return { ...t, presetAttributes: next };
+    });
+  }
+
+  return (
+    <div className="space-y-3 border-t border-border px-3 py-2">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <label className="flex flex-col gap-0.5 text-xs">
+          <span className="text-muted">Label</span>
+          <input
+            type="text"
+            value={template.label}
+            disabled={!canEdit}
+            onChange={(e) =>
+              onChange((t) => ({ ...t, label: e.target.value }))
+            }
+            className="h-7 rounded border border-border bg-surface-1 px-2 text-xs disabled:opacity-50"
+          />
+        </label>
+        <label className="flex flex-col gap-0.5 text-xs">
+          <span className="text-muted">Geometry tool</span>
+          <select
+            value={template.geometryTool}
+            disabled={!canEdit}
+            onChange={(e) =>
+              onChange((t) => ({
+                ...t,
+                geometryTool: e.target.value as 'point' | 'line' | 'polygon',
+              }))
+            }
+            className="h-7 rounded border border-border bg-surface-1 px-2 text-xs disabled:opacity-50"
+          >
+            <option value="point">point</option>
+            <option value="line">line</option>
+            <option value="polygon">polygon</option>
+          </select>
+          {layerGeometry && template.geometryTool !== layerGeometry ? (
+            <span className="text-2xs text-warn">
+              Layer is {layerGeometry}; runtime today uses the layer's
+              type. Mismatch is allowed for forward compatibility.
+            </span>
+          ) : null}
+        </label>
+        <label className="flex flex-col gap-0.5 text-xs">
+          <span className="text-muted">Preview color (optional)</span>
+          <div className="flex items-center gap-2">
+            <input
+              type="color"
+              value={template.previewColor ?? '#a78bfa'}
+              disabled={!canEdit}
+              onChange={(e) =>
+                onChange((t) => ({ ...t, previewColor: e.target.value }))
+              }
+              className="h-7 w-10 cursor-pointer rounded border border-border bg-surface-1 disabled:opacity-50"
+            />
+            {template.previewColor ? (
+              <button
+                type="button"
+                disabled={!canEdit}
+                onClick={() => {
+                  onChange((t) => {
+                    const { previewColor: _drop, ...rest } = t;
+                    void _drop;
+                    return rest as EditorFeatureTemplate;
+                  });
+                }}
+                className="text-2xs text-muted hover:text-ink-1 disabled:opacity-50"
+                title="Clear preview color"
+              >
+                Clear
+              </button>
+            ) : null}
+          </div>
+        </label>
+      </div>
+
+      <div>
+        <span className="mb-1 block text-xs font-medium text-ink-1">
+          Preset attributes
+        </span>
+        {fields.length === 0 ? (
+          <p className="text-2xs text-muted">
+            No layer fields available yet. Add fields to the data
+            layer first.
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 gap-y-1 sm:grid-cols-2">
+            {fields.map((f) => {
+              const presetValue = template.presetAttributes[f.name];
+              const hasPreset = presetValue !== undefined;
+              return (
+                <div
+                  key={f.name}
+                  className="flex items-center gap-2 text-xs"
+                >
+                  <input
+                    type="checkbox"
+                    checked={hasPreset}
+                    disabled={!canEdit}
+                    onChange={(e) => {
+                      if (e.target.checked) setPresetValue(f.name, '');
+                      else clearPreset(f.name);
+                    }}
+                    className="h-3.5 w-3.5 cursor-pointer"
+                    aria-label={`Preset ${f.label || f.name}`}
+                  />
+                  <span
+                    className="w-32 shrink-0 truncate text-muted"
+                    title={f.name}
+                  >
+                    {f.label || f.name}
+                  </span>
+                  <input
+                    type="text"
+                    value={
+                      hasPreset
+                        ? presetValue === null
+                          ? ''
+                          : String(presetValue)
+                        : ''
+                    }
+                    disabled={!canEdit || !hasPreset}
+                    placeholder={hasPreset ? '' : '(not preset)'}
+                    onChange={(e) => setPresetValue(f.name, e.target.value)}
+                    className="h-6 flex-1 rounded border border-border bg-surface-1 px-1.5 text-xs disabled:opacity-50"
+                  />
+                </div>
+              );
+            })}
+          </div>
+        )}
+        <p className="mt-1 text-2xs text-muted">
+          Values are stored as text and coerced at runtime against
+          the field's type. The author can always edit the preset
+          when filling out the form.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+interface CheckboxRowProps {
+  label: string;
+  checked: boolean;
+  disabled?: boolean;
+  onChange: (v: boolean) => void;
+}
+
+function CheckboxRow({ label, checked, disabled, onChange }: CheckboxRowProps) {
+  return (
+    <label
+      className={`flex items-center gap-2 text-sm ${
+        disabled ? 'opacity-50' : ''
+      }`}
+    >
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.checked)}
+        className="h-4 w-4 cursor-pointer"
+      />
+      <span className="text-ink-1">{label}</span>
+    </label>
+  );
+}

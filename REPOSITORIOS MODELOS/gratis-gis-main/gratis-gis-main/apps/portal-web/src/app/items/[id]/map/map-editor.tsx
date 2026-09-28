@@ -1,0 +1,2282 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+'use client';
+
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Check,
+  Eye,
+  List,
+  Loader2,
+  Map as MapBaseIcon,
+  Save,
+  ShieldCheck,
+  Table,
+} from 'lucide-react';
+import type {
+  FeatureField,
+  Group,
+  Item,
+  ItemShare,
+  MapData,
+  MapFilterOp,
+  MapLayer,
+  MapLayerAccess,
+  PickListData,
+  TerrainStackEntry,
+} from '@gratis-gis/shared-types';
+import { layersForPortalItem } from './portal-item-layers';
+import { toast } from '@/lib/toast';
+import { parseApiError } from '@/lib/api-error';
+import { useT } from '@/lib/i18n/locale-context';
+import {
+  DEFAULT_LAYER_ACCESS,
+  DEFAULT_LAYER_INTERACTIONS,
+  DEFAULT_LAYER_LABELS,
+  DEFAULT_LAYER_POPUP,
+  DEFAULT_LAYER_RENDERER,
+  DEFAULT_LAYER_SCALE,
+  DEFAULT_LAYER_SEARCH,
+  DEFAULT_LAYER_STYLE,
+  DEFAULT_MAP,
+} from '@gratis-gis/shared-types';
+import { makeEmptyGroupLayer, uniqueGroupTitle } from './group-factory';
+import type { CustomBasemap } from '@/lib/custom-basemap';
+import { MapCanvas, type MapCanvasHandle } from './map-canvas';
+import { LayerPanel } from './layer-panel';
+import { AddLayerDialog } from './add-layer-dialog';
+import { MapSettingsSection } from './map-settings-section';
+import { Legend } from './legend';
+import { AttributeTable } from './attribute-table';
+import { SearchBar } from './search-bar';
+import { SelectToolbar, type SelectToolMode } from './select-tool';
+import { useFeatureEditing, type EditableLayerInfo } from './feature-editing';
+import type { DrawGeometryType } from './use-terra-draw';
+import { BuilderShell } from '@/components/builder-shell/builder-shell';
+import { ChartSpline, Layers as LayersIcon, MessageSquare, PencilLine, Printer, Settings as SettingsIcon } from 'lucide-react';
+import { MarkupPanel } from './markup-panel';
+import { ElevationProfileTool } from './elevation-profile';
+import { VisibilityTool } from './visibility-tool';
+import { resolveDemForBbox } from '@/lib/dem-resolver';
+import { CommentsPanel } from './comments-panel';
+import { PresenceOverlay } from './presence-overlay';
+import { PrintThisMapDialog } from './print-this-map-dialog';
+import type { DrawingSet } from '@gratis-gis/shared-types';
+import type * as maplibregl from 'maplibre-gl';
+import {
+  AccessMatrix,
+  unresolvedPrincipal,
+  type MatrixPrincipal,
+} from './access-matrix';
+import { discoverLayerMetadata, type LayerMetadata } from './layer-metadata';
+
+interface Props {
+  itemId: string;
+  /**
+   * Item title shown in the BuilderShell top bar. Comes from the
+   * parent detail page (`item.title`) so the builder doesn't need a
+   * separate fetch.
+   */
+  itemTitle: string;
+  initial: MapData;
+  /**
+   * May this person change the MAP: its layers, styling, extent,
+   * basemap. Resolved from SharingService, not from owner-or-admin
+   * (map-builder editing); the two differ for anyone holding an explicit edit share.
+   */
+  canEdit: boolean;
+  /**
+   * data_layer item ids this person may WRITE FEATURES to.
+   *
+   * A separate question from `canEdit` above, and deliberately not
+   * derived from it: editing a map's styling and editing the data a
+   * layer points at are different grants on different items. Someone
+   * can own a map built entirely from layers they may only read, and
+   * the reverse happens too. Empty when the viewer may write to
+   * none, which is the common case for a shared read-only map.
+   */
+  editableLayerItemIds?: string[];
+  /**
+   * Every data_layer item id the server has already answered a write
+   * permission for, whether yes or no. A superset of
+   * `editableLayerItemIds`. The builder asks the permissions endpoint
+   * only about ids outside this set (layers added this session); before
+   * it existed the builder re-asked about every layer the server had
+   * just refused, on every page load.
+   */
+  resolvedPermissionItemIds?: string[];
+  /**
+   * Basemap items from the org's library (items of type=basemap).
+   * Includes the seeded built-ins and any user-authored basemaps.
+   * The picker lists these as the sole basemap options; the map
+   * references a specific one through `MapData.basemap` (UUID).
+   */
+  basemaps?: CustomBasemap[];
+  /**
+   * Pre-resolved geo_boundary item that the map's
+   * `defaultExtentBoundaryId` (#53) points at. Server-fetched so
+   * the canvas can fit-bounds on first load without a second
+   * round-trip. Null when the map either does not reference one
+   * or the referenced boundary has been deleted.
+   */
+  defaultExtentBoundary?:
+    | { data: { geometry?: unknown; bbox?: unknown } | null; id: string; title: string }
+    | null;
+  /**
+   * geo_boundary items (id + title) the caller can see, used to back
+   * the "Default extent" picker (#31 follow-on to #53). When the
+   * picker is set to a boundary, the map persists that id in
+   * `MapData.defaultExtentBoundaryId`; the camera fits to it on next
+   * load. An empty list collapses the picker to a disabled state.
+   */
+  geoBoundaries?: Array<{ id: string; title: string }>;
+  /**
+   * Current signed-in user. The Markup panel (#154) uses this to
+   * label new drawing sets ("Matt's markup 2026-05-30") and to
+   * decide which drawing sets the viewer can edit (their own,
+   * always; any, when `canEdit` is true). Pass null for a public
+   * anonymous viewer; the panel disables create / edit in that
+   * case.
+   */
+  currentUser?: { id: string; displayName: string } | null;
+  /**
+   * #187 scratch mode: the builder runs without a backing map item.
+   * Save becomes "save as a new map item" (create + redirect), and
+   * the item-bound surfaces (presence, comments, markup persistence,
+   * print binding, layer-access matrix) are hidden because there is
+   * no item id to attach them to. `itemId` is ignored in this mode.
+   */
+  scratch?: boolean;
+  /**
+   * #185: auto-add this portal item's layers on first mount, using
+   * the same construction the Add Layer dialog uses (all sublayers,
+   * grouped). Drives the "Add to map" buttons on item pages and the
+   * scratch route's ?add= parameter.
+   */
+  addItemId?: string;
+  /**
+   * With `addItemId`, narrow a multi-layer data_layer to this one
+   * sublayer (the Data tab's per-row "Add to map"). Ignored without
+   * `addItemId`.
+   */
+  addLayerKey?: string;
+}
+
+/**
+ * Top-level web map surface. Owns the canonical MapData state; the
+ * canvas renders it and the side panels edit it. Save is explicit so
+ * a viewer can explore the map without side effects while an owner
+ * only persists changes they actually want.
+ *
+ * Layout: left sidebar with layer panel, right side the map. On narrow
+ * viewports the sidebar collapses into a drawer (future): for v2 we
+ * use a fixed-width sidebar and let horizontal scroll handle anything
+ * below that.
+ */
+/**
+ * Convert a geo_boundary item's geometry / cached bbox into the
+ * camera state the MapData seed uses (#53). Returns null when the
+ * boundary is missing, has no bbox or geometry, or the values
+ * fall outside the WGS84 envelope (we don't try to recover from
+ * obviously-bad data here).
+ */
+function boundaryFitFor(
+  boundary:
+    | { data: { geometry?: unknown; bbox?: unknown } | null }
+    | null
+    | undefined,
+): { center: [number, number]; zoom: number } | null {
+  if (!boundary?.data) return null;
+  const bboxRaw = boundary.data.bbox;
+  let w: number | null = null;
+  let s: number | null = null;
+  let e: number | null = null;
+  let n: number | null = null;
+  if (
+    Array.isArray(bboxRaw) &&
+    bboxRaw.length === 4 &&
+    bboxRaw.every((v) => typeof v === 'number' && Number.isFinite(v))
+  ) {
+    [w, s, e, n] = bboxRaw as [number, number, number, number];
+  }
+  if (w === null || s === null || e === null || n === null) return null;
+  if (w >= e || s >= n) return null;
+  const cx = (w + e) / 2;
+  const cy = (s + n) / 2;
+  // Approximate zoom from the wider edge (degrees). Roughly:
+  // 360deg ~ z=0, halve per zoom level. Clamp to a polite range
+  // so we never zoom out past world or all the way down to street.
+  const span = Math.max(e - w, n - s);
+  const zoom = Math.max(2, Math.min(16, Math.log2(360 / Math.max(span, 0.001)) - 0.5));
+  return { center: [cx, cy], zoom };
+}
+
+export function MapEditor({
+  itemId,
+  itemTitle,
+  initial,
+  canEdit,
+  editableLayerItemIds = [],
+  resolvedPermissionItemIds = [],
+  basemaps = [],
+  defaultExtentBoundary = null,
+  geoBoundaries = [],
+  currentUser = null,
+  scratch = false,
+  addItemId,
+  addLayerKey,
+}: Props) {
+  const t = useT();
+  // Hydrate older persisted maps. Each bump in the schema lands a new
+  // migrator here; the goal is that any v2.x map still opens cleanly.
+  const seed = useMemo<MapData>(() => {
+    const layers = (initial.layers ?? []).map((rawLayer) => {
+      const l = rawLayer as MapLayer & {
+        // Pre-v2.2 shape had a single-clause filter.
+        filter?: unknown;
+        popup?: Partial<MapLayer['popup']> & { fields?: unknown };
+      };
+
+      // Migrate filter: v2.1 single-clause { field, op, value }
+      // → v2.2 { combinator: 'all', clauses: [...] }.
+      let filter: MapLayer['filter'] = null;
+      if (l.filter && typeof l.filter === 'object') {
+        const f = l.filter as unknown as Record<string, unknown>;
+        if (Array.isArray(f.clauses) && typeof f.combinator === 'string') {
+          filter = f as unknown as MapLayer['filter'];
+        } else if (typeof f.field === 'string' && typeof f.op === 'string') {
+          filter = {
+            combinator: 'all',
+            clauses: [
+              {
+                field: String(f.field),
+                op: f.op as MapFilterOp,
+                value: typeof f.value === 'string' ? f.value : String(f.value ?? ''),
+              },
+            ],
+          };
+        }
+      }
+
+      // Popup: older maps might be missing `mode` / `bodyTemplate`.
+      // Preserve prior picked-fields state; never discard authored content.
+      const popupRaw = l.popup ?? {};
+      const mode =
+        popupRaw.mode === 'picked' || popupRaw.mode === 'template'
+          ? popupRaw.mode
+          : Array.isArray(popupRaw.fields) && popupRaw.fields.length > 0
+            ? 'picked'
+            : 'all';
+      const popup: MapLayer['popup'] = {
+        ...structuredClone(DEFAULT_LAYER_POPUP),
+        ...popupRaw,
+        mode,
+        fields: Array.isArray(popupRaw.fields)
+          ? (popupRaw.fields as string[])
+          : [],
+        bodyTemplate:
+          typeof (popupRaw as { bodyTemplate?: unknown }).bodyTemplate === 'string'
+            ? ((popupRaw as { bodyTemplate: string }).bodyTemplate)
+            : '',
+      };
+
+      return {
+        ...l,
+        renderer: l.renderer ?? structuredClone(DEFAULT_LAYER_RENDERER),
+        filter,
+        popup,
+        interactions: {
+          ...structuredClone(DEFAULT_LAYER_INTERACTIONS),
+          ...(l.interactions ?? {}),
+        },
+        labels: hydrateLabels(
+          ((l as unknown) as { labels?: Record<string, unknown> }).labels ?? {},
+        ),
+        search: {
+          ...structuredClone(DEFAULT_LAYER_SEARCH),
+          ...(((l as unknown) as { search?: Partial<MapLayer['search']> })
+            .search ?? {}),
+        },
+        scale: {
+          ...structuredClone(DEFAULT_LAYER_SCALE),
+          ...(((l as unknown) as { scale?: Partial<MapLayer['scale']> })
+            .scale ?? {}),
+        },
+        access: {
+          ...structuredClone(DEFAULT_LAYER_ACCESS),
+          ...(((l as unknown) as { access?: Partial<MapLayer['access']> })
+            .access ?? {}),
+        },
+        style: {
+          ...structuredClone(DEFAULT_LAYER_STYLE),
+          ...(l.style ?? {}),
+          point: {
+            ...structuredClone(DEFAULT_LAYER_STYLE.point),
+            ...(l.style?.point ?? {}),
+          },
+        },
+        opacity: typeof l.opacity === 'number' ? l.opacity : 1,
+        visible: l.visible ?? true,
+      } as MapLayer;
+    });
+    const merged: MapData = {
+      ...DEFAULT_MAP,
+      ...initial,
+      search: {
+        ...DEFAULT_MAP.search,
+        ...(initial.search ?? {}),
+      },
+      layers,
+    };
+    // Default extent reference (#53): if the map points at a
+    // geo_boundary, override the seed camera with the boundary's
+    // bbox center + an approximate zoom that fits it. This applies
+    // every load, which means a viewer who pans away will snap
+    // back on next visit: intentional, since the boundary IS
+    // the canonical extent for this map. Save (which captures the
+    // current camera state) does not clear `defaultExtentBoundaryId`,
+    // so the persistent reference still wins on the next load.
+    const fit = boundaryFitFor(defaultExtentBoundary);
+    if (fit) {
+      merged.center = fit.center;
+      merged.zoom = fit.zoom;
+    }
+    return merged;
+  }, [initial, defaultExtentBoundary]);
+  const [map, setMap] = useState<MapData>(seed);
+  const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
+  // Basemap popover (#74). Mirrors the editor-runtime pattern: an
+  // icon button that opens a small menu listing every basemap with
+  // an active-tick marker. Replaces the verbose labeled <select> so
+  // the map and editor toolbars share the same visual rhythm.
+  const [basemapMenuOpen, setBasemapMenuOpen] = useState(false);
+  const basemapMenuRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!basemapMenuOpen) return;
+    function onDocClick(e: MouseEvent) {
+      const target = e.target as Node;
+      if (basemapMenuRef.current && !basemapMenuRef.current.contains(target)) {
+        setBasemapMenuOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [basemapMenuOpen]);
+  // Geocoder picker now lives in MapSettingsSection (#74 follow-up).
+  // The previous toolbar-icon dropdown was disjointed from the
+  // other map-level configuration knobs (view scope, default
+  // extent) -- consolidating into one section makes the grouping
+  // explicit and gives future map-wide settings (embed config,
+  // refresh interval, etc.) an obvious home.
+  const [availableGeocoders, setAvailableGeocoders] = useState<
+    Array<{ id: string; title: string; kind: 'internal' | 'arcgis' }>
+  >([]);
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        // Pull both geocoding_service items and service items
+        // (arcgis_geocode protocol is a service item with a
+        // specific data.protocol value). We filter the service
+        // items to geocoders client-side because the lite list
+        // doesn't return the data blob; the service list is
+        // typically small enough that this is fine.
+        const [gsRes, svcRes] = await Promise.all([
+          fetch('/api/portal/items?type=geocoding_service&lite=1').then((r) =>
+            r.ok ? r.json() : [],
+          ),
+          fetch('/api/portal/items?type=service&full=1').then((r) =>
+            r.ok ? r.json() : [],
+          ),
+        ]);
+        const gsList = Array.isArray(gsRes) ? gsRes : [];
+        const svcList = Array.isArray(svcRes) ? svcRes : [];
+        const arcgisGeocoders = svcList.filter((s) => {
+          const proto = (s as { data?: { protocol?: unknown } }).data?.protocol;
+          return proto === 'arcgis_geocode';
+        });
+        if (cancelled) return;
+        const combined: Array<{
+          id: string;
+          title: string;
+          kind: 'internal' | 'arcgis';
+        }> = [
+          ...gsList.map((g: { id: string; title: string }) => ({
+            id: g.id,
+            title: g.title,
+            kind: 'internal' as const,
+          })),
+          ...arcgisGeocoders.map((g: { id: string; title: string }) => ({
+            id: g.id,
+            title: g.title,
+            kind: 'arcgis' as const,
+          })),
+        ];
+        setAvailableGeocoders(combined);
+      } catch {
+        /* network blip; leave list empty */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const [legendOpen, setLegendOpen] = useState(false);
+  const [tableOpen, setTableOpen] = useState(false);
+  // Elevation profile tool: draw a line, chart the ground height
+  // along it from the map's elevation layer. Works in scratch and
+  // saved maps alike (nothing item-bound about it).
+  const [profileOpen, setProfileOpen] = useState(false);
+  // Visibility tool: pick a spot, queue a viewshed job, drop the
+  // finished layer onto the map. Contributor-gated server-side;
+  // shown to signed-in users and errors in plain language for
+  // everyone else.
+  const [visibilityOpen, setVisibilityOpen] = useState(false);
+  // #154: Markup panel + per-map drawing sets. Hydrated from the
+  // initial map data so a fresh page-load renders existing
+  // drawings on the canvas immediately. The panel manages writes
+  // and pushes updates back through `setDrawings`.
+  const [markupOpen, setMarkupOpen] = useState(false);
+  const [commentsOpen, setCommentsOpen] = useState(false);
+  // #159: "Print this map" chooser. Opens a thin dialog that
+  // lets the author either pick an existing print template or
+  // create a new one pre-bound to this map.
+  const [printOpen, setPrintOpen] = useState(false);
+  const [drawings, setDrawings] = useState<DrawingSet[]>(
+    (initial as MapData & { drawings?: DrawingSet[] }).drawings ?? [],
+  );
+  // #156: MapLibre instance for presence cursor projection.
+  // MapCanvas fires `onMapReady` with the instance on mount and
+  // null on teardown.
+  const [mapLibre, setMapLibre] = useState<maplibregl.Map | null>(null);
+  // #156 follow-up: portal target for the live-presence avatar
+  // chips. PresenceOverlay createPortal()'s the chip strip into
+  // this node so it lands in the toolbar rather than floating
+  // over the canvas. State (not ref) so PresenceOverlay re-renders
+  // once the slot mounts.
+  const [presenceChipsSlot, setPresenceChipsSlot] = useState<HTMLDivElement | null>(null);
+  // Layer id chosen by the per-layer kebab's "Open attribute table"
+  // action (#73). Cleared when the table closes so reopening from
+  // the toolbar lands on the default-first-visible behavior.
+  const [tableFocusLayerId, setTableFocusLayerId] = useState<string | null>(
+    null,
+  );
+  const canvasRef = useRef<MapCanvasHandle | null>(null);
+
+  /**
+   * Shared selection state: per-layer set of feature ids. Because
+   * every geojson source is added with `generateId: true`, these ids
+   * are the same as the feature's array index in the cached
+   * FeatureCollection: which is what the attribute table uses for
+   * its row selection. That alignment lets one Set serve both the
+   * map highlight and the table checkboxes without translation.
+   */
+  // #318: feature ids may be string (v3 promoteId UUID) or number.
+  const [selection, setSelection] = useState<
+    Record<string, Set<number | string>>
+  >({});
+  // Active map-side selection tool. `off` is the default pan +
+  // popup-on-click behaviour; the other modes are owned by the
+  // MapCanvas and fed here so the SelectToolbar reads live state.
+  const [selectTool, setSelectTool] = useState<SelectToolMode>('off');
+  // Count selected features across layers so the toolbar can show
+  // the live total + clear-button affordance.
+  const selectedCount = useMemo(
+    () =>
+      Object.values(selection).reduce(
+        (sum: number, s) => sum + (s as Set<number>).size,
+        0,
+      ),
+    [selection],
+  );
+
+  // Access matrix: open state + all the data the modal renders.
+  // We lazy-fetch on open so the overhead (a request per backing
+  // item) only happens when an author actually opens the matrix.
+  const [matrixOpen, setMatrixOpen] = useState(false);
+  const [webmapShares, setWebmapShares] = useState<ItemShare[]>([]);
+  const [itemShares, setItemShares] = useState<Record<string, ItemShare[]>>({});
+  const [groupDirectory, setGroupDirectory] = useState<Record<string, string>>({});
+  const [userNames, setUserNames] = useState<Record<string, string>>({});
+  const [groupMemberships, setGroupMemberships] = useState<
+    Record<string, string[]>
+  >({});
+
+  // Maps layer id → backing item id (null for geojson-url / inline).
+  // Matrix uses this to know which layers can have item-level gaps.
+  //
+  // For arcgis-rest sources we NOW carry an optional `sourceItemId`
+  // back-reference (set when the layer was added from a portal
+  // arcgis_service item via the item picker). When present, that's
+  // the backing item the matrix should gate access against: the
+  // ArcGIS service is proxied through the portal, and gaps on the
+  // arcgis_service item's shares translate to "this principal can
+  // see the web map but not this ArcGIS layer's data". Layers added
+  // by raw-URL paste still have no backing item id.
+  const layerItemIds = useMemo<Record<string, string | null>>(() => {
+    const out: Record<string, string | null> = {};
+    for (const l of map.layers) {
+      if (l.source.kind === 'data-layer') {
+        out[l.id] = l.source.itemId;
+      } else if (l.source.kind === 'arcgis-rest') {
+        out[l.id] = l.source.sourceItemId ?? null;
+      } else {
+        out[l.id] = null;
+      }
+    }
+    return out;
+  }, [map.layers]);
+
+  async function loadMatrixData() {
+    // Webmap's own shares: drives the principal column list.
+    try {
+      const res = await fetch(`/api/portal/items/${itemId}`);
+      if (res.ok) {
+        const j = (await res.json()) as { shares?: ItemShare[] };
+        setWebmapShares(j.shares ?? []);
+      }
+    } catch {
+      /* non-fatal: matrix shows empty principals list */
+    }
+    // Each distinct backing item: pulls its shares for gap detection.
+    const uniqItemIds = Array.from(
+      new Set(
+        Object.values(layerItemIds).filter(
+          (v): v is string => typeof v === 'string',
+        ),
+      ),
+    );
+    await Promise.all(
+      uniqItemIds.map(async (id) => {
+        try {
+          const r = await fetch(`/api/portal/items/${id}`);
+          if (!r.ok) return;
+          const j = (await r.json()) as { shares?: ItemShare[] };
+          setItemShares((prev) => ({ ...prev, [id]: j.shares ?? [] }));
+        } catch {
+          /* non-fatal: cell falls back to "no warning" */
+        }
+      }),
+    );
+    // Groups: fetch all groups visible to the current user so the
+    // matrix can display names + resolve which groups a user is in.
+    try {
+      const r = await fetch('/api/portal/groups');
+      if (r.ok) {
+        const groups = (await r.json()) as Group[];
+        const dir: Record<string, string> = {};
+        for (const g of groups) dir[g.id] = g.title;
+        setGroupDirectory(dir);
+      }
+    } catch {
+      /* non-fatal: groups show as short ids */
+    }
+
+    // Users: batch-resolve names + group memberships for every
+    // principal on the webmap's share list. One call covers the
+    // whole matrix: avoids a per-row fetch during render.
+    try {
+      // Snapshot webmapShares here; the list was just refreshed at
+      // the top of loadMatrixData so whatever's in state now is
+      // current.
+      const userIds = Array.from(
+        new Set(
+          (await (async () => {
+            const r = await fetch(`/api/portal/items/${itemId}`);
+            if (!r.ok) return [] as ItemShare[];
+            const j = (await r.json()) as { shares?: ItemShare[] };
+            return j.shares ?? [];
+          })())
+            .filter((s) => s.principalType === 'user')
+            .map((s) => s.principalId),
+        ),
+      );
+      if (userIds.length > 0) {
+        const r = await fetch(
+          `/api/portal/users?ids=${encodeURIComponent(userIds.join(','))}`,
+        );
+        if (r.ok) {
+          const rows = (await r.json()) as Array<{
+            id: string;
+            username: string;
+            fullName: string | null;
+            groupIds?: string[];
+          }>;
+          setUserNames((prev) => {
+            const next = { ...prev };
+            for (const u of rows) {
+              next[u.id] = u.fullName || u.username;
+            }
+            return next;
+          });
+          setGroupMemberships((prev) => {
+            const next = { ...prev };
+            for (const u of rows) {
+              next[u.id] = u.groupIds ?? [];
+            }
+            return next;
+          });
+        }
+      }
+    } catch {
+      /* non-fatal: users show as short ids, memberships empty */
+    }
+  }
+
+  // Fire-and-forget load when the matrix opens. Re-runs if the layer
+  // list changes while the modal is open so newly-added layers get
+  // their item shares fetched.
+  useEffect(() => {
+    if (!matrixOpen) return;
+    void loadMatrixData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matrixOpen, itemId]);
+
+  // Deduplicate shares into a principal list. Filters to principals
+  // who actually have view-or-better access to the webmap: the
+  // matrix exists to narrow their access, not to create new ones.
+  const matrixPrincipals = useMemo<MatrixPrincipal[]>(() => {
+    return webmapShares.map((s) => {
+      const name =
+        s.principalType === 'group'
+          ? groupDirectory[s.principalId] ?? unresolvedPrincipal(s.principalType, s.principalId).name
+          : userNames[s.principalId] ?? unresolvedPrincipal(s.principalType, s.principalId).name;
+      return { type: s.principalType, id: s.principalId, name };
+    });
+  }, [webmapShares, groupDirectory, userNames]);
+
+  function patchLayerAccess(layerId: string, next: MapLayerAccess) {
+    setLayers(
+      map.layers.map((l) => (l.id === layerId ? { ...l, access: next } : l)),
+    );
+  }
+
+  async function grantItemAccess(
+    bitemId: string,
+    p: MatrixPrincipal,
+  ): Promise<void> {
+    const res = await fetch(`/api/portal/items/${bitemId}/share`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        principalType: p.type,
+        principalId: p.id,
+        permission: 'view',
+      }),
+    });
+    if (!res.ok) return;
+    // Refresh that item's shares so the gap badge disappears.
+    try {
+      const r = await fetch(`/api/portal/items/${bitemId}`);
+      if (r.ok) {
+        const j = (await r.json()) as { shares?: ItemShare[] };
+        setItemShares((prev) => ({ ...prev, [bitemId]: j.shares ?? [] }));
+      }
+    } catch {
+      /* non-fatal: matrix may show stale state until close/reopen */
+    }
+  }
+
+  // Drop selection for layers that have been removed so the state
+  // doesn't leak references. Only runs when the layer-id set changes.
+  const layerIdKey = map.layers.map((l) => l.id).join('|');
+  useEffect(() => {
+    const known = new Set(map.layers.map((l) => l.id));
+    setSelection((prev) => {
+      let changed = false;
+      const next: Record<string, Set<number | string>> = {};
+      for (const [id, set] of Object.entries(prev)) {
+        if (known.has(id)) next[id] = set;
+        else changed = true;
+      }
+      return changed ? next : prev;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [layerIdKey]);
+
+  /**
+   * Per-layer field + value metadata, populated lazily when a layer is
+   * first seen. Used by the filter pick-list and the unique-values
+   * renderer. Keyed by layer id; entries live as long as the layer does.
+   */
+  const [metadata, setMetadata] = useState<Record<string, LayerMetadata>>({});
+
+  // Feature collections per layer, derived from metadata so the
+  // attribute table and any future feature consumers don't refetch.
+  // This keeps fetch cost to one round-trip per layer source change.
+  const featuresByLayer = useMemo(() => {
+    const out: Record<string, GeoJSON.FeatureCollection | null> = {};
+    for (const [id, md] of Object.entries(metadata)) {
+      out[id] = md.featureCollection;
+    }
+    return out;
+  }, [metadata]);
+  // AbortControllers per layer so a rapid edit-churn doesn't leave us
+  // with in-flight fetches scribbling over newer state.
+  const abortsRef = useRef<Record<string, AbortController>>({});
+
+  // Discover metadata for any layer we haven't seen yet. The key here is
+  // layer id + a stable hash of the source: if a user swaps the URL in
+  // place we need a fresh fetch, not a stale cache.
+  const sourceKeys = map.layers.map(
+    (l) => `${l.id}|${JSON.stringify(l.source)}`,
+  );
+  const sourceKeysJoined = sourceKeys.join('\n');
+  useEffect(() => {
+    const seen = new Set(sourceKeys.map((k) => k.split('|')[0]));
+    // Drop metadata for layers that were removed.
+    setMetadata((prev) => {
+      const next: Record<string, LayerMetadata> = {};
+      for (const [id, md] of Object.entries(prev)) {
+        if (seen.has(id)) next[id] = md;
+      }
+      return next;
+    });
+
+    for (const layer of map.layers) {
+      const existing = metadata[layer.id];
+      if (existing && !existing.loading && !existing.error) continue;
+      // Cancel any previous fetch for this layer.
+      abortsRef.current[layer.id]?.abort();
+      const controller = new AbortController();
+      abortsRef.current[layer.id] = controller;
+
+      setMetadata((prev) => ({
+        ...prev,
+        [layer.id]: {
+          fields: prev[layer.id]?.fields ?? [],
+          valuesByField: prev[layer.id]?.valuesByField ?? {},
+          sampleProperties: prev[layer.id]?.sampleProperties ?? null,
+          featureCollection: prev[layer.id]?.featureCollection ?? null,
+          geometryTypes: prev[layer.id]?.geometryTypes ?? new Set(),
+          isTable: prev[layer.id]?.isTable ?? false,
+          error: null,
+          loading: true,
+        },
+      }));
+      discoverLayerMetadata(layer, controller.signal).then((md) => {
+        if (controller.signal.aborted) return;
+        setMetadata((prev) => ({ ...prev, [layer.id]: md }));
+      });
+    }
+    // Cleanup on unmount: abort all in-flight discoveries.
+    return () => {
+      for (const c of Object.values(abortsRef.current)) c.abort();
+    };
+    // We depend on the joined source key so this effect re-runs when a
+    // layer is added / removed / has its source swapped. Adding metadata
+    // itself would cause infinite loops.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sourceKeysJoined]);
+
+  /**
+   * Map layers whose underlying data_layer item the signed-in user
+   * may edit. Keyed by MAP layer id, because that is what the
+   * attribute table addresses rows by; `editableLayerItemIds` arrives
+   * from the server keyed by ITEM id, and one item can appear as
+   * several map layers.
+   *
+   * This gate is convenience, not security. Every PATCH is re-checked
+   * server-side against the same permission, so a stale client that
+   * offers an editable cell it should not still fails closed.
+   */
+  /**
+   * The server answers for the layers the map had when the page
+   * rendered. A layer added in this session is not in that answer, so
+   * without this the edit tools stayed hidden until the map was saved
+   * and reopened, which read as "editing does not work on new
+   * layers". Any data_layer item the server has not been asked about
+   * is asked about here, once, through the same batch endpoint.
+   *
+   * "Asked about" is `resolvedPermissionItemIds`, not the editable
+   * subset: a refusal is an answer, and seeding from the editable ids
+   * alone re-asked about every refused layer on every load. The
+   * editable ids are unioned in for a caller that passes only those.
+   */
+  const [layerWritePermissions, setLayerWritePermissions] = useState<
+    Record<string, boolean>
+  >(() => {
+    const editable = new Set(editableLayerItemIds);
+    const out: Record<string, boolean> = {};
+    for (const id of resolvedPermissionItemIds) out[id] = editable.has(id);
+    for (const id of editable) out[id] = true;
+    return out;
+  });
+  const askedItemIdsRef = useRef<Set<string>>(
+    new Set([...resolvedPermissionItemIds, ...editableLayerItemIds]),
+  );
+  const dataLayerItemIdsKey = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          map.layers
+            .filter((l) => l.source.kind === 'data-layer')
+            .map((l) => (l.source as { itemId: string }).itemId),
+        ),
+      )
+        .sort()
+        .join(','),
+    [map.layers],
+  );
+  useEffect(() => {
+    const unknown = dataLayerItemIdsKey
+      .split(',')
+      .filter((id) => id.length > 0 && !askedItemIdsRef.current.has(id));
+    if (unknown.length === 0) return;
+    for (const id of unknown) askedItemIdsRef.current.add(id);
+    // No cancellation on re-run: the ids are already marked asked, so
+    // dropping the answer would leave them unknown for the session.
+    // The endpoint caps a request at 100 ids; a map with more freshly
+    // added layers than that is not a realistic session.
+    void fetch(`/api/portal/items/permissions?ids=${unknown.join(',')}`)
+      .then(async (res) =>
+        res.ok
+          ? ((await res.json()) as Record<string, { canEdit?: boolean }>)
+          : {},
+      )
+      .catch(() => ({}) as Record<string, { canEdit?: boolean }>)
+      .then((answer) => {
+        setLayerWritePermissions((cur) => {
+          const next = { ...cur };
+          // An id the server omitted is one the caller cannot read;
+          // record the refusal so it is not asked again.
+          for (const id of unknown) next[id] = answer[id]?.canEdit === true;
+          return next;
+        });
+      });
+  }, [dataLayerItemIdsKey]);
+
+  const editableLayerIds = useMemo(() => {
+    const out = new Set<string>();
+    for (const l of map.layers) {
+      if (
+        l.source.kind === 'data-layer' &&
+        typeof l.source.layerKey === 'string' &&
+        l.source.layerKey.length > 0 &&
+        layerWritePermissions[l.source.itemId] === true
+      ) {
+        out.add(l.id);
+      }
+    }
+    return out;
+  }, [map.layers, layerWritePermissions]);
+
+  /**
+   * Declared field schemas for the editable layers, keyed by map layer
+   * id, plus any pick lists their domains reference.
+   *
+   * `LayerMetadata.fields` is a `string[]` of names discovered from
+   * the data, which is enough to render columns and nowhere near
+   * enough to edit one: the inline editor needs each field's type to
+   * coerce the draft correctly and its domain to offer a list instead
+   * of a free-text box. So this reads the authoritative schema off the
+   * parent item, and only for layers the user can actually edit.
+   */
+  const [editSchemas, setEditSchemas] = useState<{
+    fieldsByLayer: Record<string, FeatureField[]>;
+    /** Declared geometry per editable map layer; null for a table. Drives which layers the Add tool can draw into. */
+    geometryTypeByLayer: Record<string, DrawGeometryType | null>;
+    pickLists: Record<string, PickListData>;
+  }>({ fieldsByLayer: {}, geometryTypeByLayer: {}, pickLists: {} });
+
+  const editableSchemaKey = useMemo(
+    () =>
+      map.layers
+        .filter((l) => editableLayerIds.has(l.id))
+        .map((l) =>
+          l.source.kind === 'data-layer'
+            ? `${l.id}:${l.source.itemId}:${l.source.layerKey}`
+            : l.id,
+        )
+        .sort()
+        .join('\n'),
+    [map.layers, editableLayerIds],
+  );
+
+  useEffect(() => {
+    if (!editableSchemaKey) {
+      setEditSchemas({ fieldsByLayer: {}, geometryTypeByLayer: {}, pickLists: {} });
+      return;
+    }
+    const controller = new AbortController();
+    void (async () => {
+      // Rejoin past the third field: a sublayer key is author-chosen
+      // and may contain a colon, and truncating it here would look
+      // up a layer that does not exist and silently leave the whole
+      // schema empty.
+      const entries = editableSchemaKey.split('\n').map((k) => {
+        const [layerId, itemId, ...rest] = k.split(':');
+        return [layerId, itemId, rest.join(':')] as const;
+      });
+      const fieldsByLayer: Record<string, FeatureField[]> = {};
+      const geometryTypeByLayer: Record<string, DrawGeometryType | null> = {};
+      // One fetch per distinct ITEM, not per layer: two sublayers of
+      // the same data_layer share a parent document.
+      const byItem = new Map<string, string[]>();
+      for (const [layerId, itemId] of entries) {
+        if (!layerId || !itemId) continue;
+        byItem.set(itemId, [...(byItem.get(itemId) ?? []), layerId]);
+      }
+      const pickListIds = new Set<string>();
+      await Promise.all(
+        [...byItem.keys()].map(async (id) => {
+          try {
+            const res = await fetch(`/api/portal/items/${id}`, {
+              signal: controller.signal,
+            });
+            if (!res.ok) return;
+            const item = (await res.json()) as {
+              data?: {
+                layers?: Array<{
+                  id?: string;
+                  fields?: FeatureField[];
+                  geometryType?: DrawGeometryType | null;
+                }>;
+              };
+            };
+            for (const [layerId, itemId, layerKey] of entries) {
+              if (itemId !== id || !layerId) continue;
+              const sub = item.data?.layers?.find((l) => l.id === layerKey);
+              if (!sub) continue;
+              const gt = sub.geometryType;
+              geometryTypeByLayer[layerId] =
+                gt === 'point' || gt === 'line' || gt === 'polygon' ? gt : null;
+              if (!Array.isArray(sub.fields)) continue;
+              fieldsByLayer[layerId] = sub.fields;
+              for (const f of sub.fields) {
+                if (f.domain?.type === 'coded-value-ref') {
+                  pickListIds.add(f.domain.pickListItemId);
+                }
+              }
+            }
+          } catch {
+            // A schema we cannot read means that layer's cells edit as
+            // plain text rather than as a list. Degrading is right
+            // here: the server still validates the value.
+          }
+        }),
+      );
+      const pickLists: Record<string, PickListData> = {};
+      await Promise.all(
+        [...pickListIds].map(async (id) => {
+          try {
+            const res = await fetch(`/api/portal/items/${id}`, {
+              signal: controller.signal,
+            });
+            if (!res.ok) return;
+            const item = (await res.json()) as { data?: PickListData };
+            if (item.data && Array.isArray(item.data.entries)) {
+              pickLists[id] = item.data;
+            }
+          } catch {
+            // Same degradation as above.
+          }
+        }),
+      );
+      if (controller.signal.aborted) return;
+      setEditSchemas({ fieldsByLayer, geometryTypeByLayer, pickLists });
+    })();
+    return () => controller.abort();
+  }, [editableSchemaKey]);
+
+  /**
+   * Geometry editing tools: move vertices, add, delete, on the
+   * layers this viewer may write to. Owns its own terra-draw instance
+   * on the canvas's map through the shared hooks, and hands the canvas
+   * the click routing it needs.
+   */
+  const featureEditLayerInfo = useMemo(() => {
+    const out: Record<string, EditableLayerInfo> = {};
+    for (const id of editableLayerIds) {
+      out[id] = {
+        fields: editSchemas.fieldsByLayer[id] ?? [],
+        geometryType: editSchemas.geometryTypeByLayer[id] ?? null,
+      };
+    }
+    return out;
+  }, [editableLayerIds, editSchemas]);
+
+  const featureEditing = useFeatureEditing({
+    map: mapLibre,
+    layers: map.layers,
+    editableLayerIds,
+    layerInfo: featureEditLayerInfo,
+    pickLists: editSchemas.pickLists,
+    canvasRef,
+  });
+
+  // The select tool and the edit tools both want the click. Whichever
+  // was activated last wins and the other stands down.
+  useEffect(() => {
+    if (featureEditing.active && selectTool !== 'off') setSelectTool('off');
+  }, [featureEditing.active, selectTool]);
+
+  /**
+   * Persist one inline attribute edit, then repaint.
+   *
+   * The v3 PATCH replaces the property bag wholesale, which is what
+   * the table sends. On success the layer's tiles and cached features
+   * are stale, so the source is refreshed rather than patched in
+   * place: the server may have coerced the value (a number typed into
+   * a text column is stored as text), and painting the draft would
+   * show something the database does not hold.
+   */
+  const handlePatchFeature = useCallback(
+    async (layerId: string, featureId: string, properties: Record<string, unknown>) => {
+      const layer = map.layers.find((l) => l.id === layerId);
+      if (!layer || layer.source.kind !== 'data-layer') {
+        throw new Error('This layer does not support editing.');
+      }
+      const { itemId: sourceItemId, layerKey } = layer.source;
+      const res = await fetch(
+        `/api/portal/items/${sourceItemId}/layers/${layerKey}/features/${featureId}`,
+        {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ properties }),
+        },
+      );
+      if (!res.ok) {
+        // The 400 body carries the validator's sentence, which names
+        // the field and what it would not accept. Surfacing the status
+        // code instead would throw that away.
+        throw new Error(await parseApiError(res, 'Save failed'));
+      }
+      canvasRef.current?.refreshLayerSource(layerId);
+    },
+    [map.layers],
+  );
+
+  function markDirty() {
+    setDirty(true);
+    setSaved(false);
+  }
+
+  /**
+   * The picker <select> emits a basemap item UUID; the map stores it
+   * directly in `MapData.basemap`. All basemaps (seeded built-ins and
+   * user-authored) now live in one flat list.
+   */
+  function setBasemap(value: string) {
+    setMap((m) => ({ ...m, basemap: value }));
+    markDirty();
+  }
+
+  /**
+   * #186 / #211: 3D terrain, now an ordered elevation stack. The
+   * stack is the source of truth; the legacy `itemId` / `tileUrl`
+   * pair is kept as a mirror of stack[0] so old runtimes and the
+   * single-entry cog:// fast path keep working. An empty stack
+   * drops the terrain key entirely so the payload stays clean.
+   * Entry tileUrl / maxZoom are stamped at set time, same
+   * no-runtime-item-fetch rule as layers.
+   */
+  function writeTerrainStack(m: MapData, stack: TerrainStackEntry[]): MapData {
+    if (stack.length === 0) {
+      const next = { ...m };
+      delete next.terrain;
+      return next;
+    }
+    const first = stack[0]!;
+    return {
+      ...m,
+      terrain: {
+        ...(m.terrain?.exaggeration !== undefined
+          ? { exaggeration: m.terrain.exaggeration }
+          : {}),
+        // Stack edits never flip the on/off switch: building the
+        // list while peeking at 2D stays off until toggled.
+        ...(m.terrain?.enabled !== undefined
+          ? { enabled: m.terrain.enabled }
+          : {}),
+        itemId: first.itemId,
+        tileUrl: first.tileUrl,
+        stack,
+      },
+    };
+  }
+
+  /**
+   * #211 follow-up (user feedback): flip 3D on/off WITHOUT touching
+   * the stack. Deleting the terrain key wiped a carefully ordered
+   * list just to peek at 2D; the flag round-trips instead. `true`
+   * is stored as key-absent to keep old payloads byte-identical.
+   */
+  function toggleTerrainEnabled() {
+    setMap((m) => {
+      if (!m.terrain) return m;
+      const next = { ...m.terrain };
+      if (next.enabled === false) delete next.enabled;
+      else next.enabled = false;
+      return { ...m, terrain: next };
+    });
+    markDirty();
+  }
+
+  /**
+   * The stack a given MapData effectively has: `stack` when present,
+   * else the legacy single source as a stack of one (#211 no-migration
+   * rule), else empty.
+   */
+  function effectiveTerrainStack(m: MapData): TerrainStackEntry[] {
+    if (m.terrain?.stack?.length) return m.terrain.stack;
+    if (m.terrain?.tileUrl) {
+      return [{ itemId: m.terrain.itemId, tileUrl: m.terrain.tileUrl }];
+    }
+    return [];
+  }
+
+  function addTerrainEntry(entry: TerrainStackEntry) {
+    setMap((m) => {
+      const stack = effectiveTerrainStack(m);
+      if (stack.some((e) => e.itemId === entry.itemId)) return m;
+      return writeTerrainStack(m, [...stack, entry]);
+    });
+    markDirty();
+  }
+
+  function removeTerrainEntry(itemId: string) {
+    setMap((m) =>
+      writeTerrainStack(
+        m,
+        effectiveTerrainStack(m).filter((e) => e.itemId !== itemId),
+      ),
+    );
+    markDirty();
+  }
+
+  /** Move a stack entry one position up (-1) or down (+1). */
+  function moveTerrainEntry(itemId: string, delta: -1 | 1) {
+    setMap((m) => {
+      const stack = [...effectiveTerrainStack(m)];
+      const from = stack.findIndex((e) => e.itemId === itemId);
+      const to = from + delta;
+      if (from < 0 || to < 0 || to >= stack.length) return m;
+      const [entry] = stack.splice(from, 1);
+      stack.splice(to, 0, entry!);
+      return writeTerrainStack(m, stack);
+    });
+    markDirty();
+  }
+
+
+  /**
+   * #186 follow-up (user feedback: "why isn't the hillshade coming
+   * in as 3D?"): when a layer with a stamped coverage box joins a
+   * map that has no terrain yet, look for an elevation layer whose
+   * coverage overlaps and switch terrain on automatically, with a
+   * notice saying how to turn it off. Never overrides an existing
+   * terrain choice; runs at most once per builder session.
+   */
+  const autoTerrainTried = useRef(false);
+  async function maybeAutoTerrain(added: MapLayer[]) {
+    if (!canEdit) return;
+    // #211: a layer that carries its own DEM reference is a stronger
+    // signal than the bbox heuristic below, and it also applies when
+    // the map ALREADY has terrain (the added layer's ground may not
+    // be in the stack yet). No-terrain: switch it on directly, same
+    // UX as the heuristic. Existing terrain: offer via a toast
+    // action, never override the author's stack unprompted.
+    const carrier = added.find(
+      (l) =>
+        (l.source.kind === 'tile' || l.source.kind === 'point-cloud') &&
+        l.source.preferredElevationItemId,
+    );
+    if (
+      carrier &&
+      (carrier.source.kind === 'tile' ||
+        carrier.source.kind === 'point-cloud') &&
+      carrier.source.preferredElevationItemId
+    ) {
+      const preferredId = carrier.source.preferredElevationItemId;
+      const stack = effectiveTerrainStack(mapRefForProfile.current);
+      if (stack.some((e) => e.itemId === preferredId)) return;
+      if (stack.length === 0) {
+        await ensureElevationInStack(preferredId);
+      } else {
+        toast(`"${carrier.title}" comes with its own elevation layer.`, {
+          description:
+            "Add it to this map's terrain so that area gets real ground height.",
+          action: {
+            label: 'Add to terrain',
+            onClick: () => {
+              void ensureElevationInStack(preferredId);
+            },
+          },
+        });
+      }
+      return;
+    }
+    if (autoTerrainTried.current || map.terrain) return;
+    const withBox = added.find(
+      (l) =>
+        (l.source.kind === 'tile' || l.source.kind === 'point-cloud') &&
+        l.source.bboxWgs84,
+    );
+    if (
+      !withBox ||
+      (withBox.source.kind !== 'tile' &&
+        withBox.source.kind !== 'point-cloud') ||
+      !withBox.source.bboxWgs84
+    ) {
+      return;
+    }
+    autoTerrainTried.current = true;
+    const [w, s, e, n] = withBox.source.bboxWgs84;
+    try {
+      const res = await fetch('/api/portal/items?type=tile_layer&full=1');
+      if (!res.ok) return;
+      const items = (await res.json()) as Array<{
+        id: string;
+        title: string;
+        data?: {
+          dem?: boolean;
+          tileUrl?: string;
+          bbox?: [number, number, number, number];
+          maxZoom?: number;
+        } | null;
+      }>;
+      const match = items.find((i) => {
+        if (!i.data?.dem || !i.data.tileUrl || !i.data.bbox) return false;
+        const [bw, bs, be, bn] = i.data.bbox;
+        return bw < e && be > w && bs < n && bn > s;
+      });
+      if (!match) return;
+      const entry: TerrainStackEntry = {
+        itemId: match.id,
+        tileUrl: match.data!.tileUrl!,
+        ...(typeof match.data!.maxZoom === 'number'
+          ? { maxZoom: match.data!.maxZoom }
+          : {}),
+      };
+      setMap((m) => (m.terrain ? m : writeTerrainStack(m, [entry])));
+      markDirty();
+      toast(`3D terrain is on, using "${match.title}".`, {
+        description:
+          'Tilt the map (right-drag) to see it. Manage it in the 3D terrain section of the layers panel.',
+      });
+    } catch {
+      /* enhancement only; never block the add */
+    }
+  }
+
+  /**
+   * #211: fetch a DEM item and make sure it's in the terrain stack:
+   * top when the map had none, appended below the author's existing
+   * choices otherwise (first entry wins in the mosaic, so joining
+   * never silently re-ranks the ground). Shared by the layer
+   * kebab's "Use this layer's elevation" and the add-layer offer.
+   */
+  async function ensureElevationInStack(demItemId: string) {
+    try {
+      const res = await fetch(`/api/portal/items/${demItemId}`);
+      if (!res.ok) {
+        toast.error('That elevation layer is not available.');
+        return;
+      }
+      const item = (await res.json()) as {
+        title?: string;
+        data?: { dem?: boolean; tileUrl?: string; maxZoom?: number } | null;
+      };
+      if (!item.data?.dem || !item.data.tileUrl) {
+        toast.error('That elevation layer is not ready yet.');
+        return;
+      }
+      const title = item.title ?? 'Elevation layer';
+      const current = effectiveTerrainStack(mapRefForProfile.current);
+      if (current.some((e) => e.itemId === demItemId)) {
+        toast(`"${title}" is already part of this map's terrain.`);
+        return;
+      }
+      const hadTerrain = current.length > 0;
+      addTerrainEntry({
+        itemId: demItemId,
+        tileUrl: item.data.tileUrl,
+        ...(typeof item.data.maxZoom === 'number'
+          ? { maxZoom: item.data.maxZoom }
+          : {}),
+      });
+      toast(
+        hadTerrain
+          ? `Added "${title}" to this map's terrain.`
+          : `3D terrain is on, using "${title}".`,
+        {
+          description: hadTerrain
+            ? 'Where elevation layers overlap, the one nearer the top wins. Reorder in the 3D terrain section of the layers panel.'
+            : 'Tilt the map (right-drag) to see it. Manage it in the 3D terrain section of the layers panel.',
+        },
+      );
+    } catch {
+      toast.error('Could not add that elevation layer.');
+    }
+  }
+
+  /**
+   * #211: layer-kebab entry point. Honest about the renderer
+   * constraint: one terrain mesh per map, so "use this layer's
+   * elevation" means "make sure its DEM is in the map's stack".
+   */
+  function useLayerElevation(layerId: string) {
+    const layer = mapRefForProfile.current.layers.find(
+      (l) => l.id === layerId,
+    );
+    const src = layer?.source;
+    if (
+      !src ||
+      (src.kind !== 'tile' && src.kind !== 'point-cloud') ||
+      !src.preferredElevationItemId
+    ) {
+      return;
+    }
+    void ensureElevationInStack(src.preferredElevationItemId);
+  }
+
+  // Ref-shadow of the map state so the stable profile resolver
+  // reads the live terrain setting without re-creating itself (and
+  // re-registering the tool's map handlers) on every map edit.
+  const mapRefForProfile = useRef(map);
+  mapRefForProfile.current = map;
+
+  /**
+   * Elevation source for the profile tool: the map's terrain layer
+   * when set, else any org elevation layer covering the drawn line
+   * (shared lookup in lib/dem-resolver).
+   */
+  const resolveProfileDem = useCallback(
+    (bbox: [number, number, number, number]) =>
+      // The resolver itself treats disabled terrain as absent.
+      resolveDemForBbox(mapRefForProfile.current.terrain ?? null, bbox),
+    [],
+  );
+
+  // Elevation layers available for 3D terrain (#186 / #211):
+  // tile_layer items flagged dem. Fetched lazily when the layers
+  // panel's terrain section first opens; the list is tiny
+  // (analysis outputs), so the non-lite payload is fine and we
+  // need `data` for the dem flag + tileUrl + maxZoom.
+  const [demLayers, setDemLayers] = useState<
+    Array<{
+      id: string;
+      title: string;
+      tileUrl: string;
+      maxZoom?: number;
+    }> | null
+  >(null);
+  const demLayersLoading = useRef(false);
+  const loadDemLayers = useCallback(() => {
+    if (demLayers !== null || demLayersLoading.current) return;
+    demLayersLoading.current = true;
+    void (async () => {
+      try {
+        const res = await fetch('/api/portal/items?type=tile_layer&full=1');
+        if (!res.ok) {
+          setDemLayers([]);
+          return;
+        }
+        const items = (await res.json()) as Array<{
+          id: string;
+          title: string;
+          data?: { dem?: boolean; tileUrl?: string; maxZoom?: number } | null;
+        }>;
+        setDemLayers(
+          items
+            .filter((i) => i.data?.dem && i.data?.tileUrl)
+            .map((i) => ({
+              id: i.id,
+              title: i.title,
+              tileUrl: i.data!.tileUrl!,
+              ...(typeof i.data!.maxZoom === 'number'
+                ? { maxZoom: i.data!.maxZoom }
+                : {}),
+            })),
+        );
+      } catch {
+        setDemLayers([]);
+      } finally {
+        demLayersLoading.current = false;
+      }
+    })();
+  }, [demLayers]);
+
+  /** #211: height boost, now driven from the layers panel's
+   *  terrain section. */
+  function setTerrainExaggeration(v: number) {
+    setMap((m) =>
+      m.terrain ? { ...m, terrain: { ...m.terrain, exaggeration: v } } : m,
+    );
+    markDirty();
+  }
+
+  /**
+   * #74: set the map's geocoding source. Pass `null` (or empty
+   * string) to fall back to Nominatim. Stored on
+   * `map.search.geocoderId` so the search bar can route queries to
+   * the picked geocoder instead of the default.
+   */
+  function setGeocoderId(value: string | null) {
+    setMap((m) => {
+      const nextSearch = { ...(m.search ?? { enabled: true, geocoding: true }) };
+      if (value) {
+        nextSearch.geocoderId = value;
+      } else {
+        delete nextSearch.geocoderId;
+      }
+      return { ...m, search: nextSearch };
+    });
+    markDirty();
+  }
+
+  /** Value currently shown in the picker: the basemap item UUID. */
+  const pickerValue = map.basemap;
+
+  /** Metadata of the selected basemap, used for the description line
+   *  and attribution. Undefined when the map still has the empty
+   *  sentinel basemap or the referenced item has been deleted. */
+  const selectedBasemap = basemaps.find((b) => b.id === map.basemap);
+
+  /**
+   * Setter for the default-extent boundary reference (#31). The empty
+   * string from the picker means "no default extent" -- we drop the
+   * key from MapData rather than persist an empty string so the API
+   * payload stays clean. Marks the map dirty so save is enabled.
+   */
+  function setDefaultExtentBoundaryId(value: string) {
+    setMap((m) => {
+      if (!value) {
+        const next = { ...m };
+        delete (next as Partial<MapData>).defaultExtentBoundaryId;
+        return next as MapData;
+      }
+      return { ...m, defaultExtentBoundaryId: value };
+    });
+    markDirty();
+  }
+
+  /**
+   * #79: clip-boundary setter. Distinct from defaultExtent: this
+   * scopes the data the runtime SHOWS (every layer's read clipped
+   * to the polygon), not just the camera. Trust posture explicitly
+   * NOT access control: the section's help text spells this out.
+   * The current value is read directly from `map.clipBoundaryId`
+   * inside MapSettingsSection; no derived value needed here now
+   * that the inline picker is gone.
+   */
+  function setClipBoundaryId(value: string) {
+    setMap((m) => {
+      if (!value) {
+        const next = { ...m };
+        delete (next as Partial<MapData>).clipBoundaryId;
+        return next as MapData;
+      }
+      return { ...m, clipBoundaryId: value };
+    });
+    markDirty();
+  }
+
+  function setLayers(next: MapLayer[]) {
+    setMap((m) => ({ ...m, layers: next }));
+    markDirty();
+  }
+
+  function addLayer(layer: MapLayer) {
+    setMap((m) => ({ ...m, layers: [layer, ...m.layers] }));
+    markDirty();
+    void maybeAutoTerrain([layer]);
+  }
+
+  // #185: auto-add a portal item's layers on first mount (the "Add
+  // to map" buttons and the scratch route's ?add=). Uses the same
+  // shared construction as the Add Layer dialog with its default
+  // choices. The ref guards strict-mode double effects; the URL
+  // param is stripped after the add so a reload doesn't duplicate.
+  const autoAddRan = useRef(false);
+  useEffect(() => {
+    if (!addItemId || autoAddRan.current || !canEdit) return;
+    autoAddRan.current = true;
+    void (async () => {
+      try {
+        const res = await fetch(`/api/portal/items/${addItemId}`);
+        if (!res.ok) {
+          setError(`Could not load the layer to add (HTTP ${res.status}).`);
+          return;
+        }
+        const item = (await res.json()) as Item;
+        const { layers, error: addError } = await layersForPortalItem(
+          item,
+          addLayerKey !== undefined ? { layerKey: addLayerKey, t } : { t },
+        );
+        if (addError) {
+          setError(addError);
+          return;
+        }
+        if (layers && layers.length > 0) {
+          setMap((m) => ({ ...m, layers: [...layers, ...m.layers] }));
+          markDirty();
+          void maybeAutoTerrain(layers);
+          // Zoom to the added content when it stamped a coverage box
+          // (imagery, point clouds); feature layers keep the map's
+          // camera and load by viewport.
+          const first = layers.find(
+            (l) =>
+              (l.source.kind === 'tile' || l.source.kind === 'point-cloud') &&
+              l.source.bboxWgs84,
+          );
+          if (
+            first &&
+            (first.source.kind === 'tile' ||
+              first.source.kind === 'point-cloud') &&
+            first.source.bboxWgs84
+          ) {
+            canvasRef.current?.zoomTo(first.source.bboxWgs84);
+          }
+        }
+        const url = new URL(window.location.href);
+        if (url.searchParams.has('add') || url.searchParams.has('layer')) {
+          url.searchParams.delete('add');
+          url.searchParams.delete('layer');
+          window.history.replaceState(null, '', url.toString());
+        }
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : 'Could not add the layer.',
+        );
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addItemId, addLayerKey, canEdit, t]);
+
+  /**
+   * Create an empty group at the top of the layer list (#70). The
+   * factory and title-uniqueness helper live in group-factory.ts so
+   * "Add group" from the panel and "Move to new group" from the
+   * per-layer kebab share one source of truth.
+   */
+  function addEmptyGroup() {
+    setMap((m) => {
+      const title = uniqueGroupTitle(m.layers, 'New group');
+      const group = makeEmptyGroupLayer(title);
+      return { ...m, layers: [group, ...m.layers] };
+    });
+    markDirty();
+  }
+
+  // Camera changes from user interaction get folded into the canonical
+  // state so Save view captures whatever the user is currently looking at.
+  const onCameraChange = useCallback(
+    (next: Pick<MapData, 'center' | 'zoom' | 'bearing' | 'pitch'>) => {
+      setMap((m) => ({ ...m, ...next }));
+      if (canEdit) markDirty();
+    },
+    [canEdit],
+  );
+
+  /**
+   * Current map viewport bbox, fed downstream to AttributeTable's
+   * "Records in map extent" toggle (#115 P13). The MapCanvas fires
+   * this on every settled camera move (programmatic or user-driven)
+   * so the table can refetch the paged endpoint with the right
+   * envelope on pan/zoom. Null until the canvas has rendered once
+   * and reported its first bbox.
+   */
+  const [mapBbox, setMapBbox] = useState<
+    [number, number, number, number] | null
+  >(null);
+
+  async function save() {
+    if (scratch) {
+      // #187: no backing item; Save opens the name-and-create flow.
+      setSaveAsTitle('');
+      setSaveAsOpen(true);
+      return;
+    }
+    setError(null);
+    setSaving(true);
+    try {
+      // Capture the live camera at save time. The event-driven fold
+      // (onCameraChange) only sees user-driven moves, so a view
+      // reached via zoom-to-extent or a search fly-to would silently
+      // save the previous camera without this.
+      const cam = canvasRef.current?.getCamera();
+      const payload = cam ? { ...map, ...cam } : map;
+      const res = await fetch(`/api/portal/items/${itemId}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ data: payload }),
+      });
+      if (!res.ok) {
+        setError(`Save failed: ${res.status} ${await res.text()}`);
+        return;
+      }
+      // Keep client state aligned with what was just persisted so a
+      // follow-up save doesn't diff against a stale camera.
+      if (cam) setMap((m) => ({ ...m, ...cam }));
+      setDirty(false);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 1500);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // #187 scratch save-as flow: name the map, create the item with
+  // the current state (live camera included), then move to the real
+  // builder for the new item.
+  const [saveAsOpen, setSaveAsOpen] = useState(false);
+  const [saveAsTitle, setSaveAsTitle] = useState('');
+  async function saveScratchAsItem() {
+    const title = saveAsTitle.trim();
+    if (!title) return;
+    setError(null);
+    setSaving(true);
+    try {
+      const cam = canvasRef.current?.getCamera();
+      const payload = cam ? { ...map, ...cam } : map;
+      const res = await fetch('/api/portal/items', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ type: 'map', title, data: payload }),
+      });
+      if (!res.ok) {
+        setError(`Save failed: ${res.status} ${await res.text()}`);
+        return;
+      }
+      const created = (await res.json()) as { id: string };
+      // The state update below can't detach the beforeunload guard
+      // before the synchronous navigation; the ref tells the guard
+      // to stand down for this one deliberate redirect.
+      skipUnloadGuardRef.current = true;
+      setDirty(false);
+      window.location.assign(`/items/${created.id}?view=configure`);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // Warn before navigating away with unsaved changes. Standard beforeunload
+  // contract: set returnValue and return a truthy string.
+  //
+  // The ref bypass exists for OUR OWN navigations right after a
+  // successful save: setDirty(false) can't re-render (and detach
+  // this listener) before a synchronous location.assign in the same
+  // handler, so the scratch save-as redirect was tripping the
+  // browser's "Leave site?" prompt over changes that were already
+  // persisted (user report).
+  const skipUnloadGuardRef = useRef(false);
+  useEffect(() => {
+    if (!dirty) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      if (skipUnloadGuardRef.current) return;
+      e.preventDefault();
+      e.returnValue = '';
+      return '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [dirty]);
+
+  // BuilderShell top bar right side. Single icon pill for the canvas
+  // overlay toggles (basemap menu / legend / attribute table / layer
+  // access), followed by a Saved indicator and a Save button when the
+  // user has edit rights. Read-only viewers see the pill without the
+  // basemap menu (which would imply edit) and access-matrix button,
+  // and no Save.
+  const canvasTogglePill = (
+    <div className="flex items-center gap-0.5 rounded-md border border-border bg-surface-1 p-1">
+      {canEdit ? (
+        <div ref={basemapMenuRef} className="relative">
+          <button
+            type="button"
+            onClick={() => setBasemapMenuOpen((v) => !v)}
+            className={`inline-flex h-9 w-9 items-center justify-center rounded text-muted hover:bg-surface-2 hover:text-ink-0 ${
+              basemapMenuOpen ? 'bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300' : ''
+            }`}
+            title={`Basemap${selectedBasemap ? `: ${selectedBasemap.label}` : ''}`}
+            aria-label="Basemap"
+            aria-haspopup="menu"
+            aria-expanded={basemapMenuOpen}
+          >
+            <MapBaseIcon className="h-5 w-5" />
+          </button>
+          {basemapMenuOpen ? (
+            <div
+              role="menu"
+              className="absolute right-0 top-11 z-30 w-56 overflow-hidden rounded-md border border-border bg-surface-1 text-xs shadow-overlay"
+            >
+              <div className="border-b border-border bg-surface-2 px-3 py-1.5 text-2xs font-semibold uppercase tracking-wide text-muted">
+                Basemap
+              </div>
+              {basemaps.length === 0 ? (
+                <div className="px-3 py-2 italic text-muted">
+                  No basemaps available
+                </div>
+              ) : (
+                <ul className="max-h-72 overflow-auto py-1">
+                  {basemaps.map((b) => {
+                    const active = pickerValue === b.id;
+                    return (
+                      <li key={b.id}>
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            setBasemap(b.id);
+                            setBasemapMenuOpen(false);
+                          }}
+                          className={`flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-surface-2 ${
+                            active
+                              ? 'bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300'
+                              : 'text-ink-1'
+                          }`}
+                        >
+                          <span className="truncate">{b.label}</span>
+                          {active ? (
+                            <span className="ml-auto text-2xs uppercase tracking-wide">
+                              active
+                            </span>
+                          ) : null}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              {/* #211 terrain relocation (user feedback): the 3D
+                  terrain stack moved to the layers panel, where
+                  its top-wins ordering reads like the layer list
+                  it affects. This menu is basemaps only again. */}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+      <ToolbarIconToggle
+        Icon={List}
+        label="Legend"
+        active={legendOpen}
+        onClick={() => setLegendOpen((v) => !v)}
+      />
+      <ToolbarIconToggle
+        Icon={Table}
+        label="Attribute table"
+        active={tableOpen}
+        onClick={() => {
+          // Toolbar toggle is the unfocused path: clear any per-layer
+          // focus so the table defaults to the first-visible queryable
+          // layer. (#73)
+          setTableFocusLayerId(null);
+          setTableOpen((v) => !v);
+        }}
+      />
+      <ToolbarIconToggle
+        Icon={ChartSpline}
+        label="Elevation profile"
+        active={profileOpen}
+        onClick={() => setProfileOpen((v) => !v)}
+      />
+      {currentUser ? (
+        <ToolbarIconToggle
+          Icon={Eye}
+          label="Visibility"
+          active={visibilityOpen}
+          onClick={() => setVisibilityOpen((v) => !v)}
+        />
+      ) : null}
+      {/* #187: item-bound surfaces (markup persistence, comments,
+          print binding, layer access) need a saved map to attach
+          to, so scratch mode hides them until the user saves. */}
+      {!scratch ? (
+        <>
+          <ToolbarIconToggle
+            Icon={PencilLine}
+            label="Markup"
+            active={markupOpen}
+            onClick={() => setMarkupOpen((v) => !v)}
+          />
+          <ToolbarIconToggle
+            Icon={MessageSquare}
+            label="Comments"
+            active={commentsOpen}
+            onClick={() => setCommentsOpen((v) => !v)}
+          />
+          <ToolbarIconToggle
+            Icon={Printer}
+            label="Print this map"
+            active={printOpen}
+            onClick={() => setPrintOpen((v) => !v)}
+          />
+          {canEdit ? (
+            <ToolbarIconToggle
+              Icon={ShieldCheck}
+              label="Layer access"
+              active={matrixOpen}
+              onClick={() => setMatrixOpen((v) => !v)}
+            />
+          ) : null}
+        </>
+      ) : null}
+    </div>
+  );
+
+  const toolbarRight = (
+    <>
+      {/* #156 follow-up: live presence avatar chips portal target.
+          Sits at the leading edge of the toolbar's right side so
+          the chips appear next to the Save / canvas toggles
+          instead of floating over the canvas where they used to
+          overlap MapLibre's zoom + compass controls. The empty
+          container is harmless when nobody else is on the map. */}
+      <div ref={setPresenceChipsSlot} className="flex items-center" />
+      {canvasTogglePill}
+      {canEdit ? (
+        <>
+          {saved ? (
+            <span className="inline-flex items-center gap-1 text-xs text-success">
+              <Check className="h-3.5 w-3.5" />
+              Saved
+            </span>
+          ) : null}
+          <button
+            type="button"
+            onClick={save}
+            disabled={!dirty || saving}
+            className="inline-flex h-9 items-center gap-1.5 rounded-md bg-accent px-3 text-sm font-medium text-accent-foreground shadow-card hover:opacity-90 disabled:opacity-50"
+          >
+            {saving ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4" />
+            )}
+            Save map
+          </button>
+        </>
+      ) : null}
+    </>
+  );
+
+  // Left panel: layer list. Same component as before; the wrapping
+  // 320px fixed-width div goes away because BuilderShell owns the
+  // width now (and lets the user resize / pin).
+  const leftPanel = (
+    <LayerPanel
+      layers={map.layers}
+      metadata={metadata}
+      canEdit={canEdit}
+      currentZoom={map.zoom}
+      onOpenAdd={() => setAddOpen(true)}
+      onAddGroup={addEmptyGroup}
+      onOpenAttributeTable={(layerId) => {
+        setTableFocusLayerId(layerId ?? null);
+        setTableOpen(true);
+      }}
+      onUseLayerElevation={useLayerElevation}
+      {...(canEdit
+        ? {
+            terrain: {
+              stack: effectiveTerrainStack(map),
+              ...(map.terrain?.exaggeration !== undefined
+                ? { exaggeration: map.terrain.exaggeration }
+                : {}),
+              demLayers,
+              onLoad: loadDemLayers,
+              onAdd: addTerrainEntry,
+              onRemove: removeTerrainEntry,
+              onMove: moveTerrainEntry,
+              enabled: map.terrain?.enabled !== false,
+              onToggle: toggleTerrainEnabled,
+              onExaggeration: setTerrainExaggeration,
+            },
+          }
+        : {})}
+      onZoomToLayer={(layerId) => {
+        // Zoom-to-extent is a deliberate authoring action, so it
+        // marks the map dirty: Save's camera capture only helps if
+        // Save is enabled, and the camera fold skips programmatic
+        // moves (fitBounds carries no originalEvent) by design.
+        if (canEdit) markDirty();
+        // #179 unit 3: point-cloud layers carry their WGS84 bbox on
+        // the source (stamped at add time), so no feature walk.
+        const pcLayer = map.layers.find((l) => l.id === layerId);
+        if (
+          pcLayer?.source.kind === 'point-cloud' ||
+          pcLayer?.source.kind === 'tile'
+        ) {
+          // #185: tile layers likewise stamp coverage at add time.
+          if (pcLayer.source.bboxWgs84) {
+            canvasRef.current?.zoomTo(pcLayer.source.bboxWgs84);
+          }
+          return;
+        }
+        // Compute the bbox from the layer's cached feature
+        // collection. Metadata is populated as the canvas loads
+        // each layer; if it isn't ready yet, the action is a no-op
+        // rather than a flicker. (#72)
+        const meta = metadata[layerId];
+        const fc = meta?.featureCollection ?? null;
+        if (!fc || fc.features.length === 0) return;
+        let minX = Infinity,
+          minY = Infinity,
+          maxX = -Infinity,
+          maxY = -Infinity;
+        const visit = (
+          coords: number[] | number[][] | number[][][] | number[][][][],
+        ) => {
+          if (typeof coords[0] === 'number') {
+            const c = coords as number[];
+            if (typeof c[0] === 'number' && typeof c[1] === 'number') {
+              minX = Math.min(minX, c[0]);
+              minY = Math.min(minY, c[1]);
+              maxX = Math.max(maxX, c[0]);
+              maxY = Math.max(maxY, c[1]);
+            }
+            return;
+          }
+          for (const inner of coords as Array<unknown>) {
+            visit(inner as Parameters<typeof visit>[0]);
+          }
+        };
+        for (const f of fc.features) {
+          if (!f.geometry) continue;
+          if (
+            'coordinates' in f.geometry &&
+            Array.isArray((f.geometry as { coordinates: unknown }).coordinates)
+          ) {
+            visit((f.geometry as { coordinates: number[][] }).coordinates);
+          }
+        }
+        if (minX !== Infinity && maxX !== -Infinity) {
+          canvasRef.current?.zoomTo([minX, minY, maxX, maxY]);
+        }
+      }}
+      onChange={setLayers}
+    />
+  );
+
+  // Right panel: map-level settings (view scope, default extent,
+  // search source). Only meaningful when canEdit; viewers see no
+  // right panel. BuilderShell handles the unpinned case gracefully
+  // (the rail's toggle button hides when there's no content).
+  const rightPanel = canEdit ? (
+    <MapSettingsSection
+      canEdit={canEdit}
+      map={map}
+      geoBoundaries={geoBoundaries}
+      availableGeocoders={availableGeocoders}
+      setClipBoundaryId={setClipBoundaryId}
+      setDefaultExtentBoundaryId={setDefaultExtentBoundaryId}
+      setGeocoderId={setGeocoderId}
+    />
+  ) : null;
+
+  // `/items` for a saved map too, not just a scratch one: a saved
+  // map's builder IS its detail page, so the old non-scratch branch
+  // pointed the back arrow at the page it was already on.
+  return (
+    <>
+      <BuilderShell
+        storageKey="builder-shell:map"
+        backHref="/items"
+        title={itemTitle}
+        icon={<MapBaseIcon className="h-4 w-4 text-muted" />}
+        toolbarRight={toolbarRight}
+        leftPanel={leftPanel}
+        leftPanelTitle="Layers"
+        leftRailIcon={<LayersIcon className="h-4 w-4" />}
+        rightPanel={rightPanel}
+        rightPanelTitle="Map settings"
+        rightRailIcon={<SettingsIcon className="h-4 w-4" />}
+      >
+        {/* Canvas + overlays. `absolute inset-0` over the BuilderShell
+            main slot guarantees the canvas fills regardless of
+            flexbox quirks, and gives the overlay components (legend,
+            attribute table, search bar, select toolbar) a single
+            relative anchor. MapLibre re-sizes when its container
+            does, so resizing the BuilderShell panels triggers the
+            map to re-fit live. */}
+        <div className="absolute inset-0">
+          <MapCanvas
+            ref={canvasRef}
+            map={map}
+            basemaps={basemaps}
+            onCameraChange={onCameraChange}
+            onViewportChange={setMapBbox}
+            selection={selection}
+            selectTool={selectTool}
+            onSelectionChange={setSelection}
+            drawings={drawings}
+            onMapReady={setMapLibre}
+            suppressPopup={
+              profileOpen || visibilityOpen || featureEditing.canvasProps.suppressPopup
+            }
+            editClaimedLayerIds={featureEditing.canvasProps.editClaimedLayerIds}
+            onEditClaimedClick={featureEditing.canvasProps.onEditClaimedClick}
+          />
+          <ElevationProfileTool
+            map={mapLibre}
+            open={profileOpen}
+            onClose={() => setProfileOpen(false)}
+            resolveDemUrl={resolveProfileDem}
+          />
+          <VisibilityTool
+            map={mapLibre}
+            open={visibilityOpen}
+            onClose={() => setVisibilityOpen(false)}
+            resolveDemUrl={resolveProfileDem}
+            onLayerReady={(layer) => {
+              setMap((m) => ({ ...m, layers: [layer, ...m.layers] }));
+              markDirty();
+            }}
+          />
+          <SelectToolbar
+            mode={selectTool}
+            onChange={(next) => {
+              if (next !== 'off') featureEditing.deactivate();
+              setSelectTool(next);
+            }}
+            selectedCount={selectedCount}
+            onClearSelection={() => setSelection({})}
+          />
+          {featureEditing.overlay}
+          {map.search?.enabled !== false ? (
+            <SearchBar
+              layers={map.layers}
+              featuresByLayer={featuresByLayer}
+              geocodingEnabled={map.search?.geocoding !== false}
+              {...(map.search?.geocoderId
+                ? { geocoderItemId: map.search.geocoderId }
+                : {})}
+              viewportBbox={mapBbox ?? null}
+              onPick={(r) => {
+                canvasRef.current?.flyAndHighlight({
+                  bbox: r.bbox,
+                  center: r.center,
+                  ...(r.kind === 'feature'
+                    ? {
+                        layerId: r.layerId,
+                        featureProps: (r.feature.properties ?? {}) as Record<
+                          string,
+                          unknown
+                        >,
+                      }
+                    : {}),
+                });
+              }}
+            />
+          ) : null}
+          <Legend
+            open={legendOpen}
+            layers={map.layers}
+            metadata={metadata}
+            onClose={() => setLegendOpen(false)}
+          />
+          <AttributeTable
+            open={tableOpen}
+            layers={map.layers}
+            featuresByLayer={featuresByLayer}
+            metadata={metadata}
+            canEdit={canEdit}
+            selection={selection}
+            setSelection={setSelection}
+            focusLayerId={tableFocusLayerId}
+            mapBbox={mapBbox}
+            onClose={() => {
+              setTableOpen(false);
+              // Clear the focus pick on close so re-opening from the
+              // toolbar lands on the default-first-visible.
+              setTableFocusLayerId(null);
+            }}
+            onZoomTo={(bbox) => canvasRef.current?.zoomTo(bbox)}
+            onPatchLayer={(layerId, patch) => {
+              setLayers(
+                map.layers.map((l) => (l.id === layerId ? { ...l, ...patch } : l)),
+              );
+            }}
+            {...(editableLayerIds.size > 0
+              ? {
+                  onPatchFeature: handlePatchFeature,
+                  editableLayerIds,
+                  fieldsByLayer: editSchemas.fieldsByLayer,
+                  pickLists: editSchemas.pickLists,
+                }
+              : {})}
+          />
+          {error ? (
+            <p
+              role="alert"
+              className="absolute bottom-2 left-2 rounded-md border border-danger/30 bg-surface-1 px-2 py-1 text-xs text-danger shadow-card"
+            >
+              {error}
+            </p>
+          ) : null}
+          {/* Item-bound overlays: hidden in scratch mode (#187),
+              which has no item id for them to attach to. */}
+          {!scratch ? (
+            <>
+              {/* #154 Markup panel. Floating overlay so it's
+                  available to viewers (not just editors) without
+                  competing for the BuilderShell right-panel slot. */}
+              <MarkupPanel
+                mapId={itemId}
+                open={markupOpen}
+                onClose={() => setMarkupOpen(false)}
+                currentUser={currentUser}
+                canEditMap={canEdit}
+                mapCenter={map.center}
+                onDrawingsChange={setDrawings}
+                initialDrawings={drawings}
+              />
+              {/* #155 Comments panel. Same floating-overlay model as
+                  the Markup pane so viewers (not just editors) can
+                  comment without the BuilderShell right-rail slot. */}
+              <CommentsPanel
+                itemId={itemId}
+                open={commentsOpen}
+                onClose={() => setCommentsOpen(false)}
+                currentUser={currentUser}
+                canEditItem={canEdit}
+              />
+              {/* #156 Live presence overlay. Renders avatar chips at
+                  top-right of the canvas + per-viewer cursor markers
+                  that track the map as it pans. */}
+              <PresenceOverlay
+                mapId={itemId}
+                currentUser={currentUser}
+                mapLibre={mapLibre}
+                chipsContainer={presenceChipsSlot}
+              />
+              {/* #159 Print this map chooser. */}
+              <PrintThisMapDialog
+                open={printOpen}
+                onClose={() => setPrintOpen(false)}
+                mapId={itemId}
+              />
+            </>
+          ) : null}
+          {/* #187 scratch save-as: name the map, then create the
+              item and continue in the real builder. */}
+          {saveAsOpen ? (
+            <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/40">
+              <div className="w-80 rounded-lg border border-border bg-surface-1 p-4 shadow-overlay">
+                <h2 className="text-sm font-medium text-ink-0">
+                  Save this map
+                </h2>
+                <p className="mt-1 text-xs text-muted">
+                  Give it a name and it becomes a map in your portal,
+                  ready to share and open again later.
+                </p>
+                <input
+                  autoFocus
+                  type="text"
+                  value={saveAsTitle}
+                  onChange={(e) => setSaveAsTitle(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') void saveScratchAsItem();
+                    if (e.key === 'Escape') setSaveAsOpen(false);
+                  }}
+                  placeholder="Map name"
+                  className="mt-3 w-full rounded border border-border bg-surface-0 px-2 py-1.5 text-sm text-ink-0"
+                />
+                <div className="mt-3 flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSaveAsOpen(false)}
+                    className="rounded-md border border-border bg-surface-1 px-3 py-1.5 text-xs font-medium text-ink-1 hover:bg-surface-2"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void saveScratchAsItem()}
+                    disabled={saving || !saveAsTitle.trim()}
+                    className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground hover:opacity-90 disabled:opacity-50"
+                  >
+                    {saving ? 'Saving...' : 'Save map'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </BuilderShell>
+
+      {/* Modal-style overlays render outside BuilderShell so they sit
+          above its z-20 layer. Both already use higher z-index (z-30,
+          z-40) and are positioned `fixed inset-0`. */}
+      <AddLayerDialog
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        onAdd={addLayer}
+      />
+
+      <AccessMatrix
+        open={matrixOpen}
+        layers={map.layers}
+        principals={matrixPrincipals}
+        layerItemIds={layerItemIds}
+        itemShares={itemShares}
+        groupMemberships={groupMemberships}
+        onClose={() => setMatrixOpen(false)}
+        onPatchAccess={patchLayerAccess}
+        onGrantItemAccess={grantItemAccess}
+      />
+    </>
+  );
+}
+
+/**
+ * Migrate older persisted labels. Pre-v2.5 the shape was
+ * `{ field, ... }` with a single field name; v2.5 switched to
+ * `{ template, offsetX, offsetY, ... }`. A non-empty `field` wraps
+ * into `{{field}}`; missing offsets default to a small positive Y so
+ * labels sit below point markers instead of on top of them.
+ */
+function hydrateLabels(
+  raw: Record<string, unknown>,
+): MapLayer['labels'] {
+  const base = structuredClone(DEFAULT_LAYER_LABELS);
+  const merged = { ...base, ...(raw as Partial<MapLayer['labels']>) };
+  if (
+    typeof (raw as { template?: unknown }).template !== 'string' &&
+    typeof (raw as { field?: unknown }).field === 'string' &&
+    (raw as { field: string }).field.length > 0
+  ) {
+    merged.template = `{{${(raw as { field: string }).field}}}`;
+  }
+  return merged;
+}
+
+/**
+ * Icon-only toolbar toggle. Used inside the right-side toolbar pill
+ * along with the basemap popover to give the map editor the same
+ * visual rhythm as the editor / viewer / survey runtimes (#74).
+ * Label is preserved as title + aria-label for tooltips and screen
+ * readers.
+ */
+function ToolbarIconToggle({
+  Icon,
+  label,
+  active,
+  onClick,
+}: {
+  Icon: typeof List;
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      title={label}
+      aria-label={label}
+      className={`inline-flex h-9 w-9 items-center justify-center rounded text-muted hover:bg-surface-2 hover:text-ink-0 ${
+        active ? 'bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300' : ''
+      }`}
+    >
+      <Icon className="h-5 w-5" />
+    </button>
+  );
+}
