@@ -1,5 +1,4 @@
-pnpm-workspace:
-  packages:
-    - "packages/*"
-    - "apps/*"
-    - "services/*"
+packages:
+  - "packages/*"
+  - "apps/*"
+  - "services/*"
