@@ -37,10 +37,10 @@ export const features = pgTable(
       .defaultNow(),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
-  (t) => [
-    index('features_geometry_idx').using('gist', t.geometry),
-    index('features_layer_id_idx').on(t.layerId),
-    check('features_geometry_srid_check', sql`ST_SRID(${t.geometry}) = 4674`),
-    check('features_geometry_not_empty_check', sql`NOT ST_IsEmpty(${t.geometry})`),
-  ],
+  (t) => ({
+    geometryIdx: index('features_geometry_idx').using('gist', t.geometry),
+    layerIdIdx: index('features_layer_id_idx').on(t.layerId),
+    sridCheck: check('features_geometry_srid_check', sql`ST_SRID(${t.geometry}) = 4674`),
+    notEmptyCheck: check('features_geometry_not_empty_check', sql`NOT ST_IsEmpty(${t.geometry})`),
+  }),
 );

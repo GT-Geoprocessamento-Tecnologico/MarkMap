@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 
 import type { Bbox, Geometry } from '@geonexo/contracts';
 import { sql } from 'drizzle-orm';
-import { migrate } from 'drizzle-orm/postgres-js/migrator';
+import { migrate } from 'drizzle-orm/neon-http/migrator';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import {
@@ -97,12 +97,12 @@ describeIfTestDb('postgis persistence (real PostGIS)', () => {
   const seedLayer = async (): Promise<void> => {
     const project = await createProject(db, { name: `proj-${Date.now()}` });
     const layer = await createLayer(db, {
-      projectId: project.id,
+      projectId: project!.id,
       name: 'camada-1',
       kind: 'polygon',
       geometryType: 'Polygon',
     });
-    projectId = project.id;
+    projectId = project!.id;
     layerId = layer.id;
   };
 
@@ -116,7 +116,7 @@ describeIfTestDb('postgis persistence (real PostGIS)', () => {
       path.dirname(fileURLToPath(import.meta.url)),
       '../../drizzle',
     );
-    await migrate(db, { migrationsFolder });
+    await migrate(db as any, { migrationsFolder });
     const extensions = rowsOf<{ extname: string }>(
       await db.execute(sql`SELECT extname FROM pg_extension`),
     );
@@ -146,10 +146,10 @@ describeIfTestDb('postgis persistence (real PostGIS)', () => {
     expect(created.version).toBe(1);
     expect(created.properties).toEqual({ nome: 'quadra' });
 
-    const [{ srid }] = rowsOf<{ srid: number }>(
+    const result = rowsOf<{ srid: number }>(
       await db.execute(sql`SELECT ST_SRID(geometry) AS srid FROM features WHERE id = ${created.id}`),
     );
-    expect(srid).toBe(4674);
+    expect(result[0]?.srid).toBe(4674);
 
     const fetched = await getFeature(db, created.id);
     expect(fetched).not.toBeNull();
@@ -260,7 +260,7 @@ describeIfTestDb('postgis persistence (real PostGIS)', () => {
     const seen: string[] = [];
     let cursor: string | undefined;
     for (let page = 0; page < 10; page += 1) {
-      const result = await listFeatures(db, { layerId, limit: 2, cursor });
+      const result = await listFeatures(db, { layerId, limit: 2, ...(cursor ? { cursor } : {}) });
       seen.push(...result.items.map((item) => item.id));
       if (result.nextCursor === null) break;
       cursor = result.nextCursor;

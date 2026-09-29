@@ -13,11 +13,16 @@ if (!connectionString) {
 }
 
 // Initialize drizzle client
-export const db = drizzle(neon(connectionString) as any);
+export const db = drizzle(neon(connectionString!) as any);
 
 export type Db = typeof db;
-export type DbHandle = typeof db;
+export type DbHandle = { db: Db; close: () => Promise<void> };
 
 export const getDb = () => db;
-export const createDb = () => db;
+export const createDb = (url?: string): DbHandle => {
+  if (url) {
+    return { db: drizzle(neon(url) as any), close: () => Promise.resolve() };
+  }
+  return { db, close: () => Promise.resolve() };
+};
 export const closeDb = () => Promise.resolve();

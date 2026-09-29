@@ -29,5 +29,7 @@ export const auditEvents = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (t) => [index('audit_events_entity_idx').on(t.entityType, t.entityId)],
+  (t) => ({
+    entityIdx: index('audit_events_entity_idx').on(t.entityType, t.entityId),
+  }),
 );

@@ -34,5 +34,7 @@ export const imports = pgTable(
       .defaultNow(),
     completedAt: timestamp('completed_at', { withTimezone: true }),
   },
-  () => [check('imports_status_check', inList('status', IMPORT_STATUSES))],
+  () => ({
+    statusCheck: check('imports_status_check', inList('status', IMPORT_STATUSES)),
+  }),
 );

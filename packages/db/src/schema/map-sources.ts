@@ -42,5 +42,7 @@ export const mapSources = pgTable(
       .notNull()
       .defaultNow(),
   },
-  () => [check('map_sources_provider_type_check', inList('provider_type', MAP_SOURCE_PROVIDER_TYPES))],
+  () => ({
+    providerTypeCheck: check('map_sources_provider_type_check', inList('provider_type', MAP_SOURCE_PROVIDER_TYPES)),
+  }),
 );

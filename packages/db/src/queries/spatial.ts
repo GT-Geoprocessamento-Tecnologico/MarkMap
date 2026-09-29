@@ -48,10 +48,11 @@ const isSqlState = (error: unknown): error is { code: string } => {
 export const assertStorableGeometry = async (db: Db, geometry: Geometry): Promise<void> => {
   let rows: GeometryProbe[];
   try {
-    rows = await db.execute<GeometryProbe>(sql`
+    const result: any = await db.execute(sql`
       SELECT ST_IsEmpty(g) AS empty, ST_IsValid(g) AS valid
       FROM (SELECT ST_SetSRID(ST_GeomFromGeoJSON(${JSON.stringify(geometry)}), 4326) AS g) AS probe
     `);
+    rows = Array.isArray(result) ? result : result.rows;
   } catch (error) {
     if (isSqlState(error)) throw new InvalidGeometryError();
     throw error;
