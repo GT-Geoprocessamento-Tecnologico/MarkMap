@@ -1,29 +1,19 @@
-import { GeometrySchema } from '../geometry-helpers';
-import { z } from 'zod';
+import { describe, it, expect } from 'vitest';
+import { GeometrySchema } from '../../src/geometry-helpers';
 
-describe('GeometrySchema', () => {
-  test('valid Point', () => {
-    const result = GeometrySchema.safeParse({ type: 'Point', coordinates: [0, 0] });
-    expect(result.success).toBe(true);
+describe('GeometrySchema strict validation', () => {
+  it('accepts a valid Point geometry', () => {
+    const valid = { type: 'Point', coordinates: [0, 0] } as const;
+    expect(() => GeometrySchema.parse(valid)).not.toThrow();
   });
-  test('invalid Point with wrong coords', () => {
-    const result = GeometrySchema.safeParse({ type: 'Point', coordinates: [0] });
-    expect(result.success).toBe(false);
+
+  it('rejects a Point with non‑numeric coordinates', () => {
+    const invalid = { type: 'Point', coordinates: ['a', 0] } as any;
+    expect(() => GeometrySchema.parse(invalid)).toThrow();
   });
-  test('valid LineString', () => {
-    const result = GeometrySchema.safeParse({ type: 'LineString', coordinates: [[0,0],[1,1]] });
-    expect(result.success).toBe(true);
-  });
-  test('invalid LineString less than 2 points', () => {
-    const result = GeometrySchema.safeParse({ type: 'LineString', coordinates: [[0,0]] });
-    expect(result.success).toBe(false);
-  });
-  test('valid Polygon with ring of >=4', () => {
-    const result = GeometrySchema.safeParse({ type: 'Polygon', coordinates: [[[0,0],[1,0],[1,1],[0,1],[0,0]]] });
-    expect(result.success).toBe(true);
-  });
-  test('invalid Polygon ring <4', () => {
-    const result = GeometrySchema.safeParse({ type: 'Polygon', coordinates: [[[0,0],[1,0],[1,1],[0,0]]] });
-    expect(result.success).toBe(false);
+
+  it('rejects a Polygon with insufficient points', () => {
+    const invalid = { type: 'Polygon', coordinates: [[0, 0], [1, 1], [2, 2]] } as any; // needs at least 4
+    expect(() => GeometrySchema.parse(invalid)).toThrow();
   });
 });

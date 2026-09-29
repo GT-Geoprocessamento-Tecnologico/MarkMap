@@ -14,6 +14,7 @@ import { featureRoutes } from './routes/features.js';
 
 type Variables = {
   requestId: string;
+  validatedBody: any;
 };
 
 /**

@@ -1,57 +1,33 @@
-#!/usr/bin/env node
-/**
- * Script to generate shared Zod contract types.
- * Reads Zod schemas from packages/contracts/src/**/*.ts that export a Zod schema.
- * Outputs corresponding TypeScript files to packages/contracts/src/generated/.
- *
- * Usage: node scripts/generate-types.ts
- */
+import { writeFileSync, mkdirSync } from 'fs';
+import { join } from 'path';
 
-import fs from 'fs';
-import path from 'path';
+// Adjust the import to point to the contracts index where schemas are exported.
+// Assuming the contracts package has an index.ts that exports all schemas.
+// If not, we may need to import each schema individually.
+// For simplicity, we'll import the entire contracts module and then filter for Zod schemas.
+import * as Contracts from '../packages/contracts';
+import { ZodSchema } from 'zod';
 
-// Helper to ensure a directory exists
-function ensureDir(dir: string): void {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
+const outDir = join(__dirname, '..', 'packages', 'contracts', 'src', 'generated');
+mkdirSync(outDir, { recursive: true });
+
+const generatedFiles: { name: string; content: string }[] = [];
+
+for (const [name, potentialSchema] of Object.entries(Contracts)) {
+  // We assume that any exported value that is a ZodSchema is a schema we want to generate a type for.
+  if (potentialSchema instanceof ZodSchema) {
+    const typeDef = `export type ${name} = z.infer<typeof ${name}>;\n`;
+    generatedFiles.push({ name: `${name}.ts`, content: typeDef });
   }
 }
 
-// Main generation function
-async function generate(): Promise<void> {
-  const contractsSrc = path.resolve('packages/contracts/src');
-  const contractsGenerated = path.resolve('packages/contracts/src/generated');
+// Write an index.ts that re-exports all generated types.
+const indexContent = generatedFiles.map(f => `export * from './${f.name.replace('.ts','')}'`).join('\n') + '\n';
+writeFileSync(join(outDir, 'index.ts'), indexContent);
 
-  // Common patterns for exported schemas
-  const schemaFiles = [
-    'geometry-helpers.ts',
-    'project.ts',
-    'layer.ts',
-    'feature.ts',
-    'error.ts',
-    'validators.ts', // optional
-  ];
-
-  for (const file of schemaFiles) {
-    const filePath = path.join(contractsSrc, file);
-    const outPath = path.join(contractsGenerated, file);
-    if (fs.existsSync(filePath)) {
-      // In real impl, we would extract the Zod schemas from the file.
-      // For now, copy the file as‑is (or extract needed exports).
-      // This is a placeholder – actual logic would parse the file for Zod schema exports.
-      fs.copyFileSync(filePath, outPath);
-      console.log(`Copied ${file} to generated folder`);
-    } else {
-      console.warn(`File ${file} not found – skipping`);
-    }
-  }
-
-  // Ensure the folder exists even if no files were processed
-  ensureDir(contractsGenerated);
+// Write each individual type file.
+for (const file of generatedFiles) {
+  writeFileSync(join(outDir, file.name), file.content);
 }
 
-generate()
-  .catch((err) => {
-    console.error('Generation failed:', err);
-    process.exit(1);
-  });
+console.log(`Generated ${generatedFiles.length} type files in ${outDir}`);
