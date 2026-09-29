@@ -24,7 +24,10 @@
     "typescript": "^5.4.5"
   },
   "dependencies": {
+    "@eslint/eslintrc": "^3.3.7",
+    "@eslint/js": "^10.0.1",
     "@neon/config": "^1.8.2",
-    "@neon/env": "^1.4.7"
+    "@neon/env": "^1.4.7",
+    "globals": "^17.12.0"
   }
 }

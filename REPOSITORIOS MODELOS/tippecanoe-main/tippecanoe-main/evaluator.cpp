@@ -1,0 +1,454 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unordered_map>
+#include <functional>
+#include "mvt.hpp"
+#include "evaluator.hpp"
+#include "errors.hpp"
+#include "milo/dtoa_milo.h"
+#include "text.hpp"
+
+int compare(mvt_value const &one, json_object *two, bool &fail) {
+	switch (one.type) {
+	case mvt_string:
+		if (two->type != JSON_STRING) {
+			fail = true;
+			return false;  // string vs non-string
+		}
+
+		return strcmp(one.c_str(), two->string().c_str());
+
+	case mvt_double:
+	case mvt_float:
+	case mvt_int:
+	case mvt_uint:
+	case mvt_sint:
+		if (two->type != JSON_NUMBER) {
+			fail = true;
+			return false;  // number vs non-number
+		}
+
+		double v;
+		switch (one.type) {
+		case mvt_double:
+			v = one.numeric_value.double_value;
+			break;
+		case mvt_float:
+			v = one.numeric_value.float_value;
+			break;
+		case mvt_int:
+			v = one.numeric_value.int_value;
+			break;
+		case mvt_uint:
+			v = one.numeric_value.uint_value;
+			break;
+		case mvt_sint:
+			v = one.numeric_value.sint_value;
+			break;
+		case mvt_no_such_key:
+		default:
+			fprintf(stderr, "Internal error: bad mvt type %d\n", one.type);
+			exit(EXIT_IMPOSSIBLE);
+		}
+
+		if (v < two->number()) {
+			return -1;
+		} else if (v > two->number()) {
+			return 1;
+		} else {
+			return 0;
+		}
+
+	case mvt_bool:
+		if (two->type != JSON_TRUE && two->type != JSON_FALSE) {
+			fail = true;
+			return false;  // bool vs non-bool
+		}
+
+		{
+			bool b = two->type != JSON_FALSE;
+			return one.numeric_value.bool_value > b;
+		}
+
+	case mvt_null:
+		if (two->type != JSON_NULL) {
+			fail = true;
+			return false;  // null vs non-null
+		}
+
+		return 0;  // null equals null
+
+	case mvt_no_such_key:
+	default:
+		break;
+	}
+
+	fprintf(stderr, "Internal error: bad mvt type %d\n", one.type);
+	exit(EXIT_IMPOSSIBLE);
+}
+
+// 0: false
+// 1: true
+// -1: incomparable (sql null), treated as false in final output
+static int eval(std::function<mvt_value(std::string const &)> feature, json_object *f, std::set<std::string> &exclude_attributes, std::vector<std::string> const &unidecode_data) {
+	if (f != nullptr) {
+		if (f->type == JSON_TRUE) {
+			return 1;
+		} else if (f->type == JSON_FALSE) {
+			return 0;
+		} else if (f->type == JSON_NULL) {
+			return 1;
+		}
+
+		if (f->type == JSON_NUMBER) {
+			if (f->number() == 0) {
+				return 0;
+			} else {
+				return 1;
+			}
+		}
+
+		if (f->type == JSON_STRING) {
+			if (f->string().empty()) {
+				return 0;
+			} else {
+				return 1;
+			}
+		}
+	}
+
+	if (f == nullptr || f->type != JSON_ARRAY) {
+		fprintf(stderr, "Filter is not an array: %s\n", json_stringify(f).c_str());
+		exit(EXIT_FILTER);
+	}
+
+	if (f->array().size() < 1) {
+		fprintf(stderr, "Array too small in filter: %s\n", json_stringify(f).c_str());
+		exit(EXIT_FILTER);
+	}
+
+	if (f->array()[0]->type != JSON_STRING) {
+		fprintf(stderr, "Filter operation is not a string: %s\n", json_stringify(f).c_str());
+		exit(EXIT_FILTER);
+	}
+
+	const std::string &op = f->array()[0]->string();
+
+	if (op == "has" ||
+	    op == "!has") {
+		if (f->array().size() != 2) {
+			fprintf(stderr, "Wrong number of array elements in filter: %s\n", json_stringify(f).c_str());
+			exit(EXIT_FILTER);
+		}
+
+		if (op == "has") {
+			if (f->array()[1]->type != JSON_STRING) {
+				fprintf(stderr, "\"has\" key is not a string: %s\n", json_stringify(f).c_str());
+				exit(EXIT_FILTER);
+			}
+			return feature(f->array()[1]->string()).type != mvt_no_such_key;
+		}
+
+		if (op == "!has") {
+			if (f->array()[1]->type != JSON_STRING) {
+				fprintf(stderr, "\"!has\" key is not a string: %s\n", json_stringify(f).c_str());
+				exit(EXIT_FILTER);
+			}
+			return feature(f->array()[1]->string()).type == mvt_no_such_key;
+		}
+	}
+
+	if (op == "==" ||
+	    op == "!=" ||
+	    op == ">" ||
+	    op == ">=" ||
+	    op == "<" ||
+	    op == "<=") {
+		if (f->array().size() != 3) {
+			fprintf(stderr, "Wrong number of array elements in filter: %s\n", json_stringify(f).c_str());
+			exit(EXIT_FILTER);
+		}
+		if (f->array()[1]->type != JSON_STRING) {
+			fprintf(stderr, "comparison key is not a string: %s\n", json_stringify(f).c_str());
+			exit(EXIT_FILTER);
+		}
+
+		mvt_value ff = feature(f->array()[1]->string());
+		if (ff.type == mvt_no_such_key) {
+			static bool warned = false;
+			if (!warned) {
+				fprintf(stderr, "Warning: attribute not found for comparison: %s\n", json_stringify(f).c_str());
+				warned = true;
+			}
+			if (op == "!=") {
+				return true;  //  attributes that aren't found are not equal
+			}
+			return false;  // not found: comparison is false
+		}
+
+		bool fail = false;
+		int cmp = compare(ff, f->array()[2].get(), fail);
+
+		if (fail) {
+			static bool warned = false;
+			if (!warned) {
+				fprintf(stderr, "Warning: mismatched type in comparison: %s\n", json_stringify(f).c_str());
+				warned = true;
+			}
+			if (op == "!=") {
+				return true;  // mismatched types are not equal
+			}
+			return false;
+		}
+
+		if (op == "==") {
+			return cmp == 0;
+		}
+		if (op == "!=") {
+			return cmp != 0;
+		}
+		if (op == ">") {
+			return cmp > 0;
+		}
+		if (op == ">=") {
+			return cmp >= 0;
+		}
+		if (op == "<") {
+			return cmp < 0;
+		}
+		if (op == "<=") {
+			return cmp <= 0;
+		}
+
+		fprintf(stderr, "Internal error: can't happen: %s\n", json_stringify(f).c_str());
+		exit(EXIT_IMPOSSIBLE);
+	}
+
+	if (op == "all" ||
+	    op == "any" ||
+	    op == "none") {
+		bool v;
+
+		if (op == "all") {
+			v = true;
+		} else {
+			v = false;
+		}
+
+		for (size_t i = 1; i < f->array().size(); i++) {
+			int out = eval(feature, f->array()[i].get(), exclude_attributes, unidecode_data);
+
+			if (out >= 0) {	 // nulls are ignored in boolean and/or expressions
+				if (op == "all") {
+					v = v && out;
+					if (!v) {
+						break;
+					}
+				} else {
+					v = v || out;
+					if (v) {
+						break;
+					}
+				}
+			}
+		}
+
+		if (op == "none") {
+			return !v;
+		} else {
+			return v;
+		}
+	}
+
+	if (op == "in" ||
+	    op == "!in") {
+		if (f->array().size() < 2) {
+			fprintf(stderr, "Array too small in filter: %s\n", json_stringify(f).c_str());
+			exit(EXIT_FILTER);
+		}
+
+		if (f->array()[1]->type != JSON_STRING) {
+			fprintf(stderr, "\"!in\" key is not a string: %s\n", json_stringify(f).c_str());
+			exit(EXIT_FILTER);
+		}
+
+		mvt_value ff = feature(f->array()[1]->string());
+		if (ff.type == mvt_no_such_key) {
+			static bool warned = false;
+			if (!warned) {
+				fprintf(stderr, "Warning: attribute not found for comparison: %s\n", json_stringify(f).c_str());
+				warned = true;
+			}
+			if (op == "!in") {
+				return true;  // attributes that aren't found are not in
+			}
+			return false;  // not found: comparison is false
+		}
+
+		bool found = false;
+		for (size_t i = 2; i < f->array().size(); i++) {
+			bool fail = false;
+			int cmp = compare(ff, f->array()[i].get(), fail);
+
+			if (fail) {
+				static bool warned = false;
+				if (!warned) {
+					fprintf(stderr, "Warning: mismatched type in comparison: %s\n", json_stringify(f).c_str());
+					warned = true;
+				}
+				cmp = 1;
+			}
+
+			if (cmp == 0) {
+				found = true;
+				break;
+			}
+		}
+
+		if (op == "in") {
+			return found;
+		} else {
+			return !found;
+		}
+	}
+
+	if (op == "attribute-filter") {
+		if (f->array().size() != 3) {
+			fprintf(stderr, "Wrong number of array elements in filter: %s\n", json_stringify(f).c_str());
+			exit(EXIT_FILTER);
+		}
+
+		if (f->array()[1]->type != JSON_STRING) {
+			fprintf(stderr, "\"attribute-filter\" key is not a string: %s\n", json_stringify(f).c_str());
+			exit(EXIT_FILTER);
+		}
+
+		bool ok = eval(feature, f->array()[2].get(), exclude_attributes, unidecode_data) > 0;
+		if (!ok) {
+			exclude_attributes.insert(f->array()[1]->string());
+		}
+
+		return true;
+	}
+
+	fprintf(stderr, "Unknown filter %s\n", json_stringify(f).c_str());
+	exit(EXIT_FILTER);
+}
+
+static bool evaluate(std::function<mvt_value(std::string const &)> feature, std::string const &layer, json_object *filter, std::set<std::string> &exclude_attributes, std::vector<std::string> const &unidecode_data) {
+	if (filter == nullptr || filter->type != JSON_HASH) {
+		fprintf(stderr, "Error: filter is not a hash: %s\n", json_stringify(filter).c_str());
+		exit(EXIT_JSON);
+	}
+
+	bool ok = true;
+	json_object *f;
+
+	f = json_hash_get(filter, layer.c_str());
+	if (ok && f != nullptr) {
+		ok = eval(feature, f, exclude_attributes, unidecode_data) > 0;
+	}
+
+	f = json_hash_get(filter, "*");
+	if (ok && f != nullptr) {
+		ok = eval(feature, f, exclude_attributes, unidecode_data) > 0;
+	}
+
+	return ok;
+}
+
+json_object_ptr read_filter(const char *fname) {
+	FILE *fp = fopen(fname, "r");
+	if (fp == NULL) {
+		perror(fname);
+		exit(EXIT_OPEN);
+	}
+
+	json_pull_ptr jp = json_begin_file(fp);
+	json_object_ptr filter = json_read_tree(jp);
+	if (filter == nullptr) {
+		fprintf(stderr, "%s: %s\n", fname, jp->error);
+		exit(EXIT_JSON);
+	}
+	fclose(fp);
+	return filter;
+}
+
+json_object_ptr parse_filter(const char *s) {
+	json_pull_ptr jp = json_begin_string(s);
+	json_object_ptr filter = json_read_tree(jp);
+	if (filter == nullptr) {
+		fprintf(stderr, "Could not parse filter %s\n", s);
+		fprintf(stderr, "%s\n", jp->error);
+		exit(EXIT_JSON);
+	}
+	return filter;
+}
+
+bool evaluate(std::unordered_map<std::string, mvt_value> const &feature, std::string const &layer, json_object *filter, std::set<std::string> &exclude_attributes, std::vector<std::string> const &unidecode_data) {
+	std::function<mvt_value(std::string const &)> getter = [&](std::string const &key) {
+		auto f = feature.find(key);
+		if (f != feature.end()) {
+			return f->second;
+		} else {
+			mvt_value v;
+			v.type = mvt_no_such_key;
+			v.numeric_value.null_value = 0;
+			return v;
+		}
+	};
+
+	return evaluate(getter, layer, filter, exclude_attributes, unidecode_data);
+}
+
+bool evaluate(mvt_feature const &feat, mvt_layer const &layer, json_object *filter, std::set<std::string> &exclude_attributes, int z, std::vector<std::string> const &unidecode_data) {
+	std::function<mvt_value(std::string const &)> getter = [&](std::string const &key) {
+		const static std::string dollar_id = "$id";
+		if (key == dollar_id && feat.has_id) {
+			mvt_value v;
+			v.type = mvt_uint;
+			v.numeric_value.uint_value = feat.id;
+			return v;
+		}
+
+		const static std::string dollar_type = "$type";
+		if (key == dollar_type) {
+			mvt_value v;
+			v.type = mvt_string;
+
+			if (feat.type == mvt_point) {
+				const static std::string point = "Point";
+				v.set_string_value(point);
+			} else if (feat.type == mvt_linestring) {
+				const static std::string linestring = "LineString";
+				v.set_string_value(linestring);
+			} else if (feat.type == mvt_polygon) {
+				const static std::string polygon = "Polygon";
+				v.set_string_value(polygon);
+			}
+			return v;
+		}
+
+		const static std::string dollar_zoom = "$zoom";
+		if (key == dollar_zoom) {
+			mvt_value v2;
+			v2.type = mvt_uint;
+			v2.numeric_value.uint_value = z;
+			return v2;
+		}
+
+		for (size_t i = 0; i + 1 < feat.tags.size(); i += 2) {
+			if (layer.keys[feat.tags[i]] == key) {
+				return layer.values[feat.tags[i + 1]];
+			}
+		}
+
+		mvt_value v;
+		v.type = mvt_no_such_key;
+		v.numeric_value.null_value = 0;
+		return v;
+	};
+
+	return evaluate(getter, layer.name, filter, exclude_attributes, unidecode_data);
+}

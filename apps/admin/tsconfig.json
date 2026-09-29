@@ -1,0 +1,43 @@
+{
+  // Self-contained on purpose: the shared @geonexo/config/tsconfig/react is
+  // broken (TS5083 - points at a non-existent file), so apps/admin must
+  // typecheck standalone. `paths` mirrors vite.aliases.ts exactly.
+  // Config files (vite/vitest/tailwind/eslint) are excluded because Node types
+  // (@types/node) are not installed here; Vite compiles them without typecheck.
+  // NOTE: `vitest/globals` in `types` must exist on disk - while it did not,
+  // tsc aborted with TS2688 before checking a single file.
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "isolatedModules": true,
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "useDefineForClassFields": true,
+    "noEmit": true,
+    "types": ["vite/client", "vitest/globals"],
+    "baseUrl": ".",
+    "paths": {
+      "@geonexo/ui": ["../../packages/ui/src"],
+      "@geonexo/ui/*": ["../../packages/ui/src/*"],
+      "@geonexo/maps": ["../../packages/maps/src"],
+      "@geonexo/maps/*": ["../../packages/maps/src/*"],
+      "@geonexo/geo": ["../../packages/geo/src"],
+      "@geonexo/geo/*": ["../../packages/geo/src/*"],
+      "@geonexo/contracts": ["../../packages/contracts/src"],
+      "@geonexo/contracts/*": ["../../packages/contracts/src/*"],
+      "@/*": ["src/*"]
+    }
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "dist"]
+}

@@ -1,0 +1,70 @@
+version: "3.9"
+
+services:
+  admin:
+    build:
+      context: ./apps/admin
+      dockerfile: Dockerfile
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:3000
+    volumes:
+      - ./apps/admin:/app
+      - /app/node_modules
+    depends_on:
+      - api
+
+  api:
+    build:
+      context: ./services/api
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      # Dev local apenas. Para qualquer ambiente compartilhado, exporte
+      # DATABASE_URL / POSTGRES_PASSWORD no shell ou .env (ignorado pelo git).
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:geonexo@postgres:5432/geonexo?schema=public}
+    volumes:
+      - ./services/api:/app
+      - /app/node_modules
+    depends_on:
+      - postgres
+
+  martin:
+    image: ghcr.io/maplibre/martin:latest
+    ports:
+      - "3001:3001"
+    command:
+      - "--metrics"
+      - "--enable-postprocess"
+      - "--users-file"
+      - "/config/users.yml"
+    volumes:
+      - ./infra/martin:/config
+      - ./services/api/migrations:/migrations
+
+  postgres:
+    image: postgis/postgis:16-3.4
+    ports:
+      - "${GEONEXO_LOCAL_DB_PORT:-5432}:5432"
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-geonexo}
+      POSTGRES_USER: postgres
+      POSTGRES_DB: geonexo
+    command:
+      - postgres
+      - -c
+      - shared_buffers=256MB
+      - -c
+      - work_mem=16MB
+    volumes:
+      - local-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  local-db-data:

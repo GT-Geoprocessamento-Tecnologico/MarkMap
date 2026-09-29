@@ -1,0 +1,28 @@
+#!/usr/bin/env just --justfile
+
+set shell := ['bash', '-c']
+
+@_default:
+    just --list
+
+build:
+    docker compose build
+
+clean:
+    rm -rf frontend/node_modules
+
+frontend *ARGS:
+    docker compose up frontend {{ARGS}}
+
+[no-exit-message]
+frontend-sh:
+    docker compose run --interactive --entrypoint sh frontend
+
+up:
+    docker compose up
+
+up-backend:
+    docker compose up db tiles --detach
+
+up-build:
+    docker compose up --build

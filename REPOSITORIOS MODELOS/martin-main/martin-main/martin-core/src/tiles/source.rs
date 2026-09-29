@@ -1,0 +1,130 @@
+use std::collections::HashMap;
+use std::fmt::Debug;
+use std::future::Future;
+
+use martin_tile_utils::{TileCoord, TileData, TileGrid, TileInfo, WEB_MERCATOR_QUAD};
+use tilejson::TileJSON;
+
+use crate::CacheZoomRange;
+use crate::tiles::catalog::CatalogSourceEntry;
+use crate::tiles::{MartinCoreResult, Tile};
+
+/// URL query parameters for dynamic tile generation.
+pub type UrlQuery = HashMap<String, String>;
+
+/// Core trait for tile sources providing data to Martin
+///
+/// Implementors can serve tiles from databases, files, or other backends.
+pub trait Source: Send + Sync + Debug {
+    /// Unique source identifier used in URLs.
+    fn get_id(&self) -> &str;
+
+    /// `TileJSON` specification served to clients.
+    fn get_tilejson(&self) -> &TileJSON;
+
+    /// Technical tile information (format, encoding, etc.).
+    fn get_tile_info(&self) -> TileInfo;
+
+    /// The tile grid this source's `z/x/y` addresses refer to, Web Mercator unless a source says otherwise.
+    fn tile_grid(&self) -> &TileGrid {
+        &WEB_MERCATOR_QUAD
+    }
+
+    /// A version string for this source, if available. Default: None.
+    /// If available, this string is appended to tile URLs as a query parameter,
+    /// invalidating caches.
+    fn get_version(&self) -> Option<String> {
+        None
+    }
+
+    /// Whether this source accepts URL query parameters. Default: false.
+    fn support_url_query(&self) -> bool {
+        false
+    }
+
+    /// Whether `martin cp` should use concurrent scraping. Default: false.
+    fn benefits_from_concurrent_scraping(&self) -> bool {
+        false
+    }
+
+    /// Whether an empty tile implies that all tiles below it are empty. Default: false.
+    fn empty_tile_implies_empty_children(&self) -> bool {
+        false
+    }
+
+    /// Zoom-level bounds for tile caching.
+    fn cache_zoom(&self) -> CacheZoomRange;
+
+    /// Retrieves tile data for the given coordinates.
+    ///
+    /// # Arguments
+    /// * `xyz` - Tile coordinates (x, y, zoom)
+    /// * `url_query` - Optional query parameters for dynamic tiles
+    fn get_tile(
+        &self,
+        xyz: TileCoord,
+        url_query: Option<&UrlQuery>,
+    ) -> impl Future<Output = MartinCoreResult<TileData>> + Send;
+
+    /// Retrieves tile with etag for the given coordinates.
+    ///
+    /// Default implementation calls [`get_tile()`](Self::get_tile) and computes etag using `xxh3_128`.
+    /// Sources can override this for more performance.
+    ///
+    /// # Arguments
+    /// * `xyz` - Tile coordinates (x, y, zoom)
+    /// * `url_query` - Optional query parameters for dynamic tiles
+    fn get_tile_with_etag(
+        &self,
+        xyz: TileCoord,
+        url_query: Option<&UrlQuery>,
+    ) -> impl Future<Output = MartinCoreResult<Tile>> + Send {
+        async move {
+            let data = self.get_tile(xyz, url_query).await?;
+            Ok(Tile::new_hash_etag(data, self.get_tile_info()))
+        }
+    }
+
+    /// Validates zoom level against `TileJSON` min/max zoom constraints.
+    fn is_valid_zoom(&self, zoom: u8) -> bool {
+        let tj = self.get_tilejson();
+        tj.minzoom.is_none_or(|minzoom| zoom >= minzoom)
+            && tj.maxzoom.is_none_or(|maxzoom| zoom <= maxzoom)
+    }
+
+    /// Attempts to create a fresh instance of this source.
+    ///
+    /// Sources that return a `MartinCoreError::SourceNeedReload` from `get_tile()` must also
+    /// implement this method.
+    ///
+    /// The default implementation asserts.
+    fn try_reload(&self) -> impl Future<Output = MartinCoreResult<Self>> + Send
+    where
+        Self: Sized,
+    {
+        async { unreachable!() }
+    }
+
+    /// Generates catalog entry for this source.
+    fn get_catalog_entry(&self) -> CatalogSourceEntry {
+        let id = self.get_id();
+        let tilejson = self.get_tilejson();
+        let info = self.get_tile_info();
+        let grid = self.tile_grid();
+        CatalogSourceEntry {
+            content_type: info.format.content_type().to_owned(),
+            content_encoding: info.encoding.compression().map(str::to_owned),
+            name: tilejson.name.as_ref().filter(|v| *v != id).cloned(),
+            description: tilejson.description.clone(),
+            attribution: tilejson.attribution.clone(),
+            tile_grid: (!grid.is_web_mercator()).then(|| grid.id().to_owned()),
+            // FIXME: surface `tilejson.vector_layers.len()` once we always have it.
+            layer_count: None,
+            // FIXME: surface the source's mtime (mbtiles/pmtiles modtime, etc.).
+            last_modified_at: None,
+        }
+    }
+}
+
+/// A shared handle to any tile source the server can serve.
+pub type BoxedSource = std::sync::Arc<crate::tiles::AnySource>;

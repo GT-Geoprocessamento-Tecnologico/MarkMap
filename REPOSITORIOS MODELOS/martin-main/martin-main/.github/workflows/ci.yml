@@ -1,0 +1,226 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  release:
+    types: [ published ]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.event_name != 'release' }}
+
+defaults:
+  run:
+    shell: bash
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    name: Decide which suites this change can affect
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      rust: ${{ github.event_name != 'pull_request' || steps.filter.outputs.rust == 'true' }}
+      ui: ${{ github.event_name != 'pull_request' || steps.filter.outputs.ui == 'true' }}
+      docs: ${{ github.event_name != 'pull_request' || steps.filter.outputs.docs == 'true' }}
+      demo: ${{ github.event_name != 'pull_request' || steps.filter.outputs.demo == 'true' }}
+      schemas: ${{ github.event_name != 'pull_request' || steps.filter.outputs.schemas == 'true' }}
+      actions: ${{ github.event_name != 'pull_request' || steps.filter.outputs.actions == 'true' }}
+      cargo-deps: ${{ github.event_name != 'pull_request' || steps.filter.outputs.cargo-deps == 'true' }}
+      deps: ${{ github.event_name != 'pull_request' || steps.filter.outputs.deps == 'true' }}
+      codeql-languages: ${{ steps.codeql.outputs.languages }}
+      run-heavy: ${{ github.event_name != 'pull_request' || github.event.pull_request.stack == null || github.event.pull_request.stack.position == github.event.pull_request.stack.size }}
+      run-release-builds: ${{ github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-plz-') }}
+    steps:
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: filter
+        if: github.event_name == 'pull_request'
+        with:
+          filters: |
+            shared: &shared
+              - '.github/**'
+              - 'justfile'
+            cargo-manifests: &cargo-manifests
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+              - '**/Cargo.toml'
+              - 'deny.toml'
+            npm-manifests: &npm-manifests
+              - 'martin/martin-ui/package.json'
+              - 'martin/martin-ui/package-lock.json'
+              - 'demo/frontend/package.json'
+              - 'demo/frontend/package-lock.json'
+            rust:
+              - *shared
+              - *cargo-manifests
+              - 'clippy.toml'
+              - 'release-plz.toml'
+              - 'docker-compose.yml'
+              - 'debian/**'
+              - 'e2e-tests/**'
+              - 'tests/**'
+              - 'mbtiles/**'
+              - 'martin-*/**'
+              - 'martin/*'
+              - 'martin/benches/**'
+              - 'martin/src/**'
+              - 'martin/tests/**'
+            ui:
+              - *shared
+              - 'biome.json'
+              - 'martin/martin-ui/**'
+            docs:
+              - *shared
+              - '**/*.md'
+              - 'docs/**'
+              - 'zensical.toml'
+            demo:
+              - *shared
+              - 'demo/**'
+            schemas:
+              - *shared
+              - 'schemas/**'
+              - 'docs/content/files/generated_config.md'
+              - 'e2e-tests/tests/snapshots/save_config__*'
+            actions:
+              - *shared
+            cargo-deps:
+              - *shared
+              - *cargo-manifests
+            deps:
+              - *shared
+              - *cargo-manifests
+              - *npm-manifests
+      - name: Collect the CodeQL languages worth analysing
+        id: codeql
+        env:
+          ACTIONS: ${{ github.event_name != 'pull_request' || steps.filter.outputs.actions == 'true' }}
+          JS: ${{ github.event_name != 'pull_request' || steps.filter.outputs.ui == 'true' || steps.filter.outputs.demo == 'true' }}
+          RUST: ${{ github.event_name != 'pull_request' || steps.filter.outputs.rust == 'true' }}
+        run: |
+          languages=()
+          if [[ "$ACTIONS" == 'true' ]]; then languages+=('"actions"'); fi
+          if [[ "$JS" == 'true' ]]; then languages+=('"javascript-typescript"'); fi
+          if [[ "$RUST" == 'true' ]]; then languages+=('"rust"'); fi
+          printf 'languages=[%s]\n' "$(IFS=,; echo "${languages[*]}")" >> "$GITHUB_OUTPUT"
+
+  rust:
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
+    uses: $/.github/workflows/rust.yml
+    with:
+      run-heavy: ${{ needs.changes.outputs.run-heavy == 'true' }}
+      run-release-builds: ${{ needs.changes.outputs.run-release-builds == 'true' }}
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+      packages: write
+      code-quality: write
+      pull-requests: read
+
+  ui:
+    needs: changes
+    if: needs.changes.outputs.ui == 'true'
+    uses: $/.github/workflows/ui.yml
+    permissions:
+      contents: read
+
+  docs:
+    needs: changes
+    if: needs.changes.outputs.docs == 'true'
+    uses: $/.github/workflows/docs.yml
+    permissions:
+      contents: write
+
+  schemas:
+    needs: changes
+    if: needs.changes.outputs.schemas == 'true'
+    uses: $/.github/workflows/schemas.yml
+    permissions:
+      contents: read
+
+  demo:
+    needs: changes
+    if: needs.changes.outputs.demo == 'true'
+    uses: $/.github/workflows/demo.yml
+    permissions:
+      contents: read
+
+  security:
+    needs: changes
+    uses: $/.github/workflows/security.yml
+    with:
+      run-actions: ${{ needs.changes.outputs.actions == 'true' }}
+      run-cargo-deps: ${{ needs.changes.outputs.cargo-deps == 'true' }}
+      run-dependency-review: ${{ needs.changes.outputs.deps == 'true' }}
+      codeql-languages: ${{ needs.changes.outputs.codeql-languages }}
+    permissions:
+      contents: read
+      security-events: write
+      packages: read
+      actions: read
+      issues: write
+      checks: write
+
+  # Packaging and publishing. Gated on the suites rather than on `done`, which
+  # in turn waits for this job, so a broken release process still blocks merge.
+  release:
+    needs:
+      - changes
+      - rust
+      - ui
+      - schemas
+    if: |
+      always()
+      && !contains(needs.*.result, 'failure')
+      && !contains(needs.*.result, 'cancelled')
+      && needs.changes.outputs.rust == 'true'
+      && github.event_name != 'pull_request'
+    uses: $/.github/workflows/release.yml
+    with:
+      run-heavy: ${{ needs.changes.outputs.run-heavy == 'true' }}
+    secrets:
+      GH_HOMEBREW_MARTIN_TOKEN: ${{ secrets.GH_HOMEBREW_MARTIN_TOKEN }}
+      RELEASE_PLZ_APP_ID: ${{ secrets.RELEASE_PLZ_APP_ID }}
+      RELEASE_PLZ_APP_PRIVATE_KEY: ${{ secrets.RELEASE_PLZ_APP_PRIVATE_KEY }}
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+
+  # This final step is needed to mark the whole workflow as successful
+  # Don't change its name - it is used by the merge protection rules
+  done:
+    name: CI Finished
+    needs:
+      - changes
+      - rust
+      - ui
+      - docs
+      - schemas
+      - demo
+      - security
+      - release
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions: {}
+    steps:
+      - name: Result of the needed steps
+        run: echo "${{ toJSON(needs) }}" # zizmor: ignore[template-injection]
+      # A skip is a pass here: `changes` drops the suites a pull request cannot
+      # affect, and run-heavy defers duplicate platform coverage to the top of a
+      # stack. Failures inside a called workflow still surface, because a
+      # reusable-workflow job fails when any job inside it fails.
+      - if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        name: CI Result
+        run: exit 1

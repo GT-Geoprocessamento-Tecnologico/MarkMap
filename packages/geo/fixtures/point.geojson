@@ -1,0 +1,5 @@
+{
+  "type": "Feature",
+  "geometry": { "type": "Point", "coordinates": [-47.9292, -15.7801] },
+  "properties": { "name": "Praça Central (exemplo)" }
+}

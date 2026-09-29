@@ -3,5 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "main": "./eslint.config.js",
-  "type": "commonjs"
+  "exports": {
+    "./eslint": "./eslint/index.js"
+  },
+  "type": "module"
 }

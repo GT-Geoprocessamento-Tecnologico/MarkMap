@@ -1,0 +1,296 @@
+use std::string::ToString as _;
+
+use actix_middleware_etag::Etag;
+use actix_web::error::ErrorBadRequest;
+use actix_web::http::Uri;
+use actix_web::middleware::Compress;
+use actix_web::web::{Data, Path};
+use actix_web::{HttpRequest, HttpResponse, Result as ActixResult, route};
+use itertools::Itertools as _;
+use martin_core::tiles::BoxedSource;
+use serde::Deserialize;
+use tilejson::{TileJSON, tilejson};
+use url::form_urlencoded;
+
+use crate::config::file::ResolvedProcess;
+use crate::config::file::srv::SrvConfig;
+use crate::tile_source_manager::TileSourceManager;
+
+#[derive(Deserialize)]
+#[cfg_attr(feature = "unstable-schemas", derive(utoipa::IntoParams))]
+#[cfg_attr(feature = "unstable-schemas", into_params(parameter_in = Path))]
+pub struct SourceIDsRequest {
+    pub source_ids: String,
+}
+
+#[cfg_attr(
+    feature = "unstable-schemas",
+    utoipa::path(
+        get,
+        path = "/{source_ids}",
+        params(SourceIDsRequest),
+        responses(
+            (status = 200, description = "TileJSON 3.0.0 metadata for the requested source(s)", content_type = "application/json"),
+            (status = 404, description = "No matching source"),
+        ),
+    )
+)]
+#[route(
+    "/{source_ids}",
+    method = "GET",
+    method = "HEAD",
+    wrap = "Etag::default()",
+    wrap = "Compress::default()"
+)]
+#[hotpath::measure]
+pub async fn get_source_info(
+    req: HttpRequest,
+    path: Path<SourceIDsRequest>,
+    manager: Data<TileSourceManager>,
+    srv_config: Data<SrvConfig>,
+) -> ActixResult<HttpResponse> {
+    manager.wait_for_sources(&path.source_ids).await;
+    let resolved = manager.tile_sources().get_sources(&path.source_ids, None)?;
+
+    // Determine the path prefix for tile URLs in TileJSON responses
+    // Priority: base_path (explicit override) > route_prefix (where Martin is mounted) > X-Rewrite-URL header > request path
+    let tiles_path = if let Some(prefix) = srv_config.public_path_prefix() {
+        format!("{prefix}/{}", path.source_ids)
+    } else {
+        // Fall back to X-Rewrite-URL header if present, otherwise use request path
+        req.headers()
+            .get("X-Rewrite-URL")
+            .or_else(|| req.headers().get("X-Forwarded-Prefix"))
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.parse::<Uri>().ok())
+            .map_or_else(|| req.path().to_owned(), |v| v.path().to_owned())
+    };
+
+    let version_param = &srv_config.tilejson_url_version_param;
+    let versions: Option<(&str, String)> = if let Some(v) = version_param {
+        let version_str = resolved
+            .sources
+            .iter()
+            .filter_map(|(s, _)| s.get_version())
+            .fold(String::new(), |mut acc, ver| {
+                if !acc.is_empty() {
+                    acc.push('-');
+                }
+                acc.push_str(&ver);
+                acc
+            });
+        if version_str.is_empty() {
+            None
+        } else {
+            Some((v.as_str(), version_str))
+        }
+    } else {
+        None
+    };
+    let query_string = req.query_string();
+    let mut query = form_urlencoded::Serializer::new(query_string.to_owned());
+    if let Some((k, v)) = versions {
+        query.append_pair(k, &v);
+    }
+    let query = query.finish();
+
+    let path_and_query = if query.is_empty() {
+        format!("{tiles_path}/{{z}}/{{x}}/{{y}}")
+    } else {
+        format!("{tiles_path}/{{z}}/{{x}}/{{y}}?{query}")
+    };
+
+    // Construct a tiles URL from the request info, including the query string if present.
+    let info = req.connection_info();
+    let tiles_url = Uri::builder()
+        .scheme(info.scheme())
+        .authority(info.host())
+        .path_and_query(path_and_query)
+        .build()
+        .map(|tiles_url| tiles_url.to_string())
+        .map_err(|e| ErrorBadRequest(format!("Can't build tiles URL: {e}")))?;
+
+    Ok(HttpResponse::Ok().json(merge_tilejson(&resolved.sources, tiles_url)))
+}
+
+/// Merges what each source advertises after post-processing into one [`TileJSON`].
+#[must_use]
+pub fn merge_tilejson(sources: &[(BoxedSource, ResolvedProcess)], tiles_url: String) -> TileJSON {
+    let mut advertised: Vec<TileJSON> = sources
+        .iter()
+        .map(|(src, pc)| pc.advertised_tilejson(src.get_tilejson().clone()))
+        .collect();
+
+    if advertised.len() == 1 {
+        let mut tj = advertised.swap_remove(0);
+        tj.tiles = vec![tiles_url];
+        return tj;
+    }
+
+    let mut attributions = vec![];
+    let mut descriptions = vec![];
+    let mut names = vec![];
+    let mut result = tilejson! {
+        tiles: vec![tiles_url],
+    };
+
+    for tj in &advertised {
+        if let Some(vector_layers) = &tj.vector_layers {
+            if let Some(ref mut a) = result.vector_layers {
+                a.extend(vector_layers.iter().cloned());
+            } else {
+                result.vector_layers = Some(vector_layers.clone());
+            }
+        }
+
+        if let Some(v) = &tj.attribution
+            && !attributions.contains(&v)
+        {
+            attributions.push(v);
+        }
+
+        if let Some(bounds) = tj.bounds {
+            if let Some(a) = result.bounds {
+                result.bounds = Some(a + bounds);
+            } else {
+                result.bounds = tj.bounds;
+            }
+        }
+
+        if result.center.is_none() {
+            // Use first found center. Averaging multiple centers might create a center in the middle of nowhere.
+            result.center = tj.center;
+        }
+
+        if let Some(v) = &tj.description
+            && !descriptions.contains(&v)
+        {
+            descriptions.push(v);
+        }
+
+        if let Some(maxzoom) = tj.maxzoom {
+            if let Some(a) = result.maxzoom {
+                if a < maxzoom {
+                    result.maxzoom = tj.maxzoom;
+                }
+            } else {
+                result.maxzoom = tj.maxzoom;
+            }
+        }
+
+        if let Some(minzoom) = tj.minzoom {
+            if let Some(a) = result.minzoom {
+                if a > minzoom {
+                    result.minzoom = tj.minzoom;
+                }
+            } else {
+                result.minzoom = tj.minzoom;
+            }
+        }
+
+        if let Some(name) = &tj.name
+            && !names.contains(&name)
+        {
+            names.push(name);
+        }
+    }
+
+    if !attributions.is_empty() {
+        result.attribution = Some(attributions.into_iter().join("\n"));
+    }
+
+    if !descriptions.is_empty() {
+        result.description = Some(descriptions.into_iter().join("\n"));
+    }
+
+    if !names.is_empty() {
+        result.name = Some(names.into_iter().join(","));
+    }
+
+    result
+}
+
+#[cfg(test)]
+pub mod tests {
+    use std::collections::BTreeMap;
+
+    use martin_core::tiles::Source as _;
+    use martin_core::tiles::testing::TestSource;
+    use martin_tile_utils::Format;
+    use tilejson::{Bounds, VectorLayer};
+
+    use super::*;
+
+    #[test]
+    fn merges_tilejson() {
+        let url = "http://localhost:8888/foo/{z}/{x}/{y}".to_owned();
+        let src1 = TestSource::empty("id")
+            .with_tilejson(tilejson! {
+                tiles: vec![],
+                name: "layer1".to_owned(),
+                minzoom: 5,
+                maxzoom: 10,
+                bounds: Bounds::new(-10.0, -20.0, 10.0, 20.0),
+                vector_layers: vec![
+                    VectorLayer::new("layer1".to_owned(),
+                    BTreeMap::from([
+                        ("a".to_owned(), "x1".to_owned()),
+                    ]))
+                ],
+            })
+            .with_format(Format::Mvt);
+        let tj = merge_tilejson(
+            &[(src1.clone().boxed(), ResolvedProcess::default())],
+            url.clone(),
+        );
+        assert_eq!(
+            TileJSON {
+                tiles: vec![url.clone()],
+                ..src1.get_tilejson().clone()
+            },
+            tj
+        );
+
+        let src2 = TestSource::empty("id")
+            .with_tilejson(tilejson! {
+                tiles: vec![],
+                name: "layer2".to_owned(),
+                minzoom: 7,
+                maxzoom: 12,
+                bounds: Bounds::new(-20.0, -5.0, 5.0, 50.0),
+                vector_layers: vec![
+                    VectorLayer::new("layer2".to_owned(),
+                    BTreeMap::from([
+                        ("b".to_owned(), "x2".to_owned()),
+                    ]))
+                ],
+            })
+            .with_format(Format::Mvt);
+
+        let tj = merge_tilejson(
+            &[
+                (src1.clone().boxed(), ResolvedProcess::default()),
+                (src2.boxed(), ResolvedProcess::default()),
+            ],
+            url.clone(),
+        );
+        assert_eq!(tj.tiles, vec![url]);
+        assert_eq!(tj.name, Some("layer1,layer2".to_owned()));
+        assert_eq!(tj.minzoom, Some(5));
+        assert_eq!(tj.maxzoom, Some(12));
+        assert_eq!(tj.bounds, Some(Bounds::new(-20.0, -20.0, 10.0, 50.0)));
+        assert_eq!(
+            tj.vector_layers,
+            Some(vec![
+                VectorLayer::new(
+                    "layer1".to_owned(),
+                    BTreeMap::from([("a".to_owned(), "x1".to_owned())])
+                ),
+                VectorLayer::new(
+                    "layer2".to_owned(),
+                    BTreeMap::from([("b".to_owned(), "x2".to_owned())])
+                ),
+            ])
+        );
+    }
+}

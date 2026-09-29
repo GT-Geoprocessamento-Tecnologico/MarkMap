@@ -1,0 +1,33 @@
+@import '@geonexo/ui/styles/tokens.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  body {
+    background-color: var(--gn-color-background);
+    color: var(--gn-color-text-primary);
+    font-family: var(--gn-font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Acessibilidade: foco visivel em todo controle interativo (PRD handoff 27). */
+  :focus-visible {
+    outline: var(--gn-focus-ring);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}

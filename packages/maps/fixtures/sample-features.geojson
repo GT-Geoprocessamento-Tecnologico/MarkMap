@@ -1,0 +1,41 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "fixture-point-1",
+      "geometry": { "type": "Point", "coordinates": [-47.9292, -15.7801] },
+      "properties": { "name": "Ponto de teste" }
+    },
+    {
+      "type": "Feature",
+      "id": "fixture-line-1",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-48.0, -16.0],
+          [-47.95, -15.95],
+          [-47.9, -15.9]
+        ]
+      },
+      "properties": { "name": "Linha de teste" }
+    },
+    {
+      "type": "Feature",
+      "id": "fixture-polygon-1",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-48.0, -16.0],
+            [-47.0, -16.0],
+            [-47.0, -15.0],
+            [-48.0, -15.0],
+            [-48.0, -16.0]
+          ]
+        ]
+      },
+      "properties": { "name": "Polígono de teste" }
+    }
+  ]
+}

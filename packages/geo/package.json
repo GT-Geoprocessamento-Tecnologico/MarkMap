@@ -1,0 +1,36 @@
+{
+  "name": "@geonexo/geo",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./crs": "./src/crs.ts",
+    "./bbox": "./src/bbox.ts",
+    "./validate": "./src/validate.ts",
+    "./measure": "./src/measure.ts",
+    "./geojson": "./src/geojson.ts"
+  },
+  "scripts": {
+    "build": "tsc --outDir dist",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "dev": "echo \"@geonexo/geo has no dev server\""
+  },
+  "dependencies": {
+    "@turf/turf": "^7.0.0",
+    "proj4": "^2.10.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@types/node": "^20.14.0",
+    "@types/proj4": "^2.5.0",
+    "eslint": "^9.39.5",
+    "typescript": "^5.5.0",
+    "typescript-eslint": "^8.71.0",
+    "vitest": "^2.0.0"
+  }
+}

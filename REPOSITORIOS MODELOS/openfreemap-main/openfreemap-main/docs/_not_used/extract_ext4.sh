@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+
+# reference:
+# https://www.kernel.org/doc/Documentation/filesystems/ext4.txt
+# https://wiki.archlinux.org/title/ext4
+#
+# -m reserved-blocks-percentage
+# -F Force mke2fs to create a filesystem, even if the specified device is not a partition on a block special device
+#
+# -O feature
+# from  /etc/mke2fs.conf
+# defaults: has_journal,extent,huge_file,flex_bg,metadata_csum,64bit,dir_nlink,extra_isize
+# disabling journalling, since it's a read-only fs, as well as other unused features
+# extent is actually needed for tail packing small files
+#
+# -E extended-options
+# lazy_itable_init - inode table is fully initialized at the time of file system creation
+# nodiscard - Do not attempt to discard blocks at mkfs time.
+#
+# inode_size = 128 (minimum)
+# inode_ratio = 16384 (default but experimenting)
+
+
+sudo umount mnt || true
+rm -rf mnt
+rm -f image.ext4
+
+
+# make a sparse file
+# make sure it's bigger then the current OSM output
+fallocate -l 200G image.ext4
+
+
+mke2fs -t ext4 -v \
+  -m 0 \
+  -F \
+  -O ^has_journal,^huge_file,^metadata_csum,^64bit,^extra_isize \
+  -E lazy_itable_init=0,nodiscard \
+  -I 128 \
+  -i 16384 \
+  image.ext4
+
+mkdir mnt
+sudo mount -v \
+  -t ext4 \
+  -o nobarrier,noatime \
+  image.ext4 mnt
+
+sudo chown ofm:ofm -R mnt
+
+/data/ofm/venv/bin/python ../../tilegen/extract.py output.mbtiles mnt/extract \
+  > "extract_out.log" 2> "extract_err.log"
+
+sudo umount mnt
+
+e2fsck -vf image.ext4 && \
+  resize2fs -M image.ext4 && \
+  e2fsck -vf image.ext4
+
+# default to read-only mode
+tune2fs -E mount_opts=ro image.ext4
+
+
+
+
+
+

@@ -1,0 +1,24 @@
+{
+  "db_name": "SQLite",
+  "describe": {
+    "columns": [
+      {
+        "name": "tile_data",
+        "ordinal": 0,
+        "origin": {
+          "Table": {
+            "name": "tile_data",
+            "table": "tiles"
+          }
+        },
+        "type_info": "Blob"
+      }
+    ],
+    "nullable": [true],
+    "parameters": {
+      "Right": 3
+    }
+  },
+  "hash": "60264fa07915878b3f7ba0067f48c3a379e96acbdf5fc52d14e29bc726fefab7",
+  "query": "SELECT tile_data from tiles where zoom_level = ? AND tile_column = ? AND tile_row = ?"
+}

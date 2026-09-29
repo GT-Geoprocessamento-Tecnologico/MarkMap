@@ -1,0 +1,278 @@
+#![expect(
+    clippy::print_stderr,
+    reason = "binary entrypoint reports startup errors to stderr"
+)]
+
+use std::env;
+#[cfg(feature = "tui")]
+use std::sync::Arc;
+
+use clap::Parser as _;
+use martin::StartupResult;
+use martin::config::args::Args;
+#[cfg(feature = "mbtiles")]
+use martin::config::args::Command;
+#[cfg(all(feature = "webui", not(docsrs)))]
+use martin::config::args::WebUiMode;
+#[cfg(any(
+    feature = "mbtiles",
+    feature = "unstable-cog",
+    feature = "unstable-duckdb",
+    feature = "geojson",
+    feature = "pmtiles",
+    feature = "postgres"
+))]
+use martin::config::file::reload::TileReloaders;
+use martin::config::file::{Config, read_config};
+#[cfg(feature = "_tiles")]
+use martin::config::primitives::IdResolver;
+use martin::config::primitives::env::OsEnv;
+use martin::logging::{LogFormat, ensure_martin_core_log_level_matches, init_tracing};
+#[cfg(feature = "_tiles")]
+use martin::srv::RESERVED_KEYWORDS;
+use martin::srv::new_server;
+#[cfg(feature = "tui")]
+use martin::tui;
+#[cfg(feature = "tui")]
+use tokio::sync::oneshot;
+use tracing::{error, info};
+
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+#[hotpath::measure]
+#[expect(
+    clippy::too_many_lines,
+    reason = "the startup steps in the order they run"
+)]
+async fn start(
+    args: Args,
+    #[cfg(feature = "tui")] dashboard: Option<Arc<tui::Dashboard>>,
+) -> StartupResult<()> {
+    info!("Starting Martin v{VERSION}");
+
+    let env = OsEnv;
+    let save_config = args.meta.save_config.clone();
+    let mut config = if let Some(ref cfg_filename) = args.meta.config {
+        info!("Using {}", cfg_filename.display());
+        read_config(cfg_filename, &env)?
+    } else {
+        info!("Config file is not specified, auto-detecting sources");
+        Config::default()
+    };
+
+    args.merge_into_config(&mut config)?;
+    config.finalize().await?;
+    config.warn_unrecognized_keys();
+
+    #[cfg(feature = "_tiles")]
+    let resolver = IdResolver::new(RESERVED_KEYWORDS);
+
+    #[cfg(feature = "_catalog")]
+    let sources = config
+        .resolve(
+            #[cfg(feature = "_tiles")]
+            &resolver,
+        )
+        .await?;
+    #[cfg(any(
+        feature = "mbtiles",
+        feature = "unstable-cog",
+        feature = "unstable-duckdb",
+        feature = "geojson",
+        feature = "pmtiles",
+        feature = "postgres"
+    ))]
+    let reloaders = if save_config.is_some() {
+        // The saved config lists every source, so they load before it is written.
+        Some(TileReloaders::init(&config, &sources.tile_manager, &resolver).await?)
+    } else {
+        None
+    };
+
+    if let Some(file_name) = save_config {
+        config.save_to_file(
+            file_name.as_path(),
+            #[cfg(feature = "_tiles")]
+            &sources.tile_manager,
+        )?;
+    } else {
+        info!("Use --save-config to save or print Martin configuration.");
+    }
+
+    // Otherwise the sources load while the server starts.
+    #[cfg(any(
+        feature = "mbtiles",
+        feature = "unstable-cog",
+        feature = "unstable-duckdb",
+        feature = "geojson",
+        feature = "pmtiles",
+        feature = "postgres"
+    ))]
+    let loading = match reloaders {
+        Some(reloaders) => {
+            reloaders.start();
+            None
+        }
+        None => Some(TileReloaders::load(
+            config.clone(),
+            sources.tile_manager.clone(),
+            resolver.clone(),
+        )),
+    };
+
+    #[cfg(all(feature = "webui", not(docsrs)))]
+    let web_ui_mode = config.srv.web_ui.unwrap_or_default();
+
+    let route_prefix = config.srv.route_prefix.clone();
+    let (server, listen_addresses) = new_server(
+        config.srv,
+        #[cfg(feature = "_catalog")]
+        sources,
+    )?;
+    let base_url = if let Some(ref prefix) = route_prefix {
+        format!("http://{listen_addresses}{prefix}/")
+    } else {
+        format!("http://{listen_addresses}/")
+    };
+
+    #[cfg(any(
+        feature = "mbtiles",
+        feature = "unstable-cog",
+        feature = "unstable-duckdb",
+        feature = "geojson",
+        feature = "pmtiles",
+        feature = "postgres"
+    ))]
+    let Some(server) = serve_while_loading(server, loading).await? else {
+        return Ok(());
+    };
+    #[cfg(all(feature = "webui", not(docsrs)))]
+    match web_ui_mode {
+        WebUiMode::EnableForAll => info!("Martin server is now active at {base_url}"),
+        WebUiMode::Enable => {
+            info!("Martin server is now active at {base_url}");
+            info!(
+                "Web UI is only served to localhost connections. Use `--webui enable-for-all` in CLI or a config value to enable it for all connections."
+            );
+        }
+        WebUiMode::Disable => {
+            info!("Martin server is now active. See {base_url}catalog to see available services");
+            info!(
+                "Web UI is disabled. Use `--webui enable` or `--webui enable-for-all` in CLI or a config value to enable it."
+            );
+        }
+    }
+    #[cfg(not(all(feature = "webui", not(docsrs))))]
+    info!("Martin server is now active. See {base_url}catalog to see available services");
+
+    #[cfg(feature = "tui")]
+    if let Some(dashboard) = dashboard {
+        dashboard.set_address(base_url);
+        let (quit, quit_rx) = oneshot::channel();
+        tui::run(dashboard, quit);
+        tokio::select! {
+            result = server => return Ok(result?),
+            _ = quit_rx => {
+                info!("Dashboard closed, stopping");
+                return Ok(());
+            }
+        }
+    }
+
+    Ok(server.await?)
+}
+
+/// Serves until the sources have loaded, then hands the server back, or `None` if it stopped first.
+#[cfg(any(
+    feature = "mbtiles",
+    feature = "unstable-cog",
+    feature = "unstable-duckdb",
+    feature = "geojson",
+    feature = "pmtiles",
+    feature = "postgres"
+))]
+async fn serve_while_loading<S, E>(
+    mut server: S,
+    loading: Option<tokio::task::JoinHandle<StartupResult<()>>>,
+) -> StartupResult<Option<S>>
+where
+    S: Future<Output = Result<(), E>> + Unpin,
+    martin::StartupError: From<E>,
+{
+    let Some(loading) = loading else {
+        return Ok(Some(server));
+    };
+    tokio::select! {
+        result = &mut server => {
+            result?;
+            Ok(None)
+        }
+        loaded = loading => {
+            loaded.expect("loading the sources panicked")?;
+            Ok(Some(server))
+        }
+    }
+}
+
+#[tokio::main]
+#[hotpath::main]
+async fn main() {
+    let args = Args::parse();
+    let filter = ensure_martin_core_log_level_matches(env::var("RUST_LOG").ok(), "martin=");
+
+    #[cfg(feature = "mbtiles")]
+    if let Some(Command::Cp(copy_args)) = args.command {
+        let log_format = LogFormat::from_env();
+        init_tracing(&filter, log_format, true);
+        if let Err(e) = Box::pin(martin::cp::start(copy_args)).await {
+            let rendered = e.render_diagnostic_with(log_format);
+            if tracing::event_enabled!(tracing::Level::ERROR) {
+                error!("{rendered}");
+            } else {
+                eprintln!("{rendered}");
+            }
+            std::process::exit(1);
+        }
+        return;
+    }
+
+    #[cfg(feature = "tui")]
+    let use_dashboard = !args.meta.no_tui && tui::is_available();
+    #[cfg(not(feature = "tui"))]
+    let use_dashboard = false;
+    let log_format = if use_dashboard {
+        LogFormat::from_env_or(LogFormat::Pretty)
+    } else {
+        LogFormat::from_env()
+    };
+    #[cfg(feature = "tui")]
+    let dashboard = if use_dashboard {
+        Some(tui::install(&filter, log_format))
+    } else {
+        init_tracing(&filter, log_format, false);
+        None
+    };
+    #[cfg(not(feature = "tui"))]
+    init_tracing(&filter, log_format, false);
+
+    let started = start(
+        args,
+        #[cfg(feature = "tui")]
+        dashboard,
+    );
+    if let Err(e) = Box::pin(started).await {
+        let rendered = e.render_diagnostic_with(log_format);
+        #[cfg(feature = "tui")]
+        let swallowed_by_dashboard = tui::is_installed();
+        #[cfg(not(feature = "tui"))]
+        let swallowed_by_dashboard = false;
+        #[cfg(feature = "tui")]
+        tui::restore_terminal();
+        if tracing::event_enabled!(tracing::Level::ERROR) && !swallowed_by_dashboard {
+            error!("{rendered}");
+        } else {
+            eprintln!("{rendered}");
+        }
+        std::process::exit(1);
+    }
+}

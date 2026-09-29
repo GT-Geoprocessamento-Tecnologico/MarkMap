@@ -1,0 +1,40 @@
+{
+  "name": "api",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "hono dev",
+    "build": "esbuild src/index.ts --bundle --platform=node --target=node20 --format=esm --outdir=dist",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@geonexo/contracts": "workspace:*",
+    "@hono/node-server": "^1.11.0",
+    "drizzle-orm": "^0.35.0",
+    "postgres": "^3.4.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.3.7",
+    "@eslint/js": "^9.39.5",
+    "@geonexo/config": "workspace:*",
+    "@types/node": "^20.14.0",
+    "drizzle-kit": "^0.30.0",
+    "esbuild": "^0.23.0",
+    "eslint": "^9.39.5",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-prettier": "^5.5.6",
+    "eslint-plugin-react-hooks": "^4.6.2",
+    "eslint-plugin-react-refresh": "^0.4.26",
+    "eslint-plugin-unused-imports": "^3.2.0",
+    "globals": "^15.15.0",
+    "hono": "^4.0.0",
+    "prettier": "^3.9.9",
+    "typescript": "^5.5.0",
+    "typescript-eslint": "^8.71.0",
+    "vitest": "^2.0.0"
+  }
+}
