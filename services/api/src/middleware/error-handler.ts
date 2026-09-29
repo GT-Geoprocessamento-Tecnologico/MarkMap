@@ -3,8 +3,8 @@ import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import type { Logger } from './logger.js';
 import { getRequestId } from './request-id.js';
 import { z } from 'zod';
-import { httpStatusByErrorCode } from '@geonexo/contracts/error';
-import type { ErrorCode } from '@geonexo/contracts/error';
+import { httpStatusByErrorCode } from '@geonexo/contracts/errors';
+import type { ErrorCode } from '@geonexo/contracts/errors';
 import { ValidationError, FieldIssue } from '../lib/errors';
 
 type Variables = {

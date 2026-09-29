@@ -80,4 +80,5 @@ export const errorSchema = z.object({
 });
 
 export type Error = z.infer<typeof errorSchema>;
-export type ErrorResponse = z.infer<typeof errorSchema>;
+export type ErrorResponse = z.infer<typeof errorSchema>;export const projectNotFound = (id: string) => new Error('Not found');
+export const versionConflict = () => new Error('Conflict');
