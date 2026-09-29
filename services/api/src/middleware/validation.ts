@@ -30,16 +30,14 @@ export function validate<T extends Z.AnyZodObject>(schema: T) {
       );
 
       c.status(400);
-      await c.json(
-        {
-          error: {
-            code: 'VALIDATION_ERROR',
-            message: reason,
-            requestId: c.get('requestId') || 'unknown',
-            details,
-          },
-        } satisfies import('../lib/errors').Error,
-      );
+      await c.json({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: reason,
+          requestId: c.get('requestId') || 'unknown',
+          details,
+        },
+      });
     }
   };
 }

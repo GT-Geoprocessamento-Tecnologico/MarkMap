@@ -11,10 +11,12 @@ import { healthRoutes } from './routes/health.js';
 import { projectRoutes } from './routes/projects.js';
 import { layerRoutes } from './routes/layers.js';
 import { featureRoutes } from './routes/features.js';
+import { storageRoutes } from './routes/storage.js';
+import { notificationRoutes } from './routes/notifications.js';
 
 type Variables = {
   requestId: string;
-  validatedBody: any;
+  validatedBody?: any;
 };
 
 /**
@@ -36,9 +38,11 @@ export const createApp = (env: Env = loadEnv()) => {
   app.notFound(notFoundHandler());
 
   app.route('/', healthRoutes(env));
+  app.route('/storage', storageRoutes(env));
   projectRoutes(app);
   layerRoutes(app);
   featureRoutes(app);
+  notificationRoutes(app);
 
   return app;
 };

@@ -597,6 +597,29 @@
   }
 }
 
+@keyframes gn-toast-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    max-height: 200px;
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(0.25rem) scale(0.97);
+    max-height: 0;
+    margin-top: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+}
+
+.gn-toast--exiting {
+  animation: gn-toast-out 300ms ease forwards;
+  overflow: hidden;
+  pointer-events: none;
+}
+
 @keyframes gn-fade-in {
   from {
     opacity: 0;

@@ -1,46 +1,64 @@
-import { z } from 'zod';
+import { eq } from 'drizzle-orm';
+import {
+  getDb,
+  createProject,
+  createLayer,
+  createFeature,
+  getLayer,
+  projects,
+} from '@geonexo/db';
+import type { Db } from '@geonexo/db';
 
-/**
- * Simple in-memory store for prototyping and testing.
- * In a real environment, these would be database calls.
- */
-const projects = new Map<string, any>();
-const layers = new Map<string, any>();
-const features = new Map<string, any>();
+type ProjectRecord = typeof projects.$inferSelect;
+
+async function getProjectById(d: Db, id: string): Promise<ProjectRecord | null> {
+  const [row] = await d
+    .select()
+    .from(projects)
+    .where(eq(projects.id, id))
+    .limit(1);
+  return row ?? null;
+}
 
 export const db = {
   projects: {
     async findById(id: string) {
-      return projects.get(id);
+      const d = getDb();
+      return getProjectById(d, id);
     },
-    async create(data: any) {
-      const id = `proj_${Math.random().toString(36).substr(2, 9)}`;
-      const project = { id, ...data };
-      projects.set(id, project);
-      return project;
+    async create(data: { name: string; description?: string }) {
+      const d = getDb();
+      return createProject(d, data);
     },
   },
   layers: {
     async findById(id: string) {
-      return layers.get(id);
+      const d = getDb();
+      return getLayer(d, id);
     },
-    async create(data: any) {
-      const id = `lay_${Math.random().toString(36).substr(2, 9)}`;
-      const layer = { id, ...data };
-      layers.set(id, layer);
-      return layer;
+    async create(data: {
+      projectId: string;
+      name: string;
+      kind: import('@geonexo/db').LayerKind;
+      geometryType?: string | null;
+      description?: string | null;
+    }) {
+      const d = getDb();
+      return createLayer(d, data);
     },
   },
   features: {
-    async create(data: any) {
-      const id = `feat_${Math.random().toString(36).substr(2, 9)}`;
-      const feature = { id, ...data };
-      features.set(id, feature);
-      return feature;
+    async create(data: {
+      layerId: string;
+      geometry: import('@geonexo/db').Geometry;
+      properties?: Record<string, unknown>;
+    }) {
+      const d = getDb();
+      return createFeature(d, data);
     },
   },
 };
 
-export type Project = any;
-export type Layer = any;
-export type Feature = any;
+export type Project = ProjectRecord;
+export type Layer = import('@geonexo/db').LayerRecord;
+export type Feature = import('@geonexo/db').FeatureRecord;

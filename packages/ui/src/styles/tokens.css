@@ -49,3 +49,15 @@
     scroll-behavior: auto !important;
   }
 }
+
+
+.dark {
+  --gn-color-background: #070b14;
+  --gn-color-surface: #0f131c;
+  --gn-color-surface-elevated: #262a33;
+
+  --gn-color-text-primary: #cbd5e1;
+  --gn-color-text-secondary: #88929e;
+
+  --gn-color-border: rgba(255, 255, 255, 0.1);
+}

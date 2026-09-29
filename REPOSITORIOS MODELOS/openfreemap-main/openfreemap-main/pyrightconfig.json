@@ -1,9 +1,0 @@
-{
-  "exclude": ["**/.*", "**/__pycache__", "**/node_modules", "**/_not_used"],
-  "pythonVersion": "3.13",
-  "typeCheckingMode": "standard",
-  "useLibraryCodeForTypes": true,
-  "reportMissingTypeStubs": "none",
-  "reportArgumentType": "none",
-  "reportOptionalMemberAccess": "none"
-}

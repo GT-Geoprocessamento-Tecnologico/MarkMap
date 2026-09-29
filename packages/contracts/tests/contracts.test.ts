@@ -147,6 +147,7 @@ describe('layerSchema', () => {
     id: uuid,
     projectId: uuid,
     name: 'Parcels',
+    description: null,
     kind: 'polygon',
     geometryType: 'Polygon',
     createdAt: isoDate,

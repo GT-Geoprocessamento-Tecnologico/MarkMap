@@ -52,3 +52,8 @@ export { centroidOf, measureAreaSquareMeters, measureLengthMeters } from './meas
 
 export { isValidLatitude, isValidLongitude, isValidPosition, validateGeometryLight } from './validate.js';
 export type { ValidationResult } from './validate.js';
+
+export * from './coordinates.js';
+export * from './geodesy.js';
+export * from './navigation.js';
+export * from './location.js';

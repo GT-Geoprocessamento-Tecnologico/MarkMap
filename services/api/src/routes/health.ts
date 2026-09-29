@@ -11,14 +11,30 @@ const VERSION = '0.1.0';
 export const healthRoutes = (env: Env) => {
   const routes = new Hono();
 
-  routes.get('/health', (c) =>
-    c.json({
+  routes.get('/health', async (c) => {
+    let dbStatus = env.hasDatabase ? 'configured' : 'not_configured';
+    let dbError = undefined;
+
+    if (env.hasDatabase) {
+      try {
+        const { neon } = await import('@neondatabase/serverless');
+        const sqlQuery = neon(env.DATABASE_URL!);
+        await sqlQuery`SELECT 1`;
+        dbStatus = 'connected';
+      } catch (err: any) {
+        dbStatus = 'error';
+        dbError = err.message;
+      }
+    }
+
+    return c.json({
       status: 'ok',
       version: VERSION,
-      database: env.hasDatabase ? 'configured' : 'not_configured',
+      database: dbStatus,
+      dbError,
       timestamp: new Date().toISOString(),
-    }),
-  );
+    });
+  });
 
   routes.get('/api/v1', (c) =>
     c.json({

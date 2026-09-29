@@ -5,7 +5,7 @@ import { z } from 'zod';
 
 describe('Validation Middleware', () => {
   it('should return 200 and attach validated data on success', async () => {
-    const app = new Hono();
+    const app = new Hono<{ Variables: { validatedBody: any } }>();
     const schema = z.object({ name: z.string(), age: z.number() });
 
     app.post('/test', validate(schema), async (c) => {

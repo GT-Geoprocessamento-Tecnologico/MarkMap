@@ -1,4 +1,5 @@
-import { ValidationError, type ValidationIssue } from './errors.js';
+import { z } from 'zod';
+import { ValidationError, type FieldIssue } from './errors.js';
 
 import { DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT, paginationQuerySchema } from '@geonexo/contracts';
 import type { Pagination } from '@geonexo/contracts';
@@ -43,8 +44,11 @@ export const decodeCursor = (raw: string | null | undefined): Cursor | null => {
  * boundary maps it automatically.
  */
 export class InvalidCursorError extends ValidationError {
-  constructor(details?: FieldIssue[]) {
-    super('The pagination cursor is not valid', details ?? [{ path: 'cursor', message: 'invalid cursor' }]);
+  constructor(rawOrDetails?: string | FieldIssue[]) {
+    const details: FieldIssue[] = typeof rawOrDetails === 'string'
+      ? [{ path: 'cursor', message: `Invalid cursor: ${rawOrDetails}` }]
+      : (rawOrDetails ?? [{ path: 'cursor', message: 'invalid cursor' }]);
+    super('The pagination cursor is not valid', details);
     this.name = 'InvalidCursorError';
   }
 }

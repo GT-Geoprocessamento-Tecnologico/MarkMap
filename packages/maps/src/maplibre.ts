@@ -6,29 +6,25 @@ import type {
 import type { BBox } from '@geonexo/geo';
 import type { BasemapDefinition } from './types.js';
 
-/**
- * MapLibre GL bootstrap. Isolated in its own module so unit tests never
- * import `maplibre-gl` (DOM/WebGL) and the controller stays injectable.
- *
- * Official example pattern: new maplibregl.Map({ container, style, ... }).
- * License: maplibre-gl-js is BSD-3-Clause (permissive, approved for reuse).
- */
-
 export interface CreateMapArgs {
   container: string | HTMLElement;
   basemap: BasemapDefinition;
   center?: [number, number];
   zoom?: number;
-  /**
-   * MapLibre v4 accepts `false` (disable) or options; omitting the key
-   * keeps the default control.
-   */
   attributionControl?: false | AttributionControlOptions;
+  trackUserLocation?: boolean;
 }
 
-/** Create a live MapLibre instance. Call only in the browser. */
-export async function createMapLibreMap(args: CreateMapArgs): Promise<MapLibreMap> {
-  const maplibregl = await import('maplibre-gl');
+/** Retorno estendido: mapa + referência ao GeolocateControl */
+export interface MapWithControls {
+  map: MapLibreMap;
+  geolocate: any; // GeolocateControl instance
+}
+
+/** Cria instância MapLibre + controles. Retorna map E geolocate juntos. */
+import { Map as MLMap, NavigationControl, ScaleControl, GeolocateControl } from 'maplibre-gl';
+
+export async function createMapLibreMap(args: CreateMapArgs): Promise<MapWithControls> {
   const options: MapOptions = {
     container: args.container,
     style: args.basemap.styleUrl,
@@ -38,13 +34,34 @@ export async function createMapLibreMap(args: CreateMapArgs): Promise<MapLibreMa
   if (args.attributionControl !== undefined) {
     options.attributionControl = args.attributionControl;
   }
-  const map = new maplibregl.Map(options);
-  map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'top-right');
-  map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
-  return map;
+
+  const map = new MLMap(options);
+  map.addControl(new NavigationControl({ showCompass: true }), 'top-right');
+  map.addControl(new ScaleControl({ unit: 'metric' }), 'bottom-left');
+
+  const locationControl = new GeolocateControl({
+    positionOptions: {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 0,
+    },
+    trackUserLocation: true,
+    showUserHeading: true,
+  } as any);
+
+  map.addControl(locationControl, 'top-right');
+
+  locationControl.on('geolocate', (e: any) => {
+    console.info('GPS obtido:', e.coords?.latitude, e.coords?.longitude);
+  });
+  locationControl.on('error', (e: any) => {
+    console.warn('Erro GPS (código', e?.error?.code, '):', e?.error?.message);
+  });
+
+  return { map, geolocate: locationControl };
 }
 
-/** Convert a GeoNexo bbox to a MapLibre fitBounds argument. */
+/** Converte BBox GeoNexo para argumento fitBounds do MapLibre. */
 export function toFitBounds(bbox: BBox): [[number, number], [number, number]] {
   return [
     [bbox[0], bbox[1]],

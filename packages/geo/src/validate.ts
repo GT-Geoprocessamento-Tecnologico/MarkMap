@@ -1,9 +1,12 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { kinks } from '@turf/turf';
+
 /**
- * Lightweight coordinate / geometry validation.
+ * Client-side coordinate and topology validation.
  *
- * This is a cheap client-side gate only (ranges, finiteness, ring closure,
- * minimum vertex counts). Authoritative validity (self-intersection,
- * ST_IsValid) belongs to the backend / PostGIS.
+ * Provides range checks, finiteness, ring closure, and basic topological
+ * validity (self-intersection detection for polygons) to provide immediate
+ * feedback before sending authoritative requests to PostGIS.
  */
 
 export type ValidationResult = { ok: true } | { ok: false; reason: string };
@@ -104,6 +107,18 @@ export function validateGeometryLight(geometry: unknown): ValidationResult {
           return fail('Polygon ring must be closed with at least 4 positions');
         }
       }
+      try {
+        const intersection = kinks({
+          type: 'Feature',
+          geometry: { type: 'Polygon', coordinates: coordinates as any },
+          properties: {},
+        });
+        if (intersection.features.length > 0) {
+          return fail('Polygon edges must not cross or overlap (self-intersection)');
+        }
+      } catch {
+        return fail('Failed to validate polygon topology');
+      }
       return { ok: true };
     }
     case 'MultiPoint': {
@@ -143,6 +158,18 @@ export function validateGeometryLight(geometry: unknown): ValidationResult {
           }
         }
       }
+      try {
+        const intersection = kinks({
+          type: 'Feature',
+          geometry: { type: 'MultiPolygon', coordinates: coordinates as any },
+          properties: {},
+        });
+        if (intersection.features.length > 0) {
+          return fail('MultiPolygon edges must not cross or overlap (self-intersection)');
+        }
+      } catch {
+        return fail('Failed to validate multi-polygon topology');
+      }
       return { ok: true };
     }
     default: {
@@ -150,3 +177,4 @@ export function validateGeometryLight(geometry: unknown): ValidationResult {
     }
   }
 }
+

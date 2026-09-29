@@ -3,5 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "main": "./index.js",
-  "type": "commonjs"
+  "type": "module",
+  "dependencies": {
+    "@types/maplibre-gl": "^1.14.0",
+    "maplibre-gl": "^6.11.2"
+  }
 }

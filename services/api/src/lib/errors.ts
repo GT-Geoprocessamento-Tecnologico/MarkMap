@@ -46,6 +46,9 @@ export const buildErrorResponse = (
   },
 });
 
+import { ErrorCodes as ERROR_CODES, httpStatusByErrorCode as HTTP_STATUS_BY_CODE } from '@geonexo/contracts';
+export { ERROR_CODES, HTTP_STATUS_BY_CODE };
+
 /**
  * Base `AppError` class – carries a stable status code and optional
  * extra details.  Sub‑classes can add domain‑specific fields.
@@ -53,9 +56,9 @@ export const buildErrorResponse = (
 export class AppError extends Error {
   public readonly status: number;
   public readonly details?: any;
-  public readonly code?: ErrorCode | undefined;
+  public readonly code?: ErrorCode | string | undefined;
 
-  constructor(message: string, options: { status?: number; details?: any; code?: ErrorCode } = {}) {
+  constructor(message: string, options: { status?: number; details?: any; code?: ErrorCode | string } = {}) {
     super(message);
     this.name = 'AppError';
     this.status = options.status ?? 500;
@@ -75,6 +78,32 @@ export class ValidationError extends AppError {
     this.details = details;
   }
 }
+
+export class NotFoundError extends AppError {
+  constructor(message: string, code: ErrorCode | string = ErrorCode.INTERNAL_ERROR) {
+    super(message, { status: 404, code });
+    this.name = 'NotFoundError';
+  }
+}
+
+export class ConflictError extends AppError {
+  constructor(message: string, code: ErrorCode | string = 'VERSION_CONFLICT') {
+    super(message, { status: 409, code });
+    this.name = 'ConflictError';
+  }
+}
+
+export const projectNotFound = (id: string) =>
+  new NotFoundError(`Project not found: ${id}`, ERROR_CODES.PROJECT_NOT_FOUND);
+
+export const layerNotFound = (id: string) =>
+  new NotFoundError(`Layer not found: ${id}`, ERROR_CODES.LAYER_NOT_FOUND);
+
+export const featureNotFound = (id: string) =>
+  new NotFoundError(`Feature not found: ${id}`, ERROR_CODES.FEATURE_NOT_FOUND);
+
+export const versionConflict = (expected: number, actual: number) =>
+  new ConflictError(`Version conflict: expected ${expected}, got ${actual}`, ERROR_CODES.VERSION_CONFLICT);
 
 /**
  * Generic Zod validation middleware for Hono.

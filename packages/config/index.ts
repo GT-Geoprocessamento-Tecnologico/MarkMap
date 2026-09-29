@@ -1,4 +1,2 @@
-/**
- * Central configuration container.
- * Export shared config objects that can be imported by any workspace package.
- */
+export { default as eslintConfig } from './eslint.config.js';
+export { default as prettierConfig } from './prettier.config.js';

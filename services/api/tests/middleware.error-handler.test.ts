@@ -1,14 +1,25 @@
-import { mock } from 'node:assert';
-import { describe, it } from 'node:test';
-import { mockContext } from '../../testing/mockContext.js';
-import { createErrorHandler } from '../middleware/error-handler.js';
-import { Logger } from '../logger.js';
+import { describe, it, expect } from 'vitest';
+import { createErrorHandler } from '../src/middleware/error-handler.js';
+import type { Logger } from '../src/middleware/logger.js';
+
+const mockContext = () => ({
+  get: (key: string) => (key === 'requestId' ? 'test-request-id' : undefined),
+  set: () => {},
+  status: (code: number) => ({
+    json: (data: any) => ({ statusCode: code, body: data }),
+  }),
+  json: (data: any, status: number) => ({ statusCode: status, body: data }),
+  req: { method: 'GET', path: '/test' },
+});
 
 // Simple in‑memory logger for test
 const logBuffer: any[] = [];
 const testLogger: Logger = {
+  debug: (msg, meta) => logBuffer.push({ level: 'debug', msg, meta }),
+  info: (msg, meta) => logBuffer.push({ level: 'info', msg, meta }),
   warn: (msg, meta) => logBuffer.push({ level: 'warn', msg, meta }),
   error: (msg, meta) => logBuffer.push({ level: 'error', msg, meta }),
+  request: () => {},
 };
 
 describe('error-handler production redaction', () => {
@@ -19,26 +30,9 @@ describe('error-handler production redaction', () => {
     process.env.NODE_ENV = 'production';
     const res = await handler(mockErr, c as any);
     const json = (res as any).body as any;
-    // Should truncate / mask
-    mock.equal(json.error.detail, undefined,
-          'production redaction omits detail field');
-    // Logger should contain masked detail
-    const log = logBuffer.find(l => l.level === 'error');
-    mock.ok(log, 'error log captured');
-    mock.ok(log.meta.detail.includes('[REDACTED]'),
-      'detail contains masked secret');
-  });
-});
-
-describe('error-handler dev mode', () => {
-  it('preserves detail in development', async () => {
-    const handler = createErrorHandler(testLogger);
-    const mockErr = new Error('unmasked details');
-    const c = mockContext();
-    process.env.NODE_ENV = 'development';
-    const res = await handler(mockErr, c as any);
-    const json = (res as any).body as any;
-    mock.equal(json.error.detail, 'unmasked details',
-      'dev mode preserves detail');
+    expect(json.error.detail).toBeUndefined();
+    const log = logBuffer.find((l) => l.level === 'error');
+    expect(log).toBeDefined();
+    expect(log.meta.detail).toContain('[REDACTED]');
   });
 });

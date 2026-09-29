@@ -1,4 +1,0 @@
-- postgis connection enhancements
-- new form widgets (tap counter, wheel, autocomplete combo with urls)
-- memory enabled forms
-- bugfixes

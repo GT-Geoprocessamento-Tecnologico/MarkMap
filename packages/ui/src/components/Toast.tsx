@@ -20,9 +20,12 @@ interface ToastItem {
   title: string;
   description?: string | undefined;
   variant: ToastVariant;
+  exiting?: boolean;
 }
 
-const TOAST_DURATION_MS = 5000;
+// Duração visível: 2.5s | Animação de saída: 300ms
+const TOAST_DURATION_MS = 2500;
+const TOAST_EXIT_MS = 300;
 
 const ToastContext = createContext<ToastContextValue | null>(null);
 
@@ -31,8 +34,15 @@ export function ToastProvider({ children }: PropsWithChildren) {
   const idCounter = useRef(0);
   const timers = useRef<number[]>([]);
 
+  // Marca como "saindo" e remove após a animação
   const dismiss = useCallback((id: string) => {
-    setItems((current) => current.filter((item) => item.id !== id));
+    setItems((current) =>
+      current.map((item) => (item.id === id ? { ...item, exiting: true } : item)),
+    );
+    const removeTimer = window.setTimeout(() => {
+      setItems((current) => current.filter((item) => item.id !== id));
+    }, TOAST_EXIT_MS);
+    timers.current.push(removeTimer);
   }, []);
 
   const toast = useCallback(
@@ -74,7 +84,7 @@ export function ToastProvider({ children }: PropsWithChildren) {
         aria-label="Notificações"
       >
         {items.map((item) => (
-          <div key={item.id} className={cx('gn-toast', `gn-toast--${item.variant}`)}>
+          <div key={item.id} className={cx('gn-toast', `gn-toast--${item.variant}`, item.exiting && 'gn-toast--exiting')}>
             <div className="gn-toast__body">
               <p className="gn-toast__title">{item.title}</p>
               {item.description ? (

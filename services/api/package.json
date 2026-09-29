@@ -5,14 +5,18 @@
   "type": "module",
   "scripts": {
     "dev": "hono dev",
-    "build": "esbuild src/index.ts --bundle --platform=node --target=node20 --format=esm --outdir=dist",
+    "build": "esbuild src/server.ts --bundle --external:@hono/* --external:drizzle-orm --external:postgres --external:zod --external:hono --external:@aws-sdk/* --platform=node --target=node20 --format=esm --outdir=dist",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1141.0",
+    "@aws-sdk/s3-request-presigner": "^3.1141.0",
     "@geonexo/contracts": "workspace:*",
+    "@geonexo/db": "workspace:*",
     "@hono/node-server": "^1.11.0",
+    "@neondatabase/serverless": "^0.9.0",
     "drizzle-orm": "^0.35.0",
     "postgres": "^3.4.0",
     "zod": "^3.23.0"

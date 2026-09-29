@@ -5,7 +5,7 @@ import { getRequestId } from './request-id.js';
 import { z } from 'zod';
 import { httpStatusByErrorCode } from '@geonexo/contracts/errors';
 import type { ErrorCode } from '@geonexo/contracts/errors';
-import { ValidationError, FieldIssue } from '../lib/errors';
+import { AppError, ValidationError, type FieldIssue } from '../lib/errors.js';
 
 type Variables = {
   requestId: string;
@@ -59,18 +59,19 @@ export const createErrorHandler = (logger: Logger) => {
   return (error: unknown, c: Context<{ Variables: Variables }>) => {
     const requestId = getRequestId(c);
 
-    if (error instanceof ValidationError) {
-      logger.warn('validation_error', { requestId, status: error.status ?? 400 });
+    if (error instanceof AppError) {
+      const status = (error.status ?? 500) as ContentfulStatusCode;
+      logger.warn('app_error', { requestId, status, code: error.code ?? 'UNKNOWN' });
       return c.json(
         {
           error: {
-            code: 'VALIDATION_ERROR',
+            code: error.code ?? 'INTERNAL_ERROR',
             message: error.message,
             requestId,
-            details: error.details,
+            ...(error.details ? { details: error.details } : {}),
           },
         },
-        400 as ContentfulStatusCode,
+        status,
       );
     }
 
@@ -90,14 +91,9 @@ export const createErrorHandler = (logger: Logger) => {
       );
     }
 
-    // Unexpected: log the cause, tell the client nothing about it.
-    const isProduction = process.env.NODE_ENV === 'production';
+    // Unexpected 500: log server-side, never expose stack traces or secrets to client.
     const errorMessage = error instanceof Error ? error.message : String(error);
-
-    // PRODUCTION REDACTION: Mask secrets and truncate long messages before logging
-    const detailForLog = isProduction
-      ? maskSecrets(errorMessage).substring(0, 1000)
-      : errorMessage;
+    const detailForLog = maskSecrets(errorMessage).substring(0, 1000);
 
     logger.error('unhandled_error', {
       requestId,
@@ -105,33 +101,13 @@ export const createErrorHandler = (logger: Logger) => {
       detail: detailForLog,
     });
 
-    // Generate sanitized error response based on environment
-    let formattedError = {
-      code: 'INTERNAL_ERROR',
-      message: 'Internal server error',
-      requestId,
-    };
-
-    if (!isProduction) {
-      // Development/staging: include error details for debugging
-      formattedError = {
-        code: 'INTERNAL_ERROR',
-        message: 'Internal server error',
-        requestId,
-        ...(error instanceof Error ? {
-          name: error.name,
-          message: error.message,
-          stack: error.stack ?? undefined,
-        } : {}),
-        ...(typeof error === 'object' && !(error instanceof Error) ? {
-          type: Object.prototype.toString.call(error),
-        } : {}),
-      };
-    }
-
     return c.json(
       {
-        error: formattedError,
+        error: {
+          code: 'INTERNAL_ERROR',
+          message: 'Internal server error',
+          requestId,
+        },
       },
       500 as ContentfulStatusCode,
     );

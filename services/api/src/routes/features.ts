@@ -1,65 +1,64 @@
-import { Hono } from 'hono';
-import { type Context } from 'hono';
+import { Hono, type Context } from 'hono';
 import { z } from 'zod';
-import { validate } from '../middleware/validation';
-import { db } from '../lib/db';
-import { buildErrorResponse } from '../lib/errors';
-import { GeometrySchema } from '@geonexo/contracts/geometry-helpers';
+import { validate } from '../middleware/validation.js';
+import { getDb } from '@geonexo/db';
+import { listFeatures, createFeature, softDeleteFeature, getFeature } from '@geonexo/db';
 
-export const featureRoutes = (app: any) => {
-  app.post(
-    '/features',
-    validate(z.object({
-      name: z.string().min(1),
-      projectId: z.string(),
-      layerId: z.string().optional(),
-      geometry: z.any(),
-    })),
-    async (c: Context) => {
-      const data = c.get('validatedBody');
-      const requestId = c.get('requestId') ?? 'unknown';
+const createFeatureSchema = z.object({
+  layerId: z.string(),
+  geometry: z.any(),
+  properties: z.record(z.any()).optional(),
+});
 
-      // Foreign-key checks
-      const project = await db.projects.findById(data.projectId);
-      if (!project) {
-        return c.json(
-          buildErrorResponse('PROJECT_NOT_FOUND', 'Missing referenced project', requestId),
-          404,
-        );
-      }
+export const featureRoutes = (app: Hono<any, any, any>) => {
+  app.get('/features', async (c: Context) => {
+    const layerId = c.req.query('layerId');
+    if (!layerId) {
+      return c.json({ error: 'Missing layerId query param' }, 400);
+    }
+    const limit = c.req.query('limit') ? parseInt(c.req.query('limit')!) : undefined;
+    const cursor = c.req.query('cursor');
+    // For bbox, we can optionally parse it, but skipping for simplicity unless requested
+    
+    const db = getDb();
+    const queryOpts: any = { layerId };
+    if (limit !== undefined) queryOpts.limit = limit;
+    if (cursor !== undefined) queryOpts.cursor = cursor;
 
-      if (data.layerId) {
-        const layer = await db.layers.findById(data.layerId);
-        if (!layer) {
-          return c.json(
-            buildErrorResponse('LAYER_NOT_FOUND', 'Missing referenced layer', requestId),
-            404,
-          );
-        }
-      }
+    const result = await listFeatures(db, queryOpts);
+    return c.json(result);
+  });
 
-      // Strict geometry validation
-      try {
-        GeometrySchema.parse(data.geometry);
-      } catch (zerr) {
-        return c.json(
-          {
-            error: {
-              code: 'INVALID_GEOMETRY',
-              message: 'Geometry does not match strict spec',
-              requestId,
-              details: (zerr as any).issues?.map((iss: any) => ({
-                path: iss.path?.join('.'),
-                message: iss.message
-              })) ?? [],
-            },
-          },
-          400,
-        );
-      }
+  app.get('/features/:id', async (c: Context) => {
+    const id = c.req.param('id');
+    if (!id) return c.json({ error: 'Missing id param' }, 400);
+    const db = getDb();
+    const feature = await getFeature(db, id);
+    if (!feature) {
+      return c.json({ error: 'Feature not found' }, 404);
+    }
+    return c.json(feature);
+  });
 
-      const feature = await db.features.create(data);
+  app.post('/features', validate(createFeatureSchema), async (c: Context) => {
+    const data = c.get('validatedBody');
+    const db = getDb();
+    try {
+      const feature = await createFeature(db, data);
       return c.json(feature, 201);
-    },
-  );
+    } catch (e: any) {
+      return c.json({ error: e.message }, 400);
+    }
+  });
+
+  app.delete('/features/:id', async (c: Context) => {
+    const id = c.req.param('id');
+    if (!id) return c.json({ error: 'Missing id param' }, 400);
+    const db = getDb();
+    const deletedId = await softDeleteFeature(db, id);
+    if (!deletedId) {
+      return c.json({ error: 'Feature not found' }, 404);
+    }
+    return c.json({ id: deletedId });
+  });
 };

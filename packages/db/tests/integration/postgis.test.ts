@@ -273,7 +273,7 @@ describeIfTestDb('postgis persistence (real PostGIS)', () => {
     await createProject(db, { name: 'primeiro' });
     await createProject(db, { name: 'segundo' });
     const projects = await listProjects(db, { limit: 10 });
-    expect(projects.items.map((project) => project.name)).toEqual(['segundo', 'primeiro']);
+    expect(projects.items.map((project: any) => project.name)).toEqual(['segundo', 'primeiro']);
 
     const project = projects.items[0];
     expect(project).toBeDefined();

@@ -81,7 +81,7 @@ export const listLayers = async (
     )
     .orderBy(desc(layers.createdAt), desc(layers.id))
     .limit(limit + 1);
-  return buildPage(rows, limit, encodeCursor);
+  return buildPage(rows, limit, (row) => encodeCursor({ createdAt: row.createdAt, id: row.id }));
 };
 
 export const updateLayer = async (

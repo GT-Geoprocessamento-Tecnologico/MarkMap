@@ -44,3 +44,6 @@ export type { CreateMapArgs } from './maplibre.js';
 
 export { createTerraDrawEngine } from './terra.js';
 export type { TerraEngineArgs } from './terra.js';
+
+export * from './drawing.js';
+export * from './track-buffer.js';

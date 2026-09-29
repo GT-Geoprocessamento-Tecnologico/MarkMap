@@ -1,4 +1,0 @@
-Rules with single max-zoom 12 need to be changed
-
--                                       <rule e="any" k="*" v="*" zoom-max="12">
-+                                       <rule e="any" k="*" v="*" zoom-max="12" zoom-min="12">

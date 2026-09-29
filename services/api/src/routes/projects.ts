@@ -3,7 +3,7 @@ import { type Context } from 'hono';
 import { z } from 'zod';
 import { validate } from '../middleware/validation';
 import { db } from '../lib/db';
-import { buildErrorResponse } from '../lib/errors';
+import { buildErrorResponse, ErrorCode } from '../lib/errors';
 
 export const createProjectSchema = z.object({
   name: z.string().min(1),
@@ -23,7 +23,7 @@ export const projectRoutes = (app: any) => {
         const parent = await db.projects.findById(data.projectId);
         if (!parent) {
           return c.json(
-            buildErrorResponse('PROJECT_NOT_FOUND', 'The referenced project does not exist', requestId),
+            buildErrorResponse(ErrorCode.PROJECT_NOT_FOUND, 'The referenced project does not exist', requestId),
             404,
           );
         }

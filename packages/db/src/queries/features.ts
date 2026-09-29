@@ -113,7 +113,7 @@ export const listFeatures = async (
     )
     .orderBy(desc(features.createdAt), desc(features.id))
     .limit(limit + 1);
-  return buildPage(rows.map(toRecord), limit, encodeCursor);
+  return buildPage(rows.map(toRecord), limit, (row) => encodeCursor({ createdAt: row.createdAt, id: row.id }));
 };
 
 export const updateFeature = async (

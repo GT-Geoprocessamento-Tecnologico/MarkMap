@@ -1,33 +1,49 @@
-@import '@geonexo/ui/styles/tokens.css';
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    color-scheme: light;
+    /* Light theme with strong contrast */
+    --bg-main: #f8fafc;
+    --bg-sidebar: #ffffff;
+    --bg-header: rgba(255, 255, 255, 0.8);
+    --bg-input: #ffffff;
+    --text-primary: #1e293b;
+    --text-secondary: #43444a;
+    --text-inverse: #ffffff;
+    --border-color: rgba(0, 0, 0, 0.1);
+    --surface-container: #ffffff;
+    --surface-container-high: #f1f5f9;
+    --outline-variant: rgba(0, 0, 0, 0.1);
+    --shadow-sm: rgba(0, 0, 0, 0.05);
+    --shadow-md: rgba(0, 0, 0, 0.1);
+
+    /* Primary brand colors */
+    --color-primary: #006970;
+    --color-primary-container: #002022;
+    --color-secondary: #6ffbbe;
+    --color-secondary-container: #00311f;
   }
 
-  body {
-    background-color: var(--gn-color-background);
-    color: var(--gn-color-text-primary);
-    font-family: var(--gn-font-sans);
-    -webkit-font-smoothing: antialiased;
+  .dark {
+    /* Dark theme with strong contrast */
+    --bg-main: #070b14;
+    --bg-sidebar: #0d121e;
+    --bg-header: rgba(11, 15, 25, 0.8);
+    --bg-input: #111822;
+    --text-primary: #cbd5e1;
+    --text-secondary: #88929e;
+    --text-inverse: #ffffff;
+    --border-color: rgba(255, 255, 255, 0.1);
+    --surface-container: #0f131c;
+    --surface-container-high: #262a33;
+    --outline-variant: rgba(255, 255, 255, 0.1);
+    --shadow-sm: rgba(0, 0, 0, 0.3);
+    --shadow-md: rgba(0, 0, 0, 0.4);
   }
+}
 
-  /* Acessibilidade: foco visivel em todo controle interativo (PRD handoff 27). */
-  :focus-visible {
-    outline: var(--gn-focus-ring);
-    outline-offset: 2px;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    *,
-    *::before,
-    *::after {
-      animation-duration: 0.01ms !important;
-      transition-duration: 0.01ms !important;
-    }
-  }
+.dark canvas.maplibregl-canvas {
+  filter: invert(1) hue-rotate(180deg) contrast(1.1) brightness(0.8);
 }

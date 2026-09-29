@@ -1,15 +1,19 @@
 import { createRootRoute, createRoute, createRouter } from '@tanstack/react-router';
-import AppShell from './components/AppShell';
+import { Outlet } from '@tanstack/react-router';
 import DashboardPage from './pages/dashboard/DashboardPage';
 import ProjectsPage from './pages/projects/ProjectsPage';
 import ProjectPage from './pages/projects/ProjectPage';
-import WorkspacePage from './pages/workspace/WorkspacePage';
+import CommandCenterPage from './pages/workspace/CommandCenterPage';
+
+import MeshStudioPage from './pages/workspace/MeshStudioPage';
 import ImportsPage from './pages/imports/ImportsPage';
 import SettingsPage from './pages/settings/SettingsPage';
+import AnalyticsPage from './pages/dashboard/AnalyticsPage';
+import CoordinateSystemsPage from './pages/dashboard/CoordinateSystemsPage';
 
-// Rotas fixadas pelo handoff (20-FRONTEND-PRD-HANDOFF.md:108-119).
-// Sem /login nesta fase. Paginas usam default export.
-const rootRoute = createRootRoute({ component: AppShell });
+import { RootLayout } from './components/layout/RootLayout';
+
+const rootRoute = createRootRoute({ component: () => <RootLayout /> });
 
 const dashboardRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -29,10 +33,22 @@ const projectRoute = createRoute({
   component: ProjectPage,
 });
 
-const workspaceRoute = createRoute({
+const commandCenterRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/projects/$projectId/map',
-  component: WorkspacePage,
+  component: CommandCenterPage,
+});
+
+const meshRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/projects/$projectId/mesh',
+  component: MeshStudioPage,
+});
+
+const canvasRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/workspace',
+  component: CommandCenterPage,
 });
 
 const importsRoute = createRoute({
@@ -47,13 +63,36 @@ const settingsRoute = createRoute({
   component: SettingsPage,
 });
 
+const analyticsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/analytics',
+  component: AnalyticsPage,
+});
+
+const coordinateSystemsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/coordinate-systems',
+  component: CoordinateSystemsPage,
+});
+
+const telemetryRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/telemetry',
+  component: CommandCenterPage,
+});
+
 const routeTree = rootRoute.addChildren([
   dashboardRoute,
   projectsRoute,
   projectRoute,
-  workspaceRoute,
+  commandCenterRoute,
+  meshRoute,
+  canvasRoute,
   importsRoute,
   settingsRoute,
+  analyticsRoute,
+  coordinateSystemsRoute,
+  telemetryRoute,
 ]);
 
 export const router = createRouter({
