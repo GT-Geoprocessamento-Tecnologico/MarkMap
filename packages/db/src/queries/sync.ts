@@ -1,9 +1,10 @@
 import type {
-  SyncConflict,
-  SyncOperation,
-  ServerChange,
-  Tombstone,
   ImportMetadata,
+  ServerChange,
+  SyncConflict,
+  SyncEntityPayload,
+  SyncOperation,
+  Tombstone,
 } from "@geonexo/contracts";
 import { and, asc, eq, gt, sql } from "drizzle-orm";
 
@@ -27,6 +28,21 @@ const canonicalJson = (value: unknown): string => {
   }
   return JSON.stringify(value);
 };
+
+const conflictFor = (
+  input: SyncOperation,
+  currentVersion: number,
+  serverPayload?: SyncEntityPayload,
+): SyncConflict => ({
+  operationId: input.operationId,
+  entity: input.entity,
+  entityId: input.entityId,
+  baseVersion: input.baseVersion,
+  serverVersion: currentVersion,
+  ...(input.operation === "upsert" ? { localPayload: input.payload } : {}),
+  ...(serverPayload ? { serverPayload } : {}),
+  reason: "VERSION_CONFLICT",
+});
 
 export async function applyPushOperation(
   db: Db,
@@ -66,6 +82,7 @@ export async function applyPushOperation(
           reason: "SCOPE_REJECTED",
         },
       };
+
     const [previous] = await tx
       .select({
         version: syncOperations.version,
@@ -99,6 +116,7 @@ export async function applyPushOperation(
         sequence: String(previous.sequence),
       };
     }
+
     const [current] = await tx
       .select({ version: syncEntities.version, payload: syncEntities.payload })
       .from(syncEntities)
@@ -111,19 +129,44 @@ export async function applyPushOperation(
       )
       .limit(1);
     const currentVersion = current?.version ?? 0;
-    if (input.baseVersion !== null && input.baseVersion !== currentVersion) {
+    const serverPayload = current?.payload
+      ? (current.payload as SyncEntityPayload)
+      : undefined;
+
+    let expectedVersion = input.baseVersion;
+    if (input.predecessorOperationId) {
+      const [predecessor] = await tx
+        .select({
+          version: syncOperations.version,
+          entity: syncOperations.entity,
+          entityId: syncOperations.entityId,
+        })
+        .from(syncOperations)
+        .where(
+          and(
+            eq(syncOperations.workspaceId, capabilityWorkspaceId),
+            eq(syncOperations.operationId, input.predecessorOperationId),
+          ),
+        )
+        .limit(1);
+      if (
+        !predecessor ||
+        predecessor.entity !== input.entity ||
+        predecessor.entityId !== input.entityId
+      )
+        return {
+          status: "conflict",
+          conflict: conflictFor(input, currentVersion, serverPayload),
+        };
+      expectedVersion = predecessor.version;
+    }
+
+    if (expectedVersion !== null && expectedVersion !== currentVersion)
       return {
         status: "conflict",
-        conflict: {
-          operationId: input.operationId,
-          entity: input.entity,
-          entityId: input.entityId,
-          baseVersion: input.baseVersion,
-          serverVersion: currentVersion,
-          reason: "VERSION_CONFLICT",
-        },
+        conflict: conflictFor(input, currentVersion, serverPayload),
       };
-    }
+
     const version = currentVersion + 1;
     const [seqRow] = await tx.execute(
       sql`UPDATE workspaces SET next_sequence = next_sequence + 1, updated_at = now() WHERE id = ${capabilityWorkspaceId} RETURNING next_sequence`,
@@ -133,6 +176,7 @@ export async function applyPushOperation(
     );
     const deleted = input.operation === "delete";
     const payload = deleted ? null : asObject(input.payload);
+
     await tx
       .insert(syncEntities)
       .values({
@@ -157,6 +201,7 @@ export async function applyPushOperation(
           updatedAt: sql`now()`,
         },
       });
+
     await tx.insert(syncOperations).values({
       workspaceId: capabilityWorkspaceId,
       operationId: input.operationId,
@@ -167,6 +212,7 @@ export async function applyPushOperation(
       version,
       sequence: BigInt(sequence),
     });
+
     if (deleted)
       await tx
         .insert(syncTombstones)
@@ -186,6 +232,17 @@ export async function applyPushOperation(
           ],
           set: { version, sequence: BigInt(sequence), deletedAt: sql`now()` },
         });
+    else
+      await tx
+        .delete(syncTombstones)
+        .where(
+          and(
+            eq(syncTombstones.workspaceId, capabilityWorkspaceId),
+            eq(syncTombstones.entity, input.entity),
+            eq(syncTombstones.entityId, input.entityId),
+          ),
+        );
+
     return { status: "accepted", version, sequence };
   });
 }
@@ -218,11 +275,20 @@ export async function pullChanges(
   const selected = rows.slice(0, limit);
   const changes: ServerChange[] = selected
     .filter((row) => row.operation === "upsert")
-    .map((row) => ({
-      ...(asObject(row.envelope) as Omit<ServerChange, "version" | "sequence">),
-      version: row.version,
-      sequence: String(row.sequence),
-    })) as ServerChange[];
+    .map((row) => {
+      const envelope = row.envelope as SyncOperation;
+      if (envelope.operation !== "upsert")
+        throw new Error("Stored sync operation does not match its operation type");
+      return {
+        operationId: envelope.operationId,
+        entity: envelope.entity,
+        entityId: envelope.entityId,
+        operation: "upsert" as const,
+        payload: envelope.payload,
+        version: row.version,
+        sequence: String(row.sequence),
+      };
+    });
   const tombstones: Tombstone[] = selected
     .filter((row) => row.operation === "delete")
     .map((row) => ({
