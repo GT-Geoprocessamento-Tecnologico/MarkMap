@@ -5,6 +5,7 @@ import { secureHeaders } from "hono/secure-headers";
 import { loadEnv } from "./env.js";
 import type { Env } from "./env.js";
 import { createCorsMiddleware } from "./middleware/cors.js";
+import { capabilityMiddleware } from "./middleware/capability.js";
 import {
   createErrorHandler,
   notFoundHandler,
@@ -17,23 +18,22 @@ import { layerRoutes } from "./routes/layers.js";
 import { notificationRoutes } from "./routes/notifications.js";
 import { projectRoutes } from "./routes/projects.js";
 import { storageRoutes } from "./routes/storage.js";
+import { syncRoutes } from "./routes/sync.js";
+import { workspaceRoutes } from "./routes/workspace.js";
 
 type Variables = {
   requestId: string;
   validatedBody?: any;
+  capabilityWorkspaceId?: string;
+  capabilityHash?: string;
+  capabilityGeneration?: string;
 };
 
-/**
- * Assembles the app in the order the PRD asks for: request id, then security
- * headers/CORS, then logging, then routes, with a single error boundary.
- */
 export const createApp = (env: Env = loadEnv()) => {
   const logger = createLogger(env.LOG_LEVEL);
   const app = new Hono<{ Variables: Variables }>();
 
   app.use("*", requestId());
-  // API não renderiza HTML: framing totalmente negado (mais estrito que o
-  // default SAMEORIGIN do hono/secure-headers).
   app.use("*", secureHeaders({ xFrameOptions: "DENY" }));
   app.use("*", createCorsMiddleware(env));
   app.use("*", requestLogger(logger));
@@ -62,10 +62,16 @@ export const createApp = (env: Env = loadEnv()) => {
   app.route("/storage", storageRoutes(env));
   app.route("/api/v1", healthRoutes(env));
   app.route("/api/v1/storage", storageRoutes(env));
-  const apiRoutes = new Hono();
-  projectRoutes(apiRoutes);
-  layerRoutes(apiRoutes);
-  featureRoutes(apiRoutes);
+
+  const apiRoutes = new Hono<{ Variables: Variables }>();
+  workspaceRoutes(apiRoutes);
+  apiRoutes.use("/sync/*", capabilityMiddleware());
+  syncRoutes(apiRoutes);
+  if (env.NODE_ENV !== "production") {
+    projectRoutes(apiRoutes);
+    layerRoutes(apiRoutes);
+    featureRoutes(apiRoutes);
+  }
   notificationRoutes(apiRoutes);
   app.route("/", apiRoutes);
   app.route("/api/v1", apiRoutes);

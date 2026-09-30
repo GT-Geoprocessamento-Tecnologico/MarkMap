@@ -10,7 +10,7 @@ export const createCorsMiddleware = (env: Env) =>
   cors({
     origin: (origin) => (env.corsOrigins.includes(origin) ? origin : null),
     allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-    allowHeaders: ["Content-Type", "X-Request-Id"],
+    allowHeaders: ["Content-Type", "Authorization", "X-Request-Id"],
     exposeHeaders: ["X-Request-Id"],
     credentials: false,
     maxAge: 600,
