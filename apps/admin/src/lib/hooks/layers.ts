@@ -11,7 +11,7 @@ interface ListLayersOptions {
 export function useProjectLayers(projectId: string, options: ListLayersOptions = {}) {
   const { cursor, limit } = options;
   return useQuery({
-    queryKey: queryKeys.layersPage(projectId, cursor),
+    queryKey: [...queryKeys.layersPage(projectId, cursor), limit ?? 'default'],
     queryFn: ({ signal }) => listProjectLayers(projectId, { cursor, limit, signal }),
     enabled: projectId.trim().length > 0,
   });

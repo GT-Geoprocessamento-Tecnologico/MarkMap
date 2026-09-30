@@ -4,6 +4,12 @@
   "private": true,
   "main": "./index.js",
   "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
   "exports": {
     ".": "./index.js",
     "./components/*": "./src/components/*"
@@ -14,5 +20,27 @@
     "@radix-ui/react-dropdown-menu": "^2.1.24",
     "@radix-ui/react-select": "^2.3.7",
     "@radix-ui/react-tooltip": "^1.2.16"
+  },
+  "peerDependencies": {
+    "react": ">=18",
+    "react-dom": ">=18"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.1.0",
+    "@testing-library/user-event": "^14.5.2",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "@types/node": "^20.14.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "eslint": "^9.39.5",
+    "jsdom": "^25.0.1",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "typescript": "^5.5.0",
+    "typescript-eslint": "^8.71.0",
+    "vitest": "^4.1.11",
+    "vite": "^6.4.3"
   }
 }

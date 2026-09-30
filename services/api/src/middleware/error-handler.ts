@@ -1,11 +1,18 @@
-import type { Context } from 'hono';
-import type { ContentfulStatusCode } from 'hono/utils/http-status';
-import type { Logger } from './logger.js';
-import { getRequestId } from './request-id.js';
-import { z } from 'zod';
-import { httpStatusByErrorCode } from '@geonexo/contracts/errors';
-import type { ErrorCode } from '@geonexo/contracts/errors';
-import { AppError, ValidationError, type FieldIssue } from '../lib/errors.js';
+import { GeometryTypeMismatchError } from "@geonexo/contracts";
+import type { ErrorCode } from "@geonexo/contracts/errors";
+import {
+  InvalidCursorError,
+  InvalidGeometryError,
+  LayerNotFoundError,
+  ProjectNotFoundError,
+  VersionConflictError,
+} from "@geonexo/db";
+import type { Context } from "hono";
+import type { ContentfulStatusCode } from "hono/utils/http-status";
+
+import type { Logger } from "./logger.js";
+import { getRequestId } from "./request-id.js";
+import { AppError, type FieldIssue } from "../lib/errors.js";
 
 type Variables = {
   requestId: string;
@@ -17,18 +24,20 @@ type Variables = {
  */
 function maskSecrets(input: string): string {
   const patterns = [
+    /((?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?):\/\/)([^/\s@]+)@/gi,
     /(password|pwd|secret|api[_-]?key|token|auth[_-]?token|access[_-]?token|refresh[_-]?token)[:=]\s*['"]?([^'";,\s]+)['"]?/gi,
     /(authorization)[:=]\s*['"]?Bearer\s+[^'";,\s]+['"]?/gi,
     /("(password|pwd|secret|api[_-]?key|token|auth[_-]?token|access[_-]?token|refresh[_-]?token)"\s*:\s*)"[^"]*"/gi,
   ];
 
   let masked = input;
-  for (const pattern of patterns) {
+  masked = masked.replace(patterns[0]!, "$1[REDACTED]@");
+  for (const pattern of patterns.slice(1)) {
     masked = masked.replace(pattern, (match, key, value) => {
       if (value !== undefined) {
-        return match.replace(value, '[REDACTED]');
+        return match.replace(value, "[REDACTED]");
       }
-      return match.replace(/[^:=]+$/, '[REDACTED]');
+      return match.replace(/[^:=]+$/, "[REDACTED]");
     });
   }
   return masked;
@@ -38,16 +47,16 @@ const zodIssuesToFieldIssues = (error: {
   issues: readonly { path: readonly (string | number)[]; message: string }[];
 }): FieldIssue[] =>
   error.issues.map((issue) => ({
-    path: issue.path.map(String).join('.'),
+    path: issue.path.map(String).join("."),
     message: issue.message,
   }));
 
 type ZodLikeError = Parameters<typeof zodIssuesToFieldIssues>[0];
 
 const isZodError = (error: unknown): error is ZodLikeError =>
-  typeof error === 'object' &&
+  typeof error === "object" &&
   error !== null &&
-  'issues' in error &&
+  "issues" in error &&
   Array.isArray((error as { issues: unknown }).issues);
 
 /**
@@ -61,14 +70,18 @@ export const createErrorHandler = (logger: Logger) => {
 
     if (error instanceof AppError) {
       const status = (error.status ?? 500) as ContentfulStatusCode;
-      logger.warn('app_error', { requestId, status, code: error.code ?? 'UNKNOWN' });
+      logger.warn("app_error", {
+        requestId,
+        status,
+        code: error.code ?? "UNKNOWN",
+      });
       return c.json(
         {
           error: {
-            code: error.code ?? 'INTERNAL_ERROR',
+            code: error.code ?? "INTERNAL_ERROR",
             message: error.message,
             requestId,
-            ...(error.details ? { details: error.details } : {}),
+            ...(error.details !== undefined ? { details: error.details } : {}),
           },
         },
         status,
@@ -77,12 +90,12 @@ export const createErrorHandler = (logger: Logger) => {
 
     if (isZodError(error)) {
       const details = zodIssuesToFieldIssues(error);
-      logger.warn('validation_error', { requestId, status: 400 });
+      logger.warn("validation_error", { requestId, status: 400 });
       return c.json(
         {
           error: {
-            code: 'VALIDATION_ERROR',
-            message: 'Request payload failed validation',
+            code: "VALIDATION_ERROR",
+            message: "Request payload failed validation",
             requestId,
             details,
           },
@@ -91,11 +104,24 @@ export const createErrorHandler = (logger: Logger) => {
       );
     }
 
+    const known = knownDomainError(error);
+    if (known) {
+      logger.warn("domain_error", {
+        requestId,
+        status: known.status,
+        code: known.code,
+      });
+      return c.json(
+        { error: { code: known.code, message: known.message, requestId } },
+        known.status as ContentfulStatusCode,
+      );
+    }
+
     // Unexpected 500: log server-side, never expose stack traces or secrets to client.
     const errorMessage = error instanceof Error ? error.message : String(error);
     const detailForLog = maskSecrets(errorMessage).substring(0, 1000);
 
-    logger.error('unhandled_error', {
+    logger.error("unhandled_error", {
       requestId,
       name: error instanceof Error ? error.name : typeof error,
       detail: detailForLog,
@@ -104,8 +130,8 @@ export const createErrorHandler = (logger: Logger) => {
     return c.json(
       {
         error: {
-          code: 'INTERNAL_ERROR',
-          message: 'Internal server error',
+          code: "INTERNAL_ERROR",
+          message: "Internal server error",
           requestId,
         },
       },
@@ -114,12 +140,46 @@ export const createErrorHandler = (logger: Logger) => {
   };
 };
 
+const knownDomainError = (
+  error: unknown,
+): { code: ErrorCode; status: number; message: string } | null => {
+  if (error instanceof InvalidGeometryError)
+    return {
+      code: "INVALID_GEOMETRY",
+      status: 400,
+      message: "Geometry is empty or invalid",
+    };
+  if (error instanceof GeometryTypeMismatchError)
+    return {
+      code: "GEOMETRY_TYPE_MISMATCH",
+      status: 400,
+      message: error.message,
+    };
+  if (error instanceof InvalidCursorError)
+    return {
+      code: "VALIDATION_ERROR",
+      status: 400,
+      message: "Invalid pagination cursor",
+    };
+  if (error instanceof VersionConflictError)
+    return { code: "VERSION_CONFLICT", status: 409, message: error.message };
+  if (error instanceof ProjectNotFoundError)
+    return {
+      code: "PROJECT_NOT_FOUND",
+      status: 404,
+      message: "Project not found",
+    };
+  if (error instanceof LayerNotFoundError)
+    return { code: "LAYER_NOT_FOUND", status: 404, message: "Layer not found" };
+  return null;
+};
+
 export const notFoundHandler = () => {
   return (c: Context<{ Variables: Variables }>) => {
     return c.json(
       {
         error: {
-          code: 'ROUTE_NOT_FOUND',
+          code: "ROUTE_NOT_FOUND",
           message: `Route ${c.req.method} ${c.req.path} was not found`,
           requestId: getRequestId(c),
         },

@@ -1,6 +1,5 @@
 import { useId } from 'react';
 import * as SelectPrimitive from '@radix-ui/react-select';
-import { cx } from '../lib/cx';
 
 export interface SelectOption {
   value: string;

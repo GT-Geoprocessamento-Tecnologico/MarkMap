@@ -1,279 +1,407 @@
-import { useEffect, useState } from 'react';
-import { Button, Input, Select, useToast } from '@geonexo/ui';
-import { offlineDB } from '../../lib/storage/offline-db';
+import { useEffect, useState, type InputHTMLAttributes } from "react";
+import { useToast } from "@geonexo/ui";
+import {
+  offlineMapPackageManifestSchema,
+  type OfflineMapPackageManifest,
+} from "@geonexo/contracts";
+import { offlineMapStore } from "../../lib/storage/offline-map-store";
+import {
+  getSelectedOfflineMapId,
+  setSelectedOfflineMapId,
+} from "../../lib/storage/offline-map-selection";
+import { offlineDB } from "../../lib/storage/offline-db";
 
-const STORAGE_KEY = 'geonexo-settings';
-
-interface Settings {
-  apiUrl: string;
-  srid: string;
-  exportFormat: string;
-  maxImportSize: string;
-}
-
-const DEFAULT_SETTINGS: Settings = {
-  apiUrl: 'http://localhost:3000',
-  srid: 'EPSG:4674',
-  exportFormat: 'GeoJSON',
-  maxImportSize: '10',
+type InstallPrompt = Event & {
+  prompt(): Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 };
+type GpsState = "prompt" | "granted" | "denied";
+const directoryPickerAttributes = {
+  webkitdirectory: "",
+  directory: "",
+} as unknown as InputHTMLAttributes<HTMLInputElement>;
 
-function loadSettings(): Settings {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
-  } catch {
-    // ignore
-  }
-  return DEFAULT_SETTINGS;
+function packageRelativePath(file: File): string {
+  const path =
+    (file as File & { webkitRelativePath?: string }).webkitRelativePath ||
+    file.name;
+  const segments = path.replace(/\\/g, "/").split("/");
+  return segments.length > 1 ? segments.slice(1).join("/") : segments[0] || "";
 }
 
 export default function SettingsPage() {
   const { toast } = useToast();
-  const [apiMode, setApiMode] = useState<'mock' | 'live'>('mock');
-  const [settings, setSettings] = useState<Settings>(loadSettings);
-  const [savedSettings, setSavedSettings] = useState<Settings>(settings);
-  
-  // PWA & Permissions State
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-  const [isAppInstalled, setIsAppInstalled] = useState(false);
-  const [gpsPermission, setGpsPermission] = useState<'prompt' | 'granted' | 'denied'>('prompt');
-
-  const isDirty = JSON.stringify(settings) !== JSON.stringify(savedSettings);
-
-  useEffect(() => {
-    // Captura o evento de instalação do PWA
-    const handleBeforeInstallPrompt = (e: any) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
-    };
-
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-
-    // Verifica se já está rodando como standalone (instalado)
-    if (window.matchMedia('(display-mode: standalone)').matches) {
-      setIsAppInstalled(true);
+  const [prompt, setPrompt] = useState<InstallPrompt | null>(null);
+  const [installed, setInstalled] = useState(
+    () => window.matchMedia("(display-mode: standalone)").matches,
+  );
+  const [gps, setGps] = useState<GpsState>("prompt");
+  const [gpsBusy, setGpsBusy] = useState(false);
+  const [dark, setDark] = useState(() => {
+    try {
+      return localStorage.getItem("theme") !== "light";
+    } catch {
+      return document.documentElement.classList.contains("dark");
     }
-
-    // Carrega status da permissão de GPS salva no OfflineDB
-    offlineDB.get('permissions', 'gps').then((saved) => {
-      if (saved) setGpsPermission(saved.status);
-    });
-
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    };
-  }, []);
-
-  const handleInstallApp = async () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === 'accepted') {
-        setIsAppInstalled(true);
-        toast({ title: 'Aplicativo instalado!', description: 'O GeoNexo agora está na tela inicial do seu dispositivo.', variant: 'success' });
-      }
-      setDeferredPrompt(null);
-    } else {
-      toast({
-        title: 'Aplicativo pronto para uso',
-        description: 'Você já instalou o app ou pode adicioná-lo à tela inicial pelo menu do seu navegador (Compartilhar -> Adicionar à Tela Inicial).',
-        variant: 'default',
-      });
+  });
+  const [storage, setStorage] = useState<{
+    usage?: number;
+    quota?: number;
+    persistent?: boolean;
+  }>({});
+  const [error, setError] = useState<string | null>(null);
+  const [offlinePackages, setOfflinePackages] = useState<OfflineMapPackageManifest[]>([]);
+  const [selectedOfflineMapId, setSelectedOfflineMapIdState] = useState<string | null>(getSelectedOfflineMapId);
+  const [packageBusy, setPackageBusy] = useState(false);
+  const refreshStorage = async () => {
+    try {
+      const estimate = await navigator.storage?.estimate?.();
+      const persistent = await navigator.storage?.persisted?.();
+      setStorage({ ...estimate, persistent });
+    } catch {
+      setError("Não foi possível consultar o armazenamento deste dispositivo.");
     }
   };
-
-  const handleRequestGpsPermission = () => {
-    if (!navigator.geolocation) {
-      toast({ title: 'GPS indisponível', description: 'Seu dispositivo não suporta geolocalização.', variant: 'error' });
+  const refreshOfflinePackages = async () => {
+    const installed = await offlineMapStore.list();
+    const manifests = installed.map((value) => value.manifest);
+    setOfflinePackages(manifests);
+    const selected = getSelectedOfflineMapId();
+    if (selected && manifests.some((manifest) => manifest.id === selected)) {
+      setSelectedOfflineMapIdState(selected);
       return;
     }
-
+    if (selected) setSelectedOfflineMapId(null);
+    const latest = [...installed].sort((a, b) => b.installedAt.localeCompare(a.installedAt))[0];
+    const next = latest?.manifest.id ?? null;
+    if (next) setSelectedOfflineMapId(next);
+    setSelectedOfflineMapIdState(next);
+  };
+  useEffect(() => {
+    let disposed = false;
+    let permission: PermissionStatus | undefined;
+    const capturePrompt = (event: Event) => {
+      if ("prompt" in event && "userChoice" in event) {
+        event.preventDefault();
+        setPrompt(event as InstallPrompt);
+      }
+    };
+    const appInstalled = () => {
+      setInstalled(true);
+      setPrompt(null);
+    };
+    const themeChanged = () =>
+      setDark(document.documentElement.classList.contains("dark"));
+    window.addEventListener("beforeinstallprompt", capturePrompt);
+    window.addEventListener("appinstalled", appInstalled);
+    window.addEventListener("geonexo-theme-change", themeChanged);
+    const permissionChanged = () => {
+      if (!disposed && permission) setGps(permission.state);
+    };
+    void navigator.permissions
+      ?.query({ name: "geolocation" })
+      .then((status) => {
+        if (disposed) return;
+        permission = status;
+        permissionChanged();
+        status.addEventListener("change", permissionChanged);
+      })
+      .catch(() => undefined);
+    void refreshStorage();
+    void refreshOfflinePackages().catch((cause) =>
+      setError(cause instanceof Error ? cause.message : "Não foi possível carregar os mapas offline."),
+    );
+    return () => {
+      disposed = true;
+      permission?.removeEventListener("change", permissionChanged);
+      window.removeEventListener("beforeinstallprompt", capturePrompt);
+      window.removeEventListener("appinstalled", appInstalled);
+      window.removeEventListener("geonexo-theme-change", themeChanged);
+    };
+  }, []);
+  const install = async () => {
+    if (!prompt) {
+      toast({
+        title: "Adicionar à tela inicial",
+        description:
+          "Use a opção de instalação ou Adicionar à Tela Inicial no menu do navegador.",
+      });
+      return;
+    }
+    try {
+      await prompt.prompt();
+      const choice = await prompt.userChoice;
+      setPrompt(null);
+      if (choice.outcome === "accepted")
+        toast({
+          title: "Instalação solicitada",
+          description: "Aguarde o dispositivo concluir a instalação.",
+        });
+    } catch {
+      setError(
+        "Não foi possível abrir a instalação. Tente pelo menu do navegador.",
+      );
+    }
+  };
+  const locate = () => {
+    if (!navigator.geolocation) {
+      setError("Localização indisponível neste dispositivo.");
+      return;
+    }
+    setGpsBusy(true);
+    setError(null);
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setGpsPermission('granted');
-        offlineDB.save('permissions', 'gps', { status: 'granted', lat: pos.coords.latitude, lng: pos.coords.longitude });
+      (position) => {
+        setGpsBusy(false);
+        setGps("granted");
+        void offlineDB
+          .save("permissions", "gps", {
+            status: "granted",
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          })
+          .catch(() =>
+            setError(
+              "A localização foi obtida, mas não foi possível salvá-la localmente.",
+            ),
+          );
         toast({
-          title: 'Permissão de GPS Concedida!',
-          description: `Localização obtida com sucesso: Lat ${pos.coords.latitude.toFixed(4)}, Lng ${pos.coords.longitude.toFixed(4)}`,
-          variant: 'success',
+          title: "Localização obtida",
+          description: `${position.coords.latitude.toFixed(5)}, ${position.coords.longitude.toFixed(5)} (precisão ${Math.round(position.coords.accuracy)} m)`,
         });
       },
-      (err) => {
-        setGpsPermission('denied');
-        offlineDB.save('permissions', 'gps', { status: 'denied', error: err.message });
-        toast({
-          title: 'Acesso ao GPS recusado',
-          description: 'Por favor, libere a localização nas configurações do seu navegador/dispositivo.',
-          variant: 'error',
-        });
+      (cause) => {
+        setGpsBusy(false);
+        if (cause.code === 1) setGps("denied");
+        setError(
+          cause.code === 1
+            ? "Permissão de localização negada. Altere a permissão do dispositivo para tentar novamente."
+            : "Não foi possível obter a localização. Tente novamente em uma área com sinal.",
+        );
       },
-      { enableHighAccuracy: true, timeout: 10000 }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
     );
   };
-
-  const handleSave = () => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
-    setSavedSettings(settings);
-    toast({ title: 'Configurações salvas', description: 'As preferências foram persistidas no motor local do dispositivo.' });
+  const changeTheme = (next: boolean) => {
+    try {
+      localStorage.setItem("theme", next ? "dark" : "light");
+      document.documentElement.classList.toggle("dark", next);
+      setDark(next);
+      window.dispatchEvent(new Event("geonexo-theme-change"));
+    } catch {
+      setError("Não foi possível salvar a preferência de tema.");
+    }
   };
-
-  const handleReset = () => {
-    setSettings(DEFAULT_SETTINGS);
-    localStorage.removeItem(STORAGE_KEY);
-    setSavedSettings(DEFAULT_SETTINGS);
-    toast({ title: 'Configurações restauradas', description: 'Os valores padrão foram aplicados.' });
+  const preserveStorage = async () => {
+    try {
+      const granted = await navigator.storage?.persist?.();
+      await refreshStorage();
+      toast({
+        title: granted ? "Armazenamento protegido" : "Proteção não concedida",
+        description: granted
+          ? "O dispositivo concedeu armazenamento persistente para os dados locais."
+          : "O navegador controla essa permissão. Exporte uma cópia dos arquivos importantes.",
+      });
+    } catch {
+      setError("Não foi possível solicitar armazenamento persistente.");
+    }
   };
-
+  const installOfflinePackage = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.currentTarget.files ?? []);
+    event.currentTarget.value = "";
+    if (files.length === 0) return;
+    setPackageBusy(true);
+    setError(null);
+    try {
+      const filesByPath = new Map<string, File>();
+      for (const file of files) {
+        const path = packageRelativePath(file);
+        if (!path || filesByPath.has(path)) throw new Error(`Caminho ausente ou duplicado no pacote: ${path || file.name}`);
+        filesByPath.set(path, file);
+      }
+      const manifestFile = filesByPath.get("manifest.json");
+      if (!manifestFile) throw new Error("A pasta selecionada precisa conter manifest.json na raiz.");
+      const manifest: OfflineMapPackageManifest = offlineMapPackageManifestSchema.parse(
+        JSON.parse(await manifestFile.text()) as unknown,
+      );
+      const archives = [...filesByPath.entries()].filter(([path]) => /\.pmtiles$/i.test(path));
+      if (archives.length !== 1) throw new Error("A pasta precisa conter exatamente um arquivo PMTiles.");
+      const assets = new Map<string, Blob>([["package.pmtiles", archives[0]![1]]]);
+      for (const ref of [manifest.style, ...manifest.glyphs, ...manifest.sprites]) {
+        const file = filesByPath.get(ref.path);
+        if (!file) throw new Error(`O pacote não contém o arquivo ${ref.path}.`);
+        assets.set(ref.path, file);
+      }
+      await offlineMapStore.install(manifest, assets);
+      setSelectedOfflineMapId(manifest.id);
+      setSelectedOfflineMapIdState(manifest.id);
+      await refreshOfflinePackages();
+      setSelectedOfflineMapId(manifest.id);
+      setSelectedOfflineMapIdState(manifest.id);
+      toast({
+        title: "Mapa offline instalado",
+        description: `${manifest.label} ficará disponível neste dispositivo sem conexão.`,
+        variant: "success",
+      });
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : "Não foi possível instalar o pacote offline.";
+      setError(message);
+      toast({ title: "Instalação não concluída", description: message, variant: "error" });
+    } finally {
+      setPackageBusy(false);
+    }
+  };
+  const selectOfflinePackage = (manifest: OfflineMapPackageManifest) => {
+    try {
+      setSelectedOfflineMapId(manifest.id);
+      setSelectedOfflineMapIdState(manifest.id);
+      toast({ title: "Mapa selecionado", description: `${manifest.label} será usado na próxima abertura do mapa.` });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Não foi possível salvar a seleção.");
+    }
+  };
+  const removeOfflinePackage = async (manifest: OfflineMapPackageManifest) => {
+    setPackageBusy(true);
+    setError(null);
+    try {
+      await offlineMapStore.remove(manifest.id);
+      if (selectedOfflineMapId === manifest.id) setSelectedOfflineMapId(null);
+      await refreshOfflinePackages();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Não foi possível remover o pacote.");
+    } finally {
+      setPackageBusy(false);
+    }
+  };
+  const formatBytes = (bytes?: number) =>
+    bytes === undefined
+      ? "Não informado"
+      : `${(bytes / 1024 / 1024).toFixed(1)} MiB`;
   return (
-    <div className="min-h-space bg-background text-on-surface p-4 md:p-6 space-y-6 overflow-y-auto">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-cyan-400 flex items-center gap-2">
-          <span className="material-symbols-outlined">settings</span>
+    <section className="min-w-0 space-y-6 bg-background p-4 text-on-surface md:p-6">
+      <header>
+        <h1 className="text-2xl font-bold">
           Configurações do Aplicativo & Dispositivo
         </h1>
         <p className="mt-1 text-sm text-on-surface-variant">
-          Gerencie permissões nativas, instale o aplicativo localmente e configure parâmetros cartográficos.
+          Aparência, instalação, localização e dados deste dispositivo.
         </p>
-      </div>
-
-      {/* Instalação do Aplicativo (PWA) */}
-      <div className="rounded-2xl border border-outline-variant bg-surface-container p-6 shadow-sm space-y-4">
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div>
-            <h2 className="text-lg font-semibold text-on-surface flex items-center gap-2">
-              <span className="material-symbols-outlined text-cyan-500">get_app</span>
-              Aplicativo Nativo Dispositivo
-            </h2>
-            <p className="text-xs text-on-surface-variant mt-0.5">
-              Instale o aplicativo direto no seu dispositivo (Android, iOS, Windows, Mac) para executar de forma nativa e sem barra de navegação.
-            </p>
-          </div>
-          <Button
-            variant="primary"
-            size="md"
-            onClick={handleInstallApp}
-            className="bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-bold shadow-lg shadow-cyan-500/20 hover:scale-105 transition-all flex items-center gap-2"
-          >
-            <span className="material-symbols-outlined text-lg">download</span>
-            {isAppInstalled ? 'App Nativo Instalado' : 'Baixar / Instalar App'}
-          </Button>
-        </div>
-      </div>
-
-      {/* Permissões do Dispositivo (GPS & Localização) */}
-      <div className="rounded-2xl border border-outline-variant bg-surface-container p-6 shadow-sm space-y-4">
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div>
-            <h2 className="text-lg font-semibold text-on-surface flex items-center gap-2">
-              <span className="material-symbols-outlined text-emerald-500">my_location</span>
-              Permissão de Geolocalização (GPS)
-            </h2>
-            <p className="text-xs text-on-surface-variant mt-0.5">
-              Permita o acesso à localização para que os mapas, medições e telemetria funcionem com alta precisão no dispositivo.
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-              gpsPermission === 'granted'
-                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-            }`}>
-              {gpsPermission === 'granted' ? 'Permissão Concedida' : 'Acesso Pendente'}
-            </span>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={handleRequestGpsPermission}
-              className="bg-surface-container-high border-outline-variant hover:bg-surface-variant"
-            >
-              Solicitar Acesso ao GPS
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* Modo de Operação & Armazenamento */}
-      <div className="rounded-2xl border border-outline-variant bg-surface-container p-6 shadow-sm space-y-4">
-        <h2 className="text-lg font-semibold text-on-surface">Motor Local & Armazenamento</h2>
-
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div>
-            <Select
-              label="Motor de Operação"
-              value={apiMode}
-              onValueChange={(val) => setApiMode(val as 'mock' | 'live')}
-              options={[
-                { value: 'mock', label: 'Motor Local (SQLite / IndexedDB em Memória)' },
-                { value: 'live', label: 'Modo Sincronizado (Servidor Hono + PostGIS)' },
-              ]}
-            />
-            <p className="mt-1 text-xs text-on-surface-variant">
-              O motor local mantém todos os polígonos, projetos e pontos gravados no próprio dispositivo.
-            </p>
-          </div>
-
-          <Input
-            label="URL Base da API"
-            value={settings.apiUrl}
-            onChange={(e) => setSettings((s) => ({ ...s, apiUrl: e.target.value }))}
-            placeholder="http://localhost:3000"
-            className="font-mono text-xs"
-          />
-        </div>
-      </div>
-
-      {/* Parâmetros Cartográficos & Padrões */}
-      <div className="rounded-2xl border border-outline-variant bg-surface-container p-6 shadow-sm space-y-4">
-        <h2 className="text-lg font-semibold text-on-surface">Parâmetros Cartográficos & Padrões</h2>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <Input
-            label="Sistema de Referência (SRID)"
-            value={settings.srid}
-            onChange={(e) => setSettings((s) => ({ ...s, srid: e.target.value }))}
-            placeholder="EPSG:4674"
-          />
-
-          <Input
-            label="Formato de Exportação"
-            value={settings.exportFormat}
-            onChange={(e) => setSettings((s) => ({ ...s, exportFormat: e.target.value }))}
-            placeholder="GeoJSON"
-          />
-
-          <Input
-            label="Tamanho Máximo de Import (MiB)"
-            type="number"
-            value={settings.maxImportSize}
-            onChange={(e) => setSettings((s) => ({ ...s, maxImportSize: e.target.value }))}
-            placeholder="10"
-            min="1"
-          />
-        </div>
-      </div>
-
-      {/* Actions */}
-      <div className="flex items-center gap-3 pt-2">
-        <Button
-          variant="primary"
-          size="md"
-          onClick={handleSave}
-          disabled={!isDirty}
+      </header>
+      {error && (
+        <p
+          role="alert"
+          className="rounded-xl border border-red-400/40 p-3 text-sm"
         >
-          Salvar Configurações
-        </Button>
-        <Button
-          variant="ghost"
-          size="md"
-          onClick={handleReset}
+          {error}
+        </p>
+      )}
+      <div className="rounded-2xl border border-outline-variant bg-surface-container p-5">
+        <h2 className="text-lg font-semibold">Aplicativo no dispositivo</h2>
+        <p className="my-3 text-sm text-on-surface-variant">
+          {installed
+            ? "Aberto como aplicativo instalado."
+            : "Adicione à tela inicial para abrir em uma janela própria."}
+        </p>
+        <button
+          disabled={installed}
+          onClick={() => void install()}
+          className="rounded-lg bg-cyan-500 px-4 py-2 font-semibold text-slate-950 disabled:opacity-50"
         >
-          Restaurar Padrões
-        </Button>
-        {isDirty && (
-          <span className="text-xs text-amber-400 font-medium">Alterações não salvas</span>
-        )}
+          {installed ? "Instalado" : "Instalar aplicativo"}
+        </button>
       </div>
-    </div>
+      <div className="rounded-2xl border border-outline-variant bg-surface-container p-5">
+        <h2 className="text-lg font-semibold">Aparência</h2>
+        <label className="mt-3 flex min-h-[44px] items-center gap-3">
+          <input
+            type="checkbox"
+            checked={dark}
+            onChange={(event) => changeTheme(event.target.checked)}
+          />
+          Tema escuro
+        </label>
+      </div>
+      <div className="rounded-2xl border border-outline-variant bg-surface-container p-5">
+        <h2 className="text-lg font-semibold">Localização</h2>
+        <p className="my-3 text-sm text-on-surface-variant">
+          {gps === "granted"
+            ? "Permissão concedida"
+            : gps === "denied"
+              ? "Permissão negada"
+              : "Permissão ainda não concedida"}
+        </p>
+        <button
+          disabled={gpsBusy}
+          onClick={locate}
+          className="rounded-lg border border-outline-variant px-4 py-2"
+        >
+          {gpsBusy ? "Localizando…" : "Solicitar localização"}
+        </button>
+      </div>
+      <div className="rounded-2xl border border-outline-variant bg-surface-container p-5">
+        <h2 className="text-lg font-semibold">Armazenamento local</h2>
+        <dl className="my-3 grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
+          <div>
+            <dt>Uso</dt>
+            <dd>{formatBytes(storage.usage)}</dd>
+          </div>
+          <div>
+            <dt>Quota total estimada</dt>
+            <dd>{formatBytes(storage.quota)}</dd>
+          </div>
+          <div>
+            <dt>Proteção persistente</dt>
+            <dd>
+              {storage.persistent === true
+                ? "Concedida"
+                : storage.persistent === false
+                  ? "Não concedida"
+                  : "Não informada"}
+            </dd>
+          </div>
+        </dl>
+        <button
+          onClick={() => void preserveStorage()}
+          className="rounded-lg border border-outline-variant px-4 py-2"
+        >
+          Proteger dados locais
+        </button>
+      </div>
+      <div className="rounded-2xl border border-outline-variant bg-surface-container p-5">
+        <h2 className="text-lg font-semibold">Mapa offline</h2>
+        <p className="my-3 text-sm text-on-surface-variant">
+          Instale um pacote licenciado com manifest.json, um arquivo PMTiles, estilo, fontes e sprites. O pacote fica neste dispositivo.
+        </p>
+        <label className="inline-flex min-h-[44px] cursor-pointer items-center rounded-lg bg-cyan-500 px-4 py-2 font-semibold text-slate-950">
+          {packageBusy ? "Processando pacote…" : "Selecionar pasta do pacote"}
+          <input
+            type="file"
+            multiple
+            {...directoryPickerAttributes}
+            onChange={(event) => void installOfflinePackage(event)}
+            disabled={packageBusy}
+            className="sr-only"
+            aria-label="Selecionar pasta do pacote de mapa offline"
+          />
+        </label>
+        <ul className="mt-4 space-y-2">
+          {offlinePackages.length === 0 ? (
+            <li className="text-sm text-on-surface-variant">Nenhum pacote offline instalado.</li>
+          ) : offlinePackages.map((manifest) => (
+            <li key={manifest.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-outline-variant p-3">
+              <div>
+                <p className="font-semibold">{manifest.label}</p>
+                <p className="text-xs text-on-surface-variant">{manifest.attribution}</p>
+                {selectedOfflineMapId === manifest.id && <p className="text-xs text-emerald-500">Selecionado para abrir no mapa</p>}
+              </div>
+              <div className="flex gap-2">
+                {selectedOfflineMapId !== manifest.id && <button type="button" disabled={packageBusy} onClick={() => selectOfflinePackage(manifest)} className="min-h-[44px] rounded-lg border border-outline-variant px-3 text-sm">Usar no mapa</button>}
+                <button type="button" disabled={packageBusy} onClick={() => void removeOfflinePackage(manifest)} className="min-h-[44px] rounded-lg border border-red-400/40 px-3 text-sm text-red-500">Remover</button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
   );
 }

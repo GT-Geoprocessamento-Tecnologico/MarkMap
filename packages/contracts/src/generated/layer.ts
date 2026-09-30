@@ -1,8 +1,8 @@
-import { z } from 'zod';
+import { z } from "zod";
 
-import { STORAGE_SRID, geometryTypeSchema } from './geometry.js';
-import type { GeometryType } from './geometry.js';
-import { timestampSchema, uuidSchema } from './project.js';
+import { STORAGE_SRID, geometryTypeSchema } from "./geometry.js";
+import type { GeometryType } from "./geometry.js";
+import { timestampSchema, uuidSchema } from "./project.js";
 
 /**
  * Re-exported so `import { geometryTypeSchema } from '@geonexo/contracts/layer'`
@@ -15,21 +15,34 @@ export { geometryTypeSchema };
  * (10-BACKEND-VISIONARIO-PRD.md:144). It answers "what is this layer", not
  * "which GeoJSON type does it store" - that is layers.geometry_type.
  */
-export const layerKindSchema = z.enum(['point', 'line', 'polygon', 'mixed', 'raster', 'remote']);
+export const layerKindSchema = z.enum([
+  "point",
+  "line",
+  "polygon",
+  "mixed",
+  "raster",
+  "remote",
+]);
 
 /**
  * The subset of kinds that can hold features. A raster or remote layer is
  * served by a provider and has no rows in the features table, so it can never
  * declare a geometry_type.
  */
-export const featureBearingLayerKindSchema = z.enum(['point', 'line', 'polygon', 'mixed']);
+export const featureBearingLayerKindSchema = z.enum([
+  "point",
+  "line",
+  "polygon",
+  "mixed",
+]);
 
 type LayerKindAndGeometryType = {
   readonly kind: string;
   readonly geometryType: GeometryType | null;
 };
 
-const canCarryFeatures = (kind: string): boolean => featureBearingLayerKindSchema.safeParse(kind).success;
+const canCarryFeatures = (kind: string): boolean =>
+  featureBearingLayerKindSchema.safeParse(kind).success;
 
 /**
  * layers.geometry_type is nullable and only meaningful for feature-bearing
@@ -39,9 +52,12 @@ const isGeometryTypeAllowed = (layer: LayerKindAndGeometryType): boolean =>
   layer.geometryType === null || canCarryFeatures(layer.kind);
 
 const geometryTypeNotAllowedMessage =
-  'geometryType is only allowed when kind is one of point, line, polygon or mixed';
+  "geometryType is only allowed when kind is one of point, line, polygon or mixed";
 
-const layerNameSchema = z.string().min(1, 'Name is required').max(160, 'Name must be at most 160 characters');
+const layerNameSchema = z
+  .string()
+  .min(1, "Name is required")
+  .max(160, "Name must be at most 160 characters");
 
 /** layers.srid integer NOT NULL DEFAULT 4674 (SIRGAS 2000). */
 const layerSridSchema = z.number().int().positive().default(STORAGE_SRID);
@@ -83,12 +99,14 @@ export const createLayerSchema = z
   .refine(isGeometryTypeAllowed, geometryTypeNotAllowedMessage);
 
 export const updateLayerSchema = z.object({
-  name: z.string().min(1, 'Name is required').optional(),
+  name: z.string().min(1, "Name is required").optional(),
   description: z.string().optional(),
 });
 
 export type Layer = z.infer<typeof layerSchema>;
 export type LayerKind = z.infer<typeof layerKindSchema>;
-export type FeatureBearingLayerKind = z.infer<typeof featureBearingLayerKindSchema>;
+export type FeatureBearingLayerKind = z.infer<
+  typeof featureBearingLayerKindSchema
+>;
 export type CreateLayer = z.infer<typeof createLayerSchema>;
 export type UpdateLayer = z.infer<typeof updateLayerSchema>;

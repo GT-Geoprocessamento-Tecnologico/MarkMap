@@ -21,8 +21,10 @@
     "dev": "echo \"@geonexo/geo has no dev server\""
   },
   "dependencies": {
+    "@geonexo/contracts": "workspace:*",
     "@turf/turf": "^7.0.0",
-    "proj4": "^2.10.0"
+    "pdf-lib": "1.17.1",
+    "proj4": "2.22.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
@@ -31,6 +33,6 @@
     "eslint": "^9.39.5",
     "typescript": "^5.5.0",
     "typescript-eslint": "^8.71.0",
-    "vitest": "^2.0.0"
+    "vitest": "^4.1.11"
   }
 }

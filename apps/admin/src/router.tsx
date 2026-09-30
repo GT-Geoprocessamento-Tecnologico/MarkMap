@@ -1,19 +1,33 @@
+import { lazy, Suspense } from 'react';
 import { createRootRoute, createRoute, createRouter } from '@tanstack/react-router';
-import { Outlet } from '@tanstack/react-router';
 import DashboardPage from './pages/dashboard/DashboardPage';
 import ProjectsPage from './pages/projects/ProjectsPage';
 import ProjectPage from './pages/projects/ProjectPage';
 import CommandCenterPage from './pages/workspace/CommandCenterPage';
 
-import MeshStudioPage from './pages/workspace/MeshStudioPage';
 import ImportsPage from './pages/imports/ImportsPage';
 import SettingsPage from './pages/settings/SettingsPage';
 import AnalyticsPage from './pages/dashboard/AnalyticsPage';
 import CoordinateSystemsPage from './pages/dashboard/CoordinateSystemsPage';
+import TelemetryPage from './pages/dashboard/TelemetryPage';
 
 import { RootLayout } from './components/layout/RootLayout';
 
 const rootRoute = createRootRoute({ component: () => <RootLayout /> });
+const LazyMeshStudioPage = lazy(() => import('./pages/workspace/MeshStudioPage'));
+const MeshStudioRoute = () => (
+  <Suspense fallback={<div className="flex min-h-[50vh] items-center justify-center" role="status">Carregando Estúdio de Malhas 3D…</div>}>
+    <LazyMeshStudioPage />
+  </Suspense>
+);
+const isUuid = (value: unknown): value is string =>
+  typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+const meshSearch = (search: Record<string, unknown>): { meshId?: string } => ({
+  meshId: isUuid(search.meshId) ? search.meshId : undefined,
+});
+const datasetSearch = (search: Record<string, unknown>): { datasetId?: string } => ({
+  datasetId: isUuid(search.datasetId) ? search.datasetId : undefined,
+});
 
 const dashboardRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -36,18 +50,28 @@ const projectRoute = createRoute({
 const commandCenterRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/projects/$projectId/map',
+  validateSearch: datasetSearch,
   component: CommandCenterPage,
 });
 
 const meshRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/projects/$projectId/mesh',
-  component: MeshStudioPage,
+  validateSearch: meshSearch,
+  component: MeshStudioRoute,
+});
+
+const globalMeshRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/mesh',
+  validateSearch: meshSearch,
+  component: MeshStudioRoute,
 });
 
 const canvasRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/workspace',
+  validateSearch: datasetSearch,
   component: CommandCenterPage,
 });
 
@@ -78,7 +102,7 @@ const coordinateSystemsRoute = createRoute({
 const telemetryRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/telemetry',
-  component: CommandCenterPage,
+  component: TelemetryPage,
 });
 
 const routeTree = rootRoute.addChildren([
@@ -87,6 +111,7 @@ const routeTree = rootRoute.addChildren([
   projectRoute,
   commandCenterRoute,
   meshRoute,
+  globalMeshRoute,
   canvasRoute,
   importsRoute,
   settingsRoute,

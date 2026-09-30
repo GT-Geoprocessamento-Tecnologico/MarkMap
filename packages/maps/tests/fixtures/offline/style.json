@@ -1,0 +1,8 @@
+{
+  "version": 8,
+  "name": "GeoNexo offline regional",
+  "sources": {"basemap": {"type": "vector", "url": "pmtiles://package.pmtiles"}},
+  "glyphs": "glyphs/{fontstack}/{range}.pbf",
+  "sprite": "sprites/light",
+  "layers": []
+}

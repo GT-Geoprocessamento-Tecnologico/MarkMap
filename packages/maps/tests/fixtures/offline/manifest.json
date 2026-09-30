@@ -1,0 +1,39 @@
+{
+  "id": "brasilia-regional",
+  "version": "2026.09.30-z12",
+  "label": "Brasília e entorno",
+  "bounds": [-48.4, -16.2, -47.2, -15.3],
+  "minZoom": 0,
+  "maxZoom": 12,
+  "archive": {
+    "id": "00000000-0000-4000-8000-000000000001",
+    "sha256": "035eb103c8d5f7fc7d153afdece190b45fd2343b65d2543726eeafc40c6f3fa6",
+    "bytes": 4300633,
+    "mediaType": "application/vnd.pmtiles"
+  },
+  "style": {
+    "path": "style.json",
+    "blob": {
+      "id": "00000000-0000-4000-8000-000000000002",
+      "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "bytes": 12480,
+      "mediaType": "application/json"
+    }
+  },
+  "glyphs": [
+    {"path":"glyphs/Noto-Sans-Regular/0-255.pbf","blob":{"id":"00000000-0000-4000-8000-000000000003","sha256":"2222222222222222222222222222222222222222222222222222222222222222","bytes":512000,"mediaType":"application/x-protobuf"}},
+    {"path":"glyphs/Noto-Sans-Regular/256-511.pbf","blob":{"id":"00000000-0000-4000-8000-000000000004","sha256":"3333333333333333333333333333333333333333333333333333333333333333","bytes":512000,"mediaType":"application/x-protobuf"}},
+    {"path":"glyphs/Noto-Sans-Medium/0-255.pbf","blob":{"id":"00000000-0000-4000-8000-000000000005","sha256":"4444444444444444444444444444444444444444444444444444444444444444","bytes":512000,"mediaType":"application/x-protobuf"}},
+    {"path":"glyphs/Noto-Sans-Medium/256-511.pbf","blob":{"id":"00000000-0000-4000-8000-000000000006","sha256":"5555555555555555555555555555555555555555555555555555555555555555","bytes":512000,"mediaType":"application/x-protobuf"}},
+    {"path":"glyphs/Noto-Sans-Italic/0-255.pbf","blob":{"id":"00000000-0000-4000-8000-000000000007","sha256":"6666666666666666666666666666666666666666666666666666666666666666","bytes":512000,"mediaType":"application/x-protobuf"}},
+    {"path":"glyphs/Noto-Sans-Italic/256-511.pbf","blob":{"id":"00000000-0000-4000-8000-000000000008","sha256":"7777777777777777777777777777777777777777777777777777777777777777","bytes":512000,"mediaType":"application/x-protobuf"}}
+  ],
+  "sprites": [
+    {"path":"sprites/light.json","blob":{"id":"00000000-0000-4000-8000-000000000009","sha256":"8888888888888888888888888888888888888888888888888888888888888888","bytes":32000,"mediaType":"application/json"}},
+    {"path":"sprites/light.png","blob":{"id":"00000000-0000-4000-8000-000000000010","sha256":"9999999999999999999999999999999999999999999999999999999999999999","bytes":64000,"mediaType":"image/png"}},
+    {"path":"sprites/light@2x.json","blob":{"id":"00000000-0000-4000-8000-000000000011","sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","bytes":32000,"mediaType":"application/json"}},
+    {"path":"sprites/light@2x.png","blob":{"id":"00000000-0000-4000-8000-000000000012","sha256":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","bytes":128000,"mediaType":"image/png"}}
+  ],
+  "attribution": "© OpenStreetMap contributors · Protomaps Basemap (ODbL). Consulte LICENSES/.",
+  "createdAt": "2026-09-30T12:00:00.000Z"
+}

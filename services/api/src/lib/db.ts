@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import type { Geometry, GeometryType } from "@geonexo/contracts";
 import {
   getDb,
   createProject,
@@ -6,12 +6,16 @@ import {
   createFeature,
   getLayer,
   projects,
-} from '@geonexo/db';
-import type { Db } from '@geonexo/db';
+} from "@geonexo/db";
+import type { Db } from "@geonexo/db";
+import { eq } from "drizzle-orm";
 
 type ProjectRecord = typeof projects.$inferSelect;
 
-async function getProjectById(d: Db, id: string): Promise<ProjectRecord | null> {
+async function getProjectById(
+  d: Db,
+  id: string,
+): Promise<ProjectRecord | null> {
   const [row] = await d
     .select()
     .from(projects)
@@ -39,8 +43,8 @@ export const db = {
     async create(data: {
       projectId: string;
       name: string;
-      kind: import('@geonexo/db').LayerKind;
-      geometryType?: string | null;
+      kind: import("@geonexo/db").LayerKind;
+      geometryType: GeometryType | null;
       description?: string | null;
     }) {
       const d = getDb();
@@ -50,7 +54,7 @@ export const db = {
   features: {
     async create(data: {
       layerId: string;
-      geometry: import('@geonexo/db').Geometry;
+      geometry: Geometry;
       properties?: Record<string, unknown>;
     }) {
       const d = getDb();
@@ -60,5 +64,5 @@ export const db = {
 };
 
 export type Project = ProjectRecord;
-export type Layer = import('@geonexo/db').LayerRecord;
-export type Feature = import('@geonexo/db').FeatureRecord;
+export type Layer = import("@geonexo/db").LayerRecord;
+export type Feature = import("@geonexo/db").FeatureRecord;

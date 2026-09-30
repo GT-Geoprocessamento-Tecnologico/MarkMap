@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { ToastProvider, useToast } from '../src';
@@ -58,6 +58,8 @@ describe('Toast', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Fechar notificação' }));
 
-    expect(screen.queryByText('Projeto salvo')).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByText('Projeto salvo')).not.toBeInTheDocument();
+    });
   });
 });

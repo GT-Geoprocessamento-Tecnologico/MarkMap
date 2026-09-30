@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from "zod";
 
 export const DEFAULT_PAGE_LIMIT = 100;
 export const MAX_PAGE_LIMIT = 1000;
@@ -8,8 +8,8 @@ export const paginationCursorSchema = z.string().min(1).optional();
 export const paginationQuerySchema = z.object({
   limit: z.coerce
     .number()
-    .int('limit must be an integer')
-    .min(1, 'limit must be at least 1')
+    .int("limit must be an integer")
+    .min(1, "limit must be at least 1")
     .max(MAX_PAGE_LIMIT, `limit must be at most ${MAX_PAGE_LIMIT}`)
     .default(DEFAULT_PAGE_LIMIT),
   cursor: z.string().min(1).optional(),
@@ -43,7 +43,10 @@ export const buildPage = <T>(
   if (rows.length > limit) {
     const page = rows.slice(0, limit);
     const last = page[page.length - 1];
-    return { items: [...page], nextCursor: last === undefined ? null : toCursor(last) };
+    return {
+      items: [...page],
+      nextCursor: last === undefined ? null : toCursor(last),
+    };
   }
   return { items: [...rows], nextCursor: null };
 };

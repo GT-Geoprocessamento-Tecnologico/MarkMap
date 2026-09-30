@@ -1,8 +1,19 @@
-import { sql } from 'drizzle-orm';
-import { check, index, integer, jsonb, pgTable, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { sql } from "drizzle-orm";
+import {
+  check,
+  foreignKey,
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
 
-import { geometryColumn } from './geometry';
-import { layers } from './layers';
+import { geometryColumn } from "./geometry";
+import { layers } from "./layers";
+import { workspaces } from "./workspaces";
 
 /**
  * 10-BACKEND-VISIONARIO-PRD.md:158-179. One unified table; geometry stored as
@@ -14,33 +25,51 @@ import { layers } from './layers';
  * a real query asks for it (PRD:174).
  */
 export const features = pgTable(
-  'features',
+  "features",
   {
-    id: uuid('id')
+    id: uuid("id")
       .primaryKey()
       .default(sql`gen_random_uuid()`),
-    layerId: uuid('layer_id')
+    workspaceId: uuid("workspace_id")
       .notNull()
-      .references(() => layers.id, { onDelete: 'cascade' }),
-    geometry: geometryColumn('geometry').notNull(),
-    properties: jsonb('properties')
+      .references(() => workspaces.id, {
+        onDelete: "cascade",
+      }),
+    layerId: uuid("layer_id")
+      .notNull()
+      .references(() => layers.id, { onDelete: "cascade" }),
+    geometry: geometryColumn("geometry").notNull(),
+    properties: jsonb("properties")
       .notNull()
       .default(sql`'{}'`),
-    version: integer('version')
-      .notNull()
-      .default(1),
-    createdAt: timestamp('created_at', { withTimezone: true })
+    version: integer("version").notNull().default(1),
+    createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true })
+    updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
-    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
   },
   (t) => ({
-    geometryIdx: index('features_geometry_idx').using('gist', t.geometry),
-    layerIdIdx: index('features_layer_id_idx').on(t.layerId),
-    sridCheck: check('features_geometry_srid_check', sql`ST_SRID(${t.geometry}) = 4674`),
-    notEmptyCheck: check('features_geometry_not_empty_check', sql`NOT ST_IsEmpty(${t.geometry})`),
+    geometryIdx: index("features_geometry_idx").using("gist", t.geometry),
+    layerIdIdx: index("features_layer_id_idx").on(t.layerId),
+    workspaceEntityKey: uniqueIndex("features_workspace_id_key").on(
+      t.workspaceId,
+      t.id,
+    ),
+    workspaceLayerFk: foreignKey({
+      columns: [t.workspaceId, t.layerId],
+      foreignColumns: [layers.workspaceId, layers.id],
+      name: "features_workspace_layer_fk",
+    }),
+    sridCheck: check(
+      "features_geometry_srid_check",
+      sql`ST_SRID(${t.geometry}) = 4674`,
+    ),
+    notEmptyCheck: check(
+      "features_geometry_not_empty_check",
+      sql`NOT ST_IsEmpty(${t.geometry})`,
+    ),
   }),
 );

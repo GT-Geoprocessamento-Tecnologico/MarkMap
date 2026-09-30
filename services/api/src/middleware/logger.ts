@@ -1,16 +1,27 @@
-import type { Context, Next } from 'hono';
+import type { Context, Next } from "hono";
 
-import { getRequestId } from './request-id.js';
+import { getRequestId } from "./request-id.js";
 
 type LogFields = Record<string, string | number | boolean | null>;
 
-type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+type LogLevel = "debug" | "info" | "warn" | "error";
 
-const LEVEL_ORDER: Record<LogLevel, number> = { debug: 10, info: 20, warn: 30, error: 40 };
+const LEVEL_ORDER: Record<LogLevel, number> = {
+  debug: 10,
+  info: 20,
+  warn: 30,
+  error: 40,
+};
 
 const levelFromEnv = (value: string | undefined): LogLevel => {
-  if (value === 'debug' || value === 'info' || value === 'warn' || value === 'error') return value;
-  return 'info';
+  if (
+    value === "debug" ||
+    value === "info" ||
+    value === "warn" ||
+    value === "error"
+  )
+    return value;
+  return "info";
 };
 
 /**
@@ -32,23 +43,28 @@ export const createLogger = (configuredLevel?: string) => {
       ...fields,
     };
     const serialized = JSON.stringify(line);
-    if (level === 'error') process.stderr.write(`${serialized}\n`);
+    if (level === "error") process.stderr.write(`${serialized}\n`);
     else process.stdout.write(`${serialized}\n`);
   };
 
   return {
-    debug: (message: string, fields?: LogFields) => write('debug', message, fields),
-    info: (message: string, fields?: LogFields) => write('info', message, fields),
-    warn: (message: string, fields?: LogFields) => write('warn', message, fields),
-    error: (message: string, fields?: LogFields) => write('error', message, fields),
+    debug: (message: string, fields?: LogFields) =>
+      write("debug", message, fields),
+    info: (message: string, fields?: LogFields) =>
+      write("info", message, fields),
+    warn: (message: string, fields?: LogFields) =>
+      write("warn", message, fields),
+    error: (message: string, fields?: LogFields) =>
+      write("error", message, fields),
     request: (
       c: Context,
       status: number,
       latencyMs: number,
       extra?: LogFields,
     ) => {
-      const level: LogLevel = status >= 500 ? 'error' : status >= 400 ? 'warn' : 'info';
-      write(level, 'request', {
+      const level: LogLevel =
+        status >= 500 ? "error" : status >= 400 ? "warn" : "info";
+      write(level, "request", {
         requestId: getRequestId(c),
         method: c.req.method,
         path: c.req.path,

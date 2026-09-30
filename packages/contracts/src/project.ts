@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from "zod";
 
 export const uuidSchema = z.string().uuid();
 export const timestampSchema = z.string().datetime();
@@ -11,13 +11,13 @@ export const timestampSchema = z.string().datetime();
  */
 export const projectStatusSchema = z
   .string()
-  .min(1, 'Status is required')
-  .max(32, 'Status must be at most 32 characters')
-  .default('active');
+  .min(1, "Status is required")
+  .max(32, "Status must be at most 32 characters")
+  .default("active");
 
 export const projectSchema = z.object({
   id: uuidSchema,
-  name: z.string().min(1, 'Name is required'),
+  name: z.string().min(1, "Name is required"),
   description: z.string().optional(),
   status: projectStatusSchema,
   createdAt: timestampSchema,
@@ -29,18 +29,18 @@ export const projectSchema = z.object({
  * server-controlled in this phase (10-BACKEND-VISIONARIO-PRD.md:114-122).
  */
 export const createProjectSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
+  name: z.string().min(1, "Name is required"),
   description: z.string().optional(),
 });
 
 export const updateProjectSchema = z
   .object({
-    name: z.string().min(1, 'Name is required').optional(),
+    name: z.string().min(1, "Name is required").optional(),
     description: z.string().optional(),
   })
   .refine(
     (body) => body.name !== undefined || body.description !== undefined,
-    'At least one of name or description must be provided',
+    "At least one of name or description must be provided",
   );
 
 export type Project = z.infer<typeof projectSchema>;

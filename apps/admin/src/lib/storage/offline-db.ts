@@ -1,8 +1,5 @@
 /**
- * GeoNexo Offline Local Engine (SQLite / IndexedDB Local Storage)
- * 
- * Motor de banco de dados local que armazena dados espacialmente no próprio
- * dispositivo do usuário para garantir funcionamento 100% offline e sem perdas.
+ * IndexedDB storage for local records. Writes resolve after transaction commit.
  */
 
 const DB_NAME = 'GeoNexoLocalEngineDB';
@@ -11,7 +8,7 @@ const DB_VERSION = 1;
 export interface LocalRecord {
   id: string;
   collection: 'layers' | 'datasets' | 'telemetry' | 'preferences' | 'permissions';
-  payload: any;
+  payload: unknown;
   updatedAt: string;
 }
 
@@ -32,14 +29,23 @@ class OfflineLocalDB {
         }
       };
 
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        request.result.onversionchange = () => {
+          request.result.close();
+          this.dbPromise = null;
+        };
+        resolve(request.result);
+      };
+      request.onerror = () => {
+        this.dbPromise = null;
+        reject(request.error);
+      };
     });
 
     return this.dbPromise;
   }
 
-  async save(collection: LocalRecord['collection'], id: string, payload: any): Promise<void> {
+  async save(collection: LocalRecord['collection'], id: string, payload: unknown): Promise<void> {
     const db = await this.init();
     return new Promise((resolve, reject) => {
       const tx = db.transaction('store', 'readwrite');
@@ -51,12 +57,14 @@ class OfflineLocalDB {
         updatedAt: new Date().toISOString(),
       };
       const req = store.put(record);
-      req.onsuccess = () => resolve();
+      tx.oncomplete = () => resolve();
+      tx.onabort = () => reject(tx.error ?? new Error('A gravação local foi abortada.'));
+      tx.onerror = () => reject(tx.error ?? new Error('Não foi possível gravar os dados locais.'));
       req.onerror = () => reject(req.error);
     });
   }
 
-  async get(collection: LocalRecord['collection'], id: string): Promise<any | null> {
+  async get(collection: LocalRecord['collection'], id: string): Promise<unknown | null> {
     const db = await this.init();
     return new Promise((resolve, reject) => {
       const tx = db.transaction('store', 'readonly');
@@ -64,10 +72,11 @@ class OfflineLocalDB {
       const req = store.get(`${collection}:${id}`);
       req.onsuccess = () => resolve(req.result ? req.result.payload : null);
       req.onerror = () => reject(req.error);
+      tx.onabort = () => reject(tx.error ?? new Error('A leitura local foi abortada.'));
     });
   }
 
-  async getAll(collection: LocalRecord['collection']): Promise<any[]> {
+  async getAll(collection: LocalRecord['collection']): Promise<unknown[]> {
     const db = await this.init();
     return new Promise((resolve, reject) => {
       const tx = db.transaction('store', 'readonly');
@@ -76,6 +85,7 @@ class OfflineLocalDB {
       const req = index.getAll(collection);
       req.onsuccess = () => resolve(req.result.map((r: LocalRecord) => r.payload));
       req.onerror = () => reject(req.error);
+      tx.onabort = () => reject(tx.error ?? new Error('A leitura local foi abortada.'));
     });
   }
 }

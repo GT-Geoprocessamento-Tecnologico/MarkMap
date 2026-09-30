@@ -1,11 +1,15 @@
-import { and, desc, eq, isNull, sql } from 'drizzle-orm';
-import { buildPage, type GeometryType, type Pagination } from '@geonexo/contracts';
+import {
+  buildPage,
+  type GeometryType,
+  type Pagination,
+} from "@geonexo/contracts";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 
-import type { Db } from '../client.js';
-import { decodeCursor, encodeCursor, resolveLimit } from '../pagination.js';
-import { LAYER_KINDS, layers } from '../schema/layers.js';
-import { projects } from '../schema/projects.js';
-import { errorSchema } from '@geonexo/contracts/errors';
+import type { Db } from "../client.js";
+import { ProjectNotFoundError } from "../errors.js";
+import { decodeCursor, encodeCursor, resolveLimit } from "../pagination.js";
+import { LAYER_KINDS, layers } from "../schema/layers.js";
+import { projects } from "../schema/projects.js";
 
 export type LayerRecord = typeof layers.$inferSelect;
 
@@ -13,6 +17,7 @@ export type LayerKind = (typeof LAYER_KINDS)[number];
 
 export type CreateLayerInput = {
   projectId: string;
+  workspaceId?: string;
   name: string;
   kind: LayerKind;
   geometryType: GeometryType | null;
@@ -26,33 +31,41 @@ export type UpdateLayerInput = {
   sortOrder?: number;
 };
 
-export const createLayer = async (db: Db, input: CreateLayerInput): Promise<LayerRecord> => {
+export const createLayer = async (
+  db: Db,
+  input: CreateLayerInput,
+): Promise<LayerRecord> => {
   // Verify that the referenced project exists
-  const project = await db.select().from(projects).where(eq(projects.id, input.projectId)).limit(1);
+  const project = await db
+    .select({ id: projects.id })
+    .from(projects)
+    .where(and(eq(projects.id, input.projectId), isNull(projects.deletedAt)))
+    .limit(1);
   if (project.length === 0) {
-    const err = errorSchema.parse({
-      code: 'PROJECT_NOT_FOUND',
-      message: `Project with id ${input.projectId} not found`,
-      requestId: crypto.randomUUID(),
-    });
-    throw err;
+    throw new ProjectNotFoundError(input.projectId);
   }
+  if (input.workspaceId === undefined || input.workspaceId.length === 0)
+    throw new Error("workspaceId is required for layer persistence");
 
   const [row] = await db
     .insert(layers)
     .values({
       projectId: input.projectId,
+      workspaceId: input.workspaceId,
       name: input.name,
       kind: input.kind,
       geometryType: input.geometryType,
       description: input.description ?? null,
     })
     .returning();
-  if (!row) throw new Error('createLayer: insert returned no row');
+  if (!row) throw new Error("createLayer: insert returned no row");
   return row;
 };
 
-export const getLayer = async (db: Db, id: string): Promise<LayerRecord | null> => {
+export const getLayer = async (
+  db: Db,
+  id: string,
+): Promise<LayerRecord | null> => {
   const [row] = await db
     .select()
     .from(layers)
@@ -66,7 +79,9 @@ export const listLayers = async (
   input: { projectId: string; limit?: number; cursor?: string },
 ): Promise<Pagination<LayerRecord>> => {
   const limit = resolveLimit(input.limit);
-  const cursor = input.cursor ? decodeCursor(input.cursor) : undefined;
+  const cursor =
+    input.cursor !== undefined ? decodeCursor(input.cursor) : undefined;
+  const createdAtKey = sql`date_trunc('milliseconds', ${layers.createdAt})`;
   const rows = await db
     .select()
     .from(layers)
@@ -75,13 +90,15 @@ export const listLayers = async (
         eq(layers.projectId, input.projectId),
         isNull(layers.deletedAt),
         cursor
-          ? sql`(${layers.createdAt}, ${layers.id}) < (${cursor.createdAt}::timestamptz, ${cursor.id}::uuid)`
+          ? sql`(${createdAtKey}, ${layers.id}) < (${cursor.createdAt.toISOString()}::timestamptz, ${cursor.id}::uuid)`
           : undefined,
       ),
     )
-    .orderBy(desc(layers.createdAt), desc(layers.id))
+    .orderBy(desc(createdAtKey), desc(layers.id))
     .limit(limit + 1);
-  return buildPage(rows, limit, (row) => encodeCursor({ createdAt: row.createdAt, id: row.id }));
+  return buildPage(rows, limit, (row) =>
+    encodeCursor({ createdAt: row.createdAt, id: row.id }),
+  );
 };
 
 export const updateLayer = async (
@@ -93,8 +110,12 @@ export const updateLayer = async (
     .update(layers)
     .set({
       ...(input.name !== undefined ? { name: input.name } : {}),
-      ...(input.description !== undefined ? { description: input.description } : {}),
-      ...(input.visibleByDefault !== undefined ? { visibleByDefault: input.visibleByDefault } : {}),
+      ...(input.description !== undefined
+        ? { description: input.description }
+        : {}),
+      ...(input.visibleByDefault !== undefined
+        ? { visibleByDefault: input.visibleByDefault }
+        : {}),
       ...(input.sortOrder !== undefined ? { sortOrder: input.sortOrder } : {}),
       updatedAt: sql`now()`,
     })
@@ -108,7 +129,10 @@ export const updateLayer = async (
  * not touched — layer-level restore keeps working (decision recorded in
  * docs/database/schema.md).
  */
-export const softDeleteLayer = async (db: Db, id: string): Promise<string | null> => {
+export const softDeleteLayer = async (
+  db: Db,
+  id: string,
+): Promise<string | null> => {
   const [row] = await db
     .update(layers)
     .set({ deletedAt: sql`now()`, updatedAt: sql`now()` })

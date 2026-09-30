@@ -1,218 +1,310 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Link } from '@tanstack/react-router';
-import { useToast } from '@geonexo/ui';
-import { createMapLibreMap, getDefaultBasemaps } from '@geonexo/maps';
-import 'maplibre-gl/dist/maplibre-gl.css';
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Link, useParams, useSearch } from "@tanstack/react-router";
+import { MeshCanvas } from "../../components/mesh/MeshCanvas";
+import {
+  getMesh,
+  listMeshes,
+  removeMesh,
+  saveMesh,
+  saveMeshView,
+  type MeshRecord,
+  type MeshView,
+} from "../../lib/mesh/mesh-store";
+import { MeshValidationError } from "../../lib/mesh/validation";
+
+function viewFrom(record: MeshRecord): MeshView {
+  return { ...record.view };
+}
 
 export default function MeshStudioPage() {
-  const [activeTool, setActiveTool] = useState('pan');
-  const [wireframe, setWireframe] = useState(false);
-  const [camera, setCamera] = useState('PER');
-  const { toast } = useToast();
-
-  const mapContainer = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<any>(null);
-
+  const params = useParams({ strict: false });
+  const search = useSearch({ strict: false }) as Record<string, unknown>;
+  const projectId =
+    typeof params.projectId === "string" ? params.projectId : undefined;
+  const requestedMeshId =
+    typeof search.meshId === "string" ? search.meshId : undefined;
+  const [meshes, setMeshes] = useState<MeshRecord[]>([]);
+  const [selected, setSelected] = useState<MeshRecord | null>(null);
+  const [blob, setBlob] = useState<Blob | null>(null);
+  const [view, setView] = useState<MeshView>({
+    camera: "perspective",
+    wireframe: false,
+    opacity: 1,
+  });
+  const [message, setMessage] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [pendingViews, setPendingViews] = useState(0);
+  const viewRef = useRef(view);
+  const viewWrites = useRef<Promise<void>>(Promise.resolve());
+  const loadSequence = useRef(0);
+  const reload = useCallback(async () => {
+    const sequence = ++loadSequence.current;
+    try {
+      const rows = await listMeshes(projectId);
+      if (sequence !== loadSequence.current) return;
+      setMeshes(rows);
+      const record = requestedMeshId
+        ? (rows.find((item) => item.id === requestedMeshId) ?? null)
+        : (rows[0] ?? null);
+      if (requestedMeshId && !record)
+        throw new Error(
+          "A malha solicitada não está disponível nesta coleção.",
+        );
+      setSelected(record);
+      if (record) {
+        const stored = await getMesh(record.id);
+        if (sequence !== loadSequence.current) return;
+        if (!stored)
+          throw new Error(
+            "O arquivo da malha não está disponível neste dispositivo.",
+          );
+        setBlob(stored.blob);
+        const restored = viewFrom(stored.record);
+        viewRef.current = restored;
+        setView(restored);
+      } else setBlob(null);
+      setMessage(null);
+    } catch (error) {
+      if (sequence === loadSequence.current)
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "Não foi possível abrir o armazenamento local.",
+        );
+    }
+  }, [projectId, requestedMeshId]);
   useEffect(() => {
-    if (!mapContainer.current || mapRef.current) return;
-    const basemaps = getDefaultBasemaps();
-    const defaultBasemap = basemaps[0];
-    if (!defaultBasemap) return;
-
-    createMapLibreMap({
-      container: mapContainer.current,
-      basemap: defaultBasemap,
-      center: [-47.92, -15.785],
-      zoom: 14,
-      trackUserLocation: true,
-    }).then(({map}: any) => {
-      mapRef.current = map;
-
-      map.on('load', () => {
-        map.setPitch(60);
-        map.setBearing(45);
-        
-        map.addSource('terrain-source', {
-          type: 'raster-dem',
-          tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
-          encoding: 'terrarium',
-          maxzoom: 14,
-          minzoom: 0
-        });
-        map.setTerrain({ source: 'terrain-source', exaggeration: 1.5 });
-
-        map.addSource('buildings', {
-          type: 'geojson',
-          data: {
-            type: 'FeatureCollection',
-            features: [
-              {
-                type: 'Feature',
-                properties: { height: 150, base_height: 0, color: '#0ea5e9' },
-                geometry: {
-                  type: 'Polygon',
-                  coordinates: [[[-47.92, -15.785], [-47.918, -15.785], [-47.918, -15.783], [-47.92, -15.783], [-47.92, -15.785]]]
-                }
-              }
-            ]
-          }
-        });
-        map.addLayer({
-          'id': '3d-buildings',
-          'source': 'buildings',
-          'type': 'fill-extrusion',
-          'paint': {
-            'fill-extrusion-color': ['get', 'color'],
-            'fill-extrusion-height': ['get', 'height'],
-            'fill-extrusion-base': ['get', 'base_height'],
-            'fill-extrusion-opacity': 0.8
-          }
-        });
-      });
-    });
-
+    void reload();
     return () => {
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
-      }
+      loadSequence.current += 1;
     };
-  }, []);
-
-  // Sync wireframe mode
-  useEffect(() => {
-    if (!mapRef.current || !mapRef.current.isStyleLoaded()) return;
-    if (mapRef.current.getLayer('3d-buildings')) {
-       // Mocking wireframe visually by turning off opacity
-       mapRef.current.setPaintProperty('3d-buildings', 'fill-extrusion-opacity', wireframe ? 0.3 : 0.8);
+  }, [reload]);
+  const updateView = async (patch: Partial<MeshView>) => {
+    if (!selected) return;
+    const next = { ...viewRef.current, ...patch };
+    viewRef.current = next;
+    setView(next);
+    setPendingViews((count) => count + 1);
+    try {
+      const meshId = selected.id;
+      const write = viewWrites.current
+        .catch(() => undefined)
+        .then(() => saveMeshView(meshId, next));
+      viewWrites.current = write;
+      await write;
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível salvar a visualização.",
+      );
+    } finally {
+      setPendingViews((count) => count - 1);
     }
-  }, [wireframe]);
-
-  // Sync Camera
-  useEffect(() => {
-    if (!mapRef.current) return;
-    if (camera === 'TOP') {
-      mapRef.current.flyTo({ pitch: 0, bearing: 0 });
-    } else if (camera === 'FRT') {
-      mapRef.current.flyTo({ pitch: 80, bearing: 0 });
-    } else if (camera === 'PER') {
-      mapRef.current.flyTo({ pitch: 60, bearing: 20 });
-    }
-  }, [camera]);
-
-  const handleSave = () => {
-    toast({ title: 'Salvo com sucesso', description: 'As configurações da malha foram salvas no banco de dados.', variant: 'success' });
   };
-
-  const handleTool = (t: string) => {
-    setActiveTool(t);
-    toast({ title: 'Ferramenta selecionada', description: `O modo de interação agora é ${t.toUpperCase()}` });
+  const handleFile = async (file: File | undefined) => {
+    if (!file) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      await saveMesh({ file, projectId });
+      await reload();
+    } catch (error) {
+      setMessage(
+        error instanceof MeshValidationError || error instanceof Error
+          ? error.message
+          : "Falha ao importar GLB.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+  const selectMesh = async (record: MeshRecord) => {
+    const sequence = ++loadSequence.current;
+    try {
+      await viewWrites.current.catch(() => undefined);
+      const stored = await getMesh(record.id);
+      if (sequence !== loadSequence.current) return;
+      setSelected(stored?.record ?? record);
+      if (!stored)
+        throw new Error(
+          "O arquivo da malha não está disponível neste dispositivo.",
+        );
+      setBlob(stored?.blob ?? null);
+      const restored = viewFrom(stored?.record ?? record);
+      viewRef.current = restored;
+      setView(restored);
+      setMessage(null);
+    } catch (error) {
+      if (sequence === loadSequence.current)
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "Não foi possível abrir a malha local.",
+        );
+    }
+  };
+  const deleteSelected = async () => {
+    if (!selected) return;
+    setBusy(true);
+    try {
+      await viewWrites.current.catch(() => undefined);
+      await removeMesh(selected.id);
+      await reload();
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível remover a malha.",
+      );
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
-    <div className="flex flex-col h-full bg-background text-on-surface-variant p-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-y-auto bg-background p-4 text-on-surface md:p-6">
+      <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-on-surface flex items-center gap-2">
-            <span className="material-symbols-outlined text-cyan-400">view_in_ar</span>
-            Estúdio de Malhas 3D
-          </h1>
-          <p className="text-sm text-on-surface-variant mt-1">Visualize e edite malhas espaciais de alta resolução</p>
+          <h1 className="text-2xl font-bold">Estúdio de Malhas 3D</h1>
+          <p className="text-sm text-on-surface-variant">
+            GLB local auto-contido · sem envio para a rede
+          </p>
         </div>
-        <div className="flex flex-wrap gap-3">
-          <Link to="/" className="px-4 py-2 min-h-[44px] rounded-lg bg-white/5 hover:bg-white/10 border border-outline-variant text-sm font-medium transition-colors flex items-center justify-center">
+        <div className="flex gap-2">
+          <Link
+            to={projectId ? "/projects/$projectId" : "/projects"}
+            params={projectId ? { projectId } : undefined}
+            className="rounded border border-outline-variant px-3 py-2 text-sm"
+          >
             Voltar
           </Link>
-          <button 
-            onClick={handleSave}
-            className="px-4 py-2 min-h-[44px] rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/50 text-cyan-400 text-sm font-medium transition-colors flex items-center justify-center gap-2"
-          >
-            <span className="material-symbols-outlined text-sm">save</span>
-            Salvar
-          </button>
+          <label className="cursor-pointer rounded bg-cyan-500 px-3 py-2 text-sm font-semibold text-slate-950">
+            {busy ? "Processando..." : "Importar GLB"}
+            <input
+              className="sr-only"
+              type="file"
+              accept=".glb,model/gltf-binary"
+              disabled={busy}
+              onChange={(event) => {
+                void handleFile(event.target.files?.[0]);
+                event.target.value = "";
+              }}
+            />
+          </label>
         </div>
-      </div>
-
-      <div className="flex flex-col lg:flex-row flex-1 gap-6 min-h-0">
-        <div className="w-full lg:w-64 bg-surface-container-high backdrop-blur-md rounded-xl border border-outline-variant p-4 flex flex-col gap-6 overflow-y-auto shrink-0">
-          <div>
-            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Propriedades</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs text-on-surface-variant mb-1 block">Nível de Detalhe (LOD)</label>
-                <input type="range" className="w-full accent-cyan-500 min-h-[44px]" />
-              </div>
-              <div>
-                <label className="text-xs text-on-surface-variant mb-1 block">Opacidade</label>
-                <input type="range" className="w-full accent-cyan-500 min-h-[44px]" />
-              </div>
-              <div className="flex items-center justify-between min-h-[44px]">
-                <span className="text-xs text-on-surface-variant">Wireframe</span>
-                <input 
-                  type="checkbox" 
-                  checked={wireframe}
-                  onChange={(e) => setWireframe(e.target.checked)}
-                  className="accent-cyan-500 w-6 h-6" 
+      </header>
+      {selected && (
+        <p role="status" className="text-xs text-on-surface-variant">
+          {pendingViews > 0
+            ? "Salvando visualização…"
+            : message
+              ? "Visualização não confirmada"
+              : "Visualização salva neste dispositivo"}
+        </p>
+      )}
+      {message && (
+        <div
+          role="alert"
+          className="rounded border border-red-400/40 bg-red-500/10 p-3 text-sm text-red-200"
+        >
+          {message}
+        </div>
+      )}
+      <div className="grid min-w-0 shrink-0 grid-rows-[360px_auto] gap-4 lg:min-h-[360px] lg:flex-1 lg:grid-cols-[16rem_minmax(0,1fr)] lg:grid-rows-1">
+        <aside className="order-last rounded-xl border border-outline-variant bg-surface-container p-3 lg:order-none">
+          <h2 className="mb-2 text-xs font-semibold uppercase text-on-surface-variant">
+            Malhas locais
+          </h2>
+          {meshes.length === 0 ? (
+            <p className="text-sm text-on-surface-variant">
+              Nenhum GLB importado.
+            </p>
+          ) : (
+            <ul className="space-y-1">
+              {meshes.map((item) => (
+                <li key={item.id}>
+                  <button
+                    className={`w-full rounded p-2 text-left text-sm ${selected?.id === item.id ? "bg-cyan-500/20 text-cyan-300" : "hover:bg-white/5"}`}
+                    onClick={() => {
+                      void selectMesh(item);
+                    }}
+                  >
+                    {item.name}
+                    <span className="block text-xs text-on-surface-variant">
+                      {Math.round(item.sizeBytes / 1024)} KiB
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </aside>
+        <section className="relative order-first min-h-[360px] min-w-0 overflow-hidden rounded-xl border border-outline-variant bg-[#08121d] lg:order-none">
+          {blob && selected ? (
+            <MeshCanvas blob={blob} view={view} onError={setMessage} />
+          ) : (
+            <div className="flex h-full items-center justify-center p-6 text-center text-sm text-on-surface-variant">
+              Selecione um GLB local para visualizar a geometria.
+            </div>
+          )}
+          {selected && (
+            <div className="absolute bottom-3 left-3 right-3 flex flex-wrap items-center gap-3 rounded-lg bg-black/60 p-3 text-xs backdrop-blur">
+              <span>{selected.name}</span>
+              <button
+                className="ml-auto rounded border border-red-400/40 px-2 py-1 text-red-200"
+                disabled={busy}
+                onClick={() => {
+                  void deleteSelected();
+                }}
+              >
+                Excluir
+              </button>
+              <select
+                aria-label="Vista da malha"
+                className="rounded border border-outline-variant bg-surface-container px-2 text-on-surface"
+                value={view.camera}
+                onChange={(event) => {
+                  void updateView({
+                    camera: event.target.value as MeshView["camera"],
+                  });
+                }}
+              >
+                <option value="perspective">Perspectiva</option>
+                <option value="top">Topo</option>
+                <option value="front">Frente</option>
+              </select>
+              <label>
+                Opacidade{" "}
+                <input
+                  aria-label="Opacidade"
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value={view.opacity}
+                  onChange={(event) => {
+                    void updateView({
+                      opacity: Number(event.target.value),
+                    });
+                  }}
                 />
-              </div>
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={view.wireframe}
+                  onChange={(event) => {
+                    void updateView({
+                      wireframe: event.target.checked,
+                    });
+                  }}
+                />{" "}
+                Wireframe
+              </label>
             </div>
-          </div>
-          
-          <div>
-            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Ferramentas</h3>
-            <div className="grid grid-cols-2 gap-2">
-              <button onClick={() => handleTool('pan')} className={`p-2 min-h-[60px] rounded border flex flex-col items-center justify-center gap-1 transition-colors ${activeTool === 'pan' ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-400' : 'bg-white/5 border-transparent hover:border-cyan-500/30 text-on-surface-variant'}`}>
-                <span className="material-symbols-outlined text-xl">pan_tool</span>
-                <span className="text-[10px]">Pan</span>
-              </button>
-              <button onClick={() => handleTool('orbit')} className={`p-2 min-h-[60px] rounded border flex flex-col items-center justify-center gap-1 transition-colors ${activeTool === 'orbit' ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-400' : 'bg-white/5 border-transparent hover:border-cyan-500/30 text-on-surface-variant'}`}>
-                <span className="material-symbols-outlined text-xl">360</span>
-                <span className="text-[10px]">Orbit</span>
-              </button>
-              <button onClick={() => handleTool('zoom')} className={`p-2 min-h-[60px] rounded border flex flex-col items-center justify-center gap-1 transition-colors ${activeTool === 'zoom' ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-400' : 'bg-white/5 border-transparent hover:border-cyan-500/30 text-on-surface-variant'}`}>
-                <span className="material-symbols-outlined text-xl">zoom_in</span>
-                <span className="text-[10px]">Zoom</span>
-              </button>
-              <button onClick={() => handleTool('medir')} className={`p-2 min-h-[60px] rounded border flex flex-col items-center justify-center gap-1 transition-colors ${activeTool === 'medir' ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-400' : 'bg-white/5 border-transparent hover:border-cyan-500/30 text-on-surface-variant'}`}>
-                <span className="material-symbols-outlined text-xl">straighten</span>
-                <span className="text-[10px]">Medir</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* 3D Viewport - REAL MAPLIBRE */}
-        <div className="flex-1 bg-black/40 rounded-xl border border-outline-variant/50 flex items-center justify-center relative overflow-hidden group min-h-[300px] lg:min-h-0">
-          <div ref={mapContainer} className="absolute inset-0 z-0"></div>
-          
-          <div className="absolute top-4 left-4 z-10 bg-black/50 p-2 rounded text-xs text-cyan-400 backdrop-blur pointer-events-none">
-            WebGL 3D Engine Active
-          </div>
-          
-          {/* Overlay controls */}
-          <div className="absolute bottom-4 right-4 lg:top-4 lg:bottom-auto flex bg-surface-container-high/80 backdrop-blur rounded-lg border border-outline-variant overflow-hidden shadow-lg z-10">
-            <button 
-              onClick={() => setCamera('TOP')}
-              className={`p-2 min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-white/10 transition-colors ${camera === 'TOP' ? 'bg-cyan-500/20' : ''}`}
-            >
-              <span className={`text-xs font-bold px-1 ${camera === 'TOP' ? 'text-cyan-400' : 'text-on-surface-variant'}`}>TOP</span>
-            </button>
-            <div className="w-px bg-white/10"></div>
-            <button 
-              onClick={() => setCamera('FRT')}
-              className={`p-2 min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-white/10 transition-colors ${camera === 'FRT' ? 'bg-cyan-500/20' : ''}`}
-            >
-              <span className={`text-xs font-bold px-1 ${camera === 'FRT' ? 'text-cyan-400' : 'text-on-surface-variant'}`}>FRT</span>
-            </button>
-            <div className="w-px bg-white/10"></div>
-            <button 
-              onClick={() => setCamera('PER')}
-              className={`p-2 min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-white/10 transition-colors ${camera === 'PER' ? 'bg-cyan-500/20' : ''}`}
-            >
-              <span className={`text-xs font-bold px-1 ${camera === 'PER' ? 'text-cyan-400' : 'text-on-surface-variant'}`}>PER</span>
-            </button>
-          </div>
-        </div>
+          )}
+        </section>
       </div>
     </div>
   );

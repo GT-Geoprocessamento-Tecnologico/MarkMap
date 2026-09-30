@@ -1,6 +1,10 @@
-import { DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT, uuidSchema } from '@geonexo/contracts';
+import {
+  DEFAULT_PAGE_LIMIT,
+  MAX_PAGE_LIMIT,
+  uuidSchema,
+} from "@geonexo/contracts";
 
-import { InvalidCursorError } from './errors.js';
+import { InvalidCursorError } from "./errors.js";
 
 /**
  * Keyset cursor over `(created_at, id)` — stable, no OFFSET scans.
@@ -9,11 +13,11 @@ import { InvalidCursorError } from './errors.js';
 export type CursorKey = { createdAt: Date; id: string };
 
 export const encodeCursor = ({ createdAt, id }: CursorKey): string =>
-  Buffer.from(`${createdAt.toISOString()}|${id}`).toString('base64url');
+  Buffer.from(`${createdAt.toISOString()}|${id}`).toString("base64url");
 
 export const decodeCursor = (cursor: string): CursorKey => {
-  const decoded = Buffer.from(cursor, 'base64url').toString('utf8');
-  const [iso, id, extra] = decoded.split('|');
+  const decoded = Buffer.from(cursor, "base64url").toString("utf8");
+  const [iso, id, extra] = decoded.split("|");
   if (iso === undefined || id === undefined || extra !== undefined) {
     throw new InvalidCursorError();
   }

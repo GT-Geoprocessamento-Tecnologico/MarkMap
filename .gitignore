@@ -49,6 +49,10 @@ pnpm-debug.log*
 htmlcov
 coverage/
 
+# Playwright
+apps/admin/playwright-report/
+apps/admin/test-results/
+
 # Turbo
 .turbo
 

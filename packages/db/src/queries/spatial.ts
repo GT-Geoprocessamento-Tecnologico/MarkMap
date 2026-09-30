@@ -1,11 +1,10 @@
-import { sql } from 'drizzle-orm';
-import type { SQL } from 'drizzle-orm';
-import type { AnyPgColumn } from 'drizzle-orm/pg-core';
+import type { Bbox, Geometry } from "@geonexo/contracts";
+import { sql } from "drizzle-orm";
+import type { SQL } from "drizzle-orm";
+import type { AnyPgColumn } from "drizzle-orm/pg-core";
 
-import type { Bbox, Geometry } from '@geonexo/contracts';
-
-import type { Db } from '../client.js';
-import { InvalidGeometryError } from '../errors.js';
+import type { Db } from "../client.js";
+import { InvalidGeometryError } from "../errors.js";
 
 /**
  * The only PostGIS entry points of the package — the functions allowed by
@@ -34,9 +33,10 @@ type GeometryProbe = { empty: boolean; valid: boolean };
 
 /** True when the error carries a 5-character SQLSTATE (e.g. `22023`). */
 const isSqlState = (error: unknown): error is { code: string } => {
-  if (typeof error !== 'object' || error === null || !('code' in error)) return false;
+  if (typeof error !== "object" || error === null || !("code" in error))
+    return false;
   const { code } = error as { code: unknown };
-  return typeof code === 'string' && /^[0-9A-Z]{5}$/.test(code);
+  return typeof code === "string" && /^[0-9A-Z]{5}$/.test(code);
 };
 
 /**
@@ -45,18 +45,21 @@ const isSqlState = (error: unknown): error is { code: string } => {
  * here can only come from the geometry itself (bad JSON, unparseable text,
  * coordinates the projection rejects).
  */
-export const assertStorableGeometry = async (db: Db, geometry: Geometry): Promise<void> => {
+export const assertStorableGeometry = async (
+  db: Db,
+  geometry: Geometry,
+): Promise<void> => {
   let rows: GeometryProbe[];
   try {
-    const result: any = await db.execute(sql`
+    rows = await db.execute<GeometryProbe>(sql`
       SELECT ST_IsEmpty(g) AS empty, ST_IsValid(g) AS valid
       FROM (SELECT ST_SetSRID(ST_GeomFromGeoJSON(${JSON.stringify(geometry)}), 4326) AS g) AS probe
     `);
-    rows = Array.isArray(result) ? result : result.rows;
   } catch (error) {
     if (isSqlState(error)) throw new InvalidGeometryError();
     throw error;
   }
   const row = rows[0];
-  if (!row || row.empty || !row.valid) throw new InvalidGeometryError();
+  if (!row || row.empty === true || row.valid !== true)
+    throw new InvalidGeometryError();
 };

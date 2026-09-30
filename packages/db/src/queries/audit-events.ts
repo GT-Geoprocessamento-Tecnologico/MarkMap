@@ -1,5 +1,5 @@
-import type { Db } from '../client.js';
-import { auditEvents } from '../schema/audit-events.js';
+import type { Db } from "../client.js";
+import { auditEvents } from "../schema/audit-events.js";
 
 export type AuditEventRecord = typeof auditEvents.$inferSelect;
 
@@ -29,12 +29,12 @@ export const insertAuditEvent = async (
       entityId: input.entityId,
       action: input.action,
       requestId: input.requestId,
-      actorType: input.actorType ?? 'system',
+      actorType: input.actorType ?? "system",
       actorId: input.actorId ?? null,
       before: input.before ?? null,
       after: input.after ?? null,
     })
     .returning();
-  if (!row) throw new Error('insertAuditEvent: insert returned no row');
+  if (!row) throw new Error("insertAuditEvent: insert returned no row");
   return row;
 };

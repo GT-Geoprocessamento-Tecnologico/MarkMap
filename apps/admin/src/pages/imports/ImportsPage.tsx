@@ -1,253 +1,346 @@
-import React, { useState } from 'react';
-import { useToast } from '@geonexo/ui';
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useToast } from "@geonexo/ui";
+import {
+  exportDataset,
+  listDatasets,
+  parseGeoJSON,
+  removeDataset,
+  saveDataset,
+  type DatasetRecord,
+} from "../../lib/datasets/dataset-store";
+import {
+  listMeshes,
+  removeMesh,
+  saveMesh,
+  type MeshRecord,
+} from "../../lib/mesh/mesh-store";
+import { PdfPreview, sha256Blob } from "../../lib/pdf/pdf-preview";
+import { localRepository, type OriginalRecord } from "../../lib/local-repositories";
 
-interface Dataset {
-  id: string;
-  name: string;
-  format: 'GeoJSON' | 'Shapefile' | 'KML' | 'GeoTIFF' | 'GeoPackage';
-  size: string;
-  featuresCount: number;
-  uploadedAt: string;
-  status: 'Processado' | 'Em Processamento' | 'Erro';
-  crs: string;
-}
-
-const INITIAL_DATASETS: Dataset[] = [
-  {
-    id: 'ds-1',
-    name: 'propriedades_rurais_sp.geojson',
-    format: 'GeoJSON',
-    size: '14.2 MB',
-    featuresCount: 1420,
-    uploadedAt: '2026-09-29 14:30',
-    status: 'Processado',
-    crs: 'EPSG:4326',
-  },
-  {
-    id: 'ds-2',
-    name: 'bacia_hidrografica_parana.shp',
-    format: 'Shapefile',
-    size: '48.6 MB',
-    featuresCount: 380,
-    uploadedAt: '2026-09-28 11:15',
-    status: 'Processado',
-    crs: 'EPSG:31982',
-  },
-  {
-    id: 'ds-3',
-    name: 'modelo_elevacao_terreno.tif',
-    format: 'GeoTIFF',
-    size: '124.0 MB',
-    featuresCount: 1,
-    uploadedAt: '2026-09-27 16:45',
-    status: 'Processado',
-    crs: 'EPSG:4326',
-  },
-  {
-    id: 'ds-4',
-    name: 'duto_gasoduto_trecho3.kml',
-    format: 'KML',
-    size: '3.1 MB',
-    featuresCount: 45,
-    uploadedAt: '2026-09-26 09:20',
-    status: 'Processado',
-    crs: 'EPSG:4326',
-  },
-];
+const formatSize = (bytes: number) =>
+  `${(bytes / (1024 * 1024)).toFixed(2)} MiB`;
 
 export default function ImportsPage() {
   const { toast } = useToast();
-  const [datasets, setDatasets] = useState<Dataset[]>(INITIAL_DATASETS);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedFormat, setSelectedFormat] = useState<string>('todos');
+  const [datasets, setDatasets] = useState<DatasetRecord[]>([]);
+  const [meshes, setMeshes] = useState<MeshRecord[]>([]);
+  const [pdfs, setPdfs] = useState<OriginalRecord[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
   const [isUploading, setIsUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const filteredDatasets = datasets.filter((ds) => {
-    const matchesSearch = ds.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFormat = selectedFormat === 'todos' || ds.format === selectedFormat;
-    return matchesSearch && matchesFormat;
-  });
+  const refresh = useCallback(async () => {
+    setDatasets(await listDatasets());
+    setMeshes(await listMeshes());
+    setPdfs((await localRepository.listOriginals()).filter((record) => record.mediaType === "application/pdf"));
+  }, []);
+  useEffect(() => {
+    void refresh().catch((cause) =>
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Não foi possível carregar os datasets.",
+      ),
+    );
+  }, [refresh]);
+  const filteredDatasets = useMemo(
+    () =>
+      datasets.filter((dataset) =>
+        dataset.name.toLowerCase().includes(searchTerm.toLowerCase()),
+      ),
+    [datasets, searchTerm],
+  );
 
-  const handleSimulateUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
+  const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
     setIsUploading(true);
-    const file = files[0];
-
-    setTimeout(() => {
-      const ext = file.name.split('.').pop()?.toUpperCase() || 'GeoJSON';
-      const newDs: Dataset = {
-        id: `ds-${Date.now()}`,
-        name: file.name,
-        format: (ext === 'TIF' || ext === 'TIFF' ? 'GeoTIFF' : ext === 'SHP' ? 'Shapefile' : 'GeoJSON') as any,
-        size: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
-        featuresCount: Math.floor(Math.random() * 500) + 10,
-        uploadedAt: new Date().toISOString().replace('T', ' ').substring(0, 16),
-        status: 'Processado',
-        crs: 'EPSG:4326',
-      };
-
-      setDatasets((prev) => [newDs, ...prev]);
-      setIsUploading(false);
+    setError(null);
+    try {
+      if (/\.pdf$/i.test(file.name) || file.type === "application/pdf") {
+        const sha256 = await sha256Blob(file);
+        await localRepository.saveOriginal({ blobId: sha256, blob: file, mediaType: "application/pdf", bytes: file.size, sha256, originalName: file.name });
+      } else if (/\.glb$/i.test(file.name)) {
+        await saveMesh({ file });
+      } else {
+        await saveDataset(await parseGeoJSON(file));
+      }
+      await refresh();
       toast({
-        title: 'Upload concluído com sucesso!',
-        description: `O arquivo ${file.name} foi validado e importado.`,
-        variant: 'success',
+        title: "Importação concluída",
+        description: `${file.name} foi salvo neste dispositivo.`,
+        variant: "success",
       });
-    }, 1200);
+    } catch (cause) {
+      const message =
+        cause instanceof Error
+          ? cause.message
+          : "Não foi possível importar o arquivo.";
+      setError(message);
+      toast({
+        title: "Importação não concluída",
+        description: message,
+        variant: "error",
+      });
+    } finally {
+      setIsUploading(false);
+    }
   };
-
-  const handleDeleteDataset = (id: string, name: string) => {
-    setDatasets((prev) => prev.filter((d) => d.id !== id));
-    toast({
-      title: 'Conjunto de dados removido',
-      description: `${name} foi removido com sucesso.`,
-      variant: 'default',
-    });
+  const handleDelete = async (dataset: DatasetRecord) => {
+    try {
+      await removeDataset(dataset.id);
+      await refresh();
+      toast({
+        title: "Dataset removido",
+        description: `${dataset.name} foi removido deste dispositivo.`,
+      });
+    } catch (cause) {
+      toast({
+        title: "Remoção não concluída",
+        description:
+          cause instanceof Error ? cause.message : "Falha ao remover.",
+        variant: "error",
+      });
+    }
   };
 
   return (
-    <div className="flex flex-col h-full bg-background text-on-surface p-4 md:p-6 overflow-y-auto">
-      {/* Top Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2 text-on-surface">
-            <span className="material-symbols-outlined text-cyan-500">dataset</span>
-            Conjuntos de Dados (Datasets)
-          </h1>
-          <p className="text-sm text-on-surface-variant mt-1">
-            Gerencie, valide e importe arquivos espaciais GeoJSON, Shapefile, KML e GeoTIFF.
-          </p>
-        </div>
-      </div>
-
-      {/* Upload Box */}
-      <div className="mb-6 p-6 rounded-2xl border-2 border-dashed border-outline-variant bg-surface-container hover:border-cyan-400/50 transition-all flex flex-col items-center justify-center text-center group relative overflow-hidden">
+    <div className="flex h-full min-w-0 flex-col overflow-y-auto bg-background p-4 text-on-surface md:p-6">
+      <header className="mb-6">
+        <h1 className="flex items-center gap-2 text-2xl font-bold">
+          <span
+            aria-hidden="true"
+            className="material-symbols-outlined text-cyan-500"
+          >
+            dataset
+          </span>
+          Conjuntos de dados
+        </h1>
+        <p className="mt-1 text-sm text-on-surface-variant">
+          Importe GeoJSON validado e disponível offline neste dispositivo.
+        </p>
+      </header>
+      <div className="relative mb-6 flex min-h-40 flex-col items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-outline-variant bg-surface-container p-6 text-center">
         <input
           type="file"
-          accept=".geojson,.json,.kml,.zip,.shp,.tif,.tiff"
-          onChange={handleSimulateUpload}
+          accept=".geojson,.json,.pdf,.glb,application/pdf"
+          onChange={handleUpload}
           disabled={isUploading}
-          className="absolute inset-0 opacity-0 cursor-pointer z-10"
+          className="absolute inset-0 z-10 cursor-pointer opacity-0"
+          aria-label="Selecionar GeoJSON, PDF ou GLB"
         />
-        <div className="w-14 h-14 rounded-2xl bg-cyan-500/10 text-cyan-500 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-          <span className="material-symbols-outlined text-3xl">cloud_upload</span>
-        </div>
-        <h2 className="text-base font-bold text-on-surface">
-          {isUploading ? 'Processando e Validando Arquivo...' : 'Arraste e solte seu arquivo espacial aqui'}
+        <span className="material-symbols-outlined mb-3 text-4xl text-cyan-500">
+          cloud_upload
+        </span>
+        <h2 className="font-bold">
+          {isUploading ? "Validando arquivo…" : "Selecione GeoJSON, PDF ou GLB"}
         </h2>
-        <p className="text-xs text-on-surface-variant mt-1 max-w-md">
-          Suporta GeoJSON, Shapefile (.zip), KML, GeoTIFF e GeoPackage. Máximo de 250 MB por arquivo.
+        <p className="mt-1 text-xs text-on-surface-variant">
+          GeoJSON e PDF até 25 MiB. PDFs são visualizados localmente; o
+          posicionamento geográfico só é informado quando os metadados passam
+          pelas validações. GLB é validado e salvo localmente.
         </p>
-        <button className="mt-4 px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-600 text-white font-semibold text-xs shadow-lg shadow-cyan-500/20 transition-all">
-          {isUploading ? 'Aguarde...' : 'Selecionar Arquivo do Dispositivo'}
-        </button>
       </div>
-
-      {/* Filters and Search Bar */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-6">
-        <div className="relative flex-1">
-          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm">
-            search
-          </span>
-          <input
-            type="text"
-            placeholder="Buscar conjunto de dados por nome..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-outline-variant bg-surface-container text-on-surface text-sm focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all"
-          />
-        </div>
-
-        <select
-          value={selectedFormat}
-          onChange={(e) => setSelectedFormat(e.target.value)}
-          className="px-4 py-2.5 rounded-xl border border-outline-variant bg-surface-container text-on-surface text-sm focus:outline-none focus:border-cyan-400 transition-all"
+      {error && (
+        <div
+          role="alert"
+          className="mb-4 rounded-xl border border-red-300 bg-red-50 p-3 text-sm text-red-800"
         >
-          <option value="todos">Todos os Formatos</option>
-          <option value="GeoJSON">GeoJSON</option>
-          <option value="Shapefile">Shapefile</option>
-          <option value="KML">KML</option>
-          <option value="GeoTIFF">GeoTIFF</option>
-        </select>
+          {error}
+        </div>
+      )}
+      <input
+        value={searchTerm}
+        onChange={(event) => setSearchTerm(event.target.value)}
+        placeholder="Buscar dataset por nome…"
+        className="mb-4 w-full rounded-xl border border-outline-variant bg-surface-container px-4 py-2.5 text-sm"
+      />
+      <div className="grid min-w-0 gap-3 xl:hidden" aria-label="Datasets locais">
+        {filteredDatasets.length === 0 ? (
+          <div className="rounded-2xl border border-outline-variant bg-surface-container p-6 text-center text-sm text-on-surface-variant">
+            Nenhum dataset local.
+          </div>
+        ) : (
+          filteredDatasets.map((dataset) => (
+            <article
+              key={dataset.id}
+              className="min-w-0 rounded-2xl border border-outline-variant bg-surface-container p-4"
+            >
+              <h2 className="break-all font-semibold text-on-surface">
+                {dataset.name}
+              </h2>
+              <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                <div>
+                  <dt className="text-xs text-on-surface-variant">Tamanho</dt>
+                  <dd>{formatSize(dataset.sizeBytes)}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-on-surface-variant">Feições</dt>
+                  <dd>{dataset.featuresCount}</dd>
+                </div>
+                <div className="col-span-2 min-w-0">
+                  <dt className="text-xs text-on-surface-variant">Importado</dt>
+                  <dd className="break-words text-xs">
+                    {new Date(dataset.uploadedAt).toLocaleString()}
+                  </dd>
+                </div>
+              </dl>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <a
+                  href={`/workspace?datasetId=${encodeURIComponent(dataset.id)}`}
+                  className="flex min-h-[44px] items-center rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-sm text-cyan-400"
+                  aria-label={`Visualizar ${dataset.name} no mapa`}
+                >
+                  Ver no mapa
+                </a>
+                <button
+                  type="button"
+                  onClick={() => void exportDataset(dataset.id)}
+                  className="min-h-[44px] rounded-lg border border-outline-variant px-3 py-2 text-sm text-on-surface-variant"
+                  aria-label={`Exportar ${dataset.name}`}
+                >
+                  Exportar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleDelete(dataset)}
+                  className="min-h-[44px] rounded-lg border border-red-500/30 px-3 py-2 text-sm text-red-400"
+                  aria-label={`Excluir ${dataset.name}`}
+                >
+                  Excluir
+                </button>
+              </div>
+            </article>
+          ))
+        )}
       </div>
-
-      {/* Datasets List Table */}
-      <div className="bg-surface-container rounded-2xl border border-outline-variant overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-surface-container-high border-b border-outline-variant text-xs font-mono uppercase text-on-surface-variant">
+      <div className="hidden xl:block overflow-x-auto rounded-2xl border border-outline-variant bg-surface-container">
+        <table className="w-full min-w-[720px] text-left text-sm">
+          <thead className="border-b border-outline-variant text-xs uppercase text-on-surface-variant">
+            <tr>
+              <th className="p-4">Arquivo</th>
+              <th className="p-4">Tamanho</th>
+              <th className="p-4">Feições</th>
+              <th className="p-4">Importado</th>
+              <th className="p-4 text-right">Ações</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-outline-variant/50">
+            {filteredDatasets.length === 0 ? (
               <tr>
-                <th className="p-4">Nome do Arquivo</th>
-                <th className="p-4">Formato</th>
-                <th className="p-4">Tamanho</th>
-                <th className="p-4">Feições</th>
-                <th className="p-4">CRS</th>
-                <th className="p-4">Data de Importação</th>
-                <th className="p-4">Status</th>
-                <th className="p-4 text-right">Ações</th>
+                <td
+                  colSpan={5}
+                  className="p-8 text-center text-sm text-on-surface-variant"
+                >
+                  Nenhum dataset local.
+                </td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-outline-variant/50">
-              {filteredDatasets.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="p-8 text-center text-on-surface-variant text-xs font-mono">
-                    Nenhum conjunto de dados encontrado.
+            ) : (
+              filteredDatasets.map((dataset) => (
+                <tr key={dataset.id}>
+                  <td className="p-4 font-semibold">{dataset.name}</td>
+                  <td className="p-4 text-xs">
+                    {formatSize(dataset.sizeBytes)}
+                  </td>
+                  <td className="p-4 text-xs">{dataset.featuresCount}</td>
+                  <td className="p-4 text-xs">
+                    {new Date(dataset.uploadedAt).toLocaleString()}
+                  </td>
+                  <td className="p-4 text-right">
+                    <div className="flex justify-end gap-2">
+                      <a
+                        href={`/workspace?datasetId=${encodeURIComponent(dataset.id)}`}
+                        className="rounded-lg p-2 text-cyan-600"
+                        title="Visualizar no mapa"
+                        aria-label="Visualizar no mapa"
+                      >
+                        <span className="material-symbols-outlined">
+                          visibility
+                        </span>
+                      </a>
+                      <button
+                        onClick={() => void exportDataset(dataset.id)}
+                        className="rounded-lg p-2 text-on-surface-variant"
+                        title="Exportar GeoJSON"
+                        aria-label="Exportar GeoJSON"
+                      >
+                        <span className="material-symbols-outlined">
+                          download
+                        </span>
+                      </button>
+                      <button
+                        onClick={() => void handleDelete(dataset)}
+                        className="rounded-lg p-2 text-red-600"
+                        title="Excluir dataset"
+                        aria-label="Excluir dataset"
+                      >
+                        <span className="material-symbols-outlined">
+                          delete
+                        </span>
+                      </button>
+                    </div>
                   </td>
                 </tr>
-              ) : (
-                filteredDatasets.map((ds) => (
-                  <tr key={ds.id} className="hover:bg-surface-container-high/50 transition-colors">
-                    <td className="p-4 font-semibold text-on-surface flex items-center gap-2">
-                      <span className="material-symbols-outlined text-cyan-500 text-base">description</span>
-                      {ds.name}
-                    </td>
-                    <td className="p-4 font-mono text-xs">
-                      <span className="px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-                        {ds.format}
-                      </span>
-                    </td>
-                    <td className="p-4 font-mono text-xs text-on-surface-variant">{ds.size}</td>
-                    <td className="p-4 font-mono text-xs text-on-surface-variant">{ds.featuresCount}</td>
-                    <td className="p-4 font-mono text-xs text-on-surface-variant">{ds.crs}</td>
-                    <td className="p-4 font-mono text-xs text-on-surface-variant">{ds.uploadedAt}</td>
-                    <td className="p-4 text-xs font-semibold">
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                        {ds.status}
-                      </span>
-                    </td>
-                    <td className="p-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() =>
-                            toast({
-                              title: 'Visualizando camada',
-                              description: `Abrindo preview de ${ds.name}`,
-                              variant: 'default',
-                            })
-                          }
-                          className="p-1.5 rounded-lg text-on-surface-variant hover:text-cyan-400 hover:bg-surface-container-high transition-colors"
-                          title="Visualizar no mapa"
-                        >
-                          <span className="material-symbols-outlined text-base">visibility</span>
-                        </button>
-                        <button
-                          onClick={() => handleDeleteDataset(ds.id, ds.name)}
-                          className="p-1.5 rounded-lg text-on-surface-variant hover:text-red-400 hover:bg-surface-container-high transition-colors"
-                          title="Excluir dataset"
-                        >
-                          <span className="material-symbols-outlined text-base">delete</span>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
+      <section className="mt-6 rounded-2xl border border-outline-variant bg-surface-container p-4">
+        <h2 className="font-bold">Malhas 3D locais</h2>
+        <p className="mt-1 text-xs text-on-surface-variant">
+          GLB validado pelo armazenamento local. Abra uma malha no estúdio para
+          visualizar.
+        </p>
+        <div className="mt-3 space-y-2">
+          {meshes.length === 0 ? (
+            <p className="text-sm text-on-surface-variant">
+              Nenhuma malha local.
+            </p>
+          ) : (
+            meshes.map((mesh) => (
+              <div
+                key={mesh.id}
+                className="flex items-center justify-between rounded-xl border border-outline-variant p-3"
+              >
+                <span className="text-sm font-semibold">{mesh.name}</span>
+                <span className="flex gap-2">
+                  <a
+                    href={`/mesh?meshId=${encodeURIComponent(mesh.id)}`}
+                    className="rounded-lg p-2 text-cyan-600"
+                    title="Visualizar malha"
+                    aria-label="Visualizar malha"
+                  >
+                    <span className="material-symbols-outlined">
+                      view_in_ar
+                    </span>
+                  </a>
+                  <button
+                    onClick={() =>
+                      void removeMesh(mesh.id)
+                        .then(refresh)
+                        .catch((cause) =>
+                          setError(
+                            cause instanceof Error
+                              ? cause.message
+                              : "Não foi possível remover a malha.",
+                          ),
+                        )
+                    }
+                    className="rounded-lg p-2 text-red-600"
+                    title="Excluir malha"
+                    aria-label="Excluir malha"
+                  >
+                    <span className="material-symbols-outlined">delete</span>
+                  </button>
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+      </section>
+      {pdfs.map((pdf) => <PdfPreview key={pdf.blobId} record={pdf} />)}
     </div>
   );
 }

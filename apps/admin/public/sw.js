@@ -1,5 +1,7 @@
-const CACHE_NAME = 'geonexo-cache-v1';
-const STATIC_ASSETS = [
+const CACHE_PREFIX = 'geonexo-';
+const SHELL_ASSETS = typeof __GEONEXO_SHELL_MANIFEST__ === 'undefined' ? [] : __GEONEXO_SHELL_MANIFEST__;
+const SHELL_VERSION = typeof __GEONEXO_SHELL_VERSION__ === 'undefined' ? 'v2' : __GEONEXO_SHELL_VERSION__;
+const STATIC_ASSETS = SHELL_ASSETS.length ? SHELL_ASSETS : [
   '/',
   '/index.html',
   '/manifest.json',
@@ -7,65 +9,148 @@ const STATIC_ASSETS = [
   '/icons/icon-512x512.png',
 ];
 
+// These are the only runtime paths this worker may intercept besides navigation.
+const CACHE_NAME = `geonexo-cache-${SHELL_VERSION}`;
+const STATIC_PATH_PREFIXES = ['/assets/', '/icons/', '/fonts/'];
+const API_PATH_PREFIXES = [
+  '/api',
+  '/projects',
+  '/layers',
+  '/features',
+  '/notifications',
+  '/storage',
+  '/health',
+];
+const RESERVED_API_PATH_PREFIXES = ['/api', '/storage', '/health'];
+
+function isSameOrigin(request) {
+  return new URL(request.url).origin === self.location.origin;
+}
+
+function isApiPath(pathname) {
+  return API_PATH_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+}
+
+function isDeclaredStaticPath(pathname) {
+  return STATIC_ASSETS.includes(pathname) || STATIC_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+}
+
+function isNavigation(request) {
+  return request.mode === 'navigate';
+}
+
+function isAppNavigationPath(pathname) {
+  return [
+    /^\/$/,
+    /^\/imports$/,
+    /^\/projects(?:\/[^/]+(?:\/(?:map|mesh))?)?$/,
+    /^\/settings$/,
+    /^\/analytics$/,
+    /^\/coordinate-systems$/,
+    /^\/telemetry$/,
+    /^\/workspace$/,
+  ].some((pattern) => pattern.test(pathname));
+}
+
+function isReservedApiPath(pathname) {
+  return RESERVED_API_PATH_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+}
+
+function isInterceptableStaticRequest(request) {
+  const url = new URL(request.url);
+  return isSameOrigin(request) && !isApiPath(url.pathname) && isDeclaredStaticPath(url.pathname);
+}
+
+async function fetchAndCache(request, event, cache) {
+  const networkResponse = await fetch(request);
+  if (networkResponse.ok) {
+    event.waitUntil(cache.put(request, networkResponse.clone()));
+  }
+  return networkResponse;
+}
+
+async function handleNavigation(request, event, cache) {
+  const cachedShell = await cache.match('/') || await cache.match('/index.html');
+  try {
+    return await fetchAndCache(request, event, cache);
+  } catch {
+    return cachedShell || Response.error();
+  }
+}
+
+async function installShell() {
+  const stagingName = `${CACHE_NAME}-installing-${Date.now()}`;
+  const staging = await caches.open(stagingName);
+  try {
+    await staging.addAll(STATIC_ASSETS);
+    await staging.put('/__geonexo_install_complete__', new Response('ok'));
+    const existing = await caches.open(CACHE_NAME);
+    for (const request of STATIC_ASSETS) {
+      const response = await staging.match(request);
+      if (response) await existing.put(request, response);
+    }
+    await existing.put('/__geonexo_install_complete__', new Response('ok'));
+    await caches.delete(stagingName);
+  } catch (error) {
+    await caches.delete(stagingName);
+    throw error;
+  }
+}
+
+async function handleStaticAsset(request, event, cache) {
+  const cachedResponse = await cache.match(request);
+  if (cachedResponse) {
+    // Keep the stale-while-revalidate behavior, but bind the write to the event.
+    event.waitUntil(fetchAndCache(request, event, cache).catch(() => undefined));
+    return cachedResponse;
+  }
+
+  try {
+    return await fetchAndCache(request, event, cache);
+  } catch {
+    // A missing asset must remain a failed request, never the application shell.
+    return Response.error();
+  }
+}
+
 // Install Event - Pre-cache critical App Shell
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(STATIC_ASSETS);
-    })
-  );
-  self.skipWaiting();
+  event.waitUntil(installShell());
 });
 
-// Activate Event - Clean up old caches & claim clients for immediate auto-update
+// Activate Event - Clean up only caches owned by this application.
 self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cache) => {
-          if (cache !== CACHE_NAME) {
-            return caches.delete(cache);
-          }
-        })
-      );
-    })
-  );
-  self.clients.claim();
+  const activationWork = caches.keys().then((cacheNames) => Promise.all(
+    cacheNames
+      .filter((cacheName) => cacheName.startsWith(CACHE_PREFIX) && cacheName !== CACHE_NAME && !cacheName.includes('-installing-'))
+      .map((cacheName) => caches.delete(cacheName)),
+  ));
+  event.waitUntil(Promise.all([activationWork, Promise.resolve(self.clients.claim())]));
 });
 
-// Fetch Event - Stale-While-Revalidate strategy for seamless offline/online operation
+// Fetch Event - Restrict interception to same-origin navigation and declared assets.
 self.addEventListener('fetch', (event) => {
-  // Ignore non-GET requests or browser extension requests
-  if (event.request.method !== 'GET' || !event.request.url.startsWith('http')) {
+  const request = event.request;
+  if (request.method !== 'GET' || !isSameOrigin(request)) return;
+
+  const url = new URL(request.url);
+  if (isNavigation(request)) {
+    if (isReservedApiPath(url.pathname) && !isAppNavigationPath(url.pathname)) return;
+    event.respondWith(caches.open(CACHE_NAME).then((cache) => handleNavigation(request, event, cache)));
     return;
   }
 
-  event.respondWith(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.match(event.request).then((cachedResponse) => {
-        const fetchPromise = fetch(event.request)
-          .then((networkResponse) => {
-            // Update cache in background if valid response
-            if (networkResponse && networkResponse.status === 200) {
-              cache.put(event.request, networkResponse.clone());
-            }
-            return networkResponse;
-          })
-          .catch(() => {
-            // Silently fall back to cached response or root index when network fails
-            return cachedResponse || cache.match('/') || cache.match('/index.html');
-          });
+  if (isApiPath(url.pathname)) return;
 
-        // Return cached response immediately if available, otherwise wait for network
-        return cachedResponse || fetchPromise;
-      });
-    })
-  );
+  if (isInterceptableStaticRequest(request)) {
+    event.respondWith(caches.open(CACHE_NAME).then((cache) => handleStaticAsset(request, event, cache)));
+  }
 });
 
 // Listen for update messages from main thread
 self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
+  if (event.data && event.data.type === 'SKIP_WAITING' &&
+      event.data.durableWritesReady === true && event.data.compatibilityVersion === 1) {
     self.skipWaiting();
   }
 });

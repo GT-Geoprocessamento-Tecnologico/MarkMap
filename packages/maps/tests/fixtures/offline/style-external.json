@@ -1,0 +1,7 @@
+{
+  "version": 8,
+  "sources": {"basemap": {"type": "vector", "url": "https://tiles.example.test/map.json"}},
+  "glyphs": "https://fonts.example.test/{fontstack}/{range}.pbf",
+  "sprite": "http://sprites.example.test/light",
+  "layers": []
+}

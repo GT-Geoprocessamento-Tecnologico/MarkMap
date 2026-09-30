@@ -1,4 +1,4 @@
-import { customType } from 'drizzle-orm/pg-core';
+import { customType } from "drizzle-orm/pg-core";
 
 /**
  * PostGIS geometry column: any geometry type, canonical storage SRID 4674
@@ -11,5 +11,5 @@ import { customType } from 'drizzle-orm/pg-core';
  * `geomFromGeoJSON()` — both in `src/queries/spatial.ts`.
  */
 export const geometryColumn = customType<{ data: string; driverData: string }>({
-  dataType: () => 'geometry(Geometry, 4674)',
+  dataType: () => "geometry(Geometry, 4674)",
 });

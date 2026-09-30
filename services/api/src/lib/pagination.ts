@@ -1,8 +1,12 @@
-import { z } from 'zod';
-import { ValidationError, type FieldIssue } from './errors.js';
+import {
+  DEFAULT_PAGE_LIMIT,
+  MAX_PAGE_LIMIT,
+  paginationQuerySchema,
+} from "@geonexo/contracts";
+import type { Pagination } from "@geonexo/contracts";
+import { z } from "zod";
 
-import { DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT, paginationQuerySchema } from '@geonexo/contracts';
-import type { Pagination } from '@geonexo/contracts';
+import { ValidationError, type FieldIssue } from "./errors.js";
 
 /**
  * Cursors are opaque to the client: it only ever passes back what we handed it.
@@ -17,9 +21,10 @@ const cursorPayloadSchema = z.object({
 export type Cursor = z.infer<typeof cursorPayloadSchema>;
 
 const encodeBase64Url = (value: string): string =>
-  Buffer.from(value, 'utf8').toString('base64url');
+  Buffer.from(value, "utf8").toString("base64url");
 
-const decodeBase64Url = (value: string): string => Buffer.from(value, 'base64url').toString('utf8');
+const decodeBase64Url = (value: string): string =>
+  Buffer.from(value, "base64url").toString("utf8");
 
 export const encodeCursor = (cursor: Cursor): string =>
   encodeBase64Url(JSON.stringify(cursor));
@@ -45,11 +50,12 @@ export const decodeCursor = (raw: string | null | undefined): Cursor | null => {
  */
 export class InvalidCursorError extends ValidationError {
   constructor(rawOrDetails?: string | FieldIssue[]) {
-    const details: FieldIssue[] = typeof rawOrDetails === 'string'
-      ? [{ path: 'cursor', message: `Invalid cursor: ${rawOrDetails}` }]
-      : (rawOrDetails ?? [{ path: 'cursor', message: 'invalid cursor' }]);
-    super('The pagination cursor is not valid', details);
-    this.name = 'InvalidCursorError';
+    const details: FieldIssue[] =
+      typeof rawOrDetails === "string"
+        ? [{ path: "cursor", message: `Invalid cursor: ${rawOrDetails}` }]
+        : (rawOrDetails ?? [{ path: "cursor", message: "invalid cursor" }]);
+    super("The pagination cursor is not valid", details);
+    this.name = "InvalidCursorError";
   }
 }
 
@@ -76,7 +82,10 @@ export const toPage = <T extends { createdAt: string; id: string }>(
     const last = page[page.length - 1];
     return {
       items: [...page],
-      nextCursor: last === undefined ? null : encodeCursor({ t: last.createdAt, i: last.id }),
+      nextCursor:
+        last === undefined
+          ? null
+          : encodeCursor({ t: last.createdAt, i: last.id }),
     };
   }
   return { items: [...rows], nextCursor: null };

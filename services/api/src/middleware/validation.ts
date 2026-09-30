@@ -1,7 +1,6 @@
-import { type Context, Hono } from 'hono';
-import { z } from 'zod';
-import type { z as Z } from 'zod';
-import { ValidationError } from '../lib/errors';
+import type { Context } from "hono";
+import { z } from "zod";
+import type { z as Z } from "zod";
 
 /**
  * Generic Zod validation middleware for Hono.
@@ -11,33 +10,41 @@ import { ValidationError } from '../lib/errors';
  *          to `c.get('validatedBody')`. On failure it returns a contract
  *          compliant `VALIDATION_ERROR` response.
  */
-export function validate<T extends Z.AnyZodObject>(schema: T) {
+export function validate<T extends Z.ZodTypeAny>(schema: T) {
   return async (c: Context, next: () => Promise<void>) => {
+    let parsed: Z.infer<T>;
     try {
       const body = (await c.req.json()) as unknown;
-      const parsed = schema.parse(body);
+      parsed = schema.parse(body);
       // Store the parsed value as a symbol to avoid accidental mutation.
       // Hono's context supports arbitrary setting via `set`.
-      c.set('validatedBody', parsed as Z.infer<T>);
-      await next();
+      c.set("validatedBody", parsed);
     } catch (err) {
       // Zod throws a ZodError.
       const reason = err instanceof Error ? err.message : String(err);
-      const details = (
+      const details =
         err instanceof z.ZodError
-          ? err.issues.map((i) => ({ path: i.path.join('.'), message: i.message }))
-          : []
-      );
+          ? err.issues.map((i) => ({
+              path: i.path.join("."),
+              message: i.message,
+            }))
+          : [];
 
-      c.status(400);
-      await c.json({
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: reason,
-          requestId: c.get('requestId') || 'unknown',
-          details,
+      return c.json(
+        {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: reason,
+            requestId: c.get("requestId") ?? "unknown",
+            details,
+          },
         },
-      });
+        400,
+      );
     }
+
+    // Keep downstream failures in the application's error boundary. They are
+    // not request validation failures and must retain their original status.
+    await next();
   };
 }

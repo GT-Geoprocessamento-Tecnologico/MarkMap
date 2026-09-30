@@ -1,26 +1,36 @@
-import { describe, expect, it, vi } from 'vitest';
-import { ErrorSchema } from '../../../packages/db/src/schema/errors';
-import { createLayer } from '../../../packages/db/src/queries/layers';
+import { describe, expect, it } from "vitest";
 
-describe('createLayer', () => {
-  it('throws PROJECT_NOT_FOUND when project does not exist', async () => {
-    // Mock the db object
-    const mockDb = {
-      select: vi.fn().mockReturnThis(),
-      from: vi.fn().mockReturnThis(),
-      where: vi.fn().mockReturnThis(),
-      limit: vi.fn().mockResolvedValue([]), // returns empty array -> project not found
-    };
+import { layerSchema } from "../layer.js";
 
-    const input = {
-      projectId: 'non-existent-project-id',
-      name: 'Test Layer',
-      kind: 'point',
-      geometryType: 'Point',
-    };
+describe("canonical layer contract compatibility", () => {
+  it("accepts a valid feature-bearing layer", () => {
+    const id = "00000000-0000-4000-8000-000000000001";
+    expect(
+      layerSchema.parse({
+        id,
+        projectId: "00000000-0000-4000-8000-000000000002",
+        name: "Points",
+        description: null,
+        kind: "point",
+        geometryType: "Point",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      }).id,
+    ).toBe(id);
+  });
 
-    await expect(createLayer(mockDb, input)).rejects.toMatchObject({
-      code: 'PROJECT_NOT_FOUND',
-    });
+  it("rejects geometry on raster layers", () => {
+    expect(() =>
+      layerSchema.parse({
+        id: "00000000-0000-4000-8000-000000000001",
+        projectId: "00000000-0000-4000-8000-000000000002",
+        name: "Imagery",
+        description: null,
+        kind: "raster",
+        geometryType: "Point",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      }),
+    ).toThrow();
   });
 });

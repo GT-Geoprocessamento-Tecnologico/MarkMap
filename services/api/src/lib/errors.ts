@@ -1,4 +1,8 @@
-import type { z } from 'zod';
+import {
+  ErrorCodes as ERROR_CODES,
+  httpStatusByErrorCode as HTTP_STATUS_BY_CODE,
+} from "@geonexo/contracts";
+import type { z } from "zod";
 
 /**
  * Validation issue as returned by Zod.
@@ -19,14 +23,14 @@ export type FieldIssue = ValidationIssue;
  * Exported error codes that match the contracts Zod enum.
  */
 export const enum ErrorCode {
-  PROJECT_NOT_FOUND = 'PROJECT_NOT_FOUND',
-  LAYER_NOT_FOUND = 'LAYER_NOT_FOUND',
-  FEATURE_NOT_FOUND = 'FEATURE_NOT_FOUND',
-  IMPORT_NOT_FOUND = 'IMPORT_NOT_FOUND',
-  ROUTE_NOT_FOUND = 'ROUTE_NOT_FOUND',
-  INVALID_GEOMETRY = 'INVALID_GEOMETRY',
-  VALIDATION_ERROR = 'VALIDATION_ERROR',
-  INTERNAL_ERROR = 'INTERNAL_ERROR',
+  PROJECT_NOT_FOUND = "PROJECT_NOT_FOUND",
+  LAYER_NOT_FOUND = "LAYER_NOT_FOUND",
+  FEATURE_NOT_FOUND = "FEATURE_NOT_FOUND",
+  IMPORT_NOT_FOUND = "IMPORT_NOT_FOUND",
+  ROUTE_NOT_FOUND = "ROUTE_NOT_FOUND",
+  INVALID_GEOMETRY = "INVALID_GEOMETRY",
+  VALIDATION_ERROR = "VALIDATION_ERROR",
+  INTERNAL_ERROR = "INTERNAL_ERROR",
 }
 
 /**
@@ -46,7 +50,6 @@ export const buildErrorResponse = (
   },
 });
 
-import { ErrorCodes as ERROR_CODES, httpStatusByErrorCode as HTTP_STATUS_BY_CODE } from '@geonexo/contracts';
 export { ERROR_CODES, HTTP_STATUS_BY_CODE };
 
 /**
@@ -58,9 +61,12 @@ export class AppError extends Error {
   public readonly details?: any;
   public readonly code?: ErrorCode | string | undefined;
 
-  constructor(message: string, options: { status?: number; details?: any; code?: ErrorCode | string } = {}) {
+  constructor(
+    message: string,
+    options: { status?: number; details?: any; code?: ErrorCode | string } = {},
+  ) {
     super(message);
-    this.name = 'AppError';
+    this.name = "AppError";
     this.status = options.status ?? 500;
     this.details = options.details;
     this.code = options.code;
@@ -74,22 +80,25 @@ export class ValidationError extends AppError {
   public readonly details: ValidationIssue[];
   constructor(message: string, details: ValidationIssue[]) {
     super(message, { status: 400, details, code: ErrorCode.VALIDATION_ERROR });
-    this.name = 'ValidationError';
+    this.name = "ValidationError";
     this.details = details;
   }
 }
 
 export class NotFoundError extends AppError {
-  constructor(message: string, code: ErrorCode | string = ErrorCode.INTERNAL_ERROR) {
+  constructor(
+    message: string,
+    code: ErrorCode | string = ErrorCode.INTERNAL_ERROR,
+  ) {
     super(message, { status: 404, code });
-    this.name = 'NotFoundError';
+    this.name = "NotFoundError";
   }
 }
 
 export class ConflictError extends AppError {
-  constructor(message: string, code: ErrorCode | string = 'VERSION_CONFLICT') {
+  constructor(message: string, code: ErrorCode | string = "VERSION_CONFLICT") {
     super(message, { status: 409, code });
-    this.name = 'ConflictError';
+    this.name = "ConflictError";
   }
 }
 
@@ -103,7 +112,10 @@ export const featureNotFound = (id: string) =>
   new NotFoundError(`Feature not found: ${id}`, ERROR_CODES.FEATURE_NOT_FOUND);
 
 export const versionConflict = (expected: number, actual: number) =>
-  new ConflictError(`Version conflict: expected ${expected}, got ${actual}`, ERROR_CODES.VERSION_CONFLICT);
+  new ConflictError(
+    `Version conflict: expected ${expected}, got ${actual}`,
+    ERROR_CODES.VERSION_CONFLICT,
+  );
 
 /**
  * Generic Zod validation middleware for Hono.
@@ -119,20 +131,21 @@ export function validate<T extends z.ZodTypeAny>(schema: T) {
       const body = await c.req.json();
       const parsed = schema.parse(body);
       // Store validated body; we rely on the caller to extend the Variables type.
-      c.set('validatedBody', parsed);
+      c.set("validatedBody", parsed);
       await next();
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err);
-      const details = (err as z.ZodError).issues?.map((i) => ({
-        path: i.path.join('.'),
-        message: i.message,
-      })) ?? [];
+      const details =
+        (err as z.ZodError).issues?.map((i) => ({
+          path: i.path.join("."),
+          message: i.message,
+        })) ?? [];
 
       const response = {
         error: {
           code: ErrorCode.VALIDATION_ERROR,
           message: reason,
-          requestId: c.get('requestId') ?? 'unknown',
+          requestId: c.get("requestId") ?? "unknown",
           details,
         },
       };

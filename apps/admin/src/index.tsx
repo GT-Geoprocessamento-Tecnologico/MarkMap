@@ -8,7 +8,7 @@ if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').then(
       (registration) => {
-        console.log('PWA ServiceWorker registrado com sucesso:', registration.scope);
+        void registration;
       },
       (err) => {
         console.warn('Falha no registro do PWA ServiceWorker:', err);

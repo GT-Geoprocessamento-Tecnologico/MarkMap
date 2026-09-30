@@ -1,13 +1,19 @@
 {
   "name": "geonexo",
   "private": true,
+  "packageManager": "pnpm@9.15.9",
+  "pnpm": {
+    "overrides": {
+      "esbuild@0.18.20": "0.25.12"
+    }
+  },
   "workspaces": [
     "packages/*",
     "apps/*",
     "services/*"
   ],
   "scripts": {
-    "dev": "turbo run dev --scope=admin",
+    "dev": "turbo run dev --filter=admin",
     "build": "turbo run build",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
@@ -21,7 +27,7 @@
     "eslint": "^9.39.5",
     "playwright": "^1.63.0",
     "prettier": "^3.2.5",
-    "turbo": "^1.13.2",
+    "turbo": "^2.9.14",
     "typescript": "^5.5.0"
   },
   "dependencies": {

@@ -1,10 +1,31 @@
 import type {
   AttributionControlOptions,
+  GeolocateControl,
   Map as MapLibreMap,
   MapOptions,
 } from 'maplibre-gl';
 import type { BBox } from '@geonexo/geo';
 import type { BasemapDefinition } from './types.js';
+import {
+  GeolocateControl as MapLibreGeolocateControl,
+  Map as MLMap,
+  NavigationControl,
+  ScaleControl,
+  setWorkerUrl,
+} from 'maplibre-gl';
+import mapLibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
+
+// MapLibre's ESM build does not discover its worker automatically in Vite.
+// Pin the worker emitted by Vite so production builds do not fall back to a
+// missing relative URL.
+setWorkerUrl(mapLibreWorkerUrl);
+
+type LegacyGeolocateOptions = ConstructorParameters<
+  typeof MapLibreGeolocateControl
+>[0] & {
+  /** Preserved from the previous configuration; MapLibre v6 omits it publicly. */
+  showUserHeading?: boolean;
+};
 
 export interface CreateMapArgs {
   container: string | HTMLElement;
@@ -18,12 +39,10 @@ export interface CreateMapArgs {
 /** Retorno estendido: mapa + referência ao GeolocateControl */
 export interface MapWithControls {
   map: MapLibreMap;
-  geolocate: any; // GeolocateControl instance
+  geolocate: GeolocateControl;
 }
 
 /** Cria instância MapLibre + controles. Retorna map E geolocate juntos. */
-import { Map as MLMap, NavigationControl, ScaleControl, GeolocateControl } from 'maplibre-gl';
-
 export async function createMapLibreMap(args: CreateMapArgs): Promise<MapWithControls> {
   const options: MapOptions = {
     container: args.container,
@@ -39,7 +58,9 @@ export async function createMapLibreMap(args: CreateMapArgs): Promise<MapWithCon
   map.addControl(new NavigationControl({ showCompass: true }), 'top-right');
   map.addControl(new ScaleControl({ unit: 'metric' }), 'bottom-left');
 
-  const locationControl = new GeolocateControl({
+  // Preserve the previous heading request. This does not prove that MapLibre v6
+  // renders a heading indicator because the public v6 type omits this option.
+  const locationOptions: LegacyGeolocateOptions = {
     positionOptions: {
       enableHighAccuracy: true,
       timeout: 10000,
@@ -47,15 +68,16 @@ export async function createMapLibreMap(args: CreateMapArgs): Promise<MapWithCon
     },
     trackUserLocation: true,
     showUserHeading: true,
-  } as any);
+  };
+  const locationControl = new MapLibreGeolocateControl(locationOptions);
 
   map.addControl(locationControl, 'top-right');
 
-  locationControl.on('geolocate', (e: any) => {
-    console.info('GPS obtido:', e.coords?.latitude, e.coords?.longitude);
+  locationControl.on('geolocate', (event) => {
+    console.info('GPS obtido:', event.coords.latitude, event.coords.longitude);
   });
-  locationControl.on('error', (e: any) => {
-    console.warn('Erro GPS (código', e?.error?.code, '):', e?.error?.message);
+  locationControl.on('error', (event) => {
+    console.warn('Erro GPS (código', event.code, '):', event.message);
   });
 
   return { map, geolocate: locationControl };

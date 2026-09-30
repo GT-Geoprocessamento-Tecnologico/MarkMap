@@ -31,9 +31,13 @@ export class TrackSampleBuffer {
 
   /**
    * Adiciona um ponto ao buffer.
-   */
+  */
   public addPoint(latitude: number, longitude: number, timestamp: number, accuracy?: number): void {
-    this.buffer.push({ latitude, longitude, timestamp, accuracy });
+    const point: TrackPoint = { latitude, longitude, timestamp };
+    if (accuracy !== undefined) {
+      point.accuracy = accuracy;
+    }
+    this.buffer.push(point);
   }
 
   /**

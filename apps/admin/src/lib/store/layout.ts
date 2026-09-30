@@ -12,7 +12,7 @@ interface LayoutState {
 
 export const useLayoutStore = create<LayoutState>((set) => ({
   mode: 'dashboard',
-  sidebarOpen: true,
+  sidebarOpen: false,
   setMode: (mode) => set({ mode }),
   toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
   closeSidebar: () => set({ sidebarOpen: false }),

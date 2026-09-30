@@ -30,6 +30,7 @@ const USER_MESSAGES: Record<ErrorCode, string> = {
   VERSION_CONFLICT: 'Este item foi alterado em outra sessão. Recarregue antes de salvar.',
   IMPORT_UNSUPPORTED_FORMAT: 'Formato de arquivo não suportado.',
   VALIDATION_ERROR: 'Dados inválidos. Revise os campos e tente novamente.',
+  PAYLOAD_TOO_LARGE: 'A solicitação excede o tamanho máximo permitido.',
   INTERNAL_ERROR: 'Erro interno da API. Tente novamente em instantes.',
 };
 

@@ -1,4 +1,4 @@
-import { sql, type SQL } from 'drizzle-orm';
+import { sql, type SQL } from "drizzle-orm";
 
 /**
  * Builds `"column" IN ('a', 'b')` for CHECK constraints. Both the column name
@@ -8,4 +8,4 @@ import { sql, type SQL } from 'drizzle-orm';
  * never user input.
  */
 export const inList = (column: string, values: readonly string[]): SQL =>
-  sql.raw(`"${column}" IN (${values.map((value) => `'${value}'`).join(', ')})`);
+  sql.raw(`"${column}" IN (${values.map((value) => `'${value}'`).join(", ")})`);

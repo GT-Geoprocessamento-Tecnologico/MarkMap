@@ -1,41 +1,66 @@
-import { Hono } from 'hono';
-import { type Context } from 'hono';
-import { z } from 'zod';
-import { validate } from '../middleware/validation';
-import { db } from '../lib/db';
-import { buildErrorResponse, ErrorCode } from '../lib/errors';
+import {
+  createProjectSchema,
+  paginationQuerySchema,
+  projectSchema,
+  uuidSchema,
+} from "@geonexo/contracts";
+import {
+  createProject,
+  decodeCursor,
+  getDb,
+  getProject,
+  listProjects,
+  ProjectNotFoundError,
+} from "@geonexo/db";
+import { type Context } from "hono";
 
-export const createProjectSchema = z.object({
-  name: z.string().min(1),
-  description: z.string().optional(),
-  metadata: z.record(z.any()).optional(),
-});
+import { validate } from "../middleware/validation.js";
+
+export const toProjectWire = (project: unknown) => {
+  const value = project as Record<string, unknown>;
+  const normalized =
+    value.description === null
+      ? Object.fromEntries(
+          Object.entries(value).filter(([key]) => key !== "description"),
+        )
+      : value;
+  return projectSchema.parse({
+    ...normalized,
+    createdAt:
+      normalized.createdAt instanceof Date
+        ? normalized.createdAt.toISOString()
+        : normalized.createdAt,
+    updatedAt:
+      normalized.updatedAt instanceof Date
+        ? normalized.updatedAt.toISOString()
+        : normalized.updatedAt,
+  });
+};
 
 export const projectRoutes = (app: any) => {
-  app.post(
-    '/projects',
-    validate(createProjectSchema),
-    async (c: Context) => {
-      const data = c.get('validatedBody');
-      const requestId = c.get('requestId') ?? 'unknown';
+  app.post("/projects", validate(createProjectSchema), async (c: Context) => {
+    const data = c.get("validatedBody");
+    const project = await createProject(getDb(), data);
+    return c.json(toProjectWire(project), 201);
+  });
 
-      if ('projectId' in data && data.projectId) {
-        const parent = await db.projects.findById(data.projectId);
-        if (!parent) {
-          return c.json(
-            buildErrorResponse(ErrorCode.PROJECT_NOT_FOUND, 'The referenced project does not exist', requestId),
-            404,
-          );
-        }
-      }
+  app.get("/projects/:id", async (c: Context) => {
+    const id = uuidSchema.parse(c.req.param("id"));
+    const project = await getProject(getDb(), id);
+    if (!project) throw new ProjectNotFoundError(id);
+    return c.json(toProjectWire(project));
+  });
 
-      const project = await db.projects.create(data);
-      return c.json(project, 201);
-    },
-  );
-
-  app.get('/projects', async (c: Context) => {
-    // For now return empty list – pagination omitted for brevity
-    return c.json({ data: [], total: 0 }, 200);
+  app.get("/projects", async (c: Context) => {
+    const query = paginationQuerySchema.parse(c.req.query());
+    if (query.cursor !== undefined) decodeCursor(query.cursor);
+    const page = await listProjects(getDb(), {
+      limit: query.limit,
+      ...(query.cursor !== undefined ? { cursor: query.cursor } : {}),
+    });
+    return c.json({
+      items: page.items.map(toProjectWire),
+      nextCursor: page.nextCursor,
+    });
   });
 };

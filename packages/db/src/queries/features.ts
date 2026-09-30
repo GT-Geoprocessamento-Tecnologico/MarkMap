@@ -1,23 +1,34 @@
-import { and, desc, eq, isNull, sql } from 'drizzle-orm';
-import { buildPage, type Bbox, type Geometry, type Pagination } from '@geonexo/contracts';
+import {
+  assertGeometryCompatible,
+  buildPage,
+  geometryTypeSchema,
+  type Bbox,
+  type Geometry,
+  type Pagination,
+} from "@geonexo/contracts";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 
-import type { Db } from '../client.js';
-import { VersionConflictError } from '../errors.js';
-import { decodeCursor, encodeCursor, resolveLimit } from '../pagination.js';
-import { features } from '../schema/features.js';
+import type { Db } from "../client.js";
+import { LayerNotFoundError, VersionConflictError } from "../errors.js";
+import { decodeCursor, encodeCursor, resolveLimit } from "../pagination.js";
 import {
   assertStorableGeometry,
   bboxOverlaps,
   geoJsonFromGeometry,
   geomFromGeoJSON,
-} from './spatial.js';
+} from "./spatial.js";
+import { features } from "../schema/features.js";
+import { layers } from "../schema/layers.js";
 
 /** DB record: every column, with geometry parsed back into GeoJSON. */
-export type FeatureRecord = Omit<typeof features.$inferSelect, 'geometry'> & {
+export type FeatureRecord = Omit<
+  typeof features.$inferSelect,
+  "geometry" | "workspaceId"
+> & {
   geometry: Geometry;
 };
 
-type FeatureRow = Omit<FeatureRecord, 'geometry'> & { geometry: string };
+type FeatureRow = Omit<FeatureRecord, "geometry"> & { geometry: string };
 
 const featureSelection = {
   id: features.id,
@@ -37,6 +48,7 @@ const toRecord = (row: FeatureRow): FeatureRecord => ({
 
 export type CreateFeatureInput = {
   layerId: string;
+  workspaceId?: string;
   geometry: Geometry;
   properties?: Record<string, unknown>;
 };
@@ -55,16 +67,31 @@ export const createFeature = async (
   db: Db,
   input: CreateFeatureInput,
 ): Promise<FeatureRecord> => {
+  const [layer] = await db
+    .select({ geometryType: layers.geometryType })
+    .from(layers)
+    .where(and(eq(layers.id, input.layerId), isNull(layers.deletedAt)))
+    .limit(1);
+  if (!layer) throw new LayerNotFoundError(input.layerId);
+  if (input.workspaceId === undefined || input.workspaceId.length === 0)
+    throw new Error("workspaceId is required for feature persistence");
+
+  const declaredGeometryType =
+    layer.geometryType === null
+      ? null
+      : geometryTypeSchema.parse(layer.geometryType);
+  assertGeometryCompatible(input.geometry, declaredGeometryType);
   await assertStorableGeometry(db, input.geometry);
   const [row] = await db
     .insert(features)
     .values({
       layerId: input.layerId,
+      workspaceId: input.workspaceId,
       geometry: geomFromGeoJSON(input.geometry),
       properties: input.properties ?? {},
     })
     .returning(featureSelection);
-  if (!row) throw new Error('createFeature: insert returned no row');
+  if (!row) throw new Error("createFeature: insert returned no row");
   return toRecord(row);
 };
 
@@ -77,7 +104,10 @@ export const getFeature = async (
     .select(featureSelection)
     .from(features)
     .where(
-      and(eq(features.id, id), input.includeDeleted ? undefined : isNull(features.deletedAt)),
+      and(
+        eq(features.id, id),
+        input.includeDeleted === true ? undefined : isNull(features.deletedAt),
+      ),
     )
     .limit(1);
   return row ? toRecord(row) : null;
@@ -97,23 +127,27 @@ export const listFeatures = async (
   input: ListFeaturesInput,
 ): Promise<Pagination<FeatureRecord>> => {
   const limit = resolveLimit(input.limit);
-  const cursor = input.cursor ? decodeCursor(input.cursor) : undefined;
+  const cursor =
+    input.cursor !== undefined ? decodeCursor(input.cursor) : undefined;
+  const createdAtKey = sql`date_trunc('milliseconds', ${features.createdAt})`;
   const rows = await db
     .select(featureSelection)
     .from(features)
     .where(
       and(
         eq(features.layerId, input.layerId),
-        input.includeDeleted ? undefined : isNull(features.deletedAt),
+        input.includeDeleted === true ? undefined : isNull(features.deletedAt),
         input.bbox ? bboxOverlaps(features.geometry, input.bbox) : undefined,
         cursor
-          ? sql`(${features.createdAt}, ${features.id}) < (${cursor.createdAt}::timestamptz, ${cursor.id}::uuid)`
+          ? sql`(${createdAtKey}, ${features.id}) < (${cursor.createdAt.toISOString()}::timestamptz, ${cursor.id}::uuid)`
           : undefined,
       ),
     )
-    .orderBy(desc(features.createdAt), desc(features.id))
+    .orderBy(desc(createdAtKey), desc(features.id))
     .limit(limit + 1);
-  return buildPage(rows.map(toRecord), limit, (row) => encodeCursor({ createdAt: row.createdAt, id: row.id }));
+  return buildPage(rows.map(toRecord), limit, (row) =>
+    encodeCursor({ createdAt: row.createdAt, id: row.id }),
+  );
 };
 
 export const updateFeature = async (
@@ -121,12 +155,17 @@ export const updateFeature = async (
   id: string,
   input: UpdateFeatureInput,
 ): Promise<FeatureRecord | null> => {
-  if (input.geometry !== undefined) await assertStorableGeometry(db, input.geometry);
+  if (input.geometry !== undefined)
+    await assertStorableGeometry(db, input.geometry);
   const [row] = await db
     .update(features)
     .set({
-      ...(input.geometry !== undefined ? { geometry: geomFromGeoJSON(input.geometry) } : {}),
-      ...(input.properties !== undefined ? { properties: input.properties } : {}),
+      ...(input.geometry !== undefined
+        ? { geometry: geomFromGeoJSON(input.geometry) }
+        : {}),
+      ...(input.properties !== undefined
+        ? { properties: input.properties }
+        : {}),
       version: sql`${features.version} + 1`,
       updatedAt: sql`now()`,
     })
@@ -151,7 +190,10 @@ export const updateFeature = async (
 };
 
 /** Soft delete: hidden from listings, kept for audit (PRD:461-462). */
-export const softDeleteFeature = async (db: Db, id: string): Promise<string | null> => {
+export const softDeleteFeature = async (
+  db: Db,
+  id: string,
+): Promise<string | null> => {
   const [row] = await db
     .update(features)
     .set({ deletedAt: sql`now()`, updatedAt: sql`now()` })

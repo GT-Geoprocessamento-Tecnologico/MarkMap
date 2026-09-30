@@ -1,0 +1,76 @@
+// @ts-expect-error contracts emits runtime JS without declarations in this workspace
+import { offlineMapPackageManifestSchema, type OfflineMapPackageManifest } from "../../../contracts/dist/src/offline-map.js";
+
+export const OFFLINE_PACKAGE_DB = "GeoNexoOfflineMapPackages";
+export const OFFLINE_PACKAGE_VERSION = 1;
+export const OFFLINE_PACKAGE_QUOTA = 250 * 1024 * 1024;
+
+export type PackageAsset = Uint8Array | ArrayBuffer | Blob;
+export type PackageAssets = ReadonlyMap<string, PackageAsset>;
+export type PackageState = "staged" | "active";
+export interface StoredOfflinePackage {
+  manifest: OfflineMapPackageManifest;
+  state: PackageState;
+  installedAt: string;
+}
+
+export const isSafePackagePath = (path: string): boolean =>
+  path.length > 0 && !path.startsWith("/") && !path.endsWith("/") && !path.includes("\\") &&
+  path.split("/").every((part) => part.length > 0 && part !== "." && part !== ".." && /^[A-Za-z0-9._@-]+$/.test(part));
+
+export async function bytesOf(value: PackageAsset): Promise<Uint8Array> {
+  if (value instanceof Uint8Array) return value;
+  if (value instanceof ArrayBuffer) return new Uint8Array(value);
+  return new Uint8Array(await value.arrayBuffer());
+}
+
+export async function sha256(value: PackageAsset): Promise<string> {
+  const bytes = await bytesOf(value);
+  const digest = await crypto.subtle.digest("SHA-256", bytes as Uint8Array<ArrayBuffer>);
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+function localRef(value: unknown, pmtiles = false): boolean {
+  if (typeof value !== "string" || value.startsWith("//") || value.startsWith("/")) return false;
+  if (pmtiles && value === "pmtiles://package.pmtiles") return true;
+  if (/^[A-Za-z][A-Za-z0-9+.-]*:/.test(value)) return false;
+  return isSafePackagePath(value.replace(/\{(?:fontstack|range)\}/g, "placeholder"));
+}
+
+export async function validateOfflinePackage(manifestInput: unknown, assets: PackageAssets): Promise<{ ok: true; manifest: OfflineMapPackageManifest } | { ok: false; code: string; detail: string }> {
+  const parsed = offlineMapPackageManifestSchema.safeParse(manifestInput);
+  if (!parsed.success) return { ok: false, code: "invalid-manifest", detail: "manifest does not match the canonical contract" };
+  const manifest = parsed.data;
+  const refs = [manifest.style, ...manifest.glyphs, ...manifest.sprites];
+  const paths = refs.map((r) => r.path);
+  if (paths.some((p) => !isSafePackagePath(p)) || paths.includes("package.pmtiles") || new Set(paths).size !== paths.length)
+    return { ok: false, code: "unsafe-path", detail: "asset paths must be unique and safe" };
+  const total = manifest.archive.bytes + refs.reduce((n, r) => n + r.blob.bytes, 0);
+  if (total > OFFLINE_PACKAGE_QUOTA) return { ok: false, code: "budget-exceeded", detail: "package exceeds the activation budget" };
+  const archive = await bytesOf(assets.get("package.pmtiles") ?? new Uint8Array());
+  if (archive.byteLength !== manifest.archive.bytes) return { ok: false, code: "size-mismatch", detail: "archive byte length does not match manifest" };
+  if ((await sha256(archive)).toLowerCase() !== manifest.archive.sha256.toLowerCase()) return { ok: false, code: "checksum-mismatch", detail: "archive checksum does not match manifest" };
+  if (archive.byteLength < 127 || new TextDecoder().decode(archive.subarray(0, 7)) !== "PMTiles" || archive[7] !== 3)
+    return { ok: false, code: "invalid-pmtiles-header", detail: "only PMTiles v3 archives are supported" };
+  const view = new DataView(archive.buffer, archive.byteOffset, archive.byteLength);
+  for (let offset = 8; offset < 72; offset += 16) {
+    const start = Number(view.getBigUint64(offset, true));
+    const length = Number(view.getBigUint64(offset + 8, true));
+    if (!Number.isSafeInteger(start) || !Number.isSafeInteger(length) || start < 127 || start + length > archive.byteLength)
+      return { ok: false, code: "pmtiles-length-mismatch", detail: "PMTiles section exceeds archive bytes" };
+  }
+  for (const ref of refs) {
+    const value = assets.get(ref.path);
+    if (!value) return { ok: false, code: "missing-asset", detail: `missing asset: ${ref.path}` };
+    const bytes = await bytesOf(value);
+    if (bytes.byteLength !== ref.blob.bytes) return { ok: false, code: "size-mismatch", detail: `asset size mismatch: ${ref.path}` };
+    if ((await sha256(bytes)).toLowerCase() !== ref.blob.sha256.toLowerCase()) return { ok: false, code: "checksum-mismatch", detail: `asset checksum mismatch: ${ref.path}` };
+    if (ref.path === manifest.style.path) {
+      let style: { glyphs?: unknown; sprite?: unknown; sources?: Record<string, { url?: unknown; tiles?: unknown[] }> };
+      try { style = JSON.parse(new TextDecoder().decode(bytes)) as typeof style; } catch { return { ok: false, code: "invalid-style", detail: "style is not JSON" }; }
+      if (!localRef(style.glyphs) || !localRef(style.sprite) || !style.sources || Object.values(style.sources).some((s) => (s.url !== undefined && !localRef(s.url, true)) || (s.tiles !== undefined && (!Array.isArray(s.tiles) || s.tiles.some((t) => !localRef(t, true))))))
+        return { ok: false, code: "external-style-resource", detail: "style contains a non-local resource" };
+    }
+  }
+  return { ok: true, manifest };
+}
