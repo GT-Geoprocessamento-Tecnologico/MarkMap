@@ -144,3 +144,5 @@ CREATE INDEX IF NOT EXISTS "audit_events_entity_idx" ON "audit_events" USING btr
 CREATE INDEX IF NOT EXISTS "features_geometry_idx" ON "features" USING gist ("geometry");--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "features_layer_id_idx" ON "features" USING btree ("layer_id");--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "layers_project_id_sort_order_idx" ON "layers" USING btree ("project_id","sort_order");
+--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "layers_project_created_at_id_idx" ON "layers" USING btree ("project_id","created_at" DESC,"id" DESC);
