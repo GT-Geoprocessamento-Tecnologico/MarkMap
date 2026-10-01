@@ -344,6 +344,30 @@ test("camada real do projeto: enquadramento, popup, visibilidade e filtro", asyn
   await expect(map).toHaveAttribute("data-feature-count", "1");
 });
 
+test("GPS do dispositivo funciona e mantém a experiência local-first", async ({
+  page,
+  context,
+  browserName,
+}) => {
+  test.skip(browserName !== "chromium", "Geolocation acceptance runs in Chromium.");
+
+  await context.grantPermissions(["geolocation"], {
+    origin: "http://127.0.0.1:5173",
+  });
+  await context.setGeolocation({
+    latitude: -7.191,
+    longitude: -48.207,
+    accuracy: 8,
+  });
+
+  await page.goto("/settings");
+  await page.getByRole("button", { name: "Solicitar localização" }).click();
+
+  await expect(page.getByText("Permissão concedida", { exact: true })).toBeVisible();
+  await expect(page.getByText("Localização obtida", { exact: true })).toBeVisible();
+  await expect(page.getByText(/-7\.19100, -48\.20700 \(precisão 8 m\)/)).toBeVisible();
+});
+
 test("CRS persistido e tema efetivo após recarregar", async ({ page }) => {
   await page.goto("/coordinate-systems");
   await page.getByRole("button", { name: /Novo CRS/ }).click();
