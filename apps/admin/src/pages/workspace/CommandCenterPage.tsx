@@ -4,10 +4,18 @@ import { featureBounds, loadProjectFeatures, matchesFeature } from "./map-data";
 import { useParams, useSearch } from "@tanstack/react-router";
 import { useToast } from "@geonexo/ui";
 import {
+  addDrawingVertex,
+  createDrawingSession,
   createFallbackStyle,
   createMapLibreMap,
+  finishDrawingSession,
   getDefaultBasemaps,
   shouldFallbackOnError,
+  undoDrawingVertex,
+} from "@geonexo/maps";
+import type {
+  DrawingSession,
+  GeometryType as DrawingGeometryType,
 } from "@geonexo/maps";
 import { addProtocol, Popup, Marker, removeProtocol } from "maplibre-gl";
 import type { GeoJSONSource, Map as MapLibreMap } from "maplibre-gl";
@@ -18,7 +26,8 @@ import {
   type DatasetRecord,
 } from "../../lib/datasets/dataset-store";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { useProjectLayers } from "../../lib/hooks/layers";
+import { useCreateLayer, useProjectLayers } from "../../lib/hooks/layers";
+import { createLocalFeature } from "../../lib/hooks/features";
 import { offlineMapStore } from "../../lib/storage/offline-map-store";
 import { getSelectedOfflineMapId } from "../../lib/storage/offline-map-selection";
 import {
@@ -63,6 +72,7 @@ export default function CommandCenterPage() {
   const { toast } = useToast();
   const search = useSearch({ strict: false }) as { datasetId?: string };
   const params = useParams({ strict: false }) as { projectId?: string };
+  const createLayerMutation = useCreateLayer(params.projectId ?? "");
   const layersQuery = useProjectLayers(params.projectId ?? "", { limit: 100 });
   const projectLayers = useMemo(
     () => layersQuery.data?.items ?? [],
@@ -108,6 +118,9 @@ export default function CommandCenterPage() {
   const [measuring, setMeasuring] = useState(false);
   const [measurePoints, setMeasurePoints] = useState<MeasurePoint[]>([]);
   const [totalDistance, setTotalDistance] = useState(0);
+  const [drawingSession, setDrawingSession] = useState<DrawingSession | null>(null);
+  const drawingSessionRef = useRef<DrawingSession | null>(null);
+  const drawLayerIdRef = useRef<string | null>(null);
   const [layerVisibility, setLayerVisibility] = useState<
     Record<string, boolean>
   >({ dataset: true });
@@ -163,6 +176,45 @@ export default function CommandCenterPage() {
   );
   const activeGeoJsonRef = useRef(activeGeoJson);
   activeGeoJsonRef.current = activeGeoJson;
+  const drawingPreview = useMemo<GeoJSON.FeatureCollection>(() => {
+    if (!drawingSession || drawingSession.vertices.length === 0)
+      return { type: "FeatureCollection", features: [] };
+
+    const vertices = drawingSession.vertices;
+    const features: GeoJSON.Feature[] = [
+      {
+        type: "Feature",
+        properties: { role: "vertices" },
+        geometry: { type: "MultiPoint", coordinates: vertices },
+      },
+    ];
+    if (drawingSession.type === "LineString" && vertices.length >= 2) {
+      features.unshift({
+        type: "Feature",
+        properties: { role: "shape" },
+        geometry: { type: "LineString", coordinates: vertices },
+      });
+    } else if (drawingSession.type === "Polygon" && vertices.length >= 2) {
+      if (vertices.length >= 3) {
+        const first = vertices[0]!;
+        const ring = [...vertices, [first[0], first[1]] as [number, number]];
+        features.unshift({
+          type: "Feature",
+          properties: { role: "shape" },
+          geometry: { type: "Polygon", coordinates: [ring] },
+        });
+      } else {
+        features.unshift({
+          type: "Feature",
+          properties: { role: "shape" },
+          geometry: { type: "LineString", coordinates: vertices },
+        });
+      }
+    }
+    return { type: "FeatureCollection", features };
+  }, [drawingSession]);
+  const drawingPreviewRef = useRef(drawingPreview);
+  drawingPreviewRef.current = drawingPreview;
   const bounds = useMemo(() => featureBounds(fullFeatures), [fullFeatures]);
   const selectionKey = `${params.projectId ?? "global"}:${datasetSelection}:${fullFeatures.length}:${JSON.stringify(bounds)}`;
   const fitRef = useRef({ bounds, key: selectionKey });
@@ -209,6 +261,134 @@ export default function CommandCenterPage() {
   const togglePanel = (panel: SidePanel) => {
     setSidePanel((prev) => (prev === panel ? "none" : panel));
   };
+
+  const resetDrawing = useCallback(() => {
+    drawingSessionRef.current = null;
+    drawLayerIdRef.current = null;
+    setDrawingSession(null);
+    if (mapRef.current) mapRef.current.getCanvas().style.cursor = "";
+  }, []);
+
+  const persistDrawing = useCallback(
+    async (session: DrawingSession) => {
+      const layerId = drawLayerIdRef.current;
+      if (!layerId) {
+        resetDrawing();
+        return;
+      }
+      try {
+        const geometry = finishDrawingSession(session);
+        await createLocalFeature(layerId, { geometry, properties: {} });
+        resetDrawing();
+        await featuresQuery.refetch();
+        toast({
+          title: "Feição salva",
+          description:
+            "A geometria foi salva neste dispositivo e será sincronizada quando houver conexão.",
+          variant: "success",
+        });
+      } catch (cause) {
+        toast({
+          title: "Não foi possível salvar",
+          description:
+            cause instanceof Error ? cause.message : "Geometria inválida.",
+          variant: "error",
+        });
+      }
+    },
+    [featuresQuery, resetDrawing, toast],
+  );
+  const persistDrawingRef = useRef(persistDrawing);
+  persistDrawingRef.current = persistDrawing;
+
+  const startDrawing = useCallback(
+    async (type: DrawingGeometryType) => {
+      const projectId = params.projectId;
+      if (!projectId) {
+        toast({
+          title: "Abra um projeto",
+          description:
+            "Para salvar desenhos, abra o mapa a partir de um projeto.",
+          variant: "error",
+        });
+        return;
+      }
+      const specs = {
+        Point: { kind: "point" as const, name: "Pontos de campo" },
+        LineString: { kind: "line" as const, name: "Linhas de campo" },
+        Polygon: { kind: "polygon" as const, name: "Polígonos de campo" },
+      };
+      try {
+        let layer = projectLayers.find(
+          (candidate) => candidate.geometryType === type,
+        );
+        if (!layer) {
+          const spec = specs[type];
+          layer = await createLayerMutation.mutateAsync({
+            name: spec.name,
+            description: "Camada criada automaticamente para coleta em campo.",
+            kind: spec.kind,
+            geometryType: type,
+            srid: 4674,
+            style: {},
+            metadata: { createdBy: "field-draw" },
+            visibleByDefault: true,
+            sortOrder: projectLayers.length,
+          });
+        }
+        setMeasuring(false);
+        measurePointsRef.current = [];
+        setMeasurePoints([]);
+        setTotalDistance(0);
+        drawLayerIdRef.current = layer.id;
+        const session = createDrawingSession(type);
+        drawingSessionRef.current = session;
+        setDrawingSession(session);
+        if (mapRef.current)
+          mapRef.current.getCanvas().style.cursor = "crosshair";
+        toast({
+          title:
+            type === "Point"
+              ? "Toque para adicionar um ponto"
+              : type === "LineString"
+                ? "Toque para desenhar uma linha"
+                : "Toque para desenhar um polígono",
+          description:
+            type === "Point"
+              ? "O ponto será salvo imediatamente."
+              : "Adicione os vértices e toque em Concluir.",
+        });
+      } catch (cause) {
+        toast({
+          title: "Ferramenta indisponível",
+          description:
+            cause instanceof Error
+              ? cause.message
+              : "Não foi possível preparar a camada.",
+          variant: "error",
+        });
+      }
+    },
+    [
+      createLayerMutation,
+      params.projectId,
+      projectLayers,
+      toast,
+    ],
+  );
+
+  const undoDrawing = useCallback(() => {
+    const current = drawingSessionRef.current;
+    if (!current) return;
+    const next = undoDrawingVertex(current);
+    drawingSessionRef.current = next;
+    setDrawingSession(next);
+  }, []);
+
+  const finishDrawing = useCallback(() => {
+    const current = drawingSessionRef.current;
+    if (current) void persistDrawingRef.current(current);
+  }, []);
 
   const updateTelemetry = useCallback((map: MapLibreMap) => {
     const center = map.getCenter();
@@ -325,8 +505,8 @@ export default function CommandCenterPage() {
         map.on("rotate", onMove);
 
         const ensureSource = () => {
-          if (cancelled || map.getSource("local-dataset")) return;
-          map.addSource("local-dataset", {
+          if (cancelled) return;
+          if (!map.getSource("local-dataset")) map.addSource("local-dataset", {
             type: "geojson",
             data: activeGeoJsonRef.current as unknown as GeoJSON.FeatureCollection,
           });
@@ -353,6 +533,35 @@ export default function CommandCenterPage() {
               "circle-stroke-width": 1,
             },
           });
+          if (!map.getSource("draw-preview")) {
+            map.addSource("draw-preview", {
+              type: "geojson",
+              data: drawingPreviewRef.current,
+            });
+            map.addLayer({
+              id: "draw-preview-fill",
+              type: "fill",
+              source: "draw-preview",
+              paint: { "fill-color": "#f59e0b", "fill-opacity": 0.2 },
+            });
+            map.addLayer({
+              id: "draw-preview-line",
+              type: "line",
+              source: "draw-preview",
+              paint: { "line-color": "#f59e0b", "line-width": 3 },
+            });
+            map.addLayer({
+              id: "draw-preview-points",
+              type: "circle",
+              source: "draw-preview",
+              paint: {
+                "circle-color": "#f59e0b",
+                "circle-radius": 6,
+                "circle-stroke-color": "#fff",
+                "circle-stroke-width": 2,
+              },
+            });
+          }
           fitSelection(map);
           setMapEpoch((value) => value + 1);
         };
@@ -370,7 +579,7 @@ export default function CommandCenterPage() {
         });
 
         map.on("click", "local-dataset-fill", (e) => {
-          if (!e.features?.length || measuringRef.current) return;
+          if (!e.features?.length || measuringRef.current || drawingSessionRef.current) return;
           const props = e.features[0]?.properties ?? {};
           new Popup()
             .setLngLat(e.lngLat)
@@ -385,7 +594,7 @@ export default function CommandCenterPage() {
           map.getCanvas().style.cursor = "";
         });
         map.on("click", "local-dataset-points", (e) => {
-          if (!e.features?.length || measuringRef.current) return;
+          if (!e.features?.length || measuringRef.current || drawingSessionRef.current) return;
           new Popup()
             .setLngLat(e.lngLat)
             .setDOMContent(
@@ -402,6 +611,18 @@ export default function CommandCenterPage() {
 
         // Listener de clique para medição
         map.on("click", (e) => {
+          const currentDrawing = drawingSessionRef.current;
+          if (currentDrawing) {
+            const next = addDrawingVertex(currentDrawing, [
+              e.lngLat.lng,
+              e.lngLat.lat,
+            ]);
+            drawingSessionRef.current = next;
+            setDrawingSession(next);
+            if (next.type === "Point")
+              void persistDrawingRef.current(next);
+            return;
+          }
           if (!measuringRef.current) return;
           const newPoint: MeasurePoint = {
             lng: e.lngLat.lng,
@@ -464,6 +685,12 @@ export default function CommandCenterPage() {
     if (mapRef.current && source) fitSelection(mapRef.current);
   }, [activeGeoJson, selectionKey, mapEpoch, fitSelection]);
 
+  useEffect(() => {
+    const source = mapRef.current?.getSource("draw-preview") as
+      GeoJSONSource | undefined;
+    source?.setData(drawingPreview);
+  }, [drawingPreview, mapEpoch]);
+
   const handleMyLocation = () => {
     if (locationControlRef.current) {
       try {
@@ -487,6 +714,7 @@ export default function CommandCenterPage() {
 
   const toggleMeasure = () => {
     const next = !measuring;
+    if (next && drawingSessionRef.current) resetDrawing();
     setMeasuring(next);
     if (!next) {
       setMeasurePoints([]);
@@ -597,7 +825,64 @@ export default function CommandCenterPage() {
           label={measuring ? "Encerrar medição" : "Medir distância"}
           color="amber"
         />
+        <ToolBtn
+          active={drawingSession?.type === "Point"}
+          onClick={() => void startDrawing("Point")}
+          icon="add_location_alt"
+          label="Adicionar ponto"
+          color="cyan"
+        />
+        <ToolBtn
+          active={drawingSession?.type === "LineString"}
+          onClick={() => void startDrawing("LineString")}
+          icon="timeline"
+          label="Desenhar linha"
+          color="blue"
+        />
+        <ToolBtn
+          active={drawingSession?.type === "Polygon"}
+          onClick={() => void startDrawing("Polygon")}
+          icon="hexagon"
+          label="Desenhar polígono"
+          color="violet"
+        />
       </div>
+
+      {drawingSession && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex max-w-[calc(100%-2rem)] flex-wrap items-center justify-center gap-2 rounded-2xl border border-cyan-400/40 bg-surface-container/95 px-3 py-2 text-xs font-semibold text-on-surface shadow-lg backdrop-blur">
+          <span>
+            {drawingSession.type === "Point"
+              ? "Toque no mapa para salvar o ponto"
+              : `${drawingSession.vertices.length} vértice${drawingSession.vertices.length === 1 ? "" : "s"}`}
+          </span>
+          {drawingSession.type !== "Point" && (
+            <>
+              <button
+                type="button"
+                onClick={undoDrawing}
+                disabled={drawingSession.undoStack.length === 0}
+                className="min-h-[44px] rounded-lg px-3 text-cyan-500 disabled:opacity-40"
+              >
+                Desfazer
+              </button>
+              <button
+                type="button"
+                onClick={finishDrawing}
+                className="min-h-[44px] rounded-lg bg-cyan-500 px-3 font-bold text-slate-950"
+              >
+                Concluir
+              </button>
+            </>
+          )}
+          <button
+            type="button"
+            onClick={resetDrawing}
+            className="min-h-[44px] rounded-lg px-3 text-red-400"
+          >
+            Cancelar
+          </button>
+        </div>
+      )}
 
       {/* ── Indicador de medição ativo ── */}
       {measuring && (
