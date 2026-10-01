@@ -97,6 +97,80 @@ describe("local-first repository", () => {
     expect(await repo.listConflicts()).toEqual([conflict]);
   });
 
+  it("resolves a version conflict by rebasing the latest local state", async () => {
+    const db = new MemoryLocalDb();
+    const repo = new LocalRepository(db);
+    const operation = await repo.mutate({
+      entity: "project",
+      entityId: id,
+      payload: project(id, "Minha versão"),
+      operation: "upsert",
+      baseVersion: null,
+    });
+    await repo.saveConflict({
+      operationId: operation.operationId,
+      entity: "project",
+      entityId: id,
+      baseVersion: null,
+      serverVersion: 3,
+      reason: "VERSION_CONFLICT",
+      localPayload: project(id, "Minha versão"),
+      serverPayload: project(id, "Servidor"),
+    });
+
+    await repo.resolveConflict(operation.operationId, "keep-local");
+
+    expect(await repo.listConflicts()).toEqual([]);
+    const outbox = await repo.listOutbox();
+    expect(outbox).toHaveLength(1);
+    expect(outbox[0]).toMatchObject({
+      entity: "project",
+      entityId: id,
+      operation: "upsert",
+      baseVersion: 3,
+      payload: project(id, "Minha versão"),
+    });
+    expect(outbox[0]?.operationId).not.toBe(operation.operationId);
+    expect(
+      (await repo.getEntity(await repo.workspaceId(), "project", id))?.version,
+    ).toBe(3);
+  });
+
+  it("resolves a version conflict by accepting the server state", async () => {
+    const db = new MemoryLocalDb();
+    const repo = new LocalRepository(db);
+    const operation = await repo.mutate({
+      entity: "project",
+      entityId: id,
+      payload: project(id, "Minha versão"),
+      operation: "upsert",
+      baseVersion: null,
+    });
+    const server = project(id, "Servidor");
+    await repo.saveConflict({
+      operationId: operation.operationId,
+      entity: "project",
+      entityId: id,
+      baseVersion: null,
+      serverVersion: 4,
+      reason: "VERSION_CONFLICT",
+      localPayload: project(id, "Minha versão"),
+      serverPayload: server,
+    });
+
+    await repo.resolveConflict(operation.operationId, "use-server");
+
+    expect(await repo.listConflicts()).toEqual([]);
+    expect(await repo.listOutbox()).toEqual([]);
+    expect(
+      await repo.getEntity(await repo.workspaceId(), "project", id),
+    ).toMatchObject({
+      version: 4,
+      deleted: false,
+      payload: server,
+    });
+  });
+
   it("leaves data intact when quota rejects the transaction", async () => {
     const db = new MemoryLocalDb();
     const repo = new LocalRepository(db);
