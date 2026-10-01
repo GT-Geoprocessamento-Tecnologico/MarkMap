@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { featureBounds, loadProjectFeatures, matchesFeature } from "./map-data";
 import { useParams, useSearch } from "@tanstack/react-router";
 import { useToast } from "@geonexo/ui";
+import type { GeoReference } from "@geonexo/contracts";
 import {
   addDrawingVertex,
   createDrawingSession,
@@ -28,6 +29,12 @@ import {
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useCreateLayer, useProjectLayers } from "../../lib/hooks/layers";
 import { createLocalFeature } from "../../lib/hooks/features";
+import { localRepository } from "../../lib/local-repositories";
+import {
+  renderGeoPdfOverlay,
+  resolveEmbeddedGeoReference,
+  type GeoPdfOverlay,
+} from "../../lib/pdf/geopdf-overlay";
 import { offlineMapStore } from "../../lib/storage/offline-map-store";
 import { getSelectedOfflineMapId } from "../../lib/storage/offline-map-selection";
 import {
@@ -70,7 +77,10 @@ type MapControls = Awaited<ReturnType<typeof createMapLibreMap>>;
 
 export default function CommandCenterPage() {
   const { toast } = useToast();
-  const search = useSearch({ strict: false }) as { datasetId?: string };
+  const search = useSearch({ strict: false }) as {
+    datasetId?: string;
+    pdfId?: string;
+  };
   const params = useParams({ strict: false }) as { projectId?: string };
   const createLayerMutation = useCreateLayer(params.projectId ?? "");
   const layersQuery = useProjectLayers(params.projectId ?? "", { limit: 100 });
@@ -102,6 +112,8 @@ export default function CommandCenterPage() {
   const [mapEpoch, setMapEpoch] = useState(0);
   const [mapReady, setMapReady] = useState(false);
   const [appliedCount, setAppliedCount] = useState(0);
+  const [geoPdfMessage, setGeoPdfMessage] = useState<string | null>(null);
+  const [geoPdfReady, setGeoPdfReady] = useState(false);
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const locationControlRef = useRef<MapControls["geolocate"] | null>(null);
@@ -407,6 +419,7 @@ export default function CommandCenterPage() {
     let cancelled = false;
     let fallbackActive = !navigator.onLine;
     let protocolsRegistered = false;
+    let geoPdfOverlay: GeoPdfOverlay | null = null;
     const releaseProtocols = () => {
       if (!protocolsRegistered) return;
       removeProtocol("pmtiles");
@@ -421,7 +434,44 @@ export default function CommandCenterPage() {
       let basemap = getDefaultBasemaps()[0];
       const selectedPackageId = getSelectedOfflineMapId();
 
-      if (selectedPackageId) {
+      if (search.pdfId) {
+        fallbackActive = true;
+        basemap = {
+          ...basemap,
+          styleUrl: `data:application/json,${encodeURIComponent(JSON.stringify(createFallbackStyle()))}`,
+        };
+        const record = await localRepository.getOriginal(search.pdfId);
+        if (!record)
+          throw new Error("Este PDF não está mais salvo neste dispositivo.");
+        const storedReference =
+          await localRepository.getMeta<GeoReference>(
+            `pdfGeoref:${search.pdfId}`,
+          );
+        const resolved = storedReference
+          ? { reference: storedReference, pageCount: null, reason: null }
+          : await resolveEmbeddedGeoReference(record.blob);
+        if (resolved.reference) {
+          setGeoPdfMessage("Preparando mapa PDF offline…");
+          geoPdfOverlay = await renderGeoPdfOverlay(
+            record.blob,
+            resolved.reference,
+          );
+          const lngs = geoPdfOverlay.coordinates.map(([lng]) => lng);
+          const lats = geoPdfOverlay.coordinates.map(([, lat]) => lat);
+          center = [
+            (Math.min(...lngs) + Math.max(...lngs)) / 2,
+            (Math.min(...lats) + Math.max(...lats)) / 2,
+          ];
+          zoom = 13;
+        } else {
+          setGeoPdfMessage(
+            resolved.reason ??
+              "Este PDF precisa ser posicionado manualmente antes de aparecer no mapa.",
+          );
+        }
+      }
+
+      if (selectedPackageId && !search.pdfId) {
         offlinePackageSelected = true;
         fallbackActive = true;
         const installed = await offlineMapStore.get(selectedPackageId);
@@ -533,6 +583,30 @@ export default function CommandCenterPage() {
               "circle-stroke-width": 1,
             },
           });
+          if (geoPdfOverlay && !map.getSource("geopdf-overlay")) {
+            map.addSource("geopdf-overlay", {
+              type: "image",
+              url: geoPdfOverlay.url,
+              coordinates: geoPdfOverlay.coordinates,
+            });
+            map.addLayer({
+              id: "geopdf-overlay",
+              type: "raster",
+              source: "geopdf-overlay",
+              paint: { "raster-opacity": 1 },
+            });
+            const lngs = geoPdfOverlay.coordinates.map(([lng]) => lng);
+            const lats = geoPdfOverlay.coordinates.map(([, lat]) => lat);
+            map.fitBounds(
+              [
+                [Math.min(...lngs), Math.min(...lats)],
+                [Math.max(...lngs), Math.max(...lats)],
+              ],
+              { padding: 32, duration: 0 },
+            );
+            setGeoPdfReady(true);
+            setGeoPdfMessage("Mapa PDF disponível offline.");
+          }
           if (!map.getSource("draw-preview")) {
             map.addSource("draw-preview", {
               type: "geojson",
@@ -666,9 +740,10 @@ export default function CommandCenterPage() {
         mapRef.current.remove();
         mapRef.current = null;
       }
+      geoPdfOverlay?.release();
       releaseProtocols();
     };
-  }, [toast, updateTelemetry, fitSelection]);
+  }, [toast, updateTelemetry, fitSelection, search.pdfId]);
 
   useEffect(() => {
     if (!mapContainer.current) return;
@@ -748,7 +823,16 @@ export default function CommandCenterPage() {
       className="relative h-full w-full flex flex-col overflow-hidden"
       data-map-ready={mapReady ? "true" : "false"}
       data-feature-count={appliedCount}
+      data-geopdf-ready={geoPdfReady ? "true" : "false"}
     >
+      {geoPdfMessage && (
+        <p
+          role="status"
+          className="absolute left-4 right-4 top-4 z-30 rounded-lg border border-cyan-500/30 bg-surface-container/95 p-3 text-sm text-on-surface shadow-lg backdrop-blur"
+        >
+          {geoPdfMessage}
+        </p>
+      )}
       {(localReadError || mapError || projectFeatureError) && (
         <p
           role="alert"
