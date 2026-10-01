@@ -34,7 +34,7 @@ jobs:
         run: pnpm turbo run build --filter=admin...
 
       - name: Run E2E tests
-        run: pnpm exec playwright test --config=apps/admin/playwright.config.ts
+        run: pnpm exec playwright test --config=apps/admin/playwright.config.ts --project=chromium
         env:
           TURBO_TELEMETRY_DISABLED: 1
 
