@@ -12,8 +12,7 @@ import {
   fitAffine,
   inspectPdf,
   isPdfError,
-  type PdfInspection,
-  type PagePoint,
+  type PdfInspection
 } from "@geonexo/geo/pdf";
 import { useToast } from "@geonexo/ui";
 
