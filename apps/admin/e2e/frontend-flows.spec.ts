@@ -62,6 +62,39 @@ test("PWA mantém projeto editável após cold reload totalmente offline", async
     page.getByRole("status").filter({ hasText: /Offline|salvo neste aparelho/i }),
   ).toBeVisible();
 
+  await page
+    .getByRole("article")
+    .filter({ hasText: "Projeto Offline E2E" })
+    .getByRole("link", { name: "Abrir mapa" })
+    .click();
+  await expect(page.locator("[data-map-ready]")).toHaveAttribute(
+    "data-map-ready",
+    "true",
+  );
+  await page.getByRole("button", { name: "Adicionar ponto" }).click();
+  const mapSurface = page.getByTestId("map-canvas");
+  const box = await mapSurface.boundingBox();
+  expect(box).not.toBeNull();
+  await page.mouse.click(
+    box!.x + box!.width / 2,
+    box!.y + box!.height / 2,
+  );
+  await expect(page.getByText("Feição salva", { exact: true })).toBeVisible();
+  await expect(page.locator("[data-feature-count]")).toHaveAttribute(
+    "data-feature-count",
+    "1",
+  );
+
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(page.locator("[data-map-ready]")).toHaveAttribute(
+    "data-map-ready",
+    "true",
+  );
+  await expect(page.locator("[data-feature-count]")).toHaveAttribute(
+    "data-feature-count",
+    "1",
+  );
+
   await context.setOffline(false);
 });
 
