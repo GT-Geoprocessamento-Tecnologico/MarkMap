@@ -9,7 +9,7 @@ describe("GeometrySchema strict validation", () => {
   });
 
   it("rejects a Point with non‑numeric coordinates", () => {
-    const invalid = { type: "Point", coordinates: ["a", 0] } as any;
+    const invalid: unknown = { type: "Point", coordinates: ["a", 0] };
     expect(() => GeometrySchema.parse(invalid)).toThrow();
   });
 
@@ -21,7 +21,7 @@ describe("GeometrySchema strict validation", () => {
         [1, 1],
         [2, 2],
       ],
-    } as any; // needs at least 4
+    } satisfies Record<string, unknown>; // needs at least 4
     expect(() => GeometrySchema.parse(invalid)).toThrow();
   });
 });
