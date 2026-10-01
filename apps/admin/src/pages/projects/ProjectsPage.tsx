@@ -247,7 +247,8 @@ export default function ProjectsPage() {
                   Abrir projeto
                 </Link>
                 <Link
-                  to="/workspace"
+                  to="/projects/$projectId/map"
+                  params={{ projectId: project.id }}
                   className="flex min-h-[44px] items-center rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-sm text-cyan-400"
                 >
                   Abrir mapa
@@ -334,7 +335,8 @@ export default function ProjectsPage() {
                           </Button>
                         </Link>
                         <Link
-                          to="/workspace"
+                          to="/projects/$projectId/map"
+                          params={{ projectId: project.id }}
                         >
                           <Button
                             variant="secondary"
