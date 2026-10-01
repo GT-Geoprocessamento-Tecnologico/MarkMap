@@ -36,12 +36,17 @@ export function SyncController() {
     };
     const onOnline = () => void run();
     const onLocalMutation = () => schedule();
+    const onConflictResolved = () => {
+      void queryClient.invalidateQueries();
+      schedule();
+    };
     const onVisibility = () => {
       if (document.visibilityState === "visible") void run();
     };
 
     window.addEventListener("online", onOnline);
     window.addEventListener("geonexo-local-mutation", onLocalMutation);
+    window.addEventListener("geonexo-conflict-resolved", onConflictResolved);
     document.addEventListener("visibilitychange", onVisibility);
     const periodic = setInterval(() => void run(), PERIODIC_SYNC_MS);
     void run();
@@ -50,6 +55,7 @@ export function SyncController() {
       disposed = true;
       window.removeEventListener("online", onOnline);
       window.removeEventListener("geonexo-local-mutation", onLocalMutation);
+      window.removeEventListener("geonexo-conflict-resolved", onConflictResolved);
       document.removeEventListener("visibilitychange", onVisibility);
       if (periodic) clearInterval(periodic);
       if (debounce) clearTimeout(debounce);
