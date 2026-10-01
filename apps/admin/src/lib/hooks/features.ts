@@ -81,38 +81,44 @@ export function useFeatures(layerId: string, bbox?: Bbox) {
   });
 }
 
+export async function createLocalFeature(
+  layerId: string,
+  input: CreateFeatureInput,
+): Promise<Feature> {
+  const parsed = createFeatureSchema.parse({ ...input, layerId });
+  assertGeometryCompatible(
+    parsed.geometry,
+    await localLayerGeometryType(layerId),
+  );
+  const timestamp = new Date().toISOString();
+  const feature = featureSchema.parse({
+    id: crypto.randomUUID(),
+    layerId,
+    geometry: parsed.geometry,
+    properties: parsed.properties,
+    version: 1,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  });
+  const payload = syncEntityPayloadSchema.parse({
+    entity: "feature",
+    data: feature,
+  });
+  await localRepository.mutate({
+    entity: "feature",
+    entityId: feature.id,
+    operation: "upsert",
+    baseVersion: null,
+    payload,
+  });
+  return feature;
+}
+
 export function useCreateFeature(layerId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: CreateFeatureInput): Promise<Feature> => {
-      const parsed = createFeatureSchema.parse({ ...input, layerId });
-      assertGeometryCompatible(
-        parsed.geometry,
-        await localLayerGeometryType(layerId),
-      );
-      const timestamp = new Date().toISOString();
-      const feature = featureSchema.parse({
-        id: crypto.randomUUID(),
-        layerId,
-        geometry: parsed.geometry,
-        properties: parsed.properties,
-        version: 1,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      });
-      const payload = syncEntityPayloadSchema.parse({
-        entity: "feature",
-        data: feature,
-      });
-      await localRepository.mutate({
-        entity: "feature",
-        entityId: feature.id,
-        operation: "upsert",
-        baseVersion: null,
-        payload,
-      });
-      return feature;
-    },
+    mutationFn: (input: CreateFeatureInput) =>
+      createLocalFeature(layerId, input),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: queryKeys.featuresByLayer(layerId) }),
   });
