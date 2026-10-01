@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import * as pdfjs from "pdfjs-dist";
 import workerUrl from "pdfjs-dist/build/pdf.worker.mjs?url";
-import { inspectPdf, isPdfError, type PdfInspection } from "../../../../../packages/geo/src/pdf/index";
+import { inspectPdf, isPdfError, type PdfInspection } from "@geonexo/geo/pdf";
 import type { OriginalRecord } from "../local-repositories";
 
 pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
@@ -89,10 +89,10 @@ export function PdfPreview({ record }: { record: OriginalRecord }) {
   }, [record.blob, record.sha256]);
 
   const geographicStatus = inspection?.pages[0]?.viewports.length
-    ? "Metadados geográficos encontrados; o posicionamento automático permanece desativado nesta visualização."
+    ? "Mapa georreferenciado detectado. Você pode abri-lo no mapa e continuar usando offline."
     : reason
-      ? `Não posicionado: ${reason}`
-      : "Não posicionado: aguardando leitura dos metadados.";
+      ? `Posicionamento automático indisponível: ${reason}`
+      : "Analisando o posicionamento do PDF…";
 
   return (
     <article className="mt-6 rounded-2xl border border-outline-variant bg-surface-container p-4" aria-label={`Pré-visualização de ${record.originalName ?? "PDF"}`}>
@@ -104,6 +104,14 @@ export function PdfPreview({ record }: { record: OriginalRecord }) {
         <span className={`text-xs font-semibold ${state === "ready" ? "text-emerald-700" : "text-amber-700"}`}>{state === "ready" ? "Visualização local" : "Processando…"}</span>
       </div>
       <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">{geographicStatus}</p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <a
+          href={`/workspace?pdfId=${encodeURIComponent(record.blobId)}`}
+          className="flex min-h-[44px] items-center rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-sm font-semibold text-cyan-500"
+        >
+          {inspection?.pages[0]?.viewports.length ? "Abrir no mapa" : "Abrir e posicionar"}
+        </a>
+      </div>
       <div className="mt-4 overflow-auto rounded-lg bg-white p-2"><canvas ref={canvasRef} aria-label="Primeira página do PDF" /></div>
     </article>
   );
