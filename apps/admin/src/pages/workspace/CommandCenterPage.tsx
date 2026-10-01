@@ -556,33 +556,35 @@ export default function CommandCenterPage() {
 
         const ensureSource = () => {
           if (cancelled) return;
-          if (!map.getSource("local-dataset")) map.addSource("local-dataset", {
-            type: "geojson",
-            data: activeGeoJsonRef.current as unknown as GeoJSON.FeatureCollection,
-          });
-          map.addLayer({
-            id: "local-dataset-fill",
-            type: "fill",
-            source: "local-dataset",
-            paint: { "fill-color": "#0ea5e9", "fill-opacity": 0.4 },
-          });
-          map.addLayer({
-            id: "local-dataset-outline",
-            type: "line",
-            source: "local-dataset",
-            paint: { "line-color": "#0284c7", "line-width": 2 },
-          });
-          map.addLayer({
-            id: "local-dataset-points",
-            type: "circle",
-            source: "local-dataset",
-            paint: {
-              "circle-color": "#0284c7",
-              "circle-radius": 5,
-              "circle-stroke-color": "#fff",
-              "circle-stroke-width": 1,
-            },
-          });
+          if (!map.getSource("local-dataset")) {
+            map.addSource("local-dataset", {
+              type: "geojson",
+              data: activeGeoJsonRef.current as unknown as GeoJSON.FeatureCollection,
+            });
+            map.addLayer({
+              id: "local-dataset-fill",
+              type: "fill",
+              source: "local-dataset",
+              paint: { "fill-color": "#0ea5e9", "fill-opacity": 0.4 },
+            });
+            map.addLayer({
+              id: "local-dataset-outline",
+              type: "line",
+              source: "local-dataset",
+              paint: { "line-color": "#0284c7", "line-width": 2 },
+            });
+            map.addLayer({
+              id: "local-dataset-points",
+              type: "circle",
+              source: "local-dataset",
+              paint: {
+                "circle-color": "#0284c7",
+                "circle-radius": 5,
+                "circle-stroke-color": "#fff",
+                "circle-stroke-width": 1,
+              },
+            });
+          }
           if (geoPdfOverlay && !map.getSource("geopdf-overlay")) {
             map.addSource("geopdf-overlay", {
               type: "image",
