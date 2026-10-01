@@ -25,6 +25,46 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
+test("PWA mantém projeto editável após cold reload totalmente offline", async ({
+  page,
+  context,
+  browserName,
+}) => {
+  test.skip(browserName !== "chromium", "Service Worker offline acceptance runs in Chromium.");
+
+  await page.goto("/projects");
+  await page.evaluate(async () => {
+    if (!("serviceWorker" in navigator))
+      throw new Error("Service Worker indisponível");
+    await navigator.serviceWorker.ready;
+    if (!navigator.serviceWorker.controller) {
+      await new Promise<void>((resolve) => {
+        navigator.serviceWorker.addEventListener("controllerchange", () => resolve(), {
+          once: true,
+        });
+      });
+    }
+  });
+
+  await context.setOffline(true);
+  await page.getByRole("button", { name: /Criar (Novo|Primeiro) Projeto/ }).first().click();
+  await page.getByLabel("Nome do Projeto *").fill("Projeto Offline E2E");
+  await page.getByLabel("Descrição do projeto").fill("Criado sem rede");
+  await page.getByRole("button", { name: "Salvar Projeto" }).click();
+  await expect(page.getByText("Projeto Offline E2E", { exact: true })).toBeVisible();
+
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(
+    page.getByRole("heading", { name: "Projetos Cartográficos" }),
+  ).toBeVisible();
+  await expect(page.getByText("Projeto Offline E2E", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("status").filter({ hasText: /Offline|salvo neste aparelho/i }),
+  ).toBeVisible();
+
+  await context.setOffline(false);
+});
+
 test("GeoJSON local: importar, recarregar, visualizar, exportar e excluir", async ({
   page,
 }) => {
