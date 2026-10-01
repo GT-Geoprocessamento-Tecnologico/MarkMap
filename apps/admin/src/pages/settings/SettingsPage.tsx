@@ -10,6 +10,7 @@ import {
   setSelectedOfflineMapId,
 } from "../../lib/storage/offline-map-selection";
 import { offlineDB } from "../../lib/storage/offline-db";
+import { ensureLocationPermission } from "../../lib/device-location-permission";
 
 type InstallPrompt = Event & {
   prompt(): Promise<void>;
@@ -143,13 +144,26 @@ export default function SettingsPage() {
       );
     }
   };
-  const locate = () => {
+  const locate = async () => {
     if (!navigator.geolocation) {
       setError("Localização indisponível neste dispositivo.");
       return;
     }
     setGpsBusy(true);
     setError(null);
+    // No WebView Android a permissão do sistema precisa existir antes de a Web
+    // Geolocation API funcionar; na web este passo é um no-op.
+    const permission = await ensureLocationPermission();
+    if (permission.state === "denied") {
+      setGpsBusy(false);
+      setGps("denied");
+      setError(
+        permission.reason === "unavailable"
+          ? "Serviço de localização desligado no dispositivo. Ligue o GPS e tente novamente."
+          : "Permissão de localização negada. Altere a permissão do dispositivo para tentar novamente.",
+      );
+      return;
+    }
     navigator.geolocation.getCurrentPosition(
       (position) => {
         setGpsBusy(false);

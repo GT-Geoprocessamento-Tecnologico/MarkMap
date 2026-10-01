@@ -43,19 +43,19 @@ jobs:
       - name: Build GeoNexo web app
         run: pnpm turbo run build --filter=admin...
 
-      - name: Install Capacitor 8.5.2 for packaging
-        run: >-
-          pnpm --dir apps/admin add --save-dev --lockfile=false
-          @capacitor/cli@8.5.2
-          @capacitor/core@8.5.2
-          @capacitor/android@8.5.2
-
       - name: Generate Android project
         working-directory: apps/admin
         run: |
           rm -rf android
           pnpm exec cap add android
           pnpm exec cap sync android
+          node scripts/ensure-android-location-permissions.mjs
+
+      - name: Verify GPS permissions are packaged
+        working-directory: apps/admin
+        run: |
+          grep -q 'android.permission.ACCESS_FINE_LOCATION' android/app/src/main/AndroidManifest.xml
+          grep -q 'android.permission.ACCESS_COARSE_LOCATION' android/app/src/main/AndroidManifest.xml
 
       - name: Build debug APK
         working-directory: apps/admin/android

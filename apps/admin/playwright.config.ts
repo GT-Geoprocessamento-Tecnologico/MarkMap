@@ -22,7 +22,9 @@ export default defineConfig({
     url: "http://127.0.0.1:5173",
     env: { VITE_API_MODE: "mock", VITE_API_URL: "/api/v1" },
     reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
+    // `pnpm build` alone takes ~70s locally and longer on a cold CI runner, so
+    // 120s left almost no headroom before `pnpm preview` was reachable.
+    timeout: 300_000,
   },
   projects: [
     {

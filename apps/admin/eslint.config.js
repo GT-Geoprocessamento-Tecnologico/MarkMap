@@ -28,12 +28,16 @@ const baseRules = {
 
 export default [
   {
-    ignores: [
+ignores: [
       '**/dist/**',
       '**/coverage/**',
       '**/node_modules/**',
       '**/playwright-report/**',
       '**/test-results/**',
+      // Projeto nativo do Capacitor e saídas do Gradle: artefatos gerados,
+      // não código-fonte. Sem isto o lint analisaria o bundle minificado
+      // que o `cap sync` copia para dentro do APK.
+      '**/android/**',
     ],
   },
   {

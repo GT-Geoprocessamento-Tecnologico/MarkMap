@@ -64,3 +64,6 @@ docker-compose.override.yml
 .neon
 
 REPOSITORIOS MODELOS/
+
+# Capacitor: projeto nativo gerado por `cap add android` e builds Gradle
+apps/admin/android/

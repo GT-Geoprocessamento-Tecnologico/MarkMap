@@ -37,6 +37,7 @@ import {
 } from "../../lib/pdf/geopdf-overlay";
 import { offlineMapStore } from "../../lib/storage/offline-map-store";
 import { getSelectedOfflineMapId } from "../../lib/storage/offline-map-selection";
+import { ensureLocationPermission } from "../../lib/device-location-permission";
 import {
   createOfflineAssetProtocol,
   createOfflineProtocol,
@@ -518,6 +519,19 @@ export default function CommandCenterPage() {
 
       const resolvedBasemap = basemap;
       if (!resolvedBasemap) throw new Error("Nenhum mapa base está disponível.");
+      if (cancelled) {
+        releaseProtocols();
+        return;
+      }
+      // No WebView Android o GeolocateControl do MapLibre depende da Web
+      // Geolocation API, que só responde depois que a permissão do sistema foi
+      // concedida. Na web este passo é um no-op e o mapa abre normalmente.
+      const locationPermission = await ensureLocationPermission();
+      if (locationPermission.state === "denied") {
+        console.warn(
+          "GeoNexo: permissão de localização indisponível; o controle de GPS ficará inativo.",
+        );
+      }
       if (cancelled) {
         releaseProtocols();
         return;
