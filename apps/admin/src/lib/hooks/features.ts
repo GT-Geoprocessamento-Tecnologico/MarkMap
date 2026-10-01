@@ -58,7 +58,7 @@ async function localLayerGeometryType(layerId: string) {
   ).geometryType;
 }
 
-async function listLocalFeatures(layerId: string, bbox?: Bbox): Promise<Feature[]> {
+export async function listLocalFeatures(layerId: string, bbox?: Bbox): Promise<Feature[]> {
   const entities = await localRepository.listEntities("feature");
   return entities
     .map((entity) =>
