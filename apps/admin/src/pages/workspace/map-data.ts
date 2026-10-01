@@ -1,5 +1,5 @@
 import type { Layer } from "@geonexo/contracts";
-import { listFeatures } from "../../lib/api-client";
+import { listLocalFeatures } from "../../lib/hooks/features";
 
 export interface ProjectMapFeature extends GeoJSON.Feature {
   layerId: string;
@@ -13,43 +13,26 @@ export async function loadProjectFeatures(
   const features: ProjectMapFeature[] = [];
   for (let layerIndex = 0; layerIndex < layers.length; layerIndex++) {
     const layer = layers[layerIndex]!;
-    let cursor: string | undefined;
-    const seen = new Set<string>();
-    do {
-      signal.throwIfAborted();
-      const page = await listFeatures(layer.id, {
-        limit: Math.min(1000, cap - features.length),
-        cursor,
-        signal,
+    signal.throwIfAborted();
+    const localFeatures = await listLocalFeatures(layer.id);
+    signal.throwIfAborted();
+    for (const feature of localFeatures) {
+      if (features.length >= cap) break;
+      features.push({
+        type: "Feature",
+        id: feature.id,
+        geometry: feature.geometry as GeoJSON.Geometry,
+        properties: feature.properties,
+        layerId: layer.id,
       });
-      signal.throwIfAborted();
-      for (const feature of page.items) {
-        if (features.length >= cap) break;
-        features.push({
-          type: "Feature",
-          id: feature.id,
-          geometry: feature.geometry as GeoJSON.Geometry,
-          properties: feature.properties,
-          layerId: layer.id,
-        });
-      }
-      cursor = page.nextCursor ?? undefined;
-      if (features.length >= cap)
-        return {
-          features,
-          truncated:
-            Boolean(cursor) ||
-            layerIndex < layers.length - 1 ||
-            page.items.length > cap,
-        };
-      if (cursor) {
-        if (seen.has(cursor))
-          throw new Error(
-            "A API repetiu o cursor das feições. Tente atualizar o mapa.",
-          );
-        seen.add(cursor);
-      }
-    } while (cursor);
+    }
+    if (features.length >= cap)
+      return {
+        features,
+        truncated:
+          localFeatures.length > cap ||
+          layerIndex < layers.length - 1,
+      };
   }
   return { features, truncated: false };
 }
