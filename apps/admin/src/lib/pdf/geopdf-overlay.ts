@@ -103,7 +103,6 @@ export async function renderGeoPdfOverlay(
   const bytes = await readPdfBytes(blob);
   const loadingTask = pdfjs.getDocument({
     data: bytes,
-    isEvalSupported: false,
     disableAutoFetch: true,
     disableStream: true,
     disableRange: true,
