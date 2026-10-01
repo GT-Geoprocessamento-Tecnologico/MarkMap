@@ -14,6 +14,31 @@
     <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
 
     <link rel="preload" href="/fonts/material-symbols-outlined.woff2" as="font" type="font/woff2" crossorigin />
+
+    <!--
+      Shim para `Iterator`, obrigatório antes do bundle.
+
+      O MapLibre GL 6.11.2 instala um polyfill de iterator helpers logo no topo
+      do bundle:
+
+          typeof Iterator.prototype.join != "function" &&
+            (Iterator.prototype.join = function (t) { return [...this].join(t) })
+
+      O acesso a `Iterator.prototype` é incondicional, então em qualquer
+      WebView anterior ao Chrome 122 (o recurso "iterator helpers" ainda não
+      existe) o bundle lança "Uncaught ReferenceError: Iterator is not defined"
+      e a aplicação inteira fica em tela branca. Foi observado exatamente isso
+      no emulador Android API 34.
+
+      O shim abaixo só instala quando `Iterator` está ausente e serve apenas de
+      âncora para o polyfill do MapLibre: os iteradores reais continuam sendo os
+      nativos, então `[...this]` segue funcionando via `Symbol.iterator`.
+    -->
+    <script>
+      if (typeof globalThis.Iterator === "undefined") {
+        globalThis.Iterator = function Iterator() {};
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
