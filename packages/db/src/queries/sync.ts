@@ -227,7 +227,9 @@ const materializeAcceptedOperation = async (
         ) AS g
       ) AS probe
     `);
-    const probe = probeRows[0] as { empty?: boolean; valid?: boolean } | undefined;
+    const probe = probeRows[0] as
+      | { empty?: boolean; valid?: boolean }
+      | undefined;
     if (!probe || probe.empty === true || probe.valid !== true)
       throw new Error("feature materialization geometry is invalid");
 
@@ -389,12 +391,13 @@ export async function applyPushOperation(
       )
       .limit(1);
     const currentVersion = current?.version ?? 0;
-    const serverPayload = current?.payload
-      ? (current.payload as SyncEntityPayload)
-      : undefined;
+    const serverPayload =
+      current !== undefined && current.payload !== null
+        ? (current.payload as SyncEntityPayload)
+        : undefined;
 
     let expectedVersion = input.baseVersion;
-    if (input.predecessorOperationId) {
+    if (input.predecessorOperationId !== undefined) {
       const [predecessor] = await tx
         .select({
           version: syncOperations.version,
@@ -545,7 +548,9 @@ export async function pullChanges(
     .map((row) => {
       const envelope = row.envelope as SyncOperation;
       if (envelope.operation !== "upsert")
-        throw new Error("Stored sync operation does not match its operation type");
+        throw new Error(
+          "Stored sync operation does not match its operation type",
+        );
       return {
         operationId: envelope.operationId,
         entity: envelope.entity,
