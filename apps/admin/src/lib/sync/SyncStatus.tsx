@@ -1,17 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { SyncConflict } from "@geonexo/contracts";
 
 import { API_MODE } from "../api-client";
 import { localRepository } from "../local-repositories";
 import { syncNow, type SyncResult } from "./sync-engine";
 
+const isOffline = (): boolean =>
+  typeof navigator !== "undefined" && navigator.onLine === false;
+
 const initialState = (): SyncResult => ({
-  state:
-    API_MODE !== "live"
-      ? "disabled"
-      : typeof navigator !== "undefined" && navigator.onLine === false
-        ? "offline"
-        : "idle",
+  state: isOffline() ? "offline" : API_MODE !== "live" ? "disabled" : "idle",
   pushed: 0,
   pulled: 0,
   conflicts: 0,
@@ -19,8 +17,8 @@ const initialState = (): SyncResult => ({
 });
 
 const label = (status: SyncResult): string => {
-  if (status.state === "disabled") return "Somente neste aparelho";
   if (status.state === "offline") return "Offline — salvo neste aparelho";
+  if (status.state === "disabled") return "Somente neste aparelho";
   if (status.state === "syncing") return "Sincronizando…";
   if (status.state === "error") return "Não foi possível sincronizar";
   if (status.conflicts > 0)
@@ -46,11 +44,69 @@ const entityName = (conflict: SyncConflict): string => {
   }
 };
 
+const DESKTOP_LAYOUT_QUERY = "(min-width: 768px)";
+const LANE_GAP_PX = 8;
+const LANE_FALLBACK_OFFSET_PX = 12;
+const SHELL_WAIT_MS = 3000;
+
+const reserveShellLane = (pill: HTMLElement): (() => void) | null => {
+  if (
+    typeof window.matchMedia === "function" &&
+    window.matchMedia(DESKTOP_LAYOUT_QUERY).matches
+  )
+    return null;
+  const shell = document.querySelector("main");
+  if (!shell) return null;
+  const offset = Number.parseFloat(getComputedStyle(pill).bottom);
+  const lane =
+    Math.ceil(pill.getBoundingClientRect().height) +
+    (Number.isFinite(offset) ? offset : LANE_FALLBACK_OFFSET_PX) +
+    LANE_GAP_PX;
+  const previous = shell.style.paddingBottom;
+  shell.style.paddingBottom = `${lane}px`;
+  return () => {
+    shell.style.paddingBottom = previous;
+  };
+};
+
 export function SyncStatus() {
   const [status, setStatus] = useState<SyncResult>(initialState);
   const [conflicts, setConflicts] = useState<SyncConflict[]>([]);
   const [showConflicts, setShowConflicts] = useState(false);
   const [resolving, setResolving] = useState<string | null>(null);
+  const pillRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const pill = pillRef.current;
+    if (!pill) return;
+    let release: (() => void) | null = null;
+    let frame = 0;
+    const sync = () => {
+      release?.();
+      release = reserveShellLane(pill);
+    };
+    const deadline = performance.now() + SHELL_WAIT_MS;
+    const tick = () => {
+      sync();
+      if (!document.querySelector("main") && performance.now() < deadline)
+        frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    const observer =
+      typeof ResizeObserver === "function" ? new ResizeObserver(sync) : null;
+    observer?.observe(pill);
+    const desktop =
+      typeof window.matchMedia === "function"
+        ? window.matchMedia(DESKTOP_LAYOUT_QUERY)
+        : null;
+    desktop?.addEventListener("change", sync);
+    return () => {
+      cancelAnimationFrame(frame);
+      observer?.disconnect();
+      desktop?.removeEventListener("change", sync);
+      release?.();
+    };
+  }, []);
 
   const refreshLocalState = async () => {
     const [outbox, localConflicts] = await Promise.all([
@@ -146,9 +202,10 @@ export function SyncStatus() {
   return (
     <>
       <aside
+        ref={pillRef}
         role="status"
         aria-live="polite"
-        className="fixed z-50 flex min-h-[44px] max-w-[calc(100vw-1.5rem)] items-center gap-2 rounded-full border border-outline-variant bg-surface-container/95 px-3 py-2 text-xs text-on-surface shadow-lg backdrop-blur"
+        className="pointer-events-none fixed z-50 flex min-h-[44px] max-w-[calc(100vw-1.5rem)] items-center gap-2 rounded-full border border-outline-variant bg-surface-container/95 px-3 py-2 text-xs text-on-surface shadow-lg backdrop-blur"
         style={{
           bottom: "max(0.75rem, env(safe-area-inset-bottom))",
           left: "max(0.75rem, env(safe-area-inset-left))",
@@ -170,7 +227,7 @@ export function SyncStatus() {
         {conflicts.length > 0 && (
           <button
             type="button"
-            className="min-h-[32px] rounded-full px-2 font-semibold text-red-400"
+            className="pointer-events-auto min-h-[44px] min-w-[44px] rounded-full px-2 font-semibold text-red-400"
             onClick={() => setShowConflicts(true)}
           >
             Resolver
@@ -179,7 +236,7 @@ export function SyncStatus() {
         {retry && conflicts.length === 0 && (
           <button
             type="button"
-            className="min-h-[32px] rounded-full px-2 font-semibold text-cyan-400"
+            className="pointer-events-auto min-h-[44px] min-w-[44px] rounded-full px-2 font-semibold text-cyan-400"
             onClick={() => void syncNow().catch(() => undefined)}
           >
             Sincronizar
@@ -192,7 +249,7 @@ export function SyncStatus() {
           role="dialog"
           aria-modal="true"
           aria-labelledby="sync-conflicts-title"
-          className="fixed inset-x-3 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-[60] max-h-[70vh] overflow-y-auto rounded-2xl border border-outline-variant bg-surface-container p-4 text-on-surface shadow-2xl md:left-auto md:right-4 md:w-[420px]"
+          className="fixed inset-x-3 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-[60] max-h-[70vh] overflow-y-auto rounded-2xl border border-outline-variant bg-surface-container p-4 text-on-surface shadow-2xl md:left-auto md:right-4 md:w-[420px]"
         >
           <div className="flex items-center justify-between gap-3">
             <div>

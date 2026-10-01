@@ -12,12 +12,6 @@ import {
   EmptyState,
   Input,
   Skeleton,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
   useToast,
 } from "@geonexo/ui";
 import { useCreateProject, useProjectPages } from "../../lib/hooks/projects";
@@ -213,8 +207,10 @@ export default function ProjectsPage() {
           }
         />
       ) : (
-        <>
-        <div className="grid min-w-0 gap-3 xl:hidden" aria-label="Projetos carregados">
+        <div
+          className="grid min-w-0 gap-3 md:grid-cols-2 2xl:grid-cols-3"
+          aria-label="Projetos carregados"
+        >
           {projects.map((project) => (
             <article
               key={project.id}
@@ -264,109 +260,6 @@ export default function ProjectsPage() {
             </article>
           ))}
         </div>
-        <div className="hidden xl:block rounded-xl border border-outline-variant bg-surface-container shadow-2xl backdrop-blur-sm overflow-hidden">
-          <div
-            role="region"
-            aria-label="Tabela de projetos"
-            tabIndex={0}
-            className="overflow-x-auto w-full"
-          >
-            <Table
-              className="min-w-[800px]"
-              aria-label="Lista de projetos cartográficos"
-            >
-              <TableHeader className="bg-white/5">
-                <TableRow className="border-outline-variant hover:bg-white/5">
-                  <TableHead className="text-on-surface-variant font-medium">
-                    Nome do Projeto
-                  </TableHead>
-                  <TableHead className="text-on-surface-variant font-medium">
-                    Descrição
-                  </TableHead>
-                  <TableHead className="text-on-surface-variant font-medium">
-                    Status
-                  </TableHead>
-                  <TableHead className="text-on-surface-variant font-medium">
-                    Atualizado Em
-                  </TableHead>
-                  <TableHead className="text-right text-on-surface-variant font-medium">
-                    Ações
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {projects.map((project) => (
-                  <TableRow
-                    key={project.id}
-                    className="border-outline-variant/50 hover:bg-white/[0.02] transition-colors"
-                  >
-                    <TableCell className="font-semibold text-on-surface">
-                      <Link
-                        to="/projects/$projectId"
-                        params={{ projectId: project.id }}
-                        className="text-cyan-400 hover:text-cyan-300 transition-colors"
-                      >
-                        {project.name}
-                      </Link>
-                    </TableCell>
-                    <TableCell className="text-on-surface-variant">
-                      {project.description ?? "Sem descrição"}
-                    </TableCell>
-                    <TableCell>
-                      <span className="inline-flex items-center rounded-full bg-cyan-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-400 border border-emerald-500/20">
-                        {project.status}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-xs text-slate-500">
-                      {new Date(project.updatedAt).toLocaleDateString("pt-BR")}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Link
-                          to="/projects/$projectId"
-                          params={{ projectId: project.id }}
-                        >
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="min-h-[44px] flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-white/10"
-                          >
-                            Abrir Projeto
-                          </Button>
-                        </Link>
-                        <Link
-                          to="/projects/$projectId/map"
-                          params={{ projectId: project.id }}
-                        >
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            className="min-h-[44px] flex items-center justify-center bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 hover:bg-cyan-500/20 transition-all"
-                          >
-                            Abrir Mapa &rarr;
-                          </Button>
-                        </Link>
-                        <Link
-                          to="/projects/$projectId/mesh"
-                          params={{ projectId: project.id }}
-                        >
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            className="min-h-[44px] flex items-center justify-center"
-                          >
-                            Malha 3D
-                          </Button>
-                        </Link>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </div>
-        </>
       )}
     </div>
   );

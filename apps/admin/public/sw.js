@@ -69,8 +69,10 @@ async function fetchAndCache(request, event, cache) {
   return networkResponse;
 }
 
+const SHELL_MATCH = { ignoreVary: true };
+
 async function handleNavigation(request, event, cache) {
-  const cachedShell = await cache.match('/') || await cache.match('/index.html');
+  const cachedShell = await cache.match('/', SHELL_MATCH) || await cache.match('/index.html', SHELL_MATCH);
   try {
     return await fetchAndCache(request, event, cache);
   } catch {
@@ -86,7 +88,7 @@ async function installShell() {
     await staging.put('/__geonexo_install_complete__', new Response('ok'));
     const existing = await caches.open(CACHE_NAME);
     for (const request of STATIC_ASSETS) {
-      const response = await staging.match(request);
+      const response = await staging.match(request, SHELL_MATCH);
       if (response) await existing.put(request, response);
     }
     await existing.put('/__geonexo_install_complete__', new Response('ok'));
@@ -98,7 +100,7 @@ async function installShell() {
 }
 
 async function handleStaticAsset(request, event, cache) {
-  const cachedResponse = await cache.match(request);
+  const cachedResponse = await cache.match(request, SHELL_MATCH);
   if (cachedResponse) {
     // Keep the stale-while-revalidate behavior, but bind the write to the event.
     event.waitUntil(fetchAndCache(request, event, cache).catch(() => undefined));

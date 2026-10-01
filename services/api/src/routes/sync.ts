@@ -30,12 +30,13 @@ export const syncRoutes = (app: Hono<any, any, any>) => {
         if (result.conflict) conflicts.push(result.conflict);
         continue;
       }
-      if (result.version === undefined || result.sequence === undefined) continue;
+      if (result.version === undefined || result.sequence === undefined)
+        continue;
       const ack = {
         operationId: operation.operationId,
         version: result.version,
         sequence: result.sequence,
-        ...(operation.predecessorOperationId
+        ...(operation.predecessorOperationId !== undefined
           ? { predecessorOperationId: operation.predecessorOperationId }
           : {}),
       };
@@ -52,9 +53,10 @@ export const syncRoutes = (app: Hono<any, any, any>) => {
     const workspaceId = c.get("capabilityWorkspaceId") as string;
     const capabilityHash = c.get("capabilityHash") as string;
     const query = pullQuerySchema.parse(c.req.query());
-    const afterSequence = query.cursor
-      ? readSyncCursor(query.cursor, workspaceId, capabilityHash).sequence
-      : "0";
+    const afterSequence =
+      query.cursor !== undefined && query.cursor !== ""
+        ? readSyncCursor(query.cursor, workspaceId, capabilityHash).sequence
+        : "0";
     const page = await pullChanges(
       getDb(),
       { workspaceId, afterSequence, limit: query.limit },

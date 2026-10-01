@@ -645,15 +645,23 @@ export default function CommandCenterPage() {
         };
         map.on("style.load", ensureSource);
         if (map.isStyleLoaded()) ensureSource();
+        const publishApplied = () => {
+          if (cancelled) return;
+          setMapReady(true);
+          setAppliedCount(activeGeoJsonRef.current.features.length);
+        };
         map.on("sourcedata", (event) => {
           if (
-            event.sourceId === "local-dataset" &&
-            event.isSourceLoaded &&
-            !cancelled
-          ) {
-            setMapReady(true);
-            setAppliedCount(activeGeoJsonRef.current.features.length);
-          }
+            event.sourceId !== "local-dataset" ||
+            !event.isSourceLoaded ||
+            cancelled
+          )
+            return;
+          // `sourcedata` antecede o desenho: publicar no proximo quadro pintado
+          // garante que queryRenderedFeatures e o clique ja encontrem a feicao
+          // aplicada. `idle` nao serve porque sem rede os tiles nunca terminam.
+          if (map.loaded()) publishApplied();
+          else map.once("render", publishApplied);
         });
 
         map.on("click", "local-dataset-fill", (e) => {

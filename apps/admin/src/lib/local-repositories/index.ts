@@ -18,6 +18,7 @@ import {
   type OriginalRecord,
   type OutboxRecord,
 } from "../local-db";
+import { readBlobBytes } from "../blob-bytes";
 
 const now = () => new Date().toISOString();
 
@@ -522,10 +523,7 @@ export class LocalRepository {
       throw new Error("O tamanho declarado do PDF não corresponde ao Blob.");
     if (!/^[a-f0-9]{64}$/i.test(input.sha256))
       throw new Error("SHA-256 inválido.");
-    const bytes =
-      typeof input.blob.arrayBuffer === "function"
-        ? await input.blob.arrayBuffer()
-        : await new Response(input.blob).arrayBuffer();
+    const bytes = await readBlobBytes(input.blob);
     const digest = await crypto.subtle.digest(
       "SHA-256",
       new Uint8Array(bytes),

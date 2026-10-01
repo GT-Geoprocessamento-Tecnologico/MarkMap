@@ -1,10 +1,13 @@
 import { createHash } from "node:crypto";
+
 import { describe, expect, it } from "vitest";
 
 import { createSyncCursor, readSyncCursor } from "../src/lib/sync-cursor.js";
 
 const workspaceId = "11111111-1111-4111-8111-111111111111";
-const capabilityHash = createHash("sha256").update("capability-a").digest("hex");
+const capabilityHash = createHash("sha256")
+  .update("capability-a")
+  .digest("hex");
 
 describe("workspace-bound sync cursor", () => {
   it("round-trips sequence for the same workspace and capability", () => {

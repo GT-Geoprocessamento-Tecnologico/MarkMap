@@ -37,5 +37,13 @@ export default defineConfig({
       name: "webkit",
       use: { ...devices["Desktop Safari"] },
     },
+    {
+      name: "pixel-7",
+      use: { ...devices["Pixel 7"] },
+    },
+    {
+      name: "iphone-13",
+      use: { ...devices["iPhone 13"] },
+    },
   ],
 });

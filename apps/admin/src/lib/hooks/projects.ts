@@ -6,9 +6,11 @@ import {
   type Project,
 } from "@geonexo/contracts";
 import { localRepository } from "../local-repositories";
+import { ensureDemoWorkspace } from "../local-repositories/demo-workspace";
 import { queryKeys } from "../query-keys";
 
 async function listLocalProjects(): Promise<Project[]> {
+  await ensureDemoWorkspace();
   const workspaceId = await localRepository.workspaceId();
   const entities = await localRepository.listEntities("project", workspaceId);
   return entities.map((entity) => {

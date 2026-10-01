@@ -158,7 +158,7 @@ export function MeshCanvas({ blob, view, onError }: MeshCanvasProps) {
         );
       }
       camera.updateProjectionMatrix();
-      renderer.setSize(width, height, false);
+      renderer.setSize(width, height);
     };
     const observer = new ResizeObserver(resize);
     observer.observe(host);

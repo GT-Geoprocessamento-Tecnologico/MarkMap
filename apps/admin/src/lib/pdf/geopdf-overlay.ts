@@ -7,6 +7,7 @@ import {
   pageToLonLat,
   type GeoReference,
 } from "@geonexo/geo/pdf";
+import { readBlobBytes } from "../blob-bytes";
 
 pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
@@ -32,11 +33,7 @@ export type GeoPdfResolution = {
 const MAX_RENDER_PIXELS = 4_000_000;
 
 export const readPdfBytes = async (blob: Blob): Promise<Uint8Array> =>
-  new Uint8Array(
-    typeof blob.arrayBuffer === "function"
-      ? await blob.arrayBuffer()
-      : await new Response(blob).arrayBuffer(),
-  );
+  new Uint8Array(await readBlobBytes(blob));
 
 export async function resolveEmbeddedGeoReference(
   blob: Blob,

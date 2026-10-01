@@ -15,7 +15,10 @@ export function UpdatePrompt({ durableWritesReady = () => false, compatibilityRe
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return undefined;
     let disposed = false;
-    const onControllerChange = () => window.location.reload();
+    const hadController = navigator.serviceWorker.controller !== null;
+    const onControllerChange = () => {
+      if (hadController) window.location.reload();
+    };
     navigator.serviceWorker.addEventListener("controllerchange", onControllerChange);
     void navigator.serviceWorker.ready.then((ready) => {
       if (disposed) return;

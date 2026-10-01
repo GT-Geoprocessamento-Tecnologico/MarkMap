@@ -156,128 +156,117 @@ export default function ImportsPage() {
         placeholder="Buscar dataset por nome…"
         className="mb-4 w-full rounded-xl border border-outline-variant bg-surface-container px-4 py-2.5 text-sm"
       />
-      <div className="grid min-w-0 gap-3 xl:hidden" aria-label="Datasets locais">
-        {filteredDatasets.length === 0 ? (
-          <div className="rounded-2xl border border-outline-variant bg-surface-container p-6 text-center text-sm text-on-surface-variant">
-            Nenhum dataset local.
-          </div>
-        ) : (
-          filteredDatasets.map((dataset) => (
-            <article
-              key={dataset.id}
-              className="min-w-0 rounded-2xl border border-outline-variant bg-surface-container p-4"
-            >
-              <h2 className="break-all font-semibold text-on-surface">
-                {dataset.name}
-              </h2>
-              <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                <div>
-                  <dt className="text-xs text-on-surface-variant">Tamanho</dt>
-                  <dd>{formatSize(dataset.sizeBytes)}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-on-surface-variant">Feições</dt>
-                  <dd>{dataset.featuresCount}</dd>
-                </div>
-                <div className="col-span-2 min-w-0">
-                  <dt className="text-xs text-on-surface-variant">Importado</dt>
-                  <dd className="break-words text-xs">
-                    {new Date(dataset.uploadedAt).toLocaleString()}
-                  </dd>
-                </div>
-              </dl>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <a
-                  href={`/workspace?datasetId=${encodeURIComponent(dataset.id)}`}
-                  className="flex min-h-[44px] items-center rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-sm text-cyan-400"
-                  aria-label={`Visualizar ${dataset.name} no mapa`}
-                >
-                  Ver no mapa
-                </a>
-                <button
-                  type="button"
-                  onClick={() => void exportDataset(dataset.id)}
-                  className="min-h-[44px] rounded-lg border border-outline-variant px-3 py-2 text-sm text-on-surface-variant"
-                  aria-label={`Exportar ${dataset.name}`}
-                >
-                  Exportar
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void handleDelete(dataset)}
-                  className="min-h-[44px] rounded-lg border border-red-500/30 px-3 py-2 text-sm text-red-400"
-                  aria-label={`Excluir ${dataset.name}`}
-                >
-                  Excluir
-                </button>
-              </div>
-            </article>
-          ))
-        )}
-      </div>
-      <div className="hidden xl:block overflow-x-auto rounded-2xl border border-outline-variant bg-surface-container">
-        <table className="w-full min-w-[720px] text-left text-sm">
+      <div className="min-w-0 rounded-2xl border border-outline-variant bg-surface-container">
+        <table className="w-full text-left text-sm">
+          <caption className="sr-only">Datasets locais</caption>
           <thead className="border-b border-outline-variant text-xs uppercase text-on-surface-variant">
             <tr>
-              <th className="p-4">Arquivo</th>
-              <th className="p-4">Tamanho</th>
-              <th className="p-4">Feições</th>
-              <th className="p-4">Importado</th>
-              <th className="p-4 text-right">Ações</th>
+              <th scope="col" className="p-0 lg:p-4">
+                <span className="sr-only lg:not-sr-only">Arquivo</span>
+              </th>
+              <th scope="col" className="p-0 lg:p-4">
+                <span className="sr-only lg:not-sr-only">Tamanho</span>
+              </th>
+              <th scope="col" className="p-0 lg:p-4">
+                <span className="sr-only lg:not-sr-only">Feições</span>
+              </th>
+              <th scope="col" className="p-0 lg:p-4">
+                <span className="sr-only lg:not-sr-only">Importado</span>
+              </th>
+              <th scope="col" className="p-0 text-right lg:p-4">
+                <span className="sr-only lg:not-sr-only">Ações</span>
+              </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-outline-variant/50">
+          <tbody>
             {filteredDatasets.length === 0 ? (
               <tr>
                 <td
                   colSpan={5}
-                  className="p-8 text-center text-sm text-on-surface-variant"
+                  className="block p-8 text-center text-sm text-on-surface-variant lg:table-cell"
                 >
                   Nenhum dataset local.
                 </td>
               </tr>
             ) : (
               filteredDatasets.map((dataset) => (
-                <tr key={dataset.id}>
-                  <td className="p-4 font-semibold">{dataset.name}</td>
-                  <td className="p-4 text-xs">
-                    {formatSize(dataset.sizeBytes)}
+                <tr
+                  key={dataset.id}
+                  className="block border-b border-outline-variant/50 last:border-b-0 lg:table-row"
+                >
+                  <th
+                    scope="row"
+                    className="block p-4 text-left align-top font-semibold text-on-surface break-words lg:table-cell lg:align-baseline"
+                  >
+                    {dataset.name}
+                  </th>
+                  <td className="flex items-baseline justify-between gap-4 px-4 py-2 lg:table-cell lg:p-4">
+                    <span className="text-xs font-medium uppercase text-on-surface-variant lg:hidden">
+                      Tamanho
+                    </span>
+                    <span className="text-xs">
+                      {formatSize(dataset.sizeBytes)}
+                    </span>
                   </td>
-                  <td className="p-4 text-xs">{dataset.featuresCount}</td>
-                  <td className="p-4 text-xs">
-                    {new Date(dataset.uploadedAt).toLocaleString()}
+                  <td className="flex items-baseline justify-between gap-4 px-4 py-2 lg:table-cell lg:p-4">
+                    <span className="text-xs font-medium uppercase text-on-surface-variant lg:hidden">
+                      Feições
+                    </span>
+                    <span className="text-xs">{dataset.featuresCount}</span>
                   </td>
-                  <td className="p-4 text-right">
-                    <div className="flex justify-end gap-2">
+                  <td className="flex items-baseline justify-between gap-4 px-4 py-2 lg:table-cell lg:p-4">
+                    <span className="text-xs font-medium uppercase text-on-surface-variant lg:hidden">
+                      Importado
+                    </span>
+                    <span className="whitespace-nowrap text-xs">
+                      {new Date(dataset.uploadedAt).toLocaleString()}
+                    </span>
+                  </td>
+                  <td className="px-4 pb-4 lg:table-cell lg:p-4 lg:text-right">
+                    <div className="flex flex-wrap gap-2 lg:flex-nowrap lg:justify-end">
                       <a
                         href={`/workspace?datasetId=${encodeURIComponent(dataset.id)}`}
-                        className="rounded-lg p-2 text-cyan-600"
                         title="Visualizar no mapa"
                         aria-label="Visualizar no mapa"
+                        className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-xs font-medium text-cyan-400 lg:px-2"
                       >
-                        <span className="material-symbols-outlined">
+                        <span
+                          className="material-symbols-outlined text-[18px]"
+                          aria-hidden="true"
+                        >
                           visibility
                         </span>
+                        <span className="lg:hidden">Visualizar no mapa</span>
                       </a>
                       <button
+                        type="button"
                         onClick={() => void exportDataset(dataset.id)}
-                        className="rounded-lg p-2 text-on-surface-variant"
                         title="Exportar GeoJSON"
                         aria-label="Exportar GeoJSON"
+                        className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-outline-variant px-3 py-2 text-xs font-medium text-on-surface-variant lg:px-2"
                       >
-                        <span className="material-symbols-outlined">
+                        <span
+                          className="material-symbols-outlined text-[18px]"
+                          aria-hidden="true"
+                        >
                           download
                         </span>
+                        <span className="lg:hidden">Exportar GeoJSON</span>
                       </button>
                       <button
+                        type="button"
                         onClick={() => void handleDelete(dataset)}
-                        className="rounded-lg p-2 text-red-600"
                         title="Excluir dataset"
                         aria-label="Excluir dataset"
+                        className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-red-500/30 px-3 py-2 text-xs font-medium text-red-400 lg:px-2"
                       >
-                        <span className="material-symbols-outlined">
+                        <span
+                          className="material-symbols-outlined text-[18px]"
+                          aria-hidden="true"
+                        >
                           delete
                         </span>
+                        <span className="lg:hidden">Excluir dataset</span>
                       </button>
                     </div>
                   </td>

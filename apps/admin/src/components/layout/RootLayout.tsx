@@ -73,7 +73,7 @@ export function RootLayout() {
             <button 
               onClick={closeSidebar}
               aria-label="Fechar menu"
-              className="lg:hidden p-1.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-on-surface/5 transition-colors flex items-center justify-center"
+              className="lg:hidden min-h-[44px] min-w-[44px] p-1.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-on-surface/5 transition-colors flex items-center justify-center"
             >
               <span className="material-symbols-outlined" style={{fontSize: "18px"}}>close</span>
             </button>

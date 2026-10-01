@@ -13,12 +13,13 @@ function createQueryClient(): QueryClient {
   return new QueryClient({
     defaultOptions: {
       queries: {
+        networkMode: "offlineFirst",
         retry: (failureCount, error) =>
           failureCount < 1 && !isClientError(error),
         staleTime: 30_000,
         refetchOnWindowFocus: false,
       },
-      mutations: { retry: false },
+      mutations: { retry: false, networkMode: "offlineFirst" },
     },
   });
 }

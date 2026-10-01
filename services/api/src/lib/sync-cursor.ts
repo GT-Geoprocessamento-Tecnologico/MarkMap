@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+
 import { syncCursorSchema } from "@geonexo/contracts";
 
 import { AppError, ErrorCode } from "./errors.js";
@@ -19,7 +20,9 @@ export const createSyncCursor = (
     JSON.stringify({ workspaceId, sequence } satisfies CursorPayload),
     "utf8",
   ).toString("base64url");
-  return syncCursorSchema.parse(`v1.${payload}.${sign(payload, capabilityHash)}`);
+  return syncCursorSchema.parse(
+    `v1.${payload}.${sign(payload, capabilityHash)}`,
+  );
 };
 
 export const readSyncCursor = (
@@ -34,17 +37,19 @@ export const readSyncCursor = (
       code: ErrorCode.VALIDATION_ERROR,
     });
   const [, payload, signature] = parsed.data.split(".");
-  if (!payload || !signature)
+  if (
+    payload === undefined ||
+    payload === "" ||
+    signature === undefined ||
+    signature === ""
+  )
     throw new AppError("Invalid sync cursor", {
       status: 400,
       code: ErrorCode.VALIDATION_ERROR,
     });
   const expected = Buffer.from(sign(payload, capabilityHash));
   const actual = Buffer.from(signature);
-  if (
-    expected.length !== actual.length ||
-    !timingSafeEqual(expected, actual)
-  )
+  if (expected.length !== actual.length || !timingSafeEqual(expected, actual))
     throw new AppError("Invalid sync cursor", {
       status: 400,
       code: ErrorCode.VALIDATION_ERROR,

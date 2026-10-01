@@ -7,6 +7,7 @@ import {
 } from "@geonexo/contracts";
 import type { CreateLayerInput } from "../api-types";
 import { localRepository } from "../local-repositories";
+import { ensureDemoWorkspace } from "../local-repositories/demo-workspace";
 import { queryKeys } from "../query-keys";
 
 interface ListLayersOptions {
@@ -15,6 +16,7 @@ interface ListLayersOptions {
 }
 
 async function listLocalLayers(projectId: string): Promise<Layer[]> {
+  await ensureDemoWorkspace();
   const entities = await localRepository.listEntities("layer");
   return entities
     .map((entity) =>

@@ -4,8 +4,8 @@ import { secureHeaders } from "hono/secure-headers";
 
 import { loadEnv } from "./env.js";
 import type { Env } from "./env.js";
-import { createCorsMiddleware } from "./middleware/cors.js";
 import { capabilityMiddleware } from "./middleware/capability.js";
+import { createCorsMiddleware } from "./middleware/cors.js";
 import {
   createErrorHandler,
   notFoundHandler,

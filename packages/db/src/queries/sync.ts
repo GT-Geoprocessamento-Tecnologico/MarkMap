@@ -227,7 +227,8 @@ const materializeAcceptedOperation = async (
         ) AS g
       ) AS probe
     `);
-    const probe = probeRows[0] as { empty?: boolean; valid?: boolean } | undefined;
+    const probe = probeRows[0] as
+      { empty?: boolean; valid?: boolean } | undefined;
     if (!probe || probe.empty === true || probe.valid !== true)
       throw new Error("feature materialization geometry is invalid");
 

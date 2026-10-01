@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { readdir, readFile, writeFile } from 'node:fs/promises';
 import { join, relative, sep } from 'node:path';
 
-const HASHED_FILE = /(?:[-.])[a-z0-9]{8,}\.(?:js|mjs|css|woff2?|ttf|otf|png|jpg|jpeg|webp|svg)$/i;
+const HASHED_FILE = /(?:[-.])[a-z0-9_-]{8,}\.(?:js|mjs|css|woff2?|ttf|otf|png|jpg|jpeg|webp|svg)$/i;
 const ALWAYS_SHELL = new Set(['index.html', 'manifest.json', 'icons/icon-192x192.png', 'icons/icon-512x512.png']);
 const EXCLUDED_PREFIXES = ['map/', 'maps/', 'api/'];
 

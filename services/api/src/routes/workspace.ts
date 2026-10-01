@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
+
 import {
   capabilityProvisionRequestSchema,
   capabilityProvisionResponseSchema,
@@ -29,10 +30,7 @@ export const workspaceRoutes = (app: Hono<any, any, any>) => {
         capabilityHash: digest(nextBearer),
       });
     } catch (error) {
-      if (
-        error instanceof Error &&
-        error.message.includes("workspace binding")
-      )
+      if (error instanceof Error && error.message.includes("workspace binding"))
         throw new AppError("Workspace could not be provisioned", {
           status: 409,
           code: ErrorCode.VALIDATION_ERROR,
