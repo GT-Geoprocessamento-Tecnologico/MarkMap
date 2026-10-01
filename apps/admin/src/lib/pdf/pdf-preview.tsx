@@ -41,7 +41,7 @@ type PageGeometry = {
 };
 
 type ViewportConverter = {
-  convertToPdfPoint(x: number, y: number): [number, number];
+  convertToPdfPoint(x: number, y: number): number[];
 };
 
 const readBytes = async (blob: Blob): Promise<Uint8Array> =>
@@ -230,7 +230,6 @@ export function PdfPreview({ record }: { record: OriginalRecord }) {
           disableAutoFetch: true,
           disableStream: true,
           disableRange: true,
-          isEvalSupported: false,
           useSystemFonts: false,
           verbosity: 0,
         });
@@ -351,7 +350,7 @@ export function PdfPreview({ record }: { record: OriginalRecord }) {
       ),
     );
 
-  const useCurrentLocation = (index: number) => {
+  const fillCurrentLocation = (index: number) => {
     if (!navigator.geolocation) {
       toast({
         title: "GPS indisponível",
@@ -527,7 +526,7 @@ export function PdfPreview({ record }: { record: OriginalRecord }) {
                   </div>
                   <button
                     type="button"
-                    onClick={() => useCurrentLocation(index)}
+                    onClick={() => fillCurrentLocation(index)}
                     className="mt-2 min-h-[44px] rounded-lg border border-outline-variant px-3 text-sm"
                   >
                     Usar minha localização neste ponto
