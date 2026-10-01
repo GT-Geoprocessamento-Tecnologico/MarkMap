@@ -85,7 +85,7 @@ export default function ProjectsPage() {
             camadas geoespaciais.
           </p>
           <p className="mt-2 text-xs text-cyan-500">
-            Os projetos são salvos neste dispositivo. A sincronização com servidor ainda não está ativa.
+            Os projetos são salvos neste dispositivo e sincronizados quando houver conexão.
           </p>
         </div>
 
