@@ -67,12 +67,12 @@ describe("local-first repository", () => {
     const repo = new LocalRepository(db);
     const first = await repo.mutate({ entity: "project", entityId: id, payload: project(id, "Um"), operation: "upsert", baseVersion: null });
     const second = await repo.mutate({ entity: "project", entityId: id, payload: project(id, "Dois"), operation: "upsert", baseVersion: 0, predecessorOperationId: first.operationId });
-    expect(await repo.acknowledge(first.operationId, 1, "1")).toBe(false);
+    expect(await repo.acknowledge(first.operationId, 1, "1")).toBe(true);
     expect(await repo.acknowledge(second.operationId, 2, "2")).toBe(true);
     expect(await repo.acknowledge(second.operationId, 2, "2")).toBe(true);
     expect(await repo.acknowledge(second.operationId, 1, "1")).toBe(false);
     expect(await repo.acknowledge(second.operationId, 3, "1")).toBe(false);
-    expect((await repo.listOutbox()).map((entry) => entry.operationId)).toEqual([first.operationId]);
+    expect(await repo.listOutbox()).toEqual([]);
     expect((await repo.getEntity(await repo.workspaceId(), "project", id))?.version).toBe(2);
   });
 
