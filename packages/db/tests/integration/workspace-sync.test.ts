@@ -22,6 +22,14 @@ const url = process.env.TEST_DATABASE_URL ?? "";
 const enabled = (() => {
   try {
     const parsed = new URL(url);
+    if (
+      process.env.GEONEXO_CI_INTEGRATION === "true" &&
+      parsed.hostname === "127.0.0.1" &&
+      parsed.port === "5432" &&
+      parsed.pathname === "/geonexo_localfirst_test" &&
+      parsed.username === "geonexo_test"
+    )
+      return true;
     const container = JSON.parse(
       execFileSync("docker", ["inspect", "geonexo-localfirst-test-20260929"], {
         encoding: "utf8",
@@ -180,6 +188,143 @@ run("workspace scoped sync persistence", () => {
       status: "conflict",
       conflict: { reason: "VERSION_CONFLICT", serverVersion: 1 },
     });
+  });
+
+  it("materializes project, layer and feature into PostGIS and exposes them to pull", async () => {
+    const timestamp = "2026-09-30T12:00:00.000Z";
+    const layerId = "99999999-9999-4999-8999-999999999991";
+    const featureId = "99999999-9999-4999-8999-999999999992";
+
+    expect(
+      await applyPushOperation(
+        db,
+        {
+          operationId: "99999999-9999-4999-8999-999999999901",
+          workspaceId,
+          entity: "project",
+          entityId: projectId,
+          operation: "upsert",
+          baseVersion: null,
+          createdAt: timestamp,
+          payload: {
+            entity: "project",
+            data: {
+              id: projectId,
+              name: "Projeto sincronizado",
+              description: "offline-first",
+              status: "active",
+              createdAt: timestamp,
+              updatedAt: timestamp,
+            },
+          },
+        },
+        workspaceId,
+      ),
+    ).toMatchObject({ status: "accepted", version: 1 });
+
+    expect(
+      await applyPushOperation(
+        db,
+        {
+          operationId: "99999999-9999-4999-8999-999999999902",
+          workspaceId,
+          entity: "layer",
+          entityId: layerId,
+          operation: "upsert",
+          baseVersion: null,
+          createdAt: timestamp,
+          payload: {
+            entity: "layer",
+            data: {
+              id: layerId,
+              projectId,
+              name: "Pontos de campo",
+              description: null,
+              kind: "point",
+              geometryType: "Point",
+              srid: 4674,
+              style: {},
+              metadata: {},
+              visibleByDefault: true,
+              sortOrder: 0,
+              createdAt: timestamp,
+              updatedAt: timestamp,
+            },
+          },
+        },
+        workspaceId,
+      ),
+    ).toMatchObject({ status: "accepted", version: 1 });
+
+    const featureOperation = {
+      operationId: "99999999-9999-4999-8999-999999999903",
+      workspaceId,
+      entity: "feature" as const,
+      entityId: featureId,
+      operation: "upsert" as const,
+      baseVersion: null,
+      createdAt: timestamp,
+      payload: {
+        entity: "feature" as const,
+        data: {
+          id: featureId,
+          layerId,
+          geometry: {
+            type: "Point" as const,
+            coordinates: [-48.2084, -7.2096] as [number, number],
+          },
+          properties: { origem: "offline" },
+          version: 1,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        },
+      },
+    };
+
+    expect(
+      await applyPushOperation(db, featureOperation, workspaceId),
+    ).toMatchObject({ status: "accepted", version: 1 });
+
+    const rows = await db.execute(sql`
+      SELECT
+        p.name AS project_name,
+        l.name AS layer_name,
+        f.version,
+        ST_SRID(f.geometry) AS srid,
+        ST_X(ST_Transform(f.geometry, 4326)) AS lng,
+        ST_Y(ST_Transform(f.geometry, 4326)) AS lat,
+        f.properties
+      FROM features f
+      JOIN layers l ON l.id = f.layer_id AND l.workspace_id = f.workspace_id
+      JOIN projects p ON p.id = l.project_id AND p.workspace_id = l.workspace_id
+      WHERE f.id = ${featureId}::uuid AND f.workspace_id = ${workspaceId}::uuid
+    `);
+    expect(rows[0]).toMatchObject({
+      project_name: "Projeto sincronizado",
+      layer_name: "Pontos de campo",
+      version: 1,
+      srid: 4674,
+      properties: { origem: "offline" },
+    });
+    expect(Number((rows[0] as { lng: number }).lng)).toBeCloseTo(-48.2084, 5);
+    expect(Number((rows[0] as { lat: number }).lat)).toBeCloseTo(-7.2096, 5);
+
+    const secondDevice = await pullChanges(
+      db,
+      { workspaceId, afterSequence: "0", limit: 10 },
+      workspaceId,
+    );
+    expect(secondDevice.changes).toHaveLength(3);
+    const pulledFeature = secondDevice.changes.find(
+      (change) => change.entity === "feature",
+    );
+    expect(pulledFeature).toMatchObject({
+      entity: "feature",
+      entityId: featureId,
+      version: 1,
+    });
+    if (pulledFeature?.operation === "upsert")
+      expect(pulledFeature.payload).toEqual(featureOperation.payload);
   });
 
   it("pulls committed sequences and retains the cursor on empty pages", async () => {
