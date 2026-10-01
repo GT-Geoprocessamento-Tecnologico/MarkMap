@@ -378,6 +378,134 @@ export class LocalRepository {
     );
   }
 
+  async resolveConflict(
+    operationId: string,
+    resolution: "keep-local" | "use-server",
+  ): Promise<void> {
+    const workspaceId = await this.workspaceId();
+    const createdAt = now();
+    await this.db.transact(
+      ["meta", "entities", "outbox", "conflicts"],
+      "readwrite",
+      async (tx) => {
+        const conflictsStore = tx.store("conflicts");
+        const conflict = await read<ConflictRecord | undefined>(
+          conflictsStore.get(`${workspaceId}:${operationId}`),
+        );
+        if (!conflict)
+          throw new Error("O conflito já foi resolvido ou não existe.");
+
+        const entityStore = tx.store("entities");
+        const entityRecord = await read<EntityRecord | undefined>(
+          entityStore.get(
+            entityKey(workspaceId, conflict.entity, conflict.entityId),
+          ),
+        );
+        const outboxStore = tx.store("outbox");
+        const entityOutbox = await read<OutboxRecord[]>(
+          outboxStore
+            .index("entity")
+            .getAll([workspaceId, conflict.entity, conflict.entityId]),
+        );
+        for (const pending of entityOutbox)
+          outboxStore.delete(pending.operationId);
+
+        const allConflicts = await read<ConflictRecord[]>(
+          conflictsStore.index("workspace").getAll(workspaceId),
+        );
+        for (const current of allConflicts) {
+          if (
+            current.entity === conflict.entity &&
+            current.entityId === conflict.entityId
+          )
+            conflictsStore.delete(current.key);
+        }
+
+        const key = entityKey(
+          workspaceId,
+          conflict.entity,
+          conflict.entityId,
+        );
+
+        if (resolution === "use-server") {
+          if (conflict.serverPayload) {
+            entityStore.put({
+              key,
+              workspaceId,
+              entity: conflict.entity,
+              entityId: conflict.entityId,
+              version: conflict.serverVersion,
+              deleted: false,
+              payload: featurePayloadAtVersion(
+                conflict.serverPayload,
+                conflict.serverVersion,
+              ),
+              updatedAt: createdAt,
+            } satisfies EntityRecord);
+          } else {
+            entityStore.put({
+              key,
+              workspaceId,
+              entity: conflict.entity,
+              entityId: conflict.entityId,
+              version: conflict.serverVersion,
+              deleted: true,
+              updatedAt: createdAt,
+            } satisfies EntityRecord);
+          }
+          return;
+        }
+
+        if (!entityRecord)
+          throw new Error(
+            "A versão local não está mais disponível neste dispositivo.",
+          );
+        const nextOperationId = crypto.randomUUID();
+        const nextOperation = syncOperationSchema.parse({
+          operationId: nextOperationId,
+          workspaceId,
+          entity: conflict.entity,
+          entityId: conflict.entityId,
+          operation: entityRecord.deleted ? "delete" : "upsert",
+          baseVersion: conflict.serverVersion,
+          createdAt,
+          ...(!entityRecord.deleted && entityRecord.payload
+            ? { payload: entityRecord.payload }
+            : {}),
+        });
+        const sequenceMeta = await read<
+          { key: string; value: number } | undefined
+        >(tx.store("meta").get("outboxSequence"));
+        const localSequence = (sequenceMeta?.value ?? 0) + 1;
+        tx.store("meta").put({
+          key: "outboxSequence",
+          value: localSequence,
+        });
+        outboxStore.add({
+          ...nextOperation,
+          key: nextOperationId,
+          immutable: true,
+          localSequence,
+        } satisfies OutboxRecord);
+        entityStore.put({
+          ...entityRecord,
+          version: conflict.serverVersion,
+          payload: featurePayloadAtVersion(
+            entityRecord.payload,
+            conflict.serverVersion,
+          ),
+          updatedAt: createdAt,
+          predecessorOperationId: nextOperationId,
+        });
+      },
+    );
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("geonexo-local-mutation"));
+      window.dispatchEvent(new Event("geonexo-conflict-resolved"));
+    }
+  }
+
   async saveOriginal(
     input: Omit<OriginalRecord, "key" | "workspaceId" | "createdAt">,
   ): Promise<void> {
