@@ -1,0 +1,70 @@
+name: Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "apps/admin/**"
+      - "packages/**"
+      - ".github/workflows/android-apk.yml"
+      - "pnpm-lock.yaml"
+      - "package.json"
+
+concurrency:
+  group: android-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android:
+    name: Build Android debug APK
+    runs-on: ubuntu-latest
+    env:
+      TURBO_TELEMETRY_DISABLED: 1
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Install web dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build GeoNexo web app
+        run: pnpm turbo run build --filter=admin...
+
+      - name: Install Capacitor 8.5.2 for packaging
+        run: >-
+          pnpm --dir apps/admin add --save-dev --lockfile=false
+          @capacitor/cli@8.5.2
+          @capacitor/core@8.5.2
+          @capacitor/android@8.5.2
+
+      - name: Generate Android project
+        working-directory: apps/admin
+        run: |
+          rm -rf android
+          pnpm exec cap add android
+          pnpm exec cap sync android
+
+      - name: Build debug APK
+        working-directory: apps/admin/android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Upload GeoNexo APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: geonexo-android-debug
+          path: apps/admin/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
