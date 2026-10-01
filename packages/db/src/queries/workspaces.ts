@@ -60,8 +60,14 @@ export async function provisionWorkspace(
     WHERE workspaces.id = EXCLUDED.id AND workspaces.revoked = false
     RETURNING id, generation
   `);
-  const row = rows[0] as { id?: string; generation?: bigint | string | number } | undefined;
-  if (!row?.id || row.generation === undefined)
+  const row = rows[0] as
+    | { id?: string; generation?: bigint | string | number }
+    | undefined;
+  if (
+    typeof row?.id !== "string" ||
+    row.id.length === 0 ||
+    row.generation === undefined
+  )
     throw new Error("workspace binding already exists or is revoked");
   return { workspaceId: row.id, generation: String(row.generation) };
 }
@@ -78,8 +84,15 @@ export async function recoverWorkspaceCapability(
     WHERE proof_digest = ${input.proofDigest} AND revoked = false
     RETURNING id, generation
   `);
-  const row = rows[0] as { id?: string; generation?: bigint | string | number } | undefined;
-  if (!row?.id || row.generation === undefined) return null;
+  const row = rows[0] as
+    | { id?: string; generation?: bigint | string | number }
+    | undefined;
+  if (
+    typeof row?.id !== "string" ||
+    row.id.length === 0 ||
+    row.generation === undefined
+  )
+    return null;
   return { workspaceId: row.id, generation: String(row.generation) };
 }
 
