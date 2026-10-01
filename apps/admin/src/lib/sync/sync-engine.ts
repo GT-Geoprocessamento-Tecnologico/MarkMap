@@ -112,6 +112,9 @@ const saveCapability = async (
   candidate: unknown,
 ): Promise<WorkspaceCapability> => {
   const capability = capabilityProvisionResponseSchema.parse(candidate);
+  const localWorkspaceId = await localRepository.workspaceId();
+  if (capability.workspaceId !== localWorkspaceId)
+    throw new Error("Workspace capability does not match this device.");
   const current =
     await localRepository.getMeta<WorkspaceCapability>(META_CAPABILITY);
   if (
