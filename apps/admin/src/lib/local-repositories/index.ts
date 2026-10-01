@@ -196,10 +196,6 @@ export class LocalRepository {
       ["outbox", "entities", "acks"],
       "readwrite",
       async (tx) => {
-        const outbox = await read<OutboxRecord | undefined>(
-          tx.store("outbox").get(operationId),
-        );
-        if (!outbox || outbox.workspaceId !== workspaceId) return false;
         const previousAck = await read<
           { version: number; sequence: string } | undefined
         >(tx.store("acks").get(operationId));
@@ -215,6 +211,11 @@ export class LocalRepository {
           sequence === previousAck.sequence
         )
           return true;
+
+        const outbox = await read<OutboxRecord | undefined>(
+          tx.store("outbox").get(operationId),
+        );
+        if (!outbox || outbox.workspaceId !== workspaceId) return false;
         const entity = await read<EntityRecord | undefined>(
           tx
             .store("entities")
@@ -525,7 +526,10 @@ export class LocalRepository {
       typeof input.blob.arrayBuffer === "function"
         ? await input.blob.arrayBuffer()
         : await new Response(input.blob).arrayBuffer();
-    const digest = await crypto.subtle.digest("SHA-256", bytes);
+    const digest = await crypto.subtle.digest(
+      "SHA-256",
+      new Uint8Array(bytes),
+    );
     const actualHash = [...new Uint8Array(digest)]
       .map((byte) => byte.toString(16).padStart(2, "0"))
       .join("");
