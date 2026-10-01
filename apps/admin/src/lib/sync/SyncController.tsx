@@ -12,7 +12,6 @@ export function SyncController() {
   useEffect(() => {
     if (typeof indexedDB === "undefined") return undefined;
     let disposed = false;
-    let periodic: ReturnType<typeof setInterval> | undefined;
     let debounce: ReturnType<typeof setTimeout> | undefined;
 
     const run = async () => {
@@ -44,7 +43,7 @@ export function SyncController() {
     window.addEventListener("online", onOnline);
     window.addEventListener("geonexo-local-mutation", onLocalMutation);
     document.addEventListener("visibilitychange", onVisibility);
-    periodic = setInterval(() => void run(), PERIODIC_SYNC_MS);
+    const periodic = setInterval(() => void run(), PERIODIC_SYNC_MS);
     void run();
 
     return () => {
