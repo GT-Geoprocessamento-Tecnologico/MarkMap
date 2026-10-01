@@ -43,7 +43,7 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN
   ALTER TABLE "imports" ADD CONSTRAINT "imports_workspace_fk" FOREIGN KEY ("workspace_id") REFERENCES "workspaces"("id") ON DELETE CASCADE;
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-CREATE INDEX IF NOT EXISTS "projects_workspace_idx" ON "projects" ("workspace_id");
+CREATE INDEX IF NOT EXISTS "workspaces_capability_hash_idx" ON "workspaces" ("capability_hash");\nCREATE INDEX IF NOT EXISTS "projects_workspace_idx" ON "projects" ("workspace_id");
 CREATE INDEX IF NOT EXISTS "maps_workspace_idx" ON "maps" ("workspace_id");
 CREATE INDEX IF NOT EXISTS "layers_workspace_idx" ON "layers" ("workspace_id");
 CREATE INDEX IF NOT EXISTS "features_workspace_idx" ON "features" ("workspace_id");
@@ -83,7 +83,7 @@ CREATE TABLE IF NOT EXISTS "sync_entities" (
   "updated_at" timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY ("workspace_id", "entity", "entity_id")
 );
-CREATE TABLE IF NOT EXISTS "sync_operations" (
+CREATE INDEX IF NOT EXISTS "sync_entities_scope_idx" ON "sync_entities" ("workspace_id", "entity");\nCREATE UNIQUE INDEX IF NOT EXISTS "sync_entities_pk" ON "sync_entities" ("workspace_id", "entity", "entity_id");\nCREATE TABLE IF NOT EXISTS "sync_operations" (
   "workspace_id" uuid NOT NULL REFERENCES "workspaces"("id") ON DELETE CASCADE,
   "operation_id" uuid NOT NULL,
   "entity" varchar(16) NOT NULL,
@@ -95,7 +95,7 @@ CREATE TABLE IF NOT EXISTS "sync_operations" (
   "created_at" timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY ("workspace_id", "operation_id")
 );
-CREATE INDEX IF NOT EXISTS "sync_operations_workspace_sequence_idx" ON "sync_operations" ("workspace_id", "sequence");
+CREATE UNIQUE INDEX IF NOT EXISTS "sync_operations_workspace_operation_idx" ON "sync_operations" ("workspace_id", "operation_id");\nCREATE INDEX IF NOT EXISTS "sync_operations_workspace_sequence_idx" ON "sync_operations" ("workspace_id", "sequence");
 CREATE TABLE IF NOT EXISTS "sync_tombstones" (
   "workspace_id" uuid NOT NULL REFERENCES "workspaces"("id") ON DELETE CASCADE,
   "entity" varchar(16) NOT NULL,
@@ -105,7 +105,7 @@ CREATE TABLE IF NOT EXISTS "sync_tombstones" (
   "deleted_at" timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY ("workspace_id", "entity", "entity_id")
 );
-CREATE INDEX IF NOT EXISTS "sync_tombstones_workspace_sequence_idx" ON "sync_tombstones" ("workspace_id", "sequence");
+CREATE UNIQUE INDEX IF NOT EXISTS "sync_tombstones_key_idx" ON "sync_tombstones" ("workspace_id", "entity", "entity_id");\nCREATE INDEX IF NOT EXISTS "sync_tombstones_workspace_sequence_idx" ON "sync_tombstones" ("workspace_id", "sequence");
 CREATE TABLE IF NOT EXISTS "upload_sessions" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   "workspace_id" uuid NOT NULL REFERENCES "workspaces"("id") ON DELETE CASCADE,
