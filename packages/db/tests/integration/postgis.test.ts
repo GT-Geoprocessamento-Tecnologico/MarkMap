@@ -45,6 +45,14 @@ const testUrl = process.env.TEST_DATABASE_URL ?? "";
 const isTestUrl = (value: string): boolean => {
   try {
     const parsed = new URL(value);
+    if (
+      process.env.GEONEXO_CI_INTEGRATION === "true" &&
+      parsed.hostname === "127.0.0.1" &&
+      parsed.port === "5432" &&
+      parsed.pathname === "/geonexo_localfirst_test" &&
+      parsed.username === "geonexo_test"
+    )
+      return true;
     const container = JSON.parse(
       execFileSync("docker", ["inspect", "geonexo-localfirst-test-20260929"], {
         encoding: "utf8",
