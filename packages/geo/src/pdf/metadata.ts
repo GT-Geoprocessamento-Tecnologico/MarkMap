@@ -1,6 +1,6 @@
 import { PDFArray, PDFDict, PDFDocument, PDFHexString, PDFName, PDFNumber, PDFObject, PDFString } from 'pdf-lib';
 import { PdfError } from './errors.js';
-import { resolveIsoCrs, resolveOgcCrs, type PdfCrs } from './crs-registry.js';
+import { reconcileIsoCrs, resolveIsoCrs, resolveOgcCrs, type PdfCrs } from './crs-registry.js';
 import type { Bounds, PdfInspection, PdfLimits, PdfPageMetadata, PdfViewportMetadata, PagePoint } from './types.js';
 
 const defaults: Required<PdfLimits> = { maxBytes: 25 * 1024 * 1024, maxPages: 100, maxViewports: 64, maxControlValues: 8192, maxCoordinateMagnitude: 1_100_000_000 };
@@ -54,8 +54,9 @@ function parseIso(viewport: PDFDict, context: Context, limits: Required<PdfLimit
   const rawGround = pairs(gptValues, '/GPTS');
   if (normalized.some(([x, y]) => x < -1e-5 || x > 1 + 1e-5 || y < -1e-5 || y > 1 + 1e-5)) throw new PdfError('invalid-control-points', 'LPTS is outside the unit square');
   const controls = normalized.map(([x, y]) => [bbox[0] + x * (bbox[2] - bbox[0]), bbox[1] + y * (bbox[3] - bbox[1])] as PagePoint);
-  const ground = rawGround.map((point) => { const converted = crs.fromPdf(point); if (crs.nativeBounds && (converted[0] < crs.nativeBounds[0] || converted[0] > crs.nativeBounds[2] || converted[1] < crs.nativeBounds[1] || converted[1] > crs.nativeBounds[3])) throw new PdfError('invalid-control-points', 'GPTS is outside the CRS area of use'); return converted; });
-  return { name: text(viewport.get(key('Name')), context) ?? null, bbox, profile: 'iso-measure-geo', sourceCrs: crs.id, axisOrder: crs.axisOrder, controls, ground, neatline: controls };
+  const effectiveCrs = reconcileIsoCrs(crs, rawGround);
+  const ground = rawGround.map((point) => { const converted = effectiveCrs.fromPdf(point); if (effectiveCrs.nativeBounds && (converted[0] < effectiveCrs.nativeBounds[0] || converted[0] > effectiveCrs.nativeBounds[2] || converted[1] < effectiveCrs.nativeBounds[1] || converted[1] > effectiveCrs.nativeBounds[3])) throw new PdfError('invalid-control-points', 'GPTS is outside the CRS area of use'); return converted; });
+  return { name: text(viewport.get(key('Name')), context) ?? null, bbox, profile: 'iso-measure-geo', sourceCrs: effectiveCrs.id, axisOrder: effectiveCrs.axisOrder, controls, ground, neatline: controls };
 }
 function parseLgi(lgi: PDFDict, context: Context, limits: Required<PdfLimits>): PdfViewportMetadata {
   if (lgi.has(key('Display')) || lgi.has(key('LGIT:Info'))) throw new PdfError('unsupported-profile', 'LGIDict Display/LGIT:Info variants are unsupported');

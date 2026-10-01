@@ -39,8 +39,12 @@ describe('GEO P1 bounded parser and native CRS transform', () => {
   });
 
   it('rejects unsupported projected CRS and oversized native UTM extents', async () => {
-    await expect(inspectPdf(generateGeoPdfFixture({ includeLgiDict: false, unknownCrs: true }))).rejects.toMatchObject({ code: 'unsupported-crs' });
-    await expect(inspectPdf(generateGeoPdfFixture({ includeLgiDict: false, unsupportedEpsg: 3857 }))).rejects.toMatchObject({ code: 'unsupported-crs' });
+  await expect(inspectPdf(generateGeoPdfFixture({ includeLgiDict: false, unknownCrs: true }))).rejects.toMatchObject({ code: 'unsupported-crs' });
+  // EPSG:3857 saiu da lista de rejeitados: GeoPDFs oficiais brasileiros o
+  // declaram e gravam /GPTS em graus (ver real-geopdf.test.ts). Um CRS
+  // projetado realmente fora da allowlist continua sendo recusado — aqui o
+  // SIRGAS 2000 / UTM 11S (EPSG:31978), comum no Brasil e ainda sem suporte.
+  await expect(inspectPdf(generateGeoPdfFixture({ includeLgiDict: false, unsupportedEpsg: 31978 }))).rejects.toMatchObject({ code: 'unsupported-crs' });
     const crs = resolveCrsId('EPSG:32620');
     expect(() => createGeoReference({ profile: 'iso-measure-geo', sourceCrs: crs.id, pageIndex: 0, cropBox: [0, 0, 200, 200], rotation: 0, neatline: [[0, 0], [200, 0], [200, 200], [0, 200]], controls: [{ page: [0, 0], ground: [500000, 4900000] }, { page: [100, 0], ground: [500200, 4900000] }, { page: [0, 100], ground: [500000, 4900100] }] }, crs)).toThrowError(PdfError);
   });

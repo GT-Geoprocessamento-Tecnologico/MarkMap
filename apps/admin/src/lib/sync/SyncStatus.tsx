@@ -17,16 +17,29 @@ const initialState = (): SyncResult => ({
 });
 
 const label = (status: SyncResult): string => {
-  if (status.state === "offline") return "Offline — salvo neste aparelho";
-  if (status.state === "disabled") return "Somente neste aparelho";
-  if (status.state === "syncing") return "Sincronizando…";
   if (status.state === "error") return "Não foi possível sincronizar";
   if (status.conflicts > 0)
     return `${status.conflicts} conflito${status.conflicts === 1 ? "" : "s"} para revisar`;
   if (status.pending > 0)
-    return `${status.pending} alteração${status.pending === 1 ? "" : "ões"} pendente${status.pending === 1 ? "" : "s"}`;
-  if (status.state === "synced") return "Sincronizado";
-  return "Dados salvos neste aparelho";
+    return `${status.pending} ${status.pending === 1 ? "alteração pendente" : "alterações pendentes"}`;
+  return "Sincronizando…";
+};
+
+/**
+ * O pill só aparece quando há algo que exige ação do usuário.
+ *
+ * O campo é local-first: informar "offline", "somente neste aparelho" ou
+ * "sincronizado" só polui a tela, porque salvar localmente já é o caminho
+ * normal e esperado. Conflitos, falhas e pendências continuam visíveis porque
+ * exigem decisão ou nova tentativa.
+ *
+ * Sem `API_MODE === "live"` não existe servidor para sincronizar: qualquer
+ * pendência da outbox ficaria na tela para sempre, já que nada a consome. Nesse
+ * modo o aplicativo é apenas local, e o pill inteiro fica oculto.
+ */
+const needsAttention = (status: SyncResult, conflicts: number): boolean => {
+  if (API_MODE !== "live") return false;
+  return conflicts > 0 || status.state === "error" || status.pending > 0;
 };
 
 const entityName = (conflict: SyncConflict): string => {
@@ -81,10 +94,10 @@ export function SyncStatus() {
     if (!pill) return;
     let release: (() => void) | null = null;
     let frame = 0;
-    const sync = () => {
-      release?.();
-      release = reserveShellLane(pill);
-    };
+  const sync = () => {
+    release?.();
+    release = reserveShellLane(pill);
+  };
     const deadline = performance.now() + SHELL_WAIT_MS;
     const tick = () => {
       sync();
@@ -106,7 +119,7 @@ export function SyncStatus() {
       desktop?.removeEventListener("change", sync);
       release?.();
     };
-  }, []);
+  }, [status.state, status.pending, conflicts.length]);
 
   const refreshLocalState = async () => {
     const [outbox, localConflicts] = await Promise.all([
@@ -201,48 +214,50 @@ export function SyncStatus() {
 
   return (
     <>
-      <aside
-        ref={pillRef}
-        role="status"
-        aria-live="polite"
-        className="pointer-events-none fixed z-50 flex min-h-[44px] max-w-[calc(100vw-1.5rem)] items-center gap-2 rounded-full border border-outline-variant bg-surface-container/95 px-3 py-2 text-xs text-on-surface shadow-lg backdrop-blur"
-        style={{
-          bottom: "max(0.75rem, env(safe-area-inset-bottom))",
-          left: "max(0.75rem, env(safe-area-inset-left))",
-        }}
-      >
-        <span
-          aria-hidden="true"
-          className={`h-2 w-2 shrink-0 rounded-full ${
-            status.state === "offline" || status.state === "error"
-              ? "bg-amber-400"
-              : status.conflicts > 0
-                ? "bg-red-400"
-                : status.state === "syncing"
-                  ? "animate-pulse bg-cyan-400"
-                  : "bg-emerald-400"
-          }`}
-        />
-        <span className="truncate">{label(status)}</span>
-        {conflicts.length > 0 && (
-          <button
-            type="button"
-            className="pointer-events-auto min-h-[44px] min-w-[44px] rounded-full px-2 font-semibold text-red-400"
-            onClick={() => setShowConflicts(true)}
-          >
-            Resolver
-          </button>
-        )}
-        {retry && conflicts.length === 0 && (
-          <button
-            type="button"
-            className="pointer-events-auto min-h-[44px] min-w-[44px] rounded-full px-2 font-semibold text-cyan-400"
-            onClick={() => void syncNow().catch(() => undefined)}
-          >
-            Sincronizar
-          </button>
-        )}
-      </aside>
+      {needsAttention(status, conflicts.length) && (
+        <aside
+          ref={pillRef}
+          role="status"
+          aria-live="polite"
+          className="pointer-events-none fixed z-50 flex min-h-[44px] max-w-[calc(100vw-1.5rem)] items-center gap-2 rounded-full border border-outline-variant bg-surface-container/95 px-3 py-2 text-xs text-on-surface shadow-lg backdrop-blur"
+          style={{
+            bottom: "max(0.75rem, env(safe-area-inset-bottom))",
+            left: "max(0.75rem, env(safe-area-inset-left))",
+          }}
+        >
+          <span
+            aria-hidden="true"
+            className={`h-2 w-2 shrink-0 rounded-full ${
+              status.state === "offline" || status.state === "error"
+                ? "bg-amber-400"
+                : status.conflicts > 0
+                  ? "bg-red-400"
+                  : status.state === "syncing"
+                    ? "animate-pulse bg-cyan-400"
+                    : "bg-emerald-400"
+            }`}
+          />
+          <span className="truncate">{label(status)}</span>
+          {conflicts.length > 0 && (
+            <button
+              type="button"
+              className="pointer-events-auto min-h-[44px] min-w-[44px] rounded-full px-2 font-semibold text-red-400"
+              onClick={() => setShowConflicts(true)}
+            >
+              Resolver
+            </button>
+          )}
+          {retry && conflicts.length === 0 && (
+            <button
+              type="button"
+              className="pointer-events-auto min-h-[44px] min-w-[44px] rounded-full px-2 font-semibold text-cyan-400"
+              onClick={() => void syncNow().catch(() => undefined)}
+            >
+              Sincronizar
+            </button>
+          )}
+        </aside>
+      )}
 
       {showConflicts && (
         <section

@@ -431,23 +431,6 @@ export function TopNavBar() {
               </span>
             </button>
 
-            {/* Preferências — navega para /settings */}
-            <button
-              className="hidden sm:block p-2 rounded-lg text-on-surface-variant hover:text-cyan-300 hover:bg-on-surface/5 transition-colors"
-              onClick={() => navigate({ to: "/settings" })}
-              title="Preferências do Ambiente"
-            >
-              <span
-                className="material-symbols-outlined"
-                style={{ fontSize: "20px" }}
-              >
-                tune
-              </span>
-            </button>
-
-            {/* Separador */}
-            <div className="hidden sm:block h-5 w-px bg-on-surface/10 mx-1" />
-
             {/* Botão Novo Projeto */}
             <button
               onClick={() => setShowNewProject(true)}
@@ -460,18 +443,6 @@ export function TopNavBar() {
                 add
               </span>
               Novo Projeto
-            </button>
-
-            {/* Perfil — navega para /settings */}
-            <button
-              onClick={() => navigate({ to: "/settings" })}
-              className="w-8 h-8 rounded-full border border-cyan-500/40 bg-gradient-to-br from-cyan-900/60 to-emerald-900/40 flex items-center justify-center text-cyan-300 font-bold text-xs hover:border-cyan-400 hover:brightness-110 transition-all active:scale-95"
-              aria-label="Configurações do dispositivo"
-              title="Configurações do dispositivo"
-            >
-              <span className="material-symbols-outlined" aria-hidden="true">
-                settings
-              </span>
             </button>
           </div>
         </div>

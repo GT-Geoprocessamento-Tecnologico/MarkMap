@@ -59,9 +59,12 @@ test("PWA mantém projeto editável após cold reload totalmente offline", async
     page.getByRole("heading", { name: "Projetos Cartográficos" }),
   ).toBeVisible();
   await expect(page.getByText("Projeto Offline E2E", { exact: true })).toBeVisible();
-  await expect(
-    page.getByRole("status").filter({ hasText: /Offline|salvo neste aparelho/i }),
-  ).toBeVisible();
+  // O aplicativo é local-first: ficar offline é o caminho normal, então a
+  // interface não anuncia "offline" nem "salvo neste aparelho". O que não pode
+  // aparecer é um aviso de erro ou de sincronização pendente, porque o projeto
+  // acabou de ser criado e nada foi perdido.
+  await expect(page.getByRole("status")).toHaveCount(0);
+  await expect(page.getByText(/Erro|Falha|não foi possível/i)).toHaveCount(0);
 
   await page
     .getByRole("article")
@@ -454,7 +457,7 @@ for (const [width, height] of [
       ["/settings", "Configurações do Aplicativo & Dispositivo"],
       ["/analytics", "Análises e Métricas"],
       ["/coordinate-systems", "Sistemas de Coordenadas"],
-      ["/telemetry", "Telemetria do dispositivo"],
+      ["/telemetry", "Telemetria indisponível"],
     ]) {
       await page.goto(path);
       await expect(

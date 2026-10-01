@@ -1,4 +1,10 @@
 import { featurePropertiesSchema, geometrySchema } from "@geonexo/contracts";
+import {
+  EPSG_WGS84,
+  isReprojectableEpsg,
+  parseGeoJsonCrsEpsg,
+  transformPosition,
+} from "@geonexo/geo";
 import { offlineDB } from "../storage/offline-db";
 
 export const MAX_DATASET_BYTES = 25 * 1024 * 1024;
@@ -26,12 +32,51 @@ export interface DatasetRecord {
   featuresCount: number;
   uploadedAt: string;
   crs: string;
+  sourceCrs: string;
   originalBlob: Blob;
   geojson: DatasetGeoJSON;
   deleted?: boolean;
 }
 
 const datasetId = () => crypto.randomUUID();
+
+/**
+ * Reprojects every position of a GeoJSON geometry into WGS 84.
+ *
+ * GeoJSON is specified in WGS 84, and the map renders in WGS 84, so a file
+ * delivered in a projected CRS has to be converted on import rather than
+ * rejected: a SIRGAS 2000 / UTM file is exactly what a Brazilian surveyor
+ * receives, and refusing it made the coordinate system decorative.
+ *
+ * The walk is depth-bounded and shape-preserving; anything that is not a
+ * well-formed position is passed through untouched so validation downstream
+ * still reports the real problem.
+ */
+function reprojectGeometry(value: unknown, fromEpsg: number): unknown {
+  if (Array.isArray(value)) {
+    if (
+      value.length >= 2 &&
+      typeof value[0] === "number" &&
+      typeof value[1] === "number"
+    ) {
+      const moved = transformPosition(value, fromEpsg, EPSG_WGS84);
+      return moved ? [...moved, ...value.slice(2)] : value;
+    }
+    if (value.length > MAX_GEOMETRY_DEPTH * 4) {
+      throw new Error("Geometria profunda demais para reprojetar.");
+    }
+    return value.map((entry) => reprojectGeometry(entry, fromEpsg));
+  }
+  if (value && typeof value === "object") {
+    const source = value as Record<string, unknown>;
+    const next: Record<string, unknown> = {};
+    for (const [key, entry] of Object.entries(source)) {
+      next[key] = reprojectGeometry(entry, fromEpsg);
+    }
+    return next;
+  }
+  return value;
+}
 
 const isGeoJsonFile = (file: File) => /\.(geojson|json)$/i.test(file.name);
 
@@ -56,11 +101,11 @@ export async function parseGeoJSON(file: File): Promise<DatasetRecord> {
     throw new Error("O GeoJSON precisa ser uma FeatureCollection.");
   }
   const declaredCrs = (parsed as { crs?: unknown }).crs;
-  if (
-    declaredCrs !== undefined &&
-    !JSON.stringify(declaredCrs).includes("4326")
-  )
-    throw new Error("O arquivo declara um CRS diferente de EPSG:4326.");
+  const sourceEpsg = parseGeoJsonCrsEpsg(declaredCrs) ?? EPSG_WGS84;
+  if (sourceEpsg !== EPSG_WGS84 && !isReprojectableEpsg(sourceEpsg))
+    throw new Error(
+      `O arquivo declara EPSG:${sourceEpsg}, que o GeoNexo não sabe reprojetar para WGS 84.`,
+    );
   const features = (parsed as { features?: unknown }).features;
   if (!Array.isArray(features))
     throw new Error("A FeatureCollection não contém uma lista de feições.");
@@ -77,9 +122,14 @@ export async function parseGeoJSON(file: File): Promise<DatasetRecord> {
     ) {
       throw new Error(`Feição ${index + 1} não é um GeoJSON Feature válido.`);
     }
-    const geometry = geometrySchema.safeParse(
-      (feature as { geometry?: unknown }).geometry,
-    );
+    // Reprojeta antes de validar: um UTM tem coordenadas em metros, que só
+    // passam na validação de WGS 84 depois da conversão.
+    const sourceGeometry = (feature as { geometry?: unknown }).geometry;
+    const wgs84Geometry =
+      sourceEpsg === EPSG_WGS84
+        ? sourceGeometry
+        : reprojectGeometry(sourceGeometry, sourceEpsg);
+    const geometry = geometrySchema.safeParse(wgs84Geometry);
     if (!geometry.success)
       throw new Error(`Geometria inválida na feição ${index + 1}.`);
     let positions = 0;
@@ -98,8 +148,7 @@ export async function parseGeoJSON(file: File): Promise<DatasetRecord> {
         value.forEach((item) => measureGeometry(item, depth + 1));
     };
     measureGeometry(
-      (feature as { geometry?: { coordinates?: unknown } }).geometry
-        ?.coordinates,
+      (geometry.data as { coordinates?: unknown }).coordinates,
       0,
     );
     const properties = featurePropertiesSchema.safeParse(
@@ -129,7 +178,10 @@ export async function parseGeoJSON(file: File): Promise<DatasetRecord> {
     sizeBytes: file.size,
     featuresCount: validated.length,
     uploadedAt: new Date().toISOString(),
-    crs: "EPSG:4326",
+    // O mapa e o GeoJSON trafegam em WGS 84; `sourceCrs` guarda a origem para
+    // que a interface possa informar que houve reprojeção.
+    crs: `EPSG:${EPSG_WGS84}`,
+    sourceCrs: `EPSG:${sourceEpsg}`,
     originalBlob: file,
     geojson: { type: "FeatureCollection", features: validated },
   };

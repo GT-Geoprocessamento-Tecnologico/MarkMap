@@ -9,7 +9,6 @@ import ImportsPage from './pages/imports/ImportsPage';
 import SettingsPage from './pages/settings/SettingsPage';
 import AnalyticsPage from './pages/dashboard/AnalyticsPage';
 import CoordinateSystemsPage from './pages/dashboard/CoordinateSystemsPage';
-import TelemetryPage from './pages/dashboard/TelemetryPage';
 
 import { RootLayout } from './components/layout/RootLayout';
 
@@ -104,10 +103,36 @@ const coordinateSystemsRoute = createRoute({
   component: CoordinateSystemsPage,
 });
 
+/**
+ * Telemetria congelada.
+ *
+ * A página existia, mas só exibia informações do próprio aparelho (estado da
+ * rede, memória reportada, viewport e permissão de geolocalização) — nenhuma
+ * telemetria de verdade. Como salvar localmente já é o comportamento normal do
+ * GeoNexo, essa tela só poluía a navegação, então saiu do menu lateral.
+ *
+ * A rota continua registrada para que links antigos cheguem a uma explicação em
+ * vez de um 404. `TelemetryPage` foi preservada para quando houver coleta real.
+ */
+function TelemetryFrozen() {
+  return (
+    <section className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
+      <span className="material-symbols-outlined text-on-surface-variant" style={{ fontSize: "40px" }}>
+        satellite_alt
+      </span>
+      <h1 className="text-lg font-bold text-on-surface">Telemetria indisponível</h1>
+      <p className="max-w-md text-sm text-on-surface-variant">
+        Esta tela estava em desenvolvimento e foi desativada. Os seus dados
+        continuam salvos no aparelho e sincronizando normalmente.
+      </p>
+    </section>
+  );
+}
+
 const telemetryRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/telemetry',
-  component: TelemetryPage,
+  component: TelemetryFrozen,
 });
 
 const routeTree = rootRoute.addChildren([

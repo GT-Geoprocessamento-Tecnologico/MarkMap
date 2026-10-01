@@ -113,10 +113,6 @@ export function RootLayout() {
               <span className="material-symbols-outlined text-on-surface-variant group-hover:text-cyan-400" style={{fontSize: "18px"}} title="Análises">analytics</span>
               <span className={`truncate ${isSidebarCollapsed ? 'lg:hidden' : 'block'}`}>Análises</span>
             </Link>
-            <Link onClick={() => { if(window.innerWidth < 1024) closeSidebar(); }} activeProps={{ className: "text-cyan-400 bg-cyan-500/10 border-cyan-500/30 font-semibold" }} inactiveProps={{ className: "text-on-surface-variant hover:text-on-surface hover:bg-on-surface/5 border-transparent" }} className="flex items-center gap-3 px-3 py-2 rounded-lg border text-xs transition-colors group" to="/telemetry">
-              <span className="material-symbols-outlined text-on-surface-variant group-hover:text-cyan-400" style={{fontSize: "18px"}} title="Telemetria">satellite_alt</span>
-              <span className={`truncate ${isSidebarCollapsed ? 'lg:hidden' : 'block'}`}>Telemetria</span>
-            </Link>
             <Link onClick={() => { if(window.innerWidth < 1024) closeSidebar(); }} activeProps={{ className: "text-cyan-400 bg-cyan-500/10 border-cyan-500/30 font-semibold" }} inactiveProps={{ className: "text-on-surface-variant hover:text-on-surface hover:bg-on-surface/5 border-transparent" }} className="flex items-center gap-3 px-3 py-2 rounded-lg border text-xs transition-colors group" to="/settings">
               <span className="material-symbols-outlined text-on-surface-variant group-hover:text-cyan-400" style={{fontSize: "18px"}} title="Configurações">settings</span>
               <span className={`truncate ${isSidebarCollapsed ? 'lg:hidden' : 'block'}`}>Configurações</span>
