@@ -595,6 +595,8 @@ export default function CommandCenterPage() {
               source: "geopdf-overlay",
               paint: { "raster-opacity": 1 },
             });
+            if (map.getLayer("local-dataset-fill"))
+              map.moveLayer("geopdf-overlay", "local-dataset-fill");
             const lngs = geoPdfOverlay.coordinates.map(([lng]) => lng);
             const lats = geoPdfOverlay.coordinates.map(([, lat]) => lat);
             map.fitBounds(
