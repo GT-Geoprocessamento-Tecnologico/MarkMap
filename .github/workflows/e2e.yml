@@ -31,7 +31,7 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Build admin app
-        run: pnpm --filter admin build
+        run: pnpm turbo run build --filter=admin...
 
       - name: Run E2E tests
         run: pnpm exec playwright test --config=apps/admin/playwright.config.ts
