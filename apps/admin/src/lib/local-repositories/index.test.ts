@@ -80,13 +80,23 @@ describe("local-first repository", () => {
     const db = new MemoryLocalDb();
     const repo = new LocalRepository(db);
     const blob = new Blob(["original pdf"], { type: "application/pdf" });
-    const digest = await crypto.subtle.digest("SHA-256", await new Response(blob).arrayBuffer());
-    const sha256 = [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+    const digest = await crypto.subtle.digest(
+      "SHA-256",
+      new TextEncoder().encode("original pdf"),
+    );
+    const sha256 = [...new Uint8Array(digest)]
+      .map((byte) => byte.toString(16).padStart(2, "0"))
+      .join("");
     await repo.saveOriginal({ blobId: "blob-1", blob, mediaType: "application/pdf", bytes: blob.size, sha256 });
     await repo.saveOriginal({ blobId: "blob-1", blob, mediaType: "application/pdf", bytes: blob.size, sha256 });
     const different = new Blob(["different"], { type: "application/pdf" });
-    const differentDigest = await crypto.subtle.digest("SHA-256", await new Response(different).arrayBuffer());
-    const differentHash = [...new Uint8Array(differentDigest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+    const differentDigest = await crypto.subtle.digest(
+      "SHA-256",
+      new TextEncoder().encode("different"),
+    );
+    const differentHash = [...new Uint8Array(differentDigest)]
+      .map((byte) => byte.toString(16).padStart(2, "0"))
+      .join("");
     await expect(repo.saveOriginal({ blobId: "blob-1", blob: different, mediaType: "application/pdf", bytes: different.size, sha256: differentHash })).rejects.toThrow(/conflitantes/);
     const stored = await repo.getOriginal("blob-1");
     expect(stored?.blob).toBeInstanceOf(Blob);
