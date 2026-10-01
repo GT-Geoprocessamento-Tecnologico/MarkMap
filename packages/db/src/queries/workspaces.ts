@@ -60,9 +60,7 @@ export async function provisionWorkspace(
     WHERE workspaces.id = EXCLUDED.id AND workspaces.revoked = false
     RETURNING id, generation
   `);
-  const row = rows[0] as
-    | { id?: string; generation?: bigint | string | number }
-    | undefined;
+  const row = rows[0] as { id?: string; generation?: bigint | string | number } | undefined;
   if (
     typeof row?.id !== "string" ||
     row.id.length === 0 ||
