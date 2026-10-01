@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { fileURLToPath } from "node:url";
 import { readFile } from "node:fs/promises";
+import { generateGeoPdfFixture } from "../../../packages/geo/tests/pdf/fixtures/generate-geopdf";
 
 const trianglePath = fileURLToPath(
   new URL("../src/test/fixtures/triangle.glb", import.meta.url),
@@ -95,6 +96,51 @@ test("PWA mantém projeto editável após cold reload totalmente offline", async
     "1",
   );
 
+  await context.setOffline(false);
+});
+
+test("GeoPDF georreferenciado abre como mapa completamente offline", async ({
+  page,
+  context,
+  browserName,
+}) => {
+  test.skip(browserName !== "chromium", "GeoPDF worker/map acceptance runs in Chromium.");
+
+  await page.goto("/imports");
+  await page.evaluate(async () => {
+    await navigator.serviceWorker.ready;
+  });
+  await page.locator("input[type=file]").setInputFiles({
+    name: "mapa-georreferenciado.pdf",
+    mimeType: "application/pdf",
+    buffer: Buffer.from(generateGeoPdfFixture({ includeLgiDict: false })),
+  });
+  const pdfCard = page
+    .getByRole("article")
+    .filter({ hasText: "mapa-georreferenciado.pdf" });
+  await expect(pdfCard).toBeVisible();
+  await expect(
+    pdfCard.getByText(/Mapa georreferenciado detectado/i),
+  ).toBeVisible();
+
+  await context.setOffline(true);
+  await pdfCard.getByRole("link", { name: "Abrir no mapa" }).click();
+  await expect(page).toHaveURL(/workspace\?pdfId=/);
+  await expect(page.locator("[data-map-ready]")).toHaveAttribute(
+    "data-map-ready",
+    "true",
+  );
+  await expect(page.locator("[data-geopdf-ready]")).toHaveAttribute(
+    "data-geopdf-ready",
+    "true",
+  );
+  await expect(page.getByText("Mapa PDF disponível offline.")).toBeVisible();
+
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(page.locator("[data-geopdf-ready]")).toHaveAttribute(
+    "data-geopdf-ready",
+    "true",
+  );
   await context.setOffline(false);
 });
 
