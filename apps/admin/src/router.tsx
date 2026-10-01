@@ -25,8 +25,13 @@ const isUuid = (value: unknown): value is string =>
 const meshSearch = (search: Record<string, unknown>): { meshId?: string } => ({
   meshId: isUuid(search.meshId) ? search.meshId : undefined,
 });
-const datasetSearch = (search: Record<string, unknown>): { datasetId?: string } => ({
+const isSha256 = (value: unknown): value is string =>
+  typeof value === "string" && /^[a-f0-9]{64}$/i.test(value);
+const mapSearch = (
+  search: Record<string, unknown>,
+): { datasetId?: string; pdfId?: string } => ({
   datasetId: isUuid(search.datasetId) ? search.datasetId : undefined,
+  pdfId: isSha256(search.pdfId) ? search.pdfId.toLowerCase() : undefined,
 });
 
 const dashboardRoute = createRoute({
@@ -50,7 +55,7 @@ const projectRoute = createRoute({
 const commandCenterRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/projects/$projectId/map',
-  validateSearch: datasetSearch,
+  validateSearch: mapSearch,
   component: CommandCenterPage,
 });
 
@@ -71,7 +76,7 @@ const globalMeshRoute = createRoute({
 const canvasRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/workspace',
-  validateSearch: datasetSearch,
+  validateSearch: mapSearch,
   component: CommandCenterPage,
 });
 
