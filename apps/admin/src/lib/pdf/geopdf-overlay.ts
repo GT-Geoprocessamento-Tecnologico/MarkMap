@@ -112,8 +112,8 @@ export async function renderGeoPdfOverlay(
   });
   let canvas: HTMLCanvasElement | null = null;
   try {
-    const document = await loadingTask.promise;
-    const page = await document.getPage(reference.pageIndex + 1);
+    const pdfDocument = await loadingTask.promise;
+    const page = await pdfDocument.getPage(reference.pageIndex + 1);
     const baseViewport = page.getViewport({ scale: 1 });
     const basePixels = Math.max(1, baseViewport.width * baseViewport.height);
     const scale = Math.min(2, Math.sqrt(maxPixels / basePixels));
@@ -124,7 +124,7 @@ export async function renderGeoPdfOverlay(
     if (width * height > maxPixels * 1.02)
       throw new Error("A página excede o limite de rasterização móvel.");
 
-    canvas = document.createElement("canvas");
+    canvas = globalThis.document.createElement("canvas");
     canvas.width = width;
     canvas.height = height;
     const context = canvas.getContext("2d", { alpha: false });
