@@ -3,6 +3,8 @@
 **Atualizado:** 2026-10-01  
 **Objetivo:** permitir que uma nova conversa continue o projeto sem depender do chat anterior.
 
+**Checklist Mestre no Notion:** https://app.notion.com/p/3ed8e0bd0f4d81b6832bcf848c0ab504?pvs=204
+
 ## 1. Regra de início
 
 Toda nova conversa sobre GeoNexo deve:
