@@ -13,37 +13,57 @@
 | Production Neon base schema | FUNCIONA | tables/extensions present and empty |
 | Production Neon schema parity | PARCIAL | duplicate import FK + four redundant indexes found; cleanup prepared |
 | PWA service worker policy | FUNCIONA | API bypass, shell fallback, owned-cache cleanup and controlled update handshake tested |
-| PWA registration bootstrap | QUEBRADO | browser source used `process.env.NODE_ENV` under Vite; corrected in this audit branch |
+| PWA registration bootstrap | FUNCIONA NO BRANCH DE AUDITORIA | Vite production flag corrected and regression covered |
 | PWA/mobile physical validation | PARCIAL | automated mobile tests exist; physical install/update/offline evidence still pending |
 | GeoPDF embedded georeference | FUNCIONA | ISO Measure/LGIDict path and real Araguaína evidence exist |
 | GeoPDF manual calibration | PARCIAL | 3–6 control-point affine calibration exists; physical/E2E confirmation pending |
 | Dataset import | PARCIAL | GeoJSON/JSON, PDF and GLB are exposed; legacy GIS round-trip remains pending |
-| Android Capacitor pipeline | PARCIAL | workflow and permissions exist; latest HEAD artifact must be revalidated |
-| iOS Capacitor pipeline | PARCIAL | macOS workflow exists; latest HEAD artifact must be revalidated |
+| Android Capacitor pipeline | PARCIAL | workflow and permissions exist; current PR does not execute Android workflow |
+| iOS Capacitor pipeline | PARCIAL | macOS workflow exists; current PR does not execute iOS workflow |
 | Remote file synchronization | NÃO IMPLEMENTADO | storage presign routes intentionally return 503 |
-| Public API abuse protection | PARCIAL | workspace capability protects sync; public provision/recover endpoints have no explicit rate-limit layer |
+| Public API abuse protection | PARCIAL | workspace capability protects sync; public provision/recover endpoints have no explicit distributed rate limit |
 | Release/privacy/signing | NÃO IMPLEMENTADO | privacy policy, store signing and public deployment remain pending |
+| Repository hygiene | FUNCIONA NO BRANCH DE AUDITORIA | runtime/stale artifacts removed; README aligned to real repository structure |
 
 ## Corrections included in the audit branch
 
-1. PWA registration now uses `import.meta.env.PROD`, the Vite-native production flag.
+1. PWA registration uses `import.meta.env.PROD`.
 2. Regression test prevents `process.env.NODE_ENV` from returning to browser bootstrap code.
-3. `*.pid` is ignored as a runtime artifact.
-4. Versioned database cleanup migration removes the production-only obsolete import FK and redundant indexes.
-5. Neon drift documentation was replaced with the current production state.
+3. Runtime/stale files are removed and `*.pid` is ignored.
+4. Stale README content is replaced with the current stack, structure and offline-first flow.
+5. Versioned database cleanup migration removes the production-only obsolete import FK and redundant indexes.
+6. Neon drift documentation reflects the current production state.
+
+## GitHub checks on PR #2
+
+At the audited PR head, these checks completed successfully:
+
+- Lint
+- Typecheck
+- Unit Tests
+- Build all packages
+- Playwright E2E
+- Playwright E2E (iOS mobile emulation)
+- Offline sync → PostGIS → pull
+
+Android APK and iOS App workflows are push-to-main/workflow-dispatch only, so they are not proven by the PR checks.
 
 ## Neon read-only evidence
 
-- PostGIS 3.6.4 and pgcrypto 1.4 are installed.
+- PostgreSQL 18.
+- PostGIS 3.6.4 and pgcrypto 1.4.
+- Domain and sync tables present.
 - Domain and sync row counts were zero during this audit.
-- No invalid indexes were found.
-- No long-running queries or held locks were found.
-- The private `geonexo-assets` bucket exists.
-- A temporary branch validated the cleanup migration; production has not received it.
+- Duplicate `imports` FK and four redundant indexes remain in production until explicitly approved cleanup.
+- No long-running queries or held locks.
+- Private bucket `geonexo-assets` exists.
+- Temporary branch `br-mute-unit-b4nkmmlb` validated the cleanup migration; production remains unchanged.
 
-## Release blockers that require external evidence or a product decision
+## Release blockers
 
-- live GitHub Actions result for the audit PR;
+- merge/revalidate the audit corrections on main;
+- Android APK validation for the resulting main HEAD;
+- iOS archive validation for the resulting main HEAD;
 - physical Android offline/force-stop/GPS/GeoPDF test;
 - physical iOS test;
 - controlled two-installation sync/conflict smoke;
@@ -51,5 +71,6 @@
 - privacy policy;
 - release signing/provisioning;
 - public web deployment/domain;
-- decision/implementation for workspace provision/recover rate limiting;
-- workspace-scoped remote file upload/download API.
+- distributed abuse protection for workspace provision/recover;
+- workspace-scoped remote file upload/download API;
+- legacy GIS format round-trip validation.
