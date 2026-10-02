@@ -65,5 +65,9 @@ docker-compose.override.yml
 
 REPOSITORIOS MODELOS/
 
-# Capacitor: projeto nativo gerado por `cap add android` e builds Gradle
+# Capacitor: projetos nativos gerados por `cap add` e builds nativos
 apps/admin/android/
+apps/admin/ios/App/App/public/
+apps/admin/ios/App/Pods/
+apps/admin/ios/App/build/
+apps/admin/ios/App/capacitor-cordova-ios-plugins/build/

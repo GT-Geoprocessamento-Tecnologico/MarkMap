@@ -1,0 +1,20 @@
+# Saídas de build
+dist
+build
+coverage
+playwright-report
+test-results
+node_modules
+
+# Projetos nativos do Capacitor: `cap add`/`cap sync` copiam o bundle web para
+# dentro deles e Xcode/Gradle geram artefatos. Nada disso é código-fonte e
+# formatar bundle minificado apenas o corrompe.
+apps/admin/android/
+apps/admin/ios/
+
+# Ficheiros de projeto do Xcode
+*.pbxuser
+*.mode1v3
+*.mode2v3
+xcuserdata/
+DerivedData/

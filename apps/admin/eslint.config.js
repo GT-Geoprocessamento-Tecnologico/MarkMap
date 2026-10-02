@@ -34,10 +34,11 @@ ignores: [
       '**/node_modules/**',
       '**/playwright-report/**',
       '**/test-results/**',
-      // Projeto nativo do Capacitor e saídas do Gradle: artefatos gerados,
-      // não código-fonte. Sem isto o lint analisaria o bundle minificado
-      // que o `cap sync` copia para dentro do APK.
+      // Projetos nativos do Capacitor e suas saídas: `cap add`/`cap sync` copiam
+      // o bundle web e o Gradle/Xcode geram artefatos. Sem isto o lint analisaria
+      // JavaScript minificado que não pertence a este repositório.
       '**/android/**',
+      '**/ios/**',
     ],
   },
   {

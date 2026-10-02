@@ -1,0 +1,92 @@
+name: iOS App
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "apps/admin/**"
+      - "packages/**"
+      - ".github/workflows/ios-app.yml"
+      - "pnpm-lock.yaml"
+      - "package.json"
+
+concurrency:
+  group: ios-app-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ios:
+    name: Build iOS debug archive
+    # O projeto iOS é gerado em qualquer sistema, mas só o Xcode empacota o
+    # .ipa. Em runner Linux/Windows o passo de conferência da Info.plist ainda
+    # roda, então a permissão de GPS nunca chega quebrada para a loja.
+    runs-on: macos-15
+    env:
+      TURBO_TELEMETRY_DISABLED: 1
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install web dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build GeoNexo web app
+        run: pnpm turbo run build --filter=admin...
+
+      - name: Generate iOS project
+        working-directory: apps/admin
+        run: |
+          rm -rf ios
+          pnpm exec cap add ios
+          pnpm exec cap sync ios
+          node scripts/ensure-ios-location-usage.mjs
+
+      # Sem NSLocationWhenInUseUsageDescription o iOS encerra o app assim que a
+      # localização é pedida, então a ausência da chave derruba o build.
+      # Também confere que o plugin de geolocalização entrou no pacote SPM.
+      - name: Verify GPS wiring
+        working-directory: apps/admin
+        run: |
+          plutil -lint ios/App/App/Info.plist
+          grep -q 'NSLocationWhenInUseUsageDescription' ios/App/App/Info.plist
+          grep -q 'CapacitorGeolocation' ios/App/CapApp-SPM/Package.swift
+
+      - name: Select Xcode scheme
+        run: |
+          cd apps/admin/ios/App
+          xcodebuild -workspace App.xcworkspace -list
+
+      - name: Build debug .ipa
+        working-directory: apps/admin/ios/App
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Debug \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath ./DerivedData \
+            -archivePath ./GeoNexo-debug.xcarchive \
+            archive \
+            CODE_SIGNING_ALLOWED=NO \
+            | tee build.log
+          mkdir -p Payload
+          cp -R ./GeoNexo-debug.xcarchive/Products/Applications/App.app Payload/
+          (cd Payload && zip -qry ../GeoNexo-debug-ipa.zip .)
+          rm -rf Payload
+
+      - name: Upload GeoNexo .ipa
+        uses: actions/upload-artifact@v4
+        with:
+          name: geonexo-ios-debug
+          path: apps/admin/ios/App/GeoNexo-debug-ipa.zip
+          if-no-files-found: error
+          retention-days: 30
