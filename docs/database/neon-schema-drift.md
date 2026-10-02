@@ -1,89 +1,95 @@
 # Neon schema and metadata drift report
 
-**Task:** GEO-G0.4-META-01  
-**Status:** COMPLETE (metadata audit); G0.4 is **not closable for remote schema**.  
-**Audited:** 2026-09-30  
-**Mode:** read-only Neon metadata tools and SELECT-only catalog queries. No migration, SQL write, branch/database/role/endpoint change, or test-row write was performed.
+**Status:** AUDITED — cleanup migration prepared and validated; production application pending explicit approval.  
+**Audited:** 2026-10-02  
+**Project:** `GEONEXO` (`cold-bonus-98807676`)  
+**Default branch:** `production` (`br-delicate-base-b4a2d3rl`)  
+**Database:** `neondb`
 
-## Remote identity
+## Current production state
 
-The project was confirmed with a bounded `list_projects(search="GeoNexo", limit=20)` lookup. One matching project was returned:
+Read-only catalog checks confirm:
 
-| Item | Observed value |
-|---|---|
-| Project name | `GEONEXO` |
-| Project ID | `cold-bonus-98807676` |
-| Region | `aws-us-east-2` |
-| PostgreSQL version | `18` |
-| Default branch | `production` (`br-delicate-base-b4a2d3rl`) |
-| Branch count | 1 (the default branch only) |
-| Branch state | `ready`; `primary=true`; `default=true`; `protected=false` |
-| Database | `neondb` (ID `605043`, owner `neondb_owner`) |
+- PostgreSQL 18;
+- `postgis` 3.6.4;
+- `pgcrypto` 1.4;
+- application/domain tables are present;
+- workspace/sync tables are present;
+- all audited application tables are currently empty;
+- no invalid/not-ready indexes;
+- no queries running longer than five minutes;
+- no locks held at audit time;
+- bucket `geonexo-assets` exists with private access.
 
-Only non-secret identifiers are recorded here. Connection strings, credentials, endpoint URLs, and account contact data are intentionally omitted.
+Production tables observed:
 
-## Remote object inventory
+- `projects`
+- `maps`
+- `layers`
+- `features`
+- `map_sources`
+- `imports`
+- `audit_events`
+- `workspaces`
+- `sync_entities`
+- `sync_operations`
+- `sync_tombstones`
+- `upload_sessions`
 
-`get_database_tables(project_id, branch_id, database_name)` returned an empty list. `describe_branch` showed only the built-in `auth` and `public` schemas (plus built-in functions); it showed no application tables.
+Only non-secret identifiers are recorded here.
 
-The required table descriptions were attempted individually with `describe_table_schema` and each returned `NotFoundError: Table not found`:
+## Drift found
 
-| Required table | Remote result | Expected source |
-|---|---|---|
-| `public.projects` | **ABSENT** | `packages/db/src/schema/projects.ts` |
-| `public.maps` | **ABSENT** | `packages/db/src/schema/maps.ts` |
-| `public.layers` | **ABSENT** | `packages/db/src/schema/layers.ts` |
-| `public.features` | **ABSENT** | `packages/db/src/schema/features.ts` |
-| `public.map_sources` | **ABSENT** | `packages/db/src/schema/map-sources.ts` |
-| `public.imports` | **ABSENT** | `packages/db/src/schema/imports.ts` |
-| `public.audit_events` | **ABSENT** | `packages/db/src/schema/audit-events.ts` |
+### 1. Duplicate target-layer foreign key on `imports`
 
-Schema descriptions from a SELECT-only `pg_namespace` query:
+Production contains both:
 
-| Schema | Description |
-|---|---|
-| `auth` | `NULL` |
-| `public` | `standard public schema` |
+- `imports_target_layer_id_fkey` → `ON DELETE SET NULL`
+- `imports_target_layer_id_layers_id_fk` → `ON DELETE CASCADE`
 
-## Extensions and indexes
+The current Drizzle schema expects the CASCADE behavior. The SET NULL constraint came from the manual production bootstrap and remained when the versioned workspace migration added the intended named CASCADE constraint.
 
-SELECT-only catalog checks on `pg_extension` and `pg_indexes` returned empty results for the requested application requirements:
+### 2. Redundant indexes
 
-- `postgis`: **ABSENT**
-- `pgcrypto`: **ABSENT**
-- application indexes: **ABSENT**
+The following indexes duplicate indexes already supplied by UNIQUE/PRIMARY KEY constraints:
 
-The expected indexes from the current Drizzle schema/migration are therefore all absent remotely:
+- `workspaces_capability_hash_idx` duplicates `workspaces_capability_hash_key`;
+- `sync_entities_pk` duplicates `sync_entities_pkey`;
+- `sync_operations_workspace_operation_idx` duplicates `sync_operations_pkey`;
+- `sync_tombstones_key_idx` duplicates `sync_tombstones_pkey`.
 
-`audit_events_entity_idx`, `features_geometry_idx` (GiST), `features_layer_id_idx`, `layers_project_id_sort_order_idx`, and `layers_project_created_at_id_idx`.
+They add write/storage overhead without changing uniqueness guarantees.
 
-The last index is declared in `packages/db/src/schema/layers.ts` but is not present in `packages/db/drizzle/0000_big_pete_wisdom.sql`; this is a repository-local migration/spec drift that must be resolved before a future remote migration. The other four indexes are represented by the migration file.
+## Versioned correction
 
-## Comparison with repository sources
+Repository migration:
 
-The repository defines seven application tables in `packages/db/src/schema/` and the initial migration `packages/db/drizzle/0000_big_pete_wisdom.sql` creates those tables, `postgis`, and `pgcrypto`. The remote default branch contains none of them and neither extension. This is a complete remote absence, not a column-level mismatch.
+`packages/db/drizzle/0002_sync_schema_cleanup.sql`
 
-No table descriptions/comments are available for the required tables because the tables do not exist. No remote schema facts support assuming the database matches Drizzle.
+It removes only the obsolete SET NULL FK and redundant indexes. It does not remove application data or primary/unique constraints.
 
-## G0.4 decision
+A Neon temporary migration branch was prepared and the cleanup executed successfully:
 
-**Metadata-only audit: PASS.** The Neon project, default branch, database, schemas, table absence, extension absence, and index absence are evidenced by named read-only checks above. A separate local disposable PostGIS target has also been reidentified and tested; see [disposable test targets](disposable-test-targets.md). This does not establish Neon connectivity or remote schema parity.
+- migration id: `d8e4b27f-d9f0-40d0-9574-13f215efb760`;
+- temporary branch: `br-mute-unit-b4nkmmlb`;
+- parent: production `br-delicate-base-b4a2d3rl`.
 
-**G0.4 remote-schema gate: BLOCKED/PENDING.** The remote schema is not provisioned and cannot be considered aligned. Closing the gate requires an explicitly approved, versioned migration workflow (temporary Neon branch, migration test, approval, then application). That work is outside this read-only task and was intentionally not attempted.
+Read-only verification on the temporary branch confirms:
 
-## Evidence and stop conditions
+- only the intended CASCADE target-layer FK remains;
+- the composite workspace-layer FK remains;
+- primary/unique constraint-backed indexes remain;
+- the four redundant indexes are absent.
 
-Checks executed:
+## Production decision
 
-1. `mcp__Neon__list_projects` with bounded project-name search.
-2. `mcp__Neon__describe_project`.
-3. `mcp__Neon__get_default_branch`.
-4. `mcp__Neon__list_branches`.
-5. `mcp__Neon__list_postgres_databases`.
-6. `mcp__Neon__get_database_tables`.
-7. `mcp__Neon__describe_branch`.
-8. `mcp__Neon__describe_table_schema` for each required table.
-9. SELECT-only `pg_namespace`, `pg_extension`, and `pg_indexes` catalog queries through `mcp__Neon__run_sql`.
+**Production is still unchanged by this cleanup.**
 
-**Changed file:** `docs/database/neon-schema-drift.md` only.  
-**Blocker for next step:** approved remote migration authority is required; no remote write was performed.
+Applying the prepared migration to production is a destructive DDL action (constraint/index removal) and requires explicit authorization before `complete_database_migration` may be called.
+
+## Remaining infrastructure notes
+
+- production branch is not protected;
+- project is on Neon Free v3;
+- the database currently has no domain/sync rows, so application behavior still needs a controlled live sync smoke before release;
+- remote object storage exists, but the API storage presign routes remain deliberately unavailable until a workspace-scoped authorization design is completed.
