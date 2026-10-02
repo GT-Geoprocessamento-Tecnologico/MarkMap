@@ -11,6 +11,7 @@
 | PDF.js / pdfjs-dist | render/parser PDF | 6.3.289 | Apache-2.0 |
 | Proj4 | CRS/reprojeção | registrado no projeto | MIT |
 | Capacitor | empacotamento mobile | 8.5.2 | MIT |
+| Capacitor iOS | empacotamento iOS (projeto Xcode + workflow .ipa) | 8.5.2 | MIT |
 | Capacitor Geolocation | GPS nativo | 8.2.2 | MIT |
 | PMTiles | mapas offline | 4.5.0 conforme notices | BSD-3-Clause |
 | TacMap | referência algorítmica GeoPDF | referência registrada | MIT |
