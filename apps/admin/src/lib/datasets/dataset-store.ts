@@ -32,7 +32,14 @@ export interface DatasetRecord {
   featuresCount: number;
   uploadedAt: string;
   crs: string;
-  sourceCrs: string;
+  /**
+   * CRS de origem do arquivo, quando difere de WGS 84.
+   *
+   * Opcional de propósito: registros gravados por instalações anteriores não
+   * têm a chave, e `restoreDataset` precisa devolver um valor utilizável em vez
+   * de `undefined` sob um tipo `string`.
+   */
+  sourceCrs?: string;
   originalBlob: Blob;
   geojson: DatasetGeoJSON;
   deleted?: boolean;
@@ -52,7 +59,11 @@ const datasetId = () => crypto.randomUUID();
  * well-formed position is passed through untouched so validation downstream
  * still reports the real problem.
  */
-function reprojectGeometry(value: unknown, fromEpsg: number): unknown {
+function reprojectGeometry(
+  value: unknown,
+  fromEpsg: number,
+  depth = 0,
+): unknown {
   if (Array.isArray(value)) {
     if (
       value.length >= 2 &&
@@ -62,16 +73,19 @@ function reprojectGeometry(value: unknown, fromEpsg: number): unknown {
       const moved = transformPosition(value, fromEpsg, EPSG_WGS84);
       return moved ? [...moved, ...value.slice(2)] : value;
     }
-    if (value.length > MAX_GEOMETRY_DEPTH * 4) {
+    // Limita-se a profundidade, e não a largura: um array de coordenadas é
+    // plano e pode ter milhares de posições. Um guarda por `length` aqui
+    // rejeitava LineString, anel de polígono e MultiLineString com mais de 80
+    // vértices, que é justamente o formato de uma estrada ou confrontação.
+    if (depth > MAX_GEOMETRY_DEPTH)
       throw new Error("Geometria profunda demais para reprojetar.");
-    }
-    return value.map((entry) => reprojectGeometry(entry, fromEpsg));
+    return value.map((entry) => reprojectGeometry(entry, fromEpsg, depth + 1));
   }
   if (value && typeof value === "object") {
     const source = value as Record<string, unknown>;
     const next: Record<string, unknown> = {};
     for (const [key, entry] of Object.entries(source)) {
-      next[key] = reprojectGeometry(entry, fromEpsg);
+      next[key] = reprojectGeometry(entry, fromEpsg, depth);
     }
     return next;
   }
@@ -196,7 +210,9 @@ type StoredDataset = Omit<DatasetRecord, 'originalBlob'> & { originalBlob?: Blob
 function restoreDataset(record: StoredDataset): DatasetRecord {
   const originalBlob = record.originalBlob ?? (record.originalBytes instanceof ArrayBuffer ? new Blob([record.originalBytes], { type: record.originalType ?? 'application/geo+json' }) : undefined);
   if (!originalBlob) throw new Error('O arquivo original deste dataset não está disponível. Importe-o novamente.');
-  return { ...record, originalBlob };
+  // Instalações anteriores não gravaram `sourceCrs`; cair para `crs` evita
+  // devolver `undefined` sob um tipo declarado como string.
+  return { ...record, sourceCrs: record.sourceCrs ?? record.crs, originalBlob };
 }
 
 export async function listDatasets(): Promise<DatasetRecord[]> {

@@ -64,21 +64,28 @@ export function resolveIsoCrs(gcs: { type?: string | undefined; epsg?: number | 
 }
 
 /**
- * Corrige o defeito mais comum de GeoPDF em producción: declarar um CRS
+ * Corrige o defeito mais comum de GeoPDF em produção: declarar um CRS
  * projetado em metros e gravar `/GPTS` em graus WGS 84.
  *
- * O `geopdf de araguaina.pdf` ( IBGE/GeoPDF oficial do Brasil) traz
+ * O `geopdf de araguaina.pdf` (GeoPDF oficial do IBGE) traz
  * `/Type /PROJCS /EPSG 3857`, porém os valores de `/GPTS` são latitude e
  * longitude em graus — por exemplo `-7.1941965, -48.2305910` para Araguaína (TO).
  * Lidos ao pé da letra como metros Web Mercator, os pontos caem no Golfo de
  * Guiné, a ~5.400 km do lugar certo, e o mapa abriria no oceano.
  *
- * A distinção é feita pelos próprios valores: se o CRS declarado é projetado em
- * metros e **todos** os pontos caem dentro da faixa WGS 84 válida, eles não podem
- * ser metros de Web Mercator para um mapa real, e são lidos como graus. Nada é
- * inventado: o PDF continua sendo a fonte, apenas se obedece à convenção que o
- * produtor realmente usou. Se os valores forem coerentes com metros, o CRS
- * declarado é respeitado normalmente.
+ * O que é provado aqui: um CRS projetado cujos pontos caem todos dentro da
+ * faixa de graus WGS 84 não pode estar em metros para uma carta real, então os
+ * valores são lidos como graus. Um PDF genuinamente em metros mantém o CRS
+ * declarado, sem passar por este caminho.
+ *
+ * Limite conhecido: a *ordem dos eixos* não é dedutível do PDF. Um produtor
+ * que grave `[lon, lat]` num `PROJCS` também satisfaz o teste acima, e seria
+ * lido ao contrário, sem erro visível. A ordem adotada é a da ISO 32000 para um
+ * `Measure/GEOGCS` (latitude primeiro), ou seja, o produtor declarou um CRS
+ * projetado mas escreveu graus, e a convenção geográfica é aplicada. A carta
+ * oficial do IBGE segue essa convenção. Um produtor divergente precisa da
+ * calibração manual de `pdf-preview.tsx`; esta função não deve ser estendida
+ * para outros CRSs projetados sem o mesmo teste com dados reais.
  */
 export function reconcileIsoCrs(crs: PdfCrs, ground: readonly (readonly [number, number])[]): PdfCrs {
   if (crs.unit !== 'metre') return crs;
