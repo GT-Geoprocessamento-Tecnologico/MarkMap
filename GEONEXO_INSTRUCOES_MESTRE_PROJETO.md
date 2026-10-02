@@ -4,6 +4,8 @@
 **Atualizado:** 2026-10-01  
 **Repositório:** `mmatteuus/GeoNexo`
 
+**Checklist Mestre no Notion:** https://app.notion.com/p/3ed8e0bd0f4d81b6832bcf848c0ab504?pvs=204
+
 ## 1. Identidade
 
 **Missão:** oferecer mapeamento de campo confiável, simples e offline-first, com sincronização posterior e recursos GIS adequados ao contexto brasileiro.
