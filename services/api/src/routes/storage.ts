@@ -1,10 +1,15 @@
+import {
+  GetObjectCommand,
+  PutObjectCommand,
+  S3Client,
+} from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { Hono } from "hono";
 import { z } from "zod";
-import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 import type { Env } from "../env.js";
 import { AppError } from "../lib/errors.js";
+import { resolveWorkspaceCapability } from "../middleware/capability.js";
 
 const storageKeySchema = z
   .string()
@@ -27,65 +32,61 @@ const storageUnavailable = () =>
 
 export const storageRoutes = (env: Env) => {
   const routes = new Hono();
+  const endpoint = env.S3_ENDPOINT;
+  const region = env.S3_REGION;
+  const accessKeyId = env.S3_ACCESS_KEY_ID;
+  const secretAccessKey = env.S3_SECRET_ACCESS_KEY;
+  const bucket = env.S3_BUCKET;
 
-  // Initialize S3 client if credentials are present
-  let s3Client: S3Client | null = null;
-  if (
-    env.S3_ENDPOINT &&
-    env.S3_REGION &&
-    env.S3_ACCESS_KEY_ID &&
-    env.S3_SECRET_ACCESS_KEY &&
-    env.S3_BUCKET
-  ) {
-    s3Client = new S3Client({
-      endpoint: env.S3_ENDPOINT,
-      region: env.S3_REGION,
-      credentials: {
-        accessKeyId: env.S3_ACCESS_KEY_ID,
-        secretAccessKey: env.S3_SECRET_ACCESS_KEY,
-      },
-      // Force path style for S3 compatible services
-      forcePathStyle: true,
-    });
-  }
+  const s3Client =
+    endpoint !== undefined &&
+    endpoint.length > 0 &&
+    region !== undefined &&
+    region.length > 0 &&
+    accessKeyId !== undefined &&
+    accessKeyId.length > 0 &&
+    secretAccessKey !== undefined &&
+    secretAccessKey.length > 0 &&
+    bucket !== undefined &&
+    bucket.length > 0
+      ? new S3Client({
+          endpoint,
+          region,
+          credentials: {
+            accessKeyId,
+            secretAccessKey,
+          },
+          forcePathStyle: true,
+        })
+      : null;
 
   routes.get("/presign/put", async (c) => {
     const key = storageKeySchema.parse(c.req.query("key"));
-    const workspaceId = c.get("capabilityWorkspaceId") as string;
-    if (!workspaceId) {
-      throw new AppError("Workspace not provisioned", {
-        status: 401,
-        code: "VALIDATION_ERROR",
-      });
-    }
-    const namespacedKey = `${workspaceId}/${key}`;
-    if (!s3Client) {
+    const capability = await resolveWorkspaceCapability(
+      c.req.header("Authorization"),
+    );
+    if (s3Client === null || bucket === undefined || bucket.length === 0)
       throw storageUnavailable();
-    }
+
     const command = new PutObjectCommand({
-      Bucket: env.S3_BUCKET!,
-      Key: namespacedKey,
+      Bucket: bucket,
+      Key: `${capability.workspaceId}/${key}`,
     });
-    const url = await getSignedUrl(s3Client, command, { expiresIn: 300 }); // 5 minutes
+    const url = await getSignedUrl(s3Client, command, { expiresIn: 300 });
     return c.json({ url });
   });
 
   routes.get("/presign/get", async (c) => {
     const key = storageKeySchema.parse(c.req.query("key"));
-    const workspaceId = c.get("capabilityWorkspaceId") as string;
-    if (!workspaceId) {
-      throw new AppError("Workspace not provisioned", {
-        status: 401,
-        code: "VALIDATION_ERROR",
-      });
-    }
-    const namespacedKey = `${workspaceId}/${key}`;
-    if (!s3Client) {
+    const capability = await resolveWorkspaceCapability(
+      c.req.header("Authorization"),
+    );
+    if (s3Client === null || bucket === undefined || bucket.length === 0)
       throw storageUnavailable();
-    }
+
     const command = new GetObjectCommand({
-      Bucket: env.S3_BUCKET!,
-      Key: namespacedKey,
+      Bucket: bucket,
+      Key: `${capability.workspaceId}/${key}`,
     });
     const url = await getSignedUrl(s3Client, command, { expiresIn: 300 });
     return c.json({ url });

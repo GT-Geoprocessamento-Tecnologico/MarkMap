@@ -10,3 +10,5 @@ export {
   geomFromGeoJSON,
   geoJsonFromGeometry,
 } from "./spatial.js";
+
+export * from "./rate-limits.js";

@@ -110,9 +110,9 @@ describe("input validation regressions", () => {
     expect(response.status).toBe(400);
     expect((await response.json()).error.code).toBe("VALIDATION_ERROR");
     const denied = await app.request("/storage/presign/get?key=valid/object");
-    expect(denied.status).toBe(503);
+    expect(denied.status).toBe(401);
     expect((await denied.json()).error.message).toBe(
-      "Storage capability is not available",
+      "Workspace capability is required",
     );
   });
 

@@ -11,6 +11,7 @@ import {
   createWorkspace,
   applyPushOperation,
   createUploadSession,
+  consumeRateLimit,
   pullChanges,
   projects,
   layers,
@@ -126,6 +127,7 @@ run("workspace scoped sync persistence", () => {
       DELETE FROM sync_operations;
       DELETE FROM sync_entities;
       DELETE FROM upload_sessions;
+      DELETE FROM audit_events;
       DELETE FROM workspaces;
       DELETE FROM features;
       DELETE FROM imports;
@@ -477,6 +479,28 @@ run("workspace scoped sync persistence", () => {
         geometryType: "Point",
       }),
     ).rejects.toThrow();
+  });
+
+
+  it("enforces a rate bucket atomically across database connections", async () => {
+    const handles = Array.from({ length: 6 }, () => createDb(url));
+    try {
+      const results = await Promise.all(
+        handles.map((handle, index) =>
+          consumeRateLimit(handle.db, {
+            bucketKey: "workspace:provision:global",
+            action: "workspace_provision",
+            requestId: `aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa${index + 1}`,
+            limit: 3,
+            windowSeconds: 60,
+          }),
+        ),
+      );
+      expect(results.filter((result) => result.allowed)).toHaveLength(3);
+      expect(results.filter((result) => !result.allowed)).toHaveLength(3);
+    } finally {
+      await Promise.all(handles.map((handle) => handle.close()));
+    }
   });
 
   it("deletes a scoped import with its target layer without nulling workspace", async () => {

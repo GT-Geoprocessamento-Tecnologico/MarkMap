@@ -67,9 +67,11 @@ export const createApp = (env: Env = loadEnv()) => {
   workspaceRoutes(apiRoutes);
   apiRoutes.use("/sync/*", capabilityMiddleware());
   syncRoutes(apiRoutes);
-  projectRoutes(apiRoutes);
-  layerRoutes(apiRoutes);
-  featureRoutes(apiRoutes);
+  if (env.NODE_ENV !== "production") {
+    projectRoutes(apiRoutes);
+    layerRoutes(apiRoutes);
+    featureRoutes(apiRoutes);
+  }
   notificationRoutes(apiRoutes);
   app.route("/", apiRoutes);
   app.route("/api/v1", apiRoutes);

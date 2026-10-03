@@ -1,5 +1,6 @@
 import {
   createFeatureSchema,
+  updateFeatureSchema,
   listFeaturesQuerySchema,
   paginationQuerySchema,
   uuidSchema,
@@ -17,6 +18,7 @@ import {
 import { Hono, type Context } from "hono";
 import { z } from "zod";
 
+import { featureNotFound } from "../lib/errors.js";
 import { validate } from "../middleware/validation.js";
 
 const featureListQuerySchema = z
@@ -130,7 +132,7 @@ export const featureRoutes = (app: Hono<any, any, any>) => {
     const input = updateFeatureSchema.parse({ ...body, id });
     const db = getDb();
     const updated = await updateFeature(db, id, input);
-    if (!updated) return c.json({ error: "Feature not found or version conflict" }, 404);
+    if (!updated) throw featureNotFound(id);
     return c.json(updated);
   });
 

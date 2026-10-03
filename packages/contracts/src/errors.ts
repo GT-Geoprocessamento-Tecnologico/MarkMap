@@ -17,6 +17,7 @@ export const errorCodeSchema = z.enum([
   "IMPORT_UNSUPPORTED_FORMAT",
   "VALIDATION_ERROR",
   "PAYLOAD_TOO_LARGE",
+  "RATE_LIMITED",
   "INTERNAL_ERROR",
 ]);
 
@@ -34,6 +35,7 @@ export const httpStatusByErrorCode: Record<ErrorCode, number> = {
   IMPORT_UNSUPPORTED_FORMAT: 400,
   VALIDATION_ERROR: 400,
   PAYLOAD_TOO_LARGE: 413,
+  RATE_LIMITED: 429,
   INTERNAL_ERROR: 500,
 };
 
@@ -70,6 +72,7 @@ export const ErrorCodes = {
   IMPORT_UNSUPPORTED_FORMAT: "IMPORT_UNSUPPORTED_FORMAT",
   VALIDATION_ERROR: "VALIDATION_ERROR",
   PAYLOAD_TOO_LARGE: "PAYLOAD_TOO_LARGE",
+  RATE_LIMITED: "RATE_LIMITED",
   INTERNAL_ERROR: "INTERNAL_ERROR",
 } as const satisfies Record<ErrorCode, string>;
 

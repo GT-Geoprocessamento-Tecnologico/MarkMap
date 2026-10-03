@@ -1,9 +1,10 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 
 import {
   capabilityProvisionRequestSchema,
   capabilityProvisionResponseSchema,
   capabilityRecoveryRequestSchema,
+  ErrorCodes,
 } from "@geonexo/contracts";
 import {
   getDb,
@@ -13,21 +14,57 @@ import {
 import type { Hono } from "hono";
 
 import { AppError, ErrorCode } from "../lib/errors.js";
-import { rateLimit } from "../middleware/rate-limit";
+import { checkWorkspaceRateLimit } from "../lib/workspace-rate-limit.js";
 
 const digest = (value: string): string =>
   createHash("sha256").update(value, "utf8").digest("hex");
 const bearer = (): string => randomBytes(32).toString("base64url");
 
+const applyRateLimitHeaders = (
+  c: { header: (name: string, value: string) => void },
+  remaining: number,
+  retryAfterSeconds: number,
+): void => {
+  c.header("X-RateLimit-Remaining", String(remaining));
+  c.header("Retry-After", String(retryAfterSeconds));
+};
+
 export const workspaceRoutes = (app: Hono<any, any, any>) => {
-  app.post("/workspace/provision", rateLimit, async (c) => {
+  app.post("/workspace/provision", async (c) => {
     const input = capabilityProvisionRequestSchema.parse(await c.req.json());
+    const requestId = c.get("requestId") ?? randomUUID();
+    const proofDigest = digest(input.bootstrapProof);
+    const rateLimit = await checkWorkspaceRateLimit({
+      scope: "provision",
+      identityDigest: digest(
+        `${input.workspaceId}:${input.installationId}:${proofDigest}`,
+      ),
+      requestId,
+    });
+    if (!rateLimit.allowed) {
+      applyRateLimitHeaders(
+        c,
+        rateLimit.remaining,
+        rateLimit.retryAfterSeconds,
+      );
+      return c.json(
+        {
+          error: {
+            code: ErrorCodes.RATE_LIMITED,
+            message: "Too many workspace provisioning attempts",
+            requestId,
+          },
+        },
+        429,
+      );
+    }
+
     const nextBearer = bearer();
     let workspace;
     try {
       workspace = await provisionWorkspace(getDb(), {
         workspaceId: input.workspaceId,
-        proofDigest: digest(input.bootstrapProof),
+        proofDigest,
         capabilityHash: digest(nextBearer),
       });
     } catch (error) {
@@ -49,11 +86,36 @@ export const workspaceRoutes = (app: Hono<any, any, any>) => {
     );
   });
 
-  app.post("/workspace/recover", rateLimit, async (c) => {
+  app.post("/workspace/recover", async (c) => {
     const input = capabilityRecoveryRequestSchema.parse(await c.req.json());
+    const requestId = c.get("requestId") ?? randomUUID();
+    const proofDigest = digest(input.bootstrapProof);
+    const rateLimit = await checkWorkspaceRateLimit({
+      scope: "recover",
+      identityDigest: proofDigest,
+      requestId,
+    });
+    if (!rateLimit.allowed) {
+      applyRateLimitHeaders(
+        c,
+        rateLimit.remaining,
+        rateLimit.retryAfterSeconds,
+      );
+      return c.json(
+        {
+          error: {
+            code: ErrorCodes.RATE_LIMITED,
+            message: "Too many workspace recovery attempts",
+            requestId,
+          },
+        },
+        429,
+      );
+    }
+
     const nextBearer = bearer();
     const workspace = await recoverWorkspaceCapability(getDb(), {
-      proofDigest: digest(input.bootstrapProof),
+      proofDigest,
       capabilityHash: digest(nextBearer),
     });
     if (!workspace)
