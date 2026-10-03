@@ -102,20 +102,20 @@ jobs:
           test -d App.xcodeproj
           xcodebuild -project App.xcodeproj -list
 
-      # Projeto SPM puro (CapApp-SPM): não existe App.xcworkspace e não existe
-      # scheme compartilhado, e `archive` exige -scheme. Então compila-se o
-      # target direto para o SDK do aparelho e empacota-se o App.app resultante
-      # num zip no layout Payload/ de um .ipa. SYMROOT fixa onde o produto cai;
-      # ONLY_ACTIVE_ARCH=NO evita depender de uma arquitetura "ativa" já que
-      # -target não usa -destination para escolher uma.
+      # O projeto expõe o scheme App mesmo usando CapApp-SPM. Compilar pelo
+      # scheme, em vez de -target App, faz o Xcode respeitar integralmente o
+      # grafo SwiftPM transitivo (incluindo IONGeolocationLib, dependência do
+      # CapacitorGeolocation). O build continua sem assinatura e o App.app é
+      # empacotado apenas como artefato de teste.
       - name: Build debug .ipa
         working-directory: apps/admin/ios/App
         run: |
           set -o pipefail
           xcodebuild \
             -project App.xcodeproj \
-            -target App \
+            -scheme App \
             -configuration Debug \
+            -destination 'generic/platform=iOS' \
             -sdk iphoneos \
             SYMROOT=./BuildProducts \
             ONLY_ACTIVE_ARCH=NO \
