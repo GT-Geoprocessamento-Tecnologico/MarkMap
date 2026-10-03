@@ -4,109 +4,120 @@ Atualizado em 2026-10-03.
 
 ## Estado atual
 
-- HEAD auditado: `d6d8bf0`.
+- HEAD de código validado: `dd35fcf`.
 - Branch remota: somente `main`.
 - PRs abertas: 0.
 - Issues abertas: 0.
 - Arquitetura: React/Vite/TypeScript + Hono + Neon/PostgreSQL/PostGIS + MapLibre + Terra Draw + IndexedDB/outbox.
 - Experiência instalável principal: **PWA**.
-- Capacitor permanece apenas como empacotamento já existente para Android/iOS; **WebNative foi removido do plano**.
+- Capacitor permanece somente como empacotamento já existente para Android/iOS; WebNative permanece fora do plano.
 - Operação: offline-first; IndexedDB é a fonte operacional no dispositivo.
 - Documentação oficial: `docs/`.
-- Migrations destrutivas, deploy público, publicação em loja, release/tag e rotação de secrets continuam exigindo autorização explícita.
+- Nenhuma migration de production, deploy público, publicação, release/tag ou rotação de secrets foi executada nesta estabilização.
 
-## Auditoria do HEAD atual
+## Gates validados
 
-### Gates
+No HEAD `dd35fcf`:
 
-No HEAD `d6d8bf0`:
-
+- Lint: **verde**;
+- Typecheck: **verde**;
+- Unit Tests: **verde**;
 - Build: **verde**;
-- E2E: **verde**;
-- PostGIS Integration: **verde**;
+- E2E desktop/Android mobile: **verde**;
+- E2E iOS/WebKit: **verde**;
+- PostGIS Integration: **verde**.
+
+Builds mobile do último commit funcional `57b7065`:
+
 - Android APK: **verde**;
-- iOS App: **verde**;
-- Lint: **vermelho**;
-- Typecheck: **vermelho**;
-- Unit Tests: **vermelho**.
+- iOS App: **verde**.
 
-O HEAD atual não pode ser tratado como Release Candidate enquanto os três gates vermelhos não forem restaurados.
+Os commits posteriores até `dd35fcf` alteraram somente testes/formatação e não código do app mobile.
 
-### Mudanças recentes auditadas
+## Correções P0 concluídas
 
-Foram adicionadas/alteradas recentemente:
+### Rate limit
 
-- rate limiting para `workspace/provision` e `workspace/recover`;
-- presign S3;
-- `PATCH /features/:id`;
-- rotas de projects/layers/features habilitadas também em production;
-- ajustes de PWA/manifest/iOS icon;
-- remoção do Basic SSL do Vite dev server.
+- `workspace/provision` e `workspace/recover` usam limiter distribuído no PostgreSQL;
+- usa buckets por identidade técnica + global;
+- não confia diretamente em `x-forwarded-for`;
+- serialização entre instâncias é garantida por transação + advisory lock;
+- tentativas permitidas são registradas em `audit_events`;
+- teste concorrente real no PostGIS ficou verde;
+- resposta de bloqueio usa HTTP 429 + código `RATE_LIMITED`.
+
+### Storage remoto
+
+- presign exige capability de workspace;
+- chave remota é automaticamente prefixada por `workspaceId`;
+- path traversal continua bloqueado;
+- PUT/GET presigned usam expiração curta;
+- sem configuração S3 válida, storage continua fail-closed com 503;
+- testes cobrem ausência de capability, namespace e path traversal.
+
+### Rotas de domínio
+
+- `projects/layers/features` voltaram a ficar desabilitadas em production;
+- production mantém o caminho isolado por workspace via sync;
+- risco de exposição cruzada criado pela habilitação direta em production foi removido.
+
+### PATCH feature
+
+- `PATCH /features/:id` usa `updateFeatureSchema`;
+- mantém optimistic concurrency por `version`;
+- preserva erro de conflito da camada DB;
+- rota permanece disponível apenas fora de production junto às demais rotas diretas.
+
+### PWA
+
+- zoom do navegador voltou a ser permitido;
+- `@vitejs/plugin-basic-ssl` foi restaurado no servidor de desenvolvimento;
+- preview Playwright continua HTTP explicitamente para teste local controlado;
+- manifest, service worker e update prompt permanecem preservados.
 
 ## Estado funcional resumido
 
 ### FUNCIONA
 
-- persistência local IndexedDB;
+- IndexedDB/local-first;
 - outbox, acknowledgements e conflitos;
-- sync push/pull existente;
-- workspace capability no fluxo de sync;
+- sync push/pull;
+- capability por workspace;
 - PostGIS/SRID 4674;
 - MapLibre/Terra Draw;
 - GeoPDF georreferenciado;
-- service worker, manifest e update prompt;
-- build web;
-- E2E;
-- integração PostGIS;
+- manifest/service worker/update prompt;
+- rate limiting distribuído de provision/recover;
+- storage presign workspace-scoped quando S3 está configurado;
+- lint/typecheck/unit/build/E2E/PostGIS;
 - builds debug Android/iOS.
 
-### PARCIAL
+### PARCIAL / PENDENTE
 
-- PWA: estrutura existe, mas houve regressão de acessibilidade no viewport e o dev server perdeu HTTPS local;
-- notificações SSE;
-- smoke de sync contra production depende de autorização explícita;
-- release checklist/documentação ainda precisam refletir o HEAD atual.
-
-### QUEBRADO / BLOQUEADOR
-
-- CI principal: lint, typecheck e unit tests vermelhos;
-- rate limiter atual não compila e usa store em memória, portanto não atende múltiplas instâncias;
-- rate limiter confia diretamente em `x-forwarded-for` sem modelo de proxy confiável;
-- storage presign tenta ler `capabilityWorkspaceId`, mas as rotas `/storage` não usam `capabilityMiddleware`; chave válida retorna 401 e o código não passa typecheck;
-- `PATCH /features/:id` referencia `updateFeatureSchema` sem import/definição no arquivo e não passa typecheck;
-- rotas de domínio foram habilitadas em production sem capability middleware;
-- queries de projects/layers/features não são filtradas por workspace nas rotas diretas, criando risco de leitura cruzada entre workspaces;
-- POST de domínio direto não injeta `workspaceId` mesmo que a camada DB exija esse campo, tornando criação direta inconsistente;
-- teste de storage está desatualizado em relação ao comportamento novo e falha (esperava 503; recebeu 401).
-
-### NÃO IMPLEMENTADO / PENDENTE
-
-- E2E automatizado com duas instalações/contextos para sync/conflict;
+- validação automatizada completa de installability/upgrade PWA preservando IndexedDB/outbox;
+- E2E de sync/conflict com dois contextos isolados;
 - calibração automática de PDF sem georreferenciamento válido;
-- política pública de privacidade aprovada;
-- Lighthouse/PWA/a11y CI;
-- security/dependency/secret scans;
-- plano de deploy web;
-- release notes/versão candidata;
-- suporte/rollback final.
+- Lighthouse/PWA/a11y no CI;
+- dependency/secret/security scans adicionais;
+- política pública de privacidade;
+- plano de deploy, release notes e suporte/rollback;
+- smoke contra production continua condicionado a autorização explícita.
 
 ## Fora do backlog automatizável
 
-- testes físicos em Android/iPhone/iPad;
+- testes físicos Android/iOS;
+- signing/provisioning real;
 - publicação em lojas;
-- signing/provisioning com credenciais reais;
-- qualquer ação destrutiva ou mudança em production sem autorização.
+- ações em production que exigem autorização explícita.
 
 ## Próximo item operacional executável
 
-**P0 — Restaurar os gates do HEAD e corrigir as regressões de segurança das mudanças recentes antes de implementar novas funcionalidades.**
+**P0 — Adicionar validação automatizada da PWA: manifest/installability, app shell offline e upgrade preservando IndexedDB/outbox.**
 
-Ordem:
+Depois:
 
-1. corrigir Typecheck/Lint/Unit;
-2. proteger ou desabilitar novamente as rotas diretas de domínio em production até existir isolamento por workspace;
-3. refazer rate limiting para solução compatível com múltiplas instâncias e proxy confiável;
-4. montar capability middleware no storage e adicionar testes cross-workspace;
-5. corrigir/validar `PATCH /features/:id` ou removê-lo se não houver consumidor real;
-6. corrigir regressão de acessibilidade do viewport e definir estratégia HTTPS para desenvolvimento PWA;
-7. só depois retomar hardening PWA, sync multi-contexto, GeoPDF e release.
+1. E2E de sync/conflict com dois contextos isolados;
+2. calibração automática GeoPDF sem georreferenciamento válido;
+3. Lighthouse/a11y + security/dependency/secret scans;
+4. política de privacidade;
+5. preparação de deploy/release/rollback.
