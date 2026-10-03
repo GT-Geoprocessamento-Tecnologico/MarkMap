@@ -102,11 +102,11 @@ jobs:
           test -d App.xcodeproj
           xcodebuild -project App.xcodeproj -list
 
-      # O projeto expõe o scheme App mesmo usando CapApp-SPM. Compilar pelo
-      # scheme, em vez de -target App, faz o Xcode respeitar integralmente o
-      # grafo SwiftPM transitivo (incluindo IONGeolocationLib, dependência do
-      # CapacitorGeolocation). O build continua sem assinatura e o App.app é
-      # empacotado apenas como artefato de teste.
+      # Compilar pelo scheme faz o Xcode respeitar o grafo SwiftPM completo.
+      # Não force SYMROOT: pacotes Swift locais resolvem esse caminho relativo
+      # às próprias raízes e acabam espalhando os produtos, o que impede o
+      # CapacitorGeolocation de localizar IONGeolocationLib. DerivedData mantém
+      # todos os produtos do grafo no mesmo build tree.
       - name: Build debug .ipa
         working-directory: apps/admin/ios/App
         run: |
@@ -117,17 +117,17 @@ jobs:
             -configuration Debug \
             -destination 'generic/platform=iOS' \
             -sdk iphoneos \
-            SYMROOT=./BuildProducts \
+            -derivedDataPath ./DerivedData \
             ONLY_ACTIVE_ARCH=NO \
             CODE_SIGNING_ALLOWED=NO \
             build \
             | tee build.log
-          app_path=./BuildProducts/Debug/App.app
+          app_path=./DerivedData/Build/Products/Debug-iphoneos/App.app
           if [ ! -d "$app_path" ]; then
-            app_path="$(find ./BuildProducts -maxdepth 2 -name App.app -type d -print -quit)"
+            app_path="$(find ./DerivedData/Build/Products -maxdepth 3 -name App.app -type d -print -quit)"
           fi
           if [ -z "$app_path" ] || [ ! -d "$app_path" ]; then
-            echo "::error::App.app não encontrado sob ./BuildProducts"
+            echo "::error::App.app não encontrado sob ./DerivedData/Build/Products"
             exit 1
           fi
           echo "App empacotado: $app_path"
