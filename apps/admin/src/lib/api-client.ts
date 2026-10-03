@@ -32,13 +32,14 @@ export type {
   UpdateFeatureInput,
 } from './api-types';
 
-/** Base URL da API; sobrescrita por env quando o backend real estiver de pé. */
+/** Base URL do transporte HTTP; sobrescrita por env quando o modo live é usado. */
 export const API_BASE: string = import.meta.env.VITE_API_URL ?? '/api/v1';
 
 /**
- * `mock` (default) usa a API em memoria de `src/lib/mock`; `live` usa fetch.
- * services/api ainda nao tem endpoints - por isso o mock existe
- * (20-FRONTEND-PRD-HANDOFF.md registra essa dependencia).
+ * `mock` mantém compatibilidade com testes e fluxos locais do cliente HTTP;
+ * `live` usa fetch. A operação principal do app é local-first via IndexedDB
+ * e sincroniza pelo fluxo /sync/*; as rotas HTTP diretas de domínio ficam
+ * desabilitadas em production por isolamento de workspace.
  */
 export const API_MODE: 'mock' | 'live' = import.meta.env.VITE_API_MODE ?? 'mock';
 
