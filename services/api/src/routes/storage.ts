@@ -51,12 +51,20 @@ export const storageRoutes = (env: Env) => {
 
   routes.get("/presign/put", async (c) => {
     const key = storageKeySchema.parse(c.req.query("key"));
+    const workspaceId = c.get("capabilityWorkspaceId") as string;
+    if (!workspaceId) {
+      throw new AppError("Workspace not provisioned", {
+        status: 401,
+        code: "VALIDATION_ERROR",
+      });
+    }
+    const namespacedKey = `${workspaceId}/${key}`;
     if (!s3Client) {
       throw storageUnavailable();
     }
     const command = new PutObjectCommand({
       Bucket: env.S3_BUCKET!,
-      Key: key,
+      Key: namespacedKey,
     });
     const url = await getSignedUrl(s3Client, command, { expiresIn: 300 }); // 5 minutes
     return c.json({ url });
@@ -64,12 +72,20 @@ export const storageRoutes = (env: Env) => {
 
   routes.get("/presign/get", async (c) => {
     const key = storageKeySchema.parse(c.req.query("key"));
+    const workspaceId = c.get("capabilityWorkspaceId") as string;
+    if (!workspaceId) {
+      throw new AppError("Workspace not provisioned", {
+        status: 401,
+        code: "VALIDATION_ERROR",
+      });
+    }
+    const namespacedKey = `${workspaceId}/${key}`;
     if (!s3Client) {
       throw storageUnavailable();
     }
     const command = new GetObjectCommand({
       Bucket: env.S3_BUCKET!,
-      Key: key,
+      Key: namespacedKey,
     });
     const url = await getSignedUrl(s3Client, command, { expiresIn: 300 });
     return c.json({ url });

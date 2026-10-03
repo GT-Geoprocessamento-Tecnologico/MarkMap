@@ -13,13 +13,14 @@ import {
 import type { Hono } from "hono";
 
 import { AppError, ErrorCode } from "../lib/errors.js";
+import { rateLimit } from "../middleware/rate-limit";
 
 const digest = (value: string): string =>
   createHash("sha256").update(value, "utf8").digest("hex");
 const bearer = (): string => randomBytes(32).toString("base64url");
 
 export const workspaceRoutes = (app: Hono<any, any, any>) => {
-  app.post("/workspace/provision", async (c) => {
+  app.post("/workspace/provision", rateLimit, async (c) => {
     const input = capabilityProvisionRequestSchema.parse(await c.req.json());
     const nextBearer = bearer();
     let workspace;
@@ -48,7 +49,7 @@ export const workspaceRoutes = (app: Hono<any, any, any>) => {
     );
   });
 
-  app.post("/workspace/recover", async (c) => {
+  app.post("/workspace/recover", rateLimit, async (c) => {
     const input = capabilityRecoveryRequestSchema.parse(await c.req.json());
     const nextBearer = bearer();
     const workspace = await recoverWorkspaceCapability(getDb(), {
