@@ -49,20 +49,29 @@ export const consumeRateLimit = async (
   const stableKey = `${input.action}:${input.bucketKey}`;
   const entityId = bucketUuid(stableKey);
 
-  const rows = await db.execute(sql`
-    WITH advisory AS MATERIALIZED (
-      SELECT pg_advisory_xact_lock(hashtextextended(${stableKey}, 0))
-    ),
-    recent AS MATERIALIZED (
+  return db.transaction(async (tx) => {
+    // Acquire the transaction-scoped lock in its own statement. Under
+    // READ COMMITTED the following count sees commits from the previous lock
+    // holder, which avoids stale-snapshot races across API instances.
+    await tx.execute(
+      sql`SELECT pg_advisory_xact_lock(hashtextextended(${stableKey}, 0))`,
+    );
+
+    const rows = await tx.execute(sql`
       SELECT count(*)::int AS used
       FROM audit_events
-      CROSS JOIN advisory
       WHERE entity_type = 'rate_limit'
         AND entity_id = ${entityId}::uuid
         AND action = ${input.action}
         AND created_at >= now() - (${input.windowSeconds} * interval '1 second')
-    ),
-    inserted AS (
+    `);
+    const row = rows[0] as { used?: number | string } | undefined;
+    const used = Number(row?.used ?? input.limit);
+    if (used >= input.limit) {
+      return { allowed: false, remaining: 0 };
+    }
+
+    await tx.execute(sql`
       INSERT INTO audit_events (
         entity_type,
         entity_id,
@@ -70,28 +79,18 @@ export const consumeRateLimit = async (
         actor_type,
         request_id
       )
-      SELECT
+      VALUES (
         'rate_limit',
         ${entityId}::uuid,
         ${input.action},
         'system',
         ${input.requestId}::uuid
-      FROM recent
-      WHERE used < ${input.limit}
-      RETURNING 1
-    )
-    SELECT
-      recent.used::int AS used_before,
-      EXISTS (SELECT 1 FROM inserted) AS allowed
-    FROM recent
-  `);
+      )
+    `);
 
-  const row = rows[0] as
-    { used_before?: number | string; allowed?: boolean } | undefined;
-  const usedBefore = Number(row?.used_before ?? input.limit);
-  const allowed = row?.allowed === true;
-  return {
-    allowed,
-    remaining: allowed ? Math.max(input.limit - usedBefore - 1, 0) : 0,
-  };
+    return {
+      allowed: true,
+      remaining: Math.max(input.limit - used - 1, 0),
+    };
+  });
 };
