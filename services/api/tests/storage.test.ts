@@ -55,7 +55,9 @@ const createStorageApp = () => {
 describe("workspace-scoped storage presign", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    presignMocks.getSignedUrl.mockResolvedValue("https://signed.example/object");
+    presignMocks.getSignedUrl.mockResolvedValue(
+      "https://signed.example/object",
+    );
     dbMocks.findWorkspaceByCapabilityHash.mockResolvedValue({
       workspaceId,
       capabilityHash: "a".repeat(64),

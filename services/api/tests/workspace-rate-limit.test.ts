@@ -49,11 +49,14 @@ describe("workspace abuse protection", () => {
       remaining: 0,
     });
 
-    const response = await createWorkspaceApp().request("/workspace/provision", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ bootstrapProof, installationId, workspaceId }),
-    });
+    const response = await createWorkspaceApp().request(
+      "/workspace/provision",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ bootstrapProof, installationId, workspaceId }),
+      },
+    );
 
     expect(response.status).toBe(429);
     expect(response.headers.get("retry-after")).toBe("60");
@@ -66,11 +69,14 @@ describe("workspace abuse protection", () => {
       .mockResolvedValueOnce({ allowed: true, remaining: 9 })
       .mockResolvedValueOnce({ allowed: true, remaining: 199 });
 
-    const response = await createWorkspaceApp().request("/workspace/provision", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ bootstrapProof, installationId, workspaceId }),
-    });
+    const response = await createWorkspaceApp().request(
+      "/workspace/provision",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ bootstrapProof, installationId, workspaceId }),
+      },
+    );
 
     expect(response.status).toBe(201);
     expect(dbMocks.consumeRateLimit).toHaveBeenCalledTimes(2);
