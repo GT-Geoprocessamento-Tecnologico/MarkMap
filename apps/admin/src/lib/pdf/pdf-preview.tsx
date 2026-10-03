@@ -9,10 +9,13 @@ import * as pdfjs from "pdfjs-dist";
 import workerUrl from "pdfjs-dist/build/pdf.worker.mjs?url";
 import { geoReferenceSchema, type GeoReference } from "@geonexo/contracts";
 import {
+  autoCalibrateFromText,
   fitAffine,
   inspectPdf,
   isPdfError,
-  type PdfInspection
+  type AutoCalibrationMethod,
+  type PdfInspection,
+  type PdfTextSample,
 } from "@geonexo/geo/pdf";
 import { useToast } from "@geonexo/ui";
 
@@ -42,6 +45,54 @@ type PageGeometry = {
 
 type ViewportConverter = {
   convertToPdfPoint(x: number, y: number): number[];
+};
+
+type StoredReferenceSource =
+  | { method: "manual" }
+  | {
+      method: "auto-grid";
+      variant: AutoCalibrationMethod;
+      confidence: number;
+    };
+
+const referenceKey = (blobId: string) => `pdfGeoref:${blobId}`;
+const referenceSourceKey = (blobId: string) => `pdfGeorefSource:${blobId}`;
+
+const textSamplesForPage = async (
+  page: pdfjs.PDFPageProxy,
+): Promise<PdfTextSample[]> => {
+  const text = await page.getTextContent();
+  const viewport = page.getViewport({ scale: 1 });
+  return text.items.flatMap((entry) => {
+    const item = entry as { str?: unknown; transform?: unknown };
+    if (
+      typeof item.str !== "string" ||
+      !Array.isArray(item.transform) ||
+      item.transform.length < 6 ||
+      item.str.trim().length === 0
+    )
+      return [];
+    const transformed = pdfjs.Util.transform(
+      viewport.transform,
+      item.transform as number[],
+    );
+    const pagePoint = viewport.convertToPdfPoint(
+      transformed[4] ?? 0,
+      transformed[5] ?? 0,
+    );
+    if (
+      pagePoint.length < 2 ||
+      !Number.isFinite(pagePoint[0]) ||
+      !Number.isFinite(pagePoint[1])
+    )
+      return [];
+    return [
+      {
+        text: item.str,
+        page: [pagePoint[0]!, pagePoint[1]!] as [number, number],
+      },
+    ];
+  });
 };
 
 const readBytes = async (blob: Blob): Promise<Uint8Array> =>
@@ -176,18 +227,28 @@ export function PdfPreview({ record }: { record: OriginalRecord }) {
   const [calibration, setCalibration] = useState<CalibrationPoint[]>([]);
   const [storedReference, setStoredReference] =
     useState<GeoReference | null>(null);
+  const [storedReferenceSource, setStoredReferenceSource] =
+    useState<StoredReferenceSource | null>(null);
   const [embeddedReference, setEmbeddedReference] =
     useState<GeoReference | null>(null);
+  const [autoCalibrationReason, setAutoCalibrationReason] =
+    useState<string | null>(null);
 
   useEffect(() => {
     let disposed = false;
     void Promise.all([
-      localRepository.getMeta<GeoReference>(`pdfGeoref:${record.blobId}`),
+      localRepository.getMeta<GeoReference>(referenceKey(record.blobId)),
+      localRepository.getMeta<StoredReferenceSource>(
+        referenceSourceKey(record.blobId),
+      ),
       resolveEmbeddedGeoReference(record.blob),
     ])
-      .then(([stored, embedded]) => {
+      .then(([stored, source, embedded]) => {
         if (disposed) return;
         setStoredReference(stored ?? null);
+        setStoredReferenceSource(
+          source ?? (stored ? { method: "manual" } : null),
+        );
         setEmbeddedReference(embedded.reference);
       })
       .catch(() => undefined);
@@ -208,6 +269,7 @@ export function PdfPreview({ record }: { record: OriginalRecord }) {
     setState("loading");
     setInspection(null);
     setReason(null);
+    setAutoCalibrationReason(null);
     viewportRef.current = null;
     pageGeometryRef.current = null;
     void (async () => {
@@ -215,13 +277,13 @@ export function PdfPreview({ record }: { record: OriginalRecord }) {
         const bytes = await readBytes(record.blob);
         if (bytes.byteLength > PDF_MAX_BYTES)
           throw new Error("O PDF excede o limite local de 25 MiB.");
+        let inspectionResult: PdfInspection | null = null;
         try {
-          setInspection(
-            await inspectPdf(bytes, {
-              maxBytes: PDF_MAX_BYTES,
-              maxPages: PDF_MAX_PAGES,
-            }),
-          );
+          inspectionResult = await inspectPdf(bytes, {
+            maxBytes: PDF_MAX_BYTES,
+            maxPages: PDF_MAX_PAGES,
+          });
+          setInspection(inspectionResult);
         } catch (error) {
           setReason(reasonFor(error));
         }
@@ -256,10 +318,49 @@ export function PdfPreview({ record }: { record: OriginalRecord }) {
             | 90
             | 180
             | 270;
-          pageGeometryRef.current = {
+          const geometry: PageGeometry = {
             cropBox: [view[0]!, view[1]!, view[2]!, view[3]!],
             rotation,
           };
+          pageGeometryRef.current = geometry;
+
+          const existingReference =
+            await localRepository.getMeta<GeoReference>(
+              referenceKey(record.blobId),
+            );
+          const hasEmbeddedMetadata =
+            (inspectionResult?.pages[0]?.viewports.length ?? 0) > 0;
+          if (!existingReference && !hasEmbeddedMetadata) {
+            const samples = await textSamplesForPage(page);
+            const automatic = autoCalibrateFromText(samples, {
+              pageIndex: 0,
+              cropBox: geometry.cropBox,
+              rotation: geometry.rotation,
+            });
+            if (automatic.reference) {
+              const source: StoredReferenceSource = {
+                method: "auto-grid",
+                variant: automatic.method!,
+                confidence: automatic.confidence,
+              };
+              await localRepository.setMeta(
+                referenceKey(record.blobId),
+                automatic.reference,
+              );
+              await localRepository.setMeta(
+                referenceSourceKey(record.blobId),
+                source,
+              );
+              if (!disposed) {
+                setStoredReference(automatic.reference);
+                setStoredReferenceSource(source);
+                setAutoCalibrationReason(null);
+                setReason(null);
+              }
+            } else if (!disposed) {
+              setAutoCalibrationReason(automatic.reason);
+            }
+          }
         }
         const context = canvas.getContext("2d", { alpha: false });
         if (!context)
@@ -297,14 +398,20 @@ export function PdfPreview({ record }: { record: OriginalRecord }) {
 
   const hasMapReference = Boolean(storedReference || embeddedReference);
   const geographicStatus = storedReference
-    ? "Posicionamento manual salvo neste dispositivo."
+    ? storedReferenceSource?.method === "auto-grid"
+      ? `Grade do PDF calibrada automaticamente (${Math.round(
+          storedReferenceSource.confidence * 100,
+        )}% de confiança). Você pode revisar manualmente se necessário.`
+      : "Posicionamento manual salvo neste dispositivo."
     : embeddedReference
       ? "Mapa georreferenciado detectado. Você pode abri-lo no mapa e continuar usando offline."
-      : reason
-        ? `Posicionamento automático indisponível: ${reason}`
-        : inspection?.pages[0]?.viewports.length
-          ? "Metadados geográficos encontrados, mas o posicionamento ainda precisa ser validado."
-          : "Este PDF pode ser posicionado manualmente com pontos conhecidos.";
+      : autoCalibrationReason
+        ? `Calibração automática não aprovada: ${autoCalibrationReason} Use o posicionamento manual como fallback.`
+        : reason
+          ? `Posicionamento automático indisponível: ${reason}`
+          : inspection?.pages[0]?.viewports.length
+            ? "Metadados geográficos encontrados, mas o posicionamento ainda precisa ser validado."
+            : "Procurando grade/coordenadas no PDF. Se não houver confiança suficiente, use o posicionamento manual.";
 
   const readyToSave = useMemo(
     () =>
@@ -387,11 +494,12 @@ export function PdfPreview({ record }: { record: OriginalRecord }) {
     }
     try {
       const reference = createManualReference(calibration, geometry);
-      await localRepository.setMeta(
-        `pdfGeoref:${record.blobId}`,
-        reference,
-      );
+      await localRepository.setMeta(referenceKey(record.blobId), reference);
+      await localRepository.setMeta(referenceSourceKey(record.blobId), {
+        method: "manual",
+      } satisfies StoredReferenceSource);
       setStoredReference(reference);
+      setStoredReferenceSource({ method: "manual" });
       setCalibrating(false);
       toast({
         title: "Mapa posicionado",
