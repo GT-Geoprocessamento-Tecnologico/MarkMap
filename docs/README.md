@@ -25,6 +25,12 @@ Esta pasta é a fonte documental do repositório. Os documentos descrevem o **es
 | [troubleshooting.md](troubleshooting.md) | Diagnóstico de problemas |
 | [status.md](status.md) | Matriz FUNCIONA/PARCIAL/QUEBRADO/NÃO IMPLEMENTADO |
 | [repository-audit.md](repository-audit.md) | Auditoria e limpeza do repositório |
+| [handoff.md](handoff.md) | Continuidade e próximo passo operacional |
+| [contributing.md](contributing.md) | Regras de contribuição/manutenção |
+| [release-checklist.md](release-checklist.md) | Gates de release |
+| [glossary.md](glossary.md) | Termos do domínio |
+| [adr/README.md](adr/README.md) | Decisões arquiteturais |
+| [legal.md](legal.md) | Índice de licenças e terceiros |
 | [changelog.md](changelog.md) | Mudanças relevantes documentadas |
 
 ## Fonte de verdade
