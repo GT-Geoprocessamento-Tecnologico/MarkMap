@@ -11,9 +11,7 @@ import {
 export const workspaces = pgTable("workspaces", {
   id: uuid("id").primaryKey(),
   proofDigest: varchar("proof_digest", { length: 64 }).notNull().unique(),
-  capabilityHash: varchar("capability_hash", { length: 64 })
-    .notNull()
-    .unique(),
+  capabilityHash: varchar("capability_hash", { length: 64 }).notNull().unique(),
   generation: bigint("generation", { mode: "bigint" })
     .notNull()
     .default(sql`0`),
