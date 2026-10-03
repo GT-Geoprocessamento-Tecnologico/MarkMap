@@ -71,11 +71,7 @@ export async function createMapLibreMap(args: CreateMapArgs): Promise<MapWithCon
 
   map.addControl(locationControl, 'top-right');
 
-  locationControl.on('geolocate', (event) => {
-    console.info('GPS obtido:', event.coords.latitude, event.coords.longitude);
-  });
   locationControl.on('error', (event) => {
-    // Emit to console for debug, but usually handled via UI in CommandCenter
     console.warn('Erro GPS (código', event.code, '):', event.message);
   });
 
