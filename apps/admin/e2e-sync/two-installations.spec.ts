@@ -544,6 +544,7 @@ test("duas instalações preservam retry/idempotência e expõem conflito sem so
     expect(projectId).not.toBeNull();
 
     await pageB.evaluate(() => window.dispatchEvent(new Event("online")));
+    await pageB.getByRole("button", { name: "Sincronizar" }).click();
     await expect(
       pageB.getByText("Projeto Compartilhado", { exact: true }),
     ).toBeVisible();
