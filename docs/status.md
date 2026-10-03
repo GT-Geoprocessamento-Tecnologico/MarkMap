@@ -1,6 +1,6 @@
 # Status técnico
 
-Snapshot documental: HEAD `dd35fcf` validado em 2026-10-03.
+Snapshot documental: HEAD `8aed47d` validado em 2026-10-03.
 
 | Área | Estado | Evidência/observação |
 |---|---|---|
@@ -8,41 +8,30 @@ Snapshot documental: HEAD `dd35fcf` validado em 2026-10-03.
 | Typecheck | FUNCIONA | CI verde no HEAD |
 | Unit Tests | FUNCIONA | CI verde no HEAD |
 | Build | FUNCIONA | workflow verde no HEAD |
+| PostGIS Integration | FUNCIONA | workflow verde no HEAD |
 | E2E desktop/Android | FUNCIONA | Playwright verde no HEAD |
 | E2E iOS/WebKit | FUNCIONA | Playwright verde no HEAD |
-| PostGIS Integration | FUNCIONA | workflow verde no HEAD |
-| Android debug build | FUNCIONA | verde em `57b7065`; commits posteriores só alteraram testes/formatação |
-| iOS debug build | FUNCIONA | verde em `57b7065`; commits posteriores só alteraram testes/formatação |
-| React/Vite/PWA base | FUNCIONA | zoom restaurado, HTTPS dev restaurado, build/E2E verdes |
-| IndexedDB local-first | FUNCIONA | stores + LocalRepository |
-| Outbox/acks/conflicts | FUNCIONA | implementação/testes existentes |
-| Sync push/pull | FUNCIONA | contratos + API + integração PostGIS |
-| Isolamento do sync por workspace | FUNCIONA | capability middleware no `/sync/*` |
+| E2E duas instalações | FUNCIONA | retry, idempotência, pull e VERSION_CONFLICT verdes |
+| Android debug build | FUNCIONA | workflow verde no HEAD |
+| iOS debug build | FUNCIONA | workflow verde no HEAD |
+| PWA installability | FUNCIONA | manifest/ícones/SW validados automaticamente |
+| App shell offline | FUNCIONA | reload totalmente offline em Chromium |
+| Upgrade IndexedDB/outbox | FUNCIONA | v1→v2 preserva workspace, entidade e outbox |
+| IndexedDB local-first | FUNCIONA | LocalRepository é a fonte operacional |
+| Outbox/acks/conflicts | FUNCIONA | testes unitários + E2E sync |
+| Sync push/pull | FUNCIONA | contratos + API + PostGIS |
+| Isolamento do sync por workspace | FUNCIONA | capability no `/sync/*` |
+| Rate limit provision/recover | FUNCIONA | PostgreSQL + transaction advisory lock |
+| Storage remoto | FUNCIONA CONDICIONAL | capability + prefixo workspace; 503 sem config S3 |
 | Rotas diretas de domínio em production | SEGURO / DESABILITADO | guard de production restaurado |
-| MapLibre/Terra Draw | FUNCIONA | núcleo do admin |
+| PATCH feature | FUNCIONA FORA DE PRODUCTION | optimistic concurrency por version |
+| MapLibre/Terra Draw | FUNCIONA | núcleo cartográfico |
 | PostGIS/SRID 4674 | FUNCIONA | schema + integração |
 | GeoPDF georreferenciado | FUNCIONA | módulos/testes existentes |
-| Storage remoto | FUNCIONA CONDICIONAL | capability obrigatória + namespace por workspace; 503 se S3 não configurado |
-| Rate limit provision/recover | FUNCIONA | PostgreSQL + transaction advisory lock; teste concorrente verde |
-| PATCH feature | FUNCIONA FORA DE PRODUCTION | schema/version corrigidos; rotas diretas seguem desabilitadas em production |
-| Notifications SSE | PARCIAL | eventos demonstrativos |
-| Upgrade PWA preservando dados | PENDENTE | precisa E2E automatizado dedicado |
-| E2E de duas instalações | NÃO IMPLEMENTADO | backlog |
-| Auto-calibração PDF sem georef | NÃO IMPLEMENTADO | backlog |
-| Lighthouse/a11y/security scans | NÃO IMPLEMENTADO | backlog |
+| Auto-calibração PDF sem georef | PARCIAL | fallback manual existe; automação robusta ainda pendente |
+| Lighthouse/a11y/security scans | NÃO IMPLEMENTADO | próximo backlog após GeoPDF |
 | Privacy policy pública | NÃO IMPLEMENTADO | requisito de release |
 | Deploy web produção | NÃO IMPLEMENTADO | domínio/provedor não definidos |
-| Signing/publicação mobile | FORA DO BACKLOG AUTOMATIZÁVEL | depende de credenciais/ação externa |
+| Signing/publicação mobile | FORA DO BACKLOG AUTOMATIZÁVEL | credenciais/ação externa |
 
-## Correções desta estabilização
-
-- substituído limiter in-memory por limiter distribuído no PostgreSQL;
-- corrigida corrida concorrente com transação + advisory lock;
-- storage passou a resolver capability e prefixar objetos por workspace;
-- rotas diretas de domínio voltaram a ser bloqueadas em production;
-- PATCH feature voltou a compilar e validar optimistic concurrency;
-- contrato recebeu `RATE_LIMITED` e frontend recebeu mensagem correspondente;
-- viewport deixou de bloquear zoom;
-- HTTPS de desenvolvimento Vite foi restaurado.
-
-Nenhuma ação destrutiva ou mudança em production foi executada.
+Nenhuma ação destrutiva ou alteração de production foi executada nesta fase.

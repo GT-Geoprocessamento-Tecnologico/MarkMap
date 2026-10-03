@@ -4,23 +4,29 @@ Este arquivo registra mudanças relevantes de arquitetura, documentação e orga
 
 ## 2026-10-03
 
-### Documentação
+### Qualidade e PWA
 
-- documentação centralizada e preenchida em `docs/`;
-- README raiz reduzido a entrada objetiva;
+- adicionada validação automatizada de manifest, ícones e installability;
+- service worker/app shell validados em reload totalmente offline;
+- upgrade IndexedDB v1→v2 validado preservando workspace, entidade e outbox;
+- zoom/acessibilidade do viewport e HTTPS de desenvolvimento permanecem preservados.
+
+### Sync
+
+- adicionado E2E com duas instalações Chromium isoladas;
+- cobertos retry após falha com commit, idempotência, pull e conflito de versão;
+- resolução explícita de conflito validada sem sobrescrita silenciosa.
+
+### Segurança
+
+- rate limit de provision/recover usa PostgreSQL com advisory lock transacional;
+- storage presign exige capability e namespace por workspace;
+- rotas diretas de domínio permanecem desabilitadas em production;
+- contrato/frontend tratam `RATE_LIMITED`.
+
+### Documentação e limpeza
+
+- documentação centralizada em `docs/`;
 - estado implementado separado de itens parciais/pendentes;
-- adicionados documentos de arquitetura, API, banco, sync, GIS, mobile, segurança, privacidade, testes, operação e auditoria.
-
-### Limpeza
-
-- removido README E2E obsoleto com comandos inexistentes;
-- removido workflow temporário de branch hygiene após consolidação das branches;
-- materiais/configurações de agentes já haviam sido removidos em commits imediatamente anteriores.
-
-### Correções documentais
-
-- Hono identificado como backend real;
-- Neon/PostGIS descrito como remoto de sync/backup, não fonte operacional do dispositivo;
-- autenticação de usuário/RBAC não tratada como implementada sem evidência;
-- storage remoto marcado como indisponível no código atual;
-- gap `PATCH /features/:id` registrado.
+- removidos artefatos/documentos históricos comprovadamente obsoletos em auditorias anteriores;
+- Handoff, status, testes, segurança e checklist de release mantidos alinhados ao HEAD.
