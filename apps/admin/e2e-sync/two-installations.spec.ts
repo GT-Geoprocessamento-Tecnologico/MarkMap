@@ -506,8 +506,10 @@ test("duas instalações preservam retry/idempotência e expõem conflito sem so
     await pageA.goto("/projects");
     await pageB.goto("/projects");
     await expect.poll(() => server.stats.provisions).toBeGreaterThanOrEqual(2);
+    await expect.poll(() => server.stats.pulls).toBeGreaterThanOrEqual(2);
 
     await contextA.setOffline(true);
+    await contextB.setOffline(true);
     await pageA
       .getByRole("button", { name: /Criar (Novo|Primeiro) Projeto/ })
       .first()
@@ -521,7 +523,6 @@ test("duas instalações preservam retry/idempotência e expõem conflito sem so
 
     server.failNextPushAfterCommit = true;
     await contextA.setOffline(false);
-    await pageA.evaluate(() => window.dispatchEvent(new Event("online")));
 
     await expect
       .poll(() => server.stats.committedFailures)
@@ -543,8 +544,11 @@ test("duas instalações preservam retry/idempotência e expõem conflito sem so
     const projectId = server.lastProjectId;
     expect(projectId).not.toBeNull();
 
-    await pageB.evaluate(() => window.dispatchEvent(new Event("online")));
-    await pageB.getByRole("button", { name: "Sincronizar" }).click();
+    const pullsBeforeInstallationB = server.stats.pulls;
+    await contextB.setOffline(false);
+    await expect
+      .poll(() => server.stats.pulls)
+      .toBeGreaterThan(pullsBeforeInstallationB);
     await expect(
       pageB.getByText("Projeto Compartilhado", { exact: true }),
     ).toBeVisible();
@@ -565,11 +569,9 @@ test("duas instalações preservam retry/idempotência e expõem conflito sem so
     );
 
     await contextA.setOffline(false);
-    await pageA.evaluate(() => window.dispatchEvent(new Event("online")));
     await expect.poll(() => server.stats.accepted).toBe(2);
 
     await contextB.setOffline(false);
-    await pageB.evaluate(() => window.dispatchEvent(new Event("online")));
     await expect.poll(() => server.stats.conflicts).toBeGreaterThanOrEqual(1);
 
     await expect(
