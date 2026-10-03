@@ -6,56 +6,20 @@
 pnpm build
 ```
 
-A saída principal do admin fica em `apps/admin/dist`.
-
-Nenhum provedor público específico deve ser tratado como adotado apenas por aparecer em documentação histórica. O domínio/deploy web de produção ainda deve ser definido.
+A saída do admin fica em `apps/admin/dist`. O provedor/domínio público ainda não está definido e nenhum deploy foi executado.
 
 ## API
 
-`services/api` é um servidor Hono/Node. Configuração de produção requer no mínimo:
+`services/api` é Hono/Node. Produção requer `NODE_ENV=production`, HOST/PORT, `CORS_ORIGINS` explícito, DATABASE_URL/NEON_DB_URL e storage somente quando configurado de forma segura.
 
-- `NODE_ENV=production`;
-- `HOST`;
-- `PORT`;
-- `CORS_ORIGINS` explícito;
-- `DATABASE_URL` ou `NEON_DB_URL`;
-- configuração de storage somente quando habilitada com autorização adequada.
+## Android/iOS
 
-## Android
-
-O CI gera APK **debug**, não release assinado.
-
-Produção ainda requer:
-
-- keystore;
-- política de assinatura;
-- versionamento;
-- bundle/release;
-- publicação autorizada.
-
-## iOS
-
-O CI gera build debug sem code signing.
-
-Produção ainda requer:
-
-- Apple signing/provisioning;
-- bundle/version;
-- archive assinado;
-- distribuição autorizada.
+O CI gera artefatos **debug**. Release real ainda requer signing, versionamento e autorização de publicação.
 
 ## Banco
 
-Migrations versionadas não significam que foram aplicadas em produção. Mudança remota destrutiva exige autorização explícita.
+Migrations versionadas não significam aplicação em production. Mudança remota destrutiva exige autorização explícita.
 
-## Release
+## Processo de release
 
-Antes de um RC/publicação:
-
-1. gates CI verdes;
-2. testes físicos Android/iOS;
-3. PWA instalada e upgrade preservando IndexedDB/outbox;
-4. sync real entre instalações;
-5. segurança/privacy fechadas;
-6. release notes/versionamento;
-7. autorização para deploy/publicação.
+Use [release-runbook.md](release-runbook.md) para preflight, promoção, verificação e rollback. O runbook é preparatório e não autoriza deploy, migration, tag ou publicação.

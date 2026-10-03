@@ -1,46 +1,43 @@
 # Documentação do GeoNexo
 
-Esta pasta é a fonte documental do repositório. Os documentos descrevem o **estado comprovado no código**, separando funcionalidades implementadas de itens parciais ou pendentes.
+Esta pasta é a fonte documental do repositório e separa estado comprovado de pendências externas.
 
 ## Índice
 
 | Documento | Conteúdo |
 |---|---|
-| [overview.md](overview.md) | Produto, objetivos, capacidades e limites atuais |
+| [overview.md](overview.md) | Produto, capacidades e limites |
 | [architecture.md](architecture.md) | Arquitetura e fluxo de dados |
 | [repository-structure.md](repository-structure.md) | Organização do monorepo |
-| [setup.md](setup.md) | Requisitos, instalação e variáveis de ambiente |
-| [development.md](development.md) | Fluxo de desenvolvimento e regras de mudança |
-| [testing.md](testing.md) | Estratégia de testes e CI |
-| [api-reference.md](api-reference.md) | Rotas Hono e comportamento atual |
-| [data-model.md](data-model.md) | PostgreSQL/PostGIS e entidades de sync |
-| [sync-flow.md](sync-flow.md) | IndexedDB, outbox, push/pull e conflitos |
+| [setup.md](setup.md) | Instalação e variáveis |
+| [development.md](development.md) | Desenvolvimento |
+| [testing.md](testing.md) | Testes e CI |
+| [api-reference.md](api-reference.md) | API Hono |
+| [data-model.md](data-model.md) | PostgreSQL/PostGIS |
+| [sync-flow.md](sync-flow.md) | IndexedDB/outbox/sync |
 | [gis-geopdf.md](gis-geopdf.md) | GIS, CRS e GeoPDF |
-| [mobile.md](mobile.md) | Capacitor, Android e iOS |
-| [security.md](security.md) | Controles existentes e gaps conhecidos |
-| [privacy.md](privacy.md) | Requisitos de privacidade ainda pendentes de política pública |
-| [deployment.md](deployment.md) | Build, artefatos e distribuição |
-| [operations.md](operations.md) | Operação, observabilidade e rollback |
-| [user-guide.md](user-guide.md) | Uso funcional do aplicativo |
-| [troubleshooting.md](troubleshooting.md) | Diagnóstico de problemas |
-| [status.md](status.md) | Matriz FUNCIONA/PARCIAL/QUEBRADO/NÃO IMPLEMENTADO |
-| [repository-audit.md](repository-audit.md) | Auditoria e limpeza do repositório |
-| [handoff.md](handoff.md) | Continuidade e próximo passo operacional |
-| [contributing.md](contributing.md) | Regras de contribuição/manutenção |
+| [mobile.md](mobile.md) | Android/iOS |
+| [security.md](security.md) | Segurança |
+| [privacy.md](privacy.md) | Privacidade e insumos faltantes |
+| [deployment.md](deployment.md) | Build e distribuição |
+| [release-runbook.md](release-runbook.md) | Preflight, publicação autorizada e rollback |
+| [operations.md](operations.md) | Operação e observabilidade |
+| [user-guide.md](user-guide.md) | Guia de uso |
+| [troubleshooting.md](troubleshooting.md) | Diagnóstico |
+| [status.md](status.md) | Matriz de estado |
+| [repository-audit.md](repository-audit.md) | Auditoria do repositório |
+| [handoff.md](handoff.md) | Continuidade |
 | [release-checklist.md](release-checklist.md) | Gates de release |
-| [glossary.md](glossary.md) | Termos do domínio |
-| [adr/README.md](adr/README.md) | Decisões arquiteturais |
-| [legal.md](legal.md) | Índice de licenças e terceiros |
-| [changelog.md](changelog.md) | Mudanças relevantes documentadas |
+| [legal.md](legal.md) | Licenças/terceiros |
+| [changelog.md](changelog.md) | Mudanças relevantes |
+| [adr/README.md](adr/README.md) | ADRs |
 
 ## Fonte de verdade
 
-Em caso de divergência, prevalecem nesta ordem:
-
-1. código/configuração no HEAD atual;
-2. contratos e migrations versionados;
+1. código/configuração no HEAD;
+2. contratos/migrations;
 3. evidência de CI/testes;
-4. documentação desta pasta;
-5. hipóteses e itens planejados.
+4. documentação;
+5. hipóteses.
 
-Documentação deve ser atualizada junto com mudanças relevantes de arquitetura, APIs, banco, mobile, segurança ou fluxo offline.
+Mudanças relevantes devem atualizar documentação e Checklist Mestre.

@@ -1,15 +1,15 @@
 # GeoNexo
 
-GeoNexo é uma aplicação GIS **offline-first** para trabalho de campo, com interface React/Vite, mapas MapLibre, edição vetorial Terra Draw, armazenamento operacional local em IndexedDB e sincronização posterior por API Hono para PostgreSQL/Neon + PostGIS.
+GeoNexo é uma aplicação GIS **offline-first** para trabalho de campo, com React/Vite, MapLibre, Terra Draw, IndexedDB/outbox e sincronização por API Hono para PostgreSQL/Neon + PostGIS.
 
 ## Estado atual
 
-- Fonte operacional no dispositivo: **IndexedDB + outbox**.
-- Sincronização remota: **push/pull**, cursor incremental, idempotência, tombstones e conflitos explícitos.
-- Mobile: **Capacitor** para Android e iOS.
-- GIS: MapLibre, Terra Draw, CRS SIRGAS 2000 e suporte GeoPDF.
-- Qualidade: lint, typecheck, unit, build, E2E e integração PostGIS em GitHub Actions.
-- Fase: MVP instalável em validação de campo.
+- operação local: IndexedDB + outbox;
+- sync: push/pull, retry, idempotência, tombstones e conflitos explícitos;
+- PWA: manifest, service worker, cold offline e upgrade local automatizados;
+- GIS: MapLibre, Terra Draw, SIRGAS 2000, GeoPDF e auto-calibração por grade;
+- mobile: Capacitor opcional Android/iOS;
+- qualidade: lint, typecheck, unit, build, E2E, PostGIS, Lighthouse/a11y, dependency audit e secret scan.
 
 ## Desenvolvimento rápido
 
@@ -19,7 +19,7 @@ pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-Principais gates:
+## Gates
 
 ```bash
 pnpm lint
@@ -31,40 +31,23 @@ pnpm test:e2e
 
 ## Documentação
 
-A documentação técnica e operacional está centralizada em [`docs/`](docs/README.md).
-
-Comece por:
-
-- [Visão geral](docs/overview.md)
-- [Arquitetura](docs/architecture.md)
-- [Instalação e configuração](docs/setup.md)
-- [Desenvolvimento](docs/development.md)
-- [Testes e qualidade](docs/testing.md)
-- [API](docs/api-reference.md)
-- [Modelo de dados](docs/data-model.md)
-- [Offline e sincronização](docs/sync-flow.md)
-- [GIS e GeoPDF](docs/gis-geopdf.md)
-- [Android e iOS](docs/mobile.md)
-- [Segurança](docs/security.md)
-- [Deploy e distribuição](docs/deployment.md)
-- [Status técnico](docs/status.md)
-- [Auditoria do repositório](docs/repository-audit.md)
+A documentação oficial está em [`docs/`](docs/README.md). Para preparação de release use [`docs/release-runbook.md`](docs/release-runbook.md).
 
 ## Estrutura
 
 ```text
 apps/admin       PWA e app Capacitor
 services/api     API Hono
-packages/*       contratos, banco, GIS, mapas, UI e utilitários
-docs             documentação oficial do repositório
-.github/workflows CI, build, E2E, integração e builds mobile
+packages/*       contratos, banco, GIS, mapas e UI
+docs             documentação oficial
+.github/workflows CI, E2E, integração, qualidade/segurança e builds mobile
 ```
 
 ## Regras importantes
 
-- Não introduzir uma segunda arquitetura de offline/sync/GIS.
-- Não colocar credenciais do banco no cliente.
-- Não executar migration destrutiva, deploy público, release, publicação em loja ou rotação de secrets sem autorização explícita.
-- Não considerar testes físicos concluídos a partir de emulação ou CI.
+- não introduzir arquitetura paralela de offline/sync/GIS;
+- não colocar credenciais privilegiadas no cliente;
+- não executar migration destrutiva, deploy público, release/tag, publicação ou rotação de secrets sem autorização explícita;
+- não considerar testes físicos concluídos a partir de CI.
 
-Para dependências e atribuições de terceiros, consulte [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
+Para dependências e atribuições consulte [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).

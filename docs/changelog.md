@@ -1,32 +1,32 @@
 # Changelog documental
 
-Este arquivo registra mudanças relevantes de arquitetura, documentação e organização. Não substitui tags/releases oficiais.
+Este arquivo registra mudanças relevantes e não substitui tags/releases oficiais.
 
 ## 2026-10-03
 
-### Qualidade e PWA
+### PWA e qualidade
 
-- adicionada validação automatizada de manifest, ícones e installability;
-- service worker/app shell validados em reload totalmente offline;
-- upgrade IndexedDB v1→v2 validado preservando workspace, entidade e outbox;
-- zoom/acessibilidade do viewport e HTTPS de desenvolvimento permanecem preservados.
+- manifest, service worker, cold offline e upgrade IndexedDB validados;
+- E2E de duas instalações estabilizado com transições reais offline→online;
+- adicionados dependency audit, scanner de secrets e Lighthouse/a11y ao CI.
 
-### Sync
+### GIS/GeoPDF
 
-- adicionado E2E com duas instalações Chromium isoladas;
-- cobertos retry após falha com commit, idempotência, pull e conflito de versão;
-- resolução explícita de conflito validada sem sobrescrita silenciosa.
+- adicionada auto-calibração offline por texto de grade geográfica ou SIRGAS/UTM;
+- aceitação automática condicionada a R², residual, cobertura e confiança;
+- transformação UTM validada para WGS84;
+- fallback manual preservado quando o resultado automático não é confiável.
 
-### Segurança
+### Sync e segurança
 
-- rate limit de provision/recover usa PostgreSQL com advisory lock transacional;
+- retry/idempotência/pull/conflito cobertos em dois contextos isolados;
+- rate limit distribuído no PostgreSQL;
 - storage presign exige capability e namespace por workspace;
-- rotas diretas de domínio permanecem desabilitadas em production;
-- contrato/frontend tratam `RATE_LIMITED`.
+- rotas diretas de domínio permanecem desabilitadas em production.
 
-### Documentação e limpeza
+### Documentação
 
-- documentação centralizada em `docs/`;
-- estado implementado separado de itens parciais/pendentes;
-- removidos artefatos/documentos históricos comprovadamente obsoletos em auditorias anteriores;
-- Handoff, status, testes, segurança e checklist de release mantidos alinhados ao HEAD.
+- comentários legados do cliente HTTP corrigidos;
+- status/handoff/checklist alinhados ao estado real;
+- adicionado runbook de release/rollback;
+- política de privacidade documenta explicitamente os dados externos ainda necessários.

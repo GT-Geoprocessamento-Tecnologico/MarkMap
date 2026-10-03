@@ -16,68 +16,61 @@ Workflows ativos:
 
 - `ci.yml`: lint, typecheck e unit tests;
 - `build.yml`: build de todos os pacotes;
-- `e2e.yml`:
-  - Chromium desktop + Pixel 7;
-  - iPhone 13/WebKit;
-  - Chromium com **duas instalações isoladas** em live mode;
-- `integration.yml`: integração offline sync → PostGIS → pull;
+- `e2e.yml`: desktop/Android, iOS/WebKit e duas instalações isoladas;
+- `integration.yml`: offline sync → PostGIS → pull;
 - `android-apk.yml`: APK debug;
-- `ios-app.yml`: build debug iOS.
+- `ios-app.yml`: build debug iOS;
+- `quality-security.yml`:
+  - `pnpm audit --prod --audit-level=high`;
+  - scanner de secrets em arquivos rastreados;
+  - Lighthouse em `/` e `/projects`;
+  - acessibilidade mínima 0,90;
+  - best-practices mínima 0,85;
+  - performance e SEO monitorados como warning.
 
 CI usa Node 22.
 
-## Estratégia
+## PWA
 
-### Unitários
+Automação cobre:
 
-Vitest cobre contratos, utilitários, repositórios locais, sync, componentes e backend.
+- manifest standalone e ícones normal/maskable;
+- service worker controlando a página;
+- app shell em reload totalmente offline;
+- upgrade IndexedDB v1→v2;
+- preservação de workspace, entidade e outbox.
 
-A PWA possui testes de contrato para:
+## Sync em duas instalações
 
-- manifest standalone;
-- link do manifest no shell;
-- ícones PNG 192/512 normais e maskable;
-- dimensões reais dos ícones;
-- viewport sem bloqueio de zoom;
-- política do service worker e handshake de update.
+Dois contextos Chromium isolados executam o app em modo live contra servidor determinístico do teste. O fluxo cobre:
 
-### Integração
-
-O workflow PostGIS sobe `postgis/postgis:16-3.4` e executa testes de `@geonexo/db` contra banco descartável.
-
-### E2E PWA
-
-Playwright Chromium comprova:
-
-- service worker ativo e controlando a página;
-- manifest e ícones acessíveis;
-- reload do app shell totalmente offline;
-- upgrade de IndexedDB v1 para v2;
-- preservação de workspace, entidade e outbox durante o upgrade.
-
-### E2E de sync em duas instalações
-
-Dois contextos Chromium isolados executam o app em `VITE_API_MODE=live` contra um servidor de sync determinístico do teste. O fluxo cobre:
-
-- provision/recovery de capability;
-- operação criada offline;
-- commit seguido de erro HTTP e retry;
-- resposta `alreadyApplied` sem duplicação;
-- pull para a segunda instalação;
-- duas edições concorrentes;
+- provision/recovery;
+- criação offline;
+- commit seguido de erro e retry;
+- idempotência por `operationId`;
+- pull após reconexão real da segunda instalação;
+- edições concorrentes;
 - `VERSION_CONFLICT`;
-- resolução explícita pela interface.
+- resolução explícita sem sobrescrita silenciosa.
 
-O servidor de teste não substitui o PostGIS: persistência/materialização real continua coberta pelo workflow de integração.
+Persistência/materialização real continua coberta pelo PostGIS Integration.
 
-### Limites
+## GIS/GeoPDF
 
-Automação **não substitui**:
+Testes unitários da auto-calibração cobrem:
 
-- instalação PWA em aparelho real;
-- GPS/force-stop/storage do SO;
-- teste físico Android/iOS;
-- smoke autorizado contra production.
+- grade geográfica consistente aceita;
+- grade inconsistente rejeitada;
+- grade SIRGAS/UTM 22S aceita e convertida para WGS84;
+- quantidade insuficiente de rótulos rejeitada.
+
+## Segurança automatizada
+
+O scanner de secrets é intencionalmente de alta precisão: recusa arquivos `.env` rastreados (exceto templates) e padrões inequívocos de chaves privadas/tokens. Ele não imprime o valor detectado.
+
+## Limites
+
+Automação **não substitui** instalação PWA física, GPS/force-stop/storage do SO, testes físicos Android/iOS ou smoke autorizado contra production.
 
 ## Evidência
 

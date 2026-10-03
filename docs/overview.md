@@ -12,29 +12,28 @@ Pessoa operando celular, tablet ou navegador em campo, podendo ficar longos per�
 
 ## Capacidades implementadas
 
-- projetos e camadas;
-- visualização cartográfica com MapLibre;
-- desenho e edição vetorial com Terra Draw;
+- projetos, mapas, camadas e feições;
+- MapLibre + Terra Draw;
 - GPS;
-- armazenamento local em IndexedDB;
-- fila durável de operações (outbox);
-- sincronização push/pull;
-- versionamento, idempotência, cursor incremental e tombstones;
-- conflitos explícitos;
-- PostgreSQL/Neon com PostGIS;
-- importação e processamento GIS/GeoPDF;
-- PWA;
-- empacotamento Android/iOS com Capacitor.
+- IndexedDB como fonte operacional local;
+- outbox durável;
+- sync push/pull com retry, idempotência, cursor, tombstones e conflitos explícitos;
+- isolamento remoto por workspace capability;
+- PostgreSQL/Neon + PostGIS;
+- storage remoto workspace-scoped quando configurado;
+- GeoPDF georreferenciado e auto-calibração por grade textual geográfica/UTM com limiar de confiança;
+- PWA com manifest, service worker, app shell offline e upgrade de IndexedDB testado;
+- Capacitor opcional para Android/iOS;
+- rate limiting distribuído de provision/recover;
+- gates de lint, typecheck, unit, build, E2E, PostGIS, Lighthouse/a11y, dependency audit e secret scan.
 
 ## Limites atuais
 
-- testes físicos finais Android/iOS ainda precisam de evidência;
-- fluxo real entre duas instalações ainda precisa de validação;
-- storage remoto possui rotas de presign, mas responde indisponível no estado atual;
-- rate limiting em provision/recover de workspace ainda é pendente;
-- política pública de privacidade ainda precisa ser definida;
-- assinatura/publicação em lojas e deploy web de produção não estão concluídos;
-- calibração automática de PDF sem georreferenciamento válido permanece pendente.
+- testes físicos Android/iOS e instalação PWA real ainda precisam de evidência;
+- smoke contra production depende de autorização explícita;
+- política pública de privacidade depende de dados legais/operacionais não presentes no repositório;
+- assinatura/publicação em lojas e deploy web público não estão autorizados/definidos;
+- validação de PDF grande em aparelho físico continua pendente.
 
 ## Princípio de dados
 
