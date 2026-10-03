@@ -20,40 +20,34 @@ Toda nova conversa sobre GeoNexo deve:
 
 ## 2. Snapshot atual
 
-**Fase atual:** auditoria de release-readiness e validação Web/PWA + Android + iOS.
+**Fase atual:** MVP instalável em validação de campo.
 
-**Main observado:** `3d21e1c`.
-
-**Trabalho em andamento:** PR #2 — `fix(audit): alinhar PWA e drift de schema para release`, branch `audit/release-readiness-2026-10-02`.
+**Integração:** PR #2 foi auditado, teve todos os checks do PR verdes e foi incorporado em `main`.
 
 ### Concluído com evidência
 
 - arquitetura local-first com IndexedDB/outbox;
 - sync push/pull, cursor, retry, idempotência, tombstones e conflitos;
 - materialização de project/map/layer/feature/import no PostGIS;
-- PostGIS Integration verde no PR de auditoria;
-- Neon production com tabelas de domínio/sync, PostGIS e pgcrypto;
-- bucket privado `geonexo-assets`;
-- Playwright desktop/mobile automatizado;
+- PWA/Vite corrigida para `import.meta.env.PROD`;
+- MapLibre + desenho/coleta local;
+- GPS web/nativo com permissão Capacitor;
+- PostGIS Integration verde;
+- Android debug APK gerado com permissões GPS verificadas;
+- iOS debug package gerado com GPS/SwiftPM corrigidos;
+- Playwright desktop + Android mobile + iOS mobile automatizado;
 - GeoPDF real de Araguaína e CRS projetado validados;
-- Capacitor Android/iOS e workflows de empacotamento presentes;
-- correção do bootstrap PWA para `import.meta.env.PROD` preparada no PR #2;
-- README e artefatos acidentais/stale corrigidos no PR #2.
+- README, governança e higiene do repositório alinhados;
+- PRs abertos zerados após a consolidação.
 
-### QA do PR #2
+### Correções da auditoria final
 
-No head anterior do PR, passaram:
-- Lint;
-- Typecheck;
-- Unit Tests;
-- Build;
-- Playwright E2E;
-- Playwright iOS mobile emulation;
-- Offline sync → PostGIS → pull.
-
-No head mais recente, os checks foram reiniciados após as correções finais; consultar o PR antes de afirmar o estado final.
-
-Android APK e iOS App não rodam em `pull_request` atualmente. Precisam ser validados no main resultante ou via `workflow_dispatch`.
+- formatação do schema de workspace;
+- teste PostGIS de ordenação tornado determinístico;
+- remoção de log de coordenada GPS precisa;
+- estado de permissão GPS corrigido;
+- pipeline iOS ajustado para usar o scheme App;
+- SwiftPM iOS corrigido para usar um único DerivedData, sem fragmentar produtos por `SYMROOT`.
 
 ## 3. Banco observado
 
@@ -67,70 +61,55 @@ Observado em 2026-10-02:
 - pgcrypto 1.4;
 - tabelas de domínio e sync presentes;
 - bucket privado `geonexo-assets`;
-- 0 workspaces/projects/maps/layers/features/imports/sync rows no momento da inspeção;
-- nenhuma query acima de cinco minutos;
-- nenhum lock mantido durante a auditoria.
+- banco sem dados de domínio/sync no momento da inspeção;
+- nenhuma query longa ou lock mantido durante a auditoria.
 
-### Drift ainda pendente em production
+### Drift pendente em production
 
-- FK antiga `imports_target_layer_id_fkey` usa `ON DELETE SET NULL` enquanto a versão atual espera CASCADE;
-- quatro índices redundantes coexistem com UNIQUE/PK equivalentes.
+A migration versionada `0002_sync_schema_cleanup.sql` foi preparada/validada para:
+- trocar a FK antiga de imports;
+- remover quatro índices redundantes.
 
-Migration versionada `0002_sync_schema_cleanup.sql` foi preparada e validada na branch temporária Neon `br-mute-unit-b4nkmmlb`.
-
-**Production não foi alterada.** Aplicar essa limpeza exige autorização explícita.
-
-Existe também a branch temporária antiga `br-icy-pine-b4o2yjh0`. Não excluir branch Neon sem autorização explícita.
+**Production não foi alterada.** Aplicar a limpeza exige autorização explícita separada.
 
 ## 4. Próximo item livre
 
-1. concluir revalidação dos checks do PR #2;
-2. revisar/aprovar integração do PR #2 em main;
-3. revalidar Android APK e iOS App no HEAD resultante;
-4. testes físicos Android/iOS;
-5. smoke real de sync entre duas instalações;
-6. política de privacidade, signing/provisioning e deploy público;
-7. Release Candidate.
+1. instalar o APK Android em aparelho físico;
+2. validar mapa + GPS + criação local;
+3. desligar internet, fechar/force-stop e reabrir;
+4. registrar bugs reais encontrados em campo e corrigir por atualizações incrementais;
+5. depois avançar calibração automática de GeoPDF;
+6. validar duas instalações/sync;
+7. fechar privacidade/signing/distribuição.
 
-## 5. Pendências técnicas importantes
+## 5. Pendências técnicas
 
-- rate limiting/abuse protection distribuído para `workspace/provision` e `workspace/recover`;
-- upload/download remoto autorizado por workspace; presign continua intencionalmente 503;
-- GeoPDF manual calibration E2E/físico;
+- teste físico Android;
+- teste físico iOS;
+- calibração automática de PDF/GeoPDF sem georreferenciamento válido;
+- rate limiting/abuse protection distribuído para workspace provision/recover;
+- upload/download remoto autorizado por workspace;
 - GeoPDF grande em dispositivo limitado;
 - round-trip de formatos GIS legados prioritários;
-- atualização PWA real preservando IndexedDB/outbox.
-
-## 6. Bloqueios / decisões externas
-
-- migration cleanup de production precisa de autorização;
-- merge do PR #2 depende de revisão/decisão;
-- assinatura/publicação Android;
-- signing/provisioning/publicação iOS;
-- domínio/deploy Web;
 - política pública de privacidade;
-- testes físicos finais.
+- signing/provisioning e deploy público.
 
-## 7. Regras de agentes paralelos
+## 6. Regras
 
-- checar branch/HEAD antes de editar;
-- checar Checklist Mestre;
-- não duplicar tarefa já em andamento;
-- não sobrescrever trabalho de outro agente;
-- revisar diff antes de integrar;
-- repetir testes depois de resolver conflito;
-- atualizar este Handoff se fase, bloqueio ou próximo passo mudar.
+- `main` é a única linha de desenvolvimento que deve permanecer após a consolidação atual;
+- não reabrir branches antigas;
+- não executar migration destrutiva, deploy público ou publicação sem autorização;
+- não declarar teste físico aprovado com base em CI/emulação;
+- atualizar este Handoff e o Checklist Mestre quando o estado mudar.
 
-## 8. QA
+## 7. QA
 
-- registrar comandos/resultados;
-- se falhar, corrigir e repetir;
-- não considerar concluído com gate obrigatório vermelho;
-- não inferir teste físico a partir de emulação;
-- distinguir claramente evidência do main de evidência existente apenas no PR.
+Para qualquer alteração relevante:
+- lint;
+- typecheck;
+- unit/integration;
+- build;
+- E2E relevante;
+- pacote mobile quando a mudança afetar mobile.
 
-## 9. Prompt mínimo para novo chat
-
-```text
-Leia primeiro GEONEXO_FONTE_CHATGPT.md nas Fontes do Projeto. Depois consulte “GeoNexo — Checklist Mestre de Execução” no Notion, verifique main, PRs/tarefas em andamento e continue pelo próximo item livre. Não duplique trabalho. Responda curto e direto.
-```
+Nunca registrar PASS sem evidência do commit correspondente.
