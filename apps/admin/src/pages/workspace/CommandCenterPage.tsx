@@ -528,10 +528,12 @@ export default function CommandCenterPage() {
       // concedida. Na web este passo é um no-op e o mapa abre normalmente.
       const locationPermission = await ensureLocationPermission();
       if (locationPermission.state === "denied") {
-toast({
-            title: "Permissão de localização indisponível",
-            variant: "error",
-          });
+        toast({
+          title: "Permissão de localização indisponível",
+          description:
+            "O mapa continuará funcionando, mas o GPS ficará inativo até a permissão ser liberada.",
+          variant: "error",
+        });
       }
       if (cancelled) {
         releaseProtocols();
