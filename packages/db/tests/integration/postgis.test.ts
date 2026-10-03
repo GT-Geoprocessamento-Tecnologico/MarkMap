@@ -426,8 +426,16 @@ describeIfTestDb("postgis persistence (real PostGIS)", () => {
   });
 
   it("lists newest projects first and round-trips audit events", async () => {
-    await createProject(db, { name: "primeiro" });
-    await createProject(db, { name: "segundo" });
+    const first = await createProject(db, { name: "primeiro" });
+    const second = await createProject(db, { name: "segundo" });
+    if (first === undefined || second === undefined)
+      throw new Error("createProject returned no row");
+    await db.execute(
+      sql`UPDATE projects SET created_at = '2026-01-01T00:00:00Z'::timestamptz WHERE id = ${first.id}`,
+    );
+    await db.execute(
+      sql`UPDATE projects SET created_at = '2026-01-02T00:00:00Z'::timestamptz WHERE id = ${second.id}`,
+    );
     const projects = await listProjects(db, { limit: 10 });
     expect(
       projects.items
