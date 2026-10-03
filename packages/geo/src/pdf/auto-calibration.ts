@@ -1,5 +1,6 @@
 import proj4 from "proj4";
 
+import { resolveCrsId } from "./crs-registry.js";
 import { createGeoReference } from "./transform.js";
 import type { GeoReference, PagePoint } from "./types.js";
 
@@ -70,7 +71,7 @@ const parseHemisphereCoordinate = (
     .replace(/’/g, "′")
     .replace(/"/g, "″");
   const match =
-    /(?:^|\s)(\d{1,3}(?:\.\d+)?)\s*°?\s*(?:(\d{1,2}(?:\.\d+)?)\s*[\'′]?)?\s*(?:(\d{1,2}(?:\.\d+)?)\s*[″]?)?\s*([NSEW])(?:\s|$)/i.exec(
+    /(?:^|\s)(\d{1,3}(?:\.\d+)?)\s*°?\s*(?:(\d{1,2}(?:\.\d+)?)\s*['′]?)?\s*(?:(\d{1,2}(?:\.\d+)?)\s*[″]?)?\s*([NSEW])(?:\s|$)/i.exec(
       normalized,
     );
   if (!match) return null;
@@ -349,7 +350,7 @@ const buildGeographic = (
       controls,
       neatline: neatlineFor(geometry.cropBox),
       maxIndependentErrorMeters: 25,
-    });
+    }, resolveCrsId("EPSG:4326"));
     return {
       reference,
       method: "geographic-grid",
@@ -466,7 +467,7 @@ const buildUtm = (
       controls,
       neatline: neatlineFor(geometry.cropBox),
       maxIndependentErrorMeters: 25,
-    });
+    }, resolveCrsId("EPSG:4326"));
     return {
       reference,
       method: "utm-grid",
