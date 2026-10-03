@@ -341,16 +341,19 @@ const buildGeographic = (
         ground: [longitudeLabel.ground, latitudeLabel.ground] as PagePoint,
       })),
     );
-    const reference = createGeoReference({
-      profile: "manual",
-      sourceCrs: "EPSG:4326",
-      pageIndex: geometry.pageIndex,
-      cropBox: geometry.cropBox,
-      rotation: geometry.rotation,
-      controls,
-      neatline: neatlineFor(geometry.cropBox),
-      maxIndependentErrorMeters: 25,
-    }, resolveCrsId("EPSG:4326"));
+    const reference = createGeoReference(
+      {
+        profile: "manual",
+        sourceCrs: "EPSG:4326",
+        pageIndex: geometry.pageIndex,
+        cropBox: geometry.cropBox,
+        rotation: geometry.rotation,
+        controls,
+        neatline: neatlineFor(geometry.cropBox),
+        maxIndependentErrorMeters: 25,
+      },
+      resolveCrsId("EPSG:4326"),
+    );
     return {
       reference,
       method: "geographic-grid",
@@ -364,7 +367,7 @@ const buildGeographic = (
       method: "geographic-grid",
       confidence: quality.confidence,
       reason:
-        "A grade geográfica foi detectada, mas o ajuste affine não passou pela validação espacial.",
+        "A grade geográfica foi detectada, mas o ajuste afim não passou pela validação espacial.",
       diagnostics,
     };
   }
@@ -458,16 +461,19 @@ const buildUtm = (
         };
       }),
     );
-    const reference = createGeoReference({
-      profile: "manual",
-      sourceCrs: "EPSG:4326",
-      pageIndex: geometry.pageIndex,
-      cropBox: geometry.cropBox,
-      rotation: geometry.rotation,
-      controls,
-      neatline: neatlineFor(geometry.cropBox),
-      maxIndependentErrorMeters: 25,
-    }, resolveCrsId("EPSG:4326"));
+    const reference = createGeoReference(
+      {
+        profile: "manual",
+        sourceCrs: "EPSG:4326",
+        pageIndex: geometry.pageIndex,
+        cropBox: geometry.cropBox,
+        rotation: geometry.rotation,
+        controls,
+        neatline: neatlineFor(geometry.cropBox),
+        maxIndependentErrorMeters: 25,
+      },
+      resolveCrsId("EPSG:4326"),
+    );
     return {
       reference,
       method: "utm-grid",
