@@ -87,3 +87,38 @@ jobs:
           name: playwright-report-webkit
           path: apps/admin/playwright-report/
           retention-days: 14
+
+
+  e2e-sync:
+    name: Playwright E2E (two-install sync)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run two-install sync E2E
+        run: >-
+          pnpm exec playwright test
+          --config=apps/admin/playwright.sync.config.ts
+        env:
+          TURBO_TELEMETRY_DISABLED: 1
+
+      - name: Upload sync Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-sync
+          path: apps/admin/playwright-report/
+          retention-days: 14
