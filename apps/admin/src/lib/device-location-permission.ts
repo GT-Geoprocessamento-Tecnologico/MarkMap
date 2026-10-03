@@ -7,10 +7,9 @@
  * `ACCESS_COARSE_LOCATION` estejam declaradas no manifesto e concedidas em
  * tempo de execução, e o WebView não consegue exibir o diálogo de permissão.
  *
- * O plugin `@capacitor/geolocation` resolve as duas metades: declara as
- * permissões via `@CapacitorPlugin(permissions = [...])`, que o Gradle injeta
- * no manifesto mesclado do APK, e expõe a solicitação nativa via
- * `requestPermissions()`.
+ * O plugin `@capacitor/geolocation` expõe a solicitação nativa via
+ * `requestPermissions()`. No Android, as permissões também são garantidas no
+ * manifesto gerado pelo script de build `ensure-android-location-permissions.mjs`.
  *
  * Este módulo é deliberadamente um no-op na web, para que a instalação PWA e
  * o navegador de desenvolvimento não mudem de comportamento. O Capacitor só
@@ -64,8 +63,9 @@ export const ensureLocationPermission = async (): Promise<LocationPermissionStat
       permissions: ["location"],
     });
     return requested.location === "granted" ? { state: "granted" } : DENIED;
-    } catch {
-      // Location service unavailable – no toast to keep test environment clean.
-      return { state: "denied", reason: "unavailable" };
-    }
+  } catch {
+    // Serviço de localização indisponível ou plugin nativo inacessível.
+    // O restante do aplicativo deve continuar utilizável offline.
+    return { state: "denied", reason: "unavailable" };
+  }
 };
