@@ -100,6 +100,7 @@ export function createGeoReference(input: {
   profile: GeoReference['profile']; sourceCrs: string; pageIndex: number;
   cropBox: GeoReference['cropBox']; rotation: GeoReference['rotation']; controls: readonly ControlPoint[];
   neatline: readonly PagePoint[];
+  maxIndependentErrorMeters?: number;
 }, crs: PdfCrs): GeoReference {
   if (input.controls.length > 8192 || input.neatline.length > 8192) throw new PdfError('metadata-limit', 'GeoPDF control metadata exceeds the P1 limit');
   for (const control of input.controls) {
@@ -122,7 +123,12 @@ export function createGeoReference(input: {
   const errors = residuals(coefficients, input.controls, crs);
   const max = Math.max(...errors); const rmse = Math.sqrt(errors.reduce((sum, error) => sum + error * error, 0) / errors.length);
   const holdout = independentResidual(input.controls, crs);
-  if (holdout !== null && holdout > 1) throw new PdfError('accuracy-check-failed', 'Independent GeoPDF control error exceeds one metre');
+  const maximumIndependentError = input.maxIndependentErrorMeters ?? 1;
+  if (holdout !== null && holdout > maximumIndependentError)
+    throw new PdfError(
+      'accuracy-check-failed',
+      `Independent GeoPDF control error exceeds ${maximumIndependentError} metres`,
+    );
   return { profile: input.profile, sourceCrs: input.sourceCrs, pageIndex: input.pageIndex, cropBox: input.cropBox, rotation: input.rotation, controls: [...input.controls], neatline: [...input.neatline], transform: { model: 'affine', coefficients }, residual: { rmseMeters: rmse, maxMeters: holdout ?? max, independentCheck: holdout !== null } };
 }
 
