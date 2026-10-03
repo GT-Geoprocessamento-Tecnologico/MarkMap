@@ -18,9 +18,10 @@ concurrency:
 jobs:
   ios:
     name: Build iOS debug archive
-    # O projeto iOS é gerado em qualquer sistema, mas só o Xcode empacota o
-    # .ipa. Em runner Linux/Windows o passo de conferência da Info.plist ainda
-    # roda, então a permissão de GPS nunca chega quebrada para a loja.
+    # O projeto nativo iOS é versionado no repositório (apps/admin/ios), então o
+    # CI não o regenera: só sincroniza os assets web e recompila o que está
+    # commitado. Empacotar .ipa exige Xcode e Xcode só existe em macOS, por isso
+    # o job roda em macos-15. Fixamos a versão do Xcode para builds determinísticos.
     runs-on: macos-15
     env:
       TURBO_TELEMETRY_DISABLED: 1
@@ -35,17 +36,50 @@ jobs:
           node-version: 22
           cache: pnpm
 
+      # A imagem macos-15 traz Xcode 16.0 a 26.3 e o symlink
+      # /Applications/Xcode.app aponta para o "default" da imagem, que pode
+      # mudar. Fixar uma versão concreta mantém o build determinístico; a lista
+      # cobre remoções da imagem sem deixar o job quebrar por isso.
+      - name: Select Xcode
+        run: |
+          set -euo pipefail
+          echo "Xcodes presentes na imagem:"
+          ls -d /Applications/Xcode*.app || echo "(nenhum Xcode encontrado)"
+          selected=""
+          for candidate in \
+            /Applications/Xcode_16.4.app \
+            /Applications/Xcode_16.3.app \
+            /Applications/Xcode_16.2.app \
+            /Applications/Xcode_16.1.app \
+            /Applications/Xcode_16.app
+          do
+            if [ -d "$candidate" ]; then
+              selected="$candidate"
+              break
+            fi
+          done
+          if [ -z "$selected" ]; then
+            echo "::warning::Nenhum Xcode 16.x na imagem; usando o default do runner."
+            selected="/Applications/Xcode.app"
+          fi
+          sudo xcode-select -s "$selected"
+          echo "Xcode selecionado: $selected"
+          xcodebuild -version
+
       - name: Install web dependencies
         run: pnpm install --frozen-lockfile
 
       - name: Build GeoNexo web app
         run: pnpm turbo run build --filter=admin...
 
-      - name: Generate iOS project
+      # `cap sync` (copy + update) basta porque apps/admin/ios já está versionado:
+      # ele copia dist/ para ios/App/App/public, regenera o Package.swift do
+      # CapApp-SPM a partir dos plugins instalados e não reescreve o pbxproj.
+      # `rm -rf ios` + `cap add ios` apagaria arquivos versionados e passaria a
+      # compilar um projeto temporário do template em vez do projeto do repo.
+      - name: Sync iOS project
         working-directory: apps/admin
         run: |
-          rm -rf ios
-          pnpm exec cap add ios
           pnpm exec cap sync ios
           node scripts/ensure-ios-location-usage.mjs
 
@@ -59,27 +93,46 @@ jobs:
           grep -q 'NSLocationWhenInUseUsageDescription' ios/App/App/Info.plist
           grep -q 'CapacitorGeolocation' ios/App/CapApp-SPM/Package.swift
 
-      - name: Select Xcode scheme
+      # Diagnóstico antes de compilar: sem isto uma falha de projeto/scheme só
+      # aparece como "xcodebuild: error" no meio de milhares de linhas de log.
+      - name: Diagnose Xcode project
+        working-directory: apps/admin/ios/App
         run: |
-          cd apps/admin/ios/App
-          xcodebuild -workspace App.xcworkspace -list
+          xcodebuild -version
+          test -d App.xcodeproj
+          xcodebuild -project App.xcodeproj -list
 
+      # Projeto SPM puro (CapApp-SPM): não existe App.xcworkspace e não existe
+      # scheme compartilhado, e `archive` exige -scheme. Então compila-se o
+      # target direto para o SDK do aparelho e empacota-se o App.app resultante
+      # num zip no layout Payload/ de um .ipa. SYMROOT fixa onde o produto cai;
+      # ONLY_ACTIVE_ARCH=NO evita depender de uma arquitetura "ativa" já que
+      # -target não usa -destination para escolher uma.
       - name: Build debug .ipa
         working-directory: apps/admin/ios/App
         run: |
           set -o pipefail
           xcodebuild \
-            -workspace App.xcworkspace \
-            -scheme App \
+            -project App.xcodeproj \
+            -target App \
             -configuration Debug \
-            -destination 'generic/platform=iOS' \
-            -derivedDataPath ./DerivedData \
-            -archivePath ./GeoNexo-debug.xcarchive \
-            archive \
+            -sdk iphoneos \
+            SYMROOT=./BuildProducts \
+            ONLY_ACTIVE_ARCH=NO \
             CODE_SIGNING_ALLOWED=NO \
+            build \
             | tee build.log
+          app_path=./BuildProducts/Debug/App.app
+          if [ ! -d "$app_path" ]; then
+            app_path="$(find ./BuildProducts -maxdepth 2 -name App.app -type d -print -quit)"
+          fi
+          if [ -z "$app_path" ] || [ ! -d "$app_path" ]; then
+            echo "::error::App.app não encontrado sob ./BuildProducts"
+            exit 1
+          fi
+          echo "App empacotado: $app_path"
           mkdir -p Payload
-          cp -R ./GeoNexo-debug.xcarchive/Products/Applications/App.app Payload/
+          cp -R "$app_path" Payload/
           (cd Payload && zip -qry ../GeoNexo-debug-ipa.zip .)
           rm -rf Payload
 

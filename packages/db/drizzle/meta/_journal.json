@@ -15,6 +15,13 @@
       "when": 1790780000000,
       "tag": "0001_workspace_sync",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790946000000,
+      "tag": "0002_sync_schema_cleanup",
+      "breakpoints": true
     }
   ]
 }

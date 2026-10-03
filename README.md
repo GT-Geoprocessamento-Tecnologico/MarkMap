@@ -1,148 +1,160 @@
-# GeoNexo - Monorepo
+# GeoNexo
 
-## Setup
+GeoNexo é uma aplicação GIS de campo **offline-first**. O trabalho operacional acontece no dispositivo; a sincronização remota usa a API Hono e Neon/PostGIS quando há conectividade.
 
-### Prerequisites
+## Stack
 
-- Node.js 20.x
-- npm 10.x
-- Docker 24.x (for local development with Docker Compose)
+- React + Vite + TypeScript
+- Hono
+- Drizzle ORM
+- Neon PostgreSQL + PostGIS
+- MapLibre GL + Terra Draw
+- IndexedDB + outbox
+- PDF.js + Proj4
+- Capacitor para Android/iOS
+- pnpm + Turborepo
 
-### Installation
+## Pré-requisitos
+
+- Node.js 22
+- pnpm 9.15.9
+- Docker, apenas para integrações locais que precisem de Postgres/PostGIS
+
+## Instalação
 
 ```bash
-# Install dependencies
-pnpm install
-
-# Build the project
-pnpm build
-
-# Development server
-pnpm dev
-
-# Linting
+pnpm install --frozen-lockfile
 pnpm lint
-
-# Type checking
 pnpm typecheck
-
-# Tests
 pnpm test
+pnpm build
+```
+
+Desenvolvimento do frontend:
+
+```bash
+pnpm dev
+```
+
+O admin abre por padrão em `http://localhost:5173`.
+
+## Estrutura
+
+```text
+apps/
+  admin/        React/Vite, PWA e empacotamento Capacitor
+
+services/
+  api/          API Hono
+
+packages/
+  config/       configuração compartilhada
+  contracts/    contratos Zod e tipos
+  db/           Drizzle, schema, migrations e queries
+  geo/          CRS, GeoPDF e utilitários GIS
+  maps/         MapLibre, Terra Draw e mapas offline
+  ui/           componentes compartilhados
+
+docs/
+  adr/
+  api/
+  database/
+  quality/
+  security/
+
+scripts/
+.github/workflows/
+```
+
+## Offline-first
+
+O fluxo principal é:
+
+```text
+UI
+→ IndexedDB/local repository
+→ outbox
+→ trabalho continua sem rede
+→ conectividade disponível
+→ /sync/push
+→ Neon/PostGIS
+→ /sync/pull
+→ IndexedDB
+```
+
+Neon não é requisito para criar ou editar dados em campo.
+
+## Variáveis de ambiente
+
+Frontend: `apps/admin/.env.example`.
+
+Principais variáveis:
+
+```env
+VITE_API_MODE=mock
+VITE_API_URL=/api/v1
+```
+
+Para usar a API real, defina `VITE_API_MODE=live` e a URL da API.
+
+Backend:
+
+- `DATABASE_URL` ou `NEON_DB_URL`
+- `CORS_ORIGINS`
+- `HOST`
+- `PORT`
+- `LOG_LEVEL`
+- variáveis S3 somente quando o fluxo remoto de arquivos for habilitado
+
+Nunca commite credenciais ou connection strings reais.
+
+## Banco
+
+O banco remoto usa Neon PostgreSQL + PostGIS. A persistência espacial canônica usa EPSG:4674 / SIRGAS 2000.
+
+Migrations versionadas ficam em:
+
+```text
+packages/db/drizzle/
+```
+
+Mudanças de produção devem seguir o fluxo de migration validada em ambiente/branch descartável antes da aplicação final.
+
+## Qualidade
+
+Gates principais:
+
+```bash
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
 pnpm test:e2e
-
-# Format
-pnpm format
 ```
 
-### Environment Variables
+Workflows relevantes:
 
-Copy `.env.example` to `.env` and configure your environment variables:
+- CI
+- Build
+- E2E Tests
+- PostGIS Integration
+- Android APK
+- iOS App
 
-```bash
-cp .env.example .env
-```
+## Mobile
 
-### Environment Variables Reference
+Android e iOS reutilizam o mesmo núcleo React/Vite via Capacitor.
 
-- `DATABASE_URL`: PostgreSQL connection string (default: `postgresql://postgres:geonexo@localhost:5432/geonexo?schema=public`)
-- `API_URL`: Application API URL (default: `http://localhost:3000`)
-- `NODE_ENV`: Environment mode (development, production, etc.)
-- `MAP_PROVIDER`: Map provider (default: `openfreemap`)
-- `GEOCODER_PROVIDER`: Geocoding provider (default: `openfree`)
-- `TILES_URL`: Tile service URL (default: `https://tiles.openfreemap.org/styles/liberty/{z}/{x}/{y}.png`)
+O repositório possui workflows para gerar artefatos de debug. Publicação em loja, signing e provisioning são etapas separadas de release.
 
-### Docker Compose
+## Continuidade
 
-For local development with PostgreSQL and PostGIS:
+Antes de uma mudança relevante, consulte:
 
-```bash
-docker-compose up
-```
+1. `GEONEXO_INSTRUCOES_MESTRE_PROJETO.md`
+2. `GEONEXO_HANDOFF_CONTINUIDADE.md`
+3. ADRs em `docs/adr/`
+4. documentação da área afetada
+5. HEAD atual e checks de CI
 
-### Project Structure
-
-```
-geonexo/
-├── apps/
-│   └── admin/          # React admin application (Vite + React)
-├── services/
-│   └── api/            # Hono backend API
-├── packages/
-│   ├── ui/             # Design system and UI components
-│   ├── maps/           # MapLibre and Terra Draw integration
-│   ├── geo/            # GIS utilities and spatial operations
-│   ├── db/             # Drizzle ORM and database utilities
-│   ├── contracts/      # Zod schemas and shared types
-│   ├── config/         # Shared configuration files
-│   ├── observability/  # Logging and monitoring utilities
-│   └── ...             # Other shared packages
-├── infra/
-│   ├── docker/         # Docker configurations
-│   ├── martin/         # Tile server configuration
-│   └── scripts/        # Helper scripts
-├── docs/
-│   ├── adr/            # Architecture Decision Records
-│   ├── api/            # API documentation
-│   ├── database/       # Database schema and migrations
-│   ├── runbooks/       # Operational runbooks
-│   ├── quality/        # Quality assurance guidelines
-│   └── security/       # Security practices
-├── frontend/
-│   ├── audit/          # Audit trail and issue tracking
-│   ├── prd/            # Product requirements documents
-│   ├── page-specs/     # Page specifications
-│   ├── contracts/      # Frontend contract definitions
-│   ├── data-contracts.md # Data contracts for API integration
-│   ├── ui-states.md    # UI state management
-│   ├── integrations.md # Integration patterns
-│   ├── tasks/          # Task definitions
-│   ├── checklists/     # Checklists for QA and development
-│   ├── pre-release.md  # Pre-release checklist
-│   ├── qa-matrix.md    # QA matrix
-│   ├── testing-strategy.md # Testing strategy
-│   ├── observability.md # Observability guidelines
-│   ├── templates/      # Templates for tasks and pages
-│   ├── task-template.md # Task template
-│   ├── index.md        # Frontend index
-│   ├── felt.md         # Felt design inspiration
-│   ├── geist.md        # Geist design inspiration
-│   ├── linear.md       # Linear inspiration
-│   ├── handoff/        # Handoff documentation
-│   └── final-handoff.md # Final handoff documentation
-├── docs/
-│   ├── adr/            # Architecture Decision Records
-│   ├── api/            # API documentation
-│   ├── database/       # Database documentation
-│   ├── runbooks/       # Runbooks
-│   ├── quality/        # Quality guidelines
-│   └── security/       # Security practices
-├── e2e/                # End-to-end tests
-├── .env.example        # Environment variables example
-├── .gitignore          # Git ignore rules
-├── .editorconfig       # Editor configuration
-├── docker-compose.yml    # Docker services configuration
-├── AGENTS.md           # Agent ownership mapping
-├── README.md           # Project README
-└── pnpm-workspace.yaml # Workspace configuration
-```
-
-### Handoff
-
-The foundation has been created. The following agents can now work in parallel:
-
-- **Foundation** (this branch): Base setup and configuration
-- **Backend** (`agent/backend`): API implementation
-- **Frontend** (`agent/frontend`): Admin application development
-- **GIS** (`agent/gis`): Map and spatial functionality
-- **Database** (`agent/database`): Database schema and migrations
-- **Security** (`agent/security`): Security implementation
-- **Quality** (`agent/quality`): Testing and quality assurance
-
-## First Steps
-
-1. Run `pnpm install` to install dependencies
-2. Run `pnpm typecheck` to verify TypeScript configuration
-3. Run `pnpm build` to build the project
-4. Run `pnpm dev` to start the development server
-
-The admin shell should render at `http://localhost:5173` once the development server is running.
+O estado dinâmico do projeto deve ser validado contra o código e a infraestrutura atuais.

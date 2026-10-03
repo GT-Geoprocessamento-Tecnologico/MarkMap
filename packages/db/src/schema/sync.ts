@@ -5,8 +5,8 @@ import {
   integer,
   jsonb,
   pgTable,
+  primaryKey,
   timestamp,
-  uniqueIndex,
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
@@ -29,7 +29,7 @@ export const syncEntities = pgTable(
       .defaultNow(),
   },
   (t) => ({
-    pk: uniqueIndex("sync_entities_pk").on(t.workspaceId, t.entity, t.entityId),
+    pk: primaryKey({ columns: [t.workspaceId, t.entity, t.entityId] }),
     scopeIdx: index("sync_entities_scope_idx").on(t.workspaceId, t.entity),
   }),
 );
@@ -52,10 +52,7 @@ export const syncOperations = pgTable(
       .defaultNow(),
   },
   (t) => ({
-    idempotency: uniqueIndex("sync_operations_workspace_operation_idx").on(
-      t.workspaceId,
-      t.operationId,
-    ),
+    pk: primaryKey({ columns: [t.workspaceId, t.operationId] }),
     sequenceIdx: index("sync_operations_workspace_sequence_idx").on(
       t.workspaceId,
       t.sequence,
@@ -78,11 +75,7 @@ export const syncTombstones = pgTable(
       .defaultNow(),
   },
   (t) => ({
-    key: uniqueIndex("sync_tombstones_key_idx").on(
-      t.workspaceId,
-      t.entity,
-      t.entityId,
-    ),
+    pk: primaryKey({ columns: [t.workspaceId, t.entity, t.entityId] }),
     seq: index("sync_tombstones_workspace_sequence_idx").on(
       t.workspaceId,
       t.sequence,

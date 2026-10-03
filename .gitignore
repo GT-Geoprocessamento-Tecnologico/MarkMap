@@ -30,7 +30,10 @@ users.yml
 
 # IDE
 .idea
-.vscode
+# Ignore everything in .vscode
+/.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json
 *.swp
 *.swo
 
@@ -38,8 +41,9 @@ users.yml
 .DS_Store
 Thumbs.db
 
-# Logs
+# Logs / runtime artifacts
 *.log
+*.pid
 npm-debug.log*
 yarn-debug.log*
 pnpm-debug.log*
