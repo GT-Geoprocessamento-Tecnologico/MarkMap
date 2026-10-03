@@ -1,5 +1,7 @@
 import { Hono } from "hono";
 import { z } from "zod";
+import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 import type { Env } from "../env.js";
 import { AppError } from "../lib/errors.js";
@@ -26,16 +28,51 @@ const storageUnavailable = () =>
 export const storageRoutes = (env: Env) => {
   const routes = new Hono();
 
+  // Initialize S3 client if credentials are present
+  let s3Client: S3Client | null = null;
+  if (
+    env.S3_ENDPOINT &&
+    env.S3_REGION &&
+    env.S3_ACCESS_KEY_ID &&
+    env.S3_SECRET_ACCESS_KEY &&
+    env.S3_BUCKET
+  ) {
+    s3Client = new S3Client({
+      endpoint: env.S3_ENDPOINT,
+      region: env.S3_REGION,
+      credentials: {
+        accessKeyId: env.S3_ACCESS_KEY_ID,
+        secretAccessKey: env.S3_SECRET_ACCESS_KEY,
+      },
+      // Force path style for S3 compatible services
+      forcePathStyle: true,
+    });
+  }
+
   routes.get("/presign/put", async (c) => {
-    storageKeySchema.parse(c.req.query("key"));
-    void env;
-    throw storageUnavailable();
+    const key = storageKeySchema.parse(c.req.query("key"));
+    if (!s3Client) {
+      throw storageUnavailable();
+    }
+    const command = new PutObjectCommand({
+      Bucket: env.S3_BUCKET!,
+      Key: key,
+    });
+    const url = await getSignedUrl(s3Client, command, { expiresIn: 300 }); // 5 minutes
+    return c.json({ url });
   });
 
   routes.get("/presign/get", async (c) => {
-    storageKeySchema.parse(c.req.query("key"));
-    void env;
-    throw storageUnavailable();
+    const key = storageKeySchema.parse(c.req.query("key"));
+    if (!s3Client) {
+      throw storageUnavailable();
+    }
+    const command = new GetObjectCommand({
+      Bucket: env.S3_BUCKET!,
+      Key: key,
+    });
+    const url = await getSignedUrl(s3Client, command, { expiresIn: 300 });
+    return c.json({ url });
   });
 
   return routes;

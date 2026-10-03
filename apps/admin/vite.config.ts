@@ -1,7 +1,6 @@
 import { defineConfig } from "vite";
 import { isAbsolute, resolve } from "node:path";
 import react from "@vitejs/plugin-react";
-import basicSsl from "@vitejs/plugin-basic-ssl";
 import { generateShellManifest } from "./scripts/generate-shell-manifest.mjs";
 import { geonexoAliases } from "./vite.aliases";
 
@@ -30,7 +29,7 @@ export default defineConfig({
       "three/examples/jsm/controls/OrbitControls.js",
     ],
   },
-  plugins: [react(), basicSsl(), shellManifestPlugin()],
+  plugins: [react(), shellManifestPlugin()], // removed basicSsl()
   resolve: {
     alias: geonexoAliases,
   },

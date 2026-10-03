@@ -12,6 +12,7 @@ import {
   LayerNotFoundError,
   softDeleteFeature,
   getFeature,
+  updateFeature,
 } from "@geonexo/db";
 import { Hono, type Context } from "hono";
 import { z } from "zod";
@@ -120,6 +121,17 @@ export const featureRoutes = (app: Hono<any, any, any>) => {
     const db = getDb();
     const feature = await createFeature(db, data);
     return c.json(feature, 201);
+  });
+
+  app.patch("/features/:id", async (c: Context) => {
+    const id = featureIdSchema.parse(c.req.param("id"));
+    const body = z.record(z.unknown()).parse(await c.req.json());
+    // Expect version field for optimistic concurrency
+    const input = updateFeatureSchema.parse({ ...body, id });
+    const db = getDb();
+    const updated = await updateFeature(db, id, input);
+    if (!updated) return c.json({ error: "Feature not found or version conflict" }, 404);
+    return c.json(updated);
   });
 
   app.delete("/features/:id", async (c: Context) => {
