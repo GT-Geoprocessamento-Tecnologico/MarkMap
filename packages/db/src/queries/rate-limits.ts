@@ -87,8 +87,7 @@ export const consumeRateLimit = async (
   `);
 
   const row = rows[0] as
-    | { used_before?: number | string; allowed?: boolean }
-    | undefined;
+    { used_before?: number | string; allowed?: boolean } | undefined;
   const usedBefore = Number(row?.used_before ?? input.limit);
   const allowed = row?.allowed === true;
   return {
