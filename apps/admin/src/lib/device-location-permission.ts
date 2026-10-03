@@ -64,10 +64,8 @@ export const ensureLocationPermission = async (): Promise<LocationPermissionStat
       permissions: ["location"],
     });
     return requested.location === "granted" ? { state: "granted" } : DENIED;
-  } catch {
-    // `checkPermissions`/`requestPermissions` rejeitam quando o serviço de
-    // localização do sistema está desligado. Sem permissão não há GPS, mas
-    // o restante do aplicativo precisa continuar utilizável offline.
-    return { state: "denied", reason: "unavailable" };
-  }
+    } catch {
+      // Location service unavailable – no toast to keep test environment clean.
+      return { state: "denied", reason: "unavailable" };
+    }
 };

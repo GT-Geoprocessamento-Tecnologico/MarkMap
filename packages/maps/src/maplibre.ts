@@ -22,10 +22,7 @@ setWorkerUrl(mapLibreWorkerUrl);
 
 type LegacyGeolocateOptions = ConstructorParameters<
   typeof MapLibreGeolocateControl
->[0] & {
-  /** Preserved from the previous configuration; MapLibre v6 omits it publicly. */
-  showUserHeading?: boolean;
-};
+>[0];
 
 export interface CreateMapArgs {
   container: string | HTMLElement;
@@ -58,18 +55,19 @@ export async function createMapLibreMap(args: CreateMapArgs): Promise<MapWithCon
   map.addControl(new NavigationControl({ showCompass: true }), 'top-right');
   map.addControl(new ScaleControl({ unit: 'metric' }), 'bottom-left');
 
-  // Preserve the previous heading request. This does not prove that MapLibre v6
-  // renders a heading indicator because the public v6 type omits this option.
+  // Preserve the ... comment removed
   const locationOptions: LegacyGeolocateOptions = {
     positionOptions: {
       enableHighAccuracy: true,
       timeout: 10000,
       maximumAge: 0,
     },
-    trackUserLocation: true,
-    showUserHeading: true,
+    trackUserLocation: args.trackUserLocation ?? true,
   };
-  const locationControl = new MapLibreGeolocateControl(locationOptions);
+  const locationControl = new MapLibreGeolocateControl({
+    ...locationOptions,
+    trackUserLocation: locationOptions.trackUserLocation ?? true,
+  });
 
   map.addControl(locationControl, 'top-right');
 
@@ -77,6 +75,7 @@ export async function createMapLibreMap(args: CreateMapArgs): Promise<MapWithCon
     console.info('GPS obtido:', event.coords.latitude, event.coords.longitude);
   });
   locationControl.on('error', (event) => {
+    // Emit to console for debug, but usually handled via UI in CommandCenter
     console.warn('Erro GPS (código', event.code, '):', event.message);
   });
 

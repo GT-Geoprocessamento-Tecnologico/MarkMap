@@ -30,7 +30,10 @@ users.yml
 
 # IDE
 .idea
-.vscode
+# Ignore everything in .vscode
+/.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json
 *.swp
 *.swo
 

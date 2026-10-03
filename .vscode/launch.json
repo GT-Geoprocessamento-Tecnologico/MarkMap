@@ -1,0 +1,25 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "admin",
+      "type": "pwa",
+      "request": "launch",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["run", "dev"],
+      "url": "http://localhost:5173",
+      "webRoot": "${workspaceFolder:apps/admin}",
+      "preLaunchTask": "pnpm --filter admin dev"
+    },
+    {
+      "name": "android",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["exec", "cap", "sync", "android"],
+      "cwd": "apps/admin",
+      "preLaunchTask": "pnpm --filter admin exec cap sync android",
+      "postDebugTask": "pnpm --filter admin exec cap open android"
+    }
+  ]
+}

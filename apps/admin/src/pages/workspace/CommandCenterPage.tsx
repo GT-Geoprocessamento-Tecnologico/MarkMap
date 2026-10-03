@@ -528,9 +528,10 @@ export default function CommandCenterPage() {
       // concedida. Na web este passo é um no-op e o mapa abre normalmente.
       const locationPermission = await ensureLocationPermission();
       if (locationPermission.state === "denied") {
-        console.warn(
-          "GeoNexo: permissão de localização indisponível; o controle de GPS ficará inativo.",
-        );
+toast({
+            title: "Permissão de localização indisponível",
+            variant: "error",
+          });
       }
       if (cancelled) {
         releaseProtocols();
