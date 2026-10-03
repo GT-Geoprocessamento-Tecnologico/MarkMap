@@ -22,6 +22,8 @@ vi.mock("@aws-sdk/s3-request-presigner", () => ({
 
 import type { Env } from "../src/env.js";
 import { createErrorHandler } from "../src/middleware/error-handler.js";
+import { createLogger } from "../src/middleware/logger.js";
+import { requestId } from "../src/middleware/request-id.js";
 import { storageRoutes } from "../src/routes/storage.js";
 
 const env: Env = {
@@ -43,8 +45,9 @@ const bearer = "A".repeat(43);
 const workspaceId = "11111111-1111-4111-8111-111111111111";
 
 const createStorageApp = () => {
-  const app = new Hono();
-  app.onError(createErrorHandler({ error: vi.fn(), info: vi.fn(), warn: vi.fn(), debug: vi.fn() } as never));
+  const app = new Hono<{ Variables: { requestId: string } }>();
+  app.use("*", requestId());
+  app.onError(createErrorHandler(createLogger("error")));
   app.route("/storage", storageRoutes(env));
   return app;
 };

@@ -481,7 +481,6 @@ run("workspace scoped sync persistence", () => {
     ).rejects.toThrow();
   });
 
-
   it("enforces a rate bucket atomically across database connections", async () => {
     const handles = Array.from({ length: 6 }, () => createDb(url));
     try {

@@ -131,7 +131,13 @@ export const featureRoutes = (app: Hono<any, any, any>) => {
     // Expect version field for optimistic concurrency
     const input = updateFeatureSchema.parse({ ...body, id });
     const db = getDb();
-    const updated = await updateFeature(db, id, input);
+    const updated = await updateFeature(db, id, {
+      version: input.version,
+      ...(input.geometry !== undefined ? { geometry: input.geometry } : {}),
+      ...(input.properties !== undefined
+        ? { properties: input.properties }
+        : {}),
+    });
     if (!updated) throw featureNotFound(id);
     return c.json(updated);
   });

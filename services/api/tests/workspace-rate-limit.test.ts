@@ -21,7 +21,7 @@ const bootstrapProof = "A".repeat(43);
 const requestId = "33333333-3333-4333-8333-333333333333";
 
 const createWorkspaceApp = () => {
-  const app = new Hono();
+  const app = new Hono<{ Variables: { requestId: string } }>();
   app.use("*", async (c, next) => {
     c.set("requestId", requestId);
     await next();

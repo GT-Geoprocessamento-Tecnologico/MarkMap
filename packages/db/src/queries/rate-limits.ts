@@ -19,10 +19,7 @@ export type RateLimitDecision = {
 
 const bucketUuid = (key: string): string => {
   const hex = createHash("sha256").update(key, "utf8").digest("hex");
-  const variantByte = (
-    (Number.parseInt(hex.slice(16, 18), 16) & 0x3f) |
-    0x80
-  )
+  const variantByte = ((Number.parseInt(hex.slice(16, 18), 16) & 0x3f) | 0x80)
     .toString(16)
     .padStart(2, "0");
   return [
