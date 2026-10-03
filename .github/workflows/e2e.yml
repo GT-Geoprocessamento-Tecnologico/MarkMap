@@ -108,6 +108,13 @@ jobs:
       - name: Install Playwright Chromium
         run: pnpm exec playwright install --with-deps chromium
 
+      - name: Build live-mode admin
+        run: pnpm turbo run build --filter=admin...
+        env:
+          VITE_API_MODE: live
+          VITE_API_URL: /api/v1
+          TURBO_TELEMETRY_DISABLED: 1
+
       - name: Run two-install sync E2E
         run: >-
           pnpm exec playwright test

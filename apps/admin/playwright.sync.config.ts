@@ -16,12 +16,8 @@ export default defineConfig({
   },
   webServer: {
     command:
-      "pnpm build && pnpm preview --host 127.0.0.1 --port 5174 --strictPort",
+      "pnpm --filter admin exec vite preview --host 127.0.0.1 --port 5174 --strictPort",
     url: "http://127.0.0.1:5174",
-    env: {
-      VITE_API_MODE: "live",
-      VITE_API_URL: "/api/v1",
-    },
     reuseExistingServer: !process.env.CI,
     timeout: 300_000,
   },
