@@ -926,8 +926,8 @@ export default function CommandCenterPage() {
           color="slate"
         />
         {/* Separador */}
-        <div className="w-full h-px md:block hidden bg-slate-200 my-0.5" />
-        <div className="w-px h-8 md:hidden block bg-slate-200 mx-0.5" />
+        <div className="w-full h-px md:block hidden bg-outline-variant my-0.5" />
+        <div className="w-px h-8 md:hidden block bg-outline-variant mx-0.5" />
         {/* Minha localização */}
         <ToolBtn
           active={false}
@@ -987,7 +987,7 @@ export default function CommandCenterPage() {
               <button
                 type="button"
                 onClick={finishDrawing}
-                className="min-h-[44px] rounded-lg bg-cyan-500 px-3 font-bold text-slate-950"
+                className="min-h-[44px] rounded-lg bg-secondary px-3 font-bold text-[#07131f] hover:brightness-110"
               >
                 Concluir
               </button>
