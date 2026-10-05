@@ -7,6 +7,15 @@
     <meta name="robots" content="noindex,nofollow" />
     <meta name="description" content="MarkMap: mapeamento e coleta geoespacial offline-first para trabalho de campo." />
     <title>MarkMap — Planejamento Inteligente</title>
+    <script>
+      (() => {
+        const saved = localStorage.getItem("markmap-theme");
+        const theme = saved === "light" || saved === "dark"
+          ? saved
+          : (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+        document.documentElement.dataset.theme = theme;
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
