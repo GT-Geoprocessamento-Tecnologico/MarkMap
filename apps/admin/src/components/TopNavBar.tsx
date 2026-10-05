@@ -265,7 +265,7 @@ export function TopNavBar() {
         <NewProjectModal onClose={() => setShowNewProject(false)} />
       )}
 
-      <header className="sticky top-0 w-full bg-header bg-opacity-90 backdrop-blur-md border-b border-outline-variant/10 z-30">
+      <header className="markmap-shell-header sticky top-0 w-full bg-header bg-opacity-90 backdrop-blur-xl border-b border-outline-variant/10 z-30">
         <div className="flex items-center justify-between w-full px-4 py-2.5 gap-3">
           {/* ── Lado Esquerdo: hambúrguer + voltar + busca ── */}
           <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -311,7 +311,7 @@ export function TopNavBar() {
                 </span>
               </div>
               <input
-                className="w-full pl-9 pr-10 py-1.5 bg-surface-container-high border border-outline-variant text-on-surface text-xs rounded-lg focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/20 focus:outline-none transition-colors placeholder:text-on-surface-variant/60"
+                className="w-full min-h-[40px] pl-9 pr-10 py-1.5 bg-surface-container-high/70 border border-outline-variant text-on-surface text-xs rounded-xl focus:border-brand-cyan/60 focus:ring-1 focus:ring-brand-cyan/25 focus:outline-none transition-colors placeholder:text-on-surface-variant/60"
                 data-project-search="desktop"
                 aria-label="Buscar projetos carregados"
                 placeholder="Buscar projetos... [⌘K]"
@@ -406,7 +406,7 @@ export function TopNavBar() {
             {/* Tema */}
             <button
               onClick={() => setIsDark(!isDark)}
-              className="p-2 rounded-lg text-on-surface-variant hover:text-cyan-300 hover:bg-on-surface/5 transition-colors"
+              className="markmap-theme-button p-2 rounded-xl text-on-surface-variant hover:text-brand-cyan hover:bg-white/5 transition-colors"
               title="Alternar Tema"
             >
               <span
@@ -434,7 +434,7 @@ export function TopNavBar() {
             {/* Botão Novo Projeto */}
             <button
               onClick={() => setShowNewProject(true)}
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-cyan-500 to-cyan-400 text-on-surface font-bold text-xs active:scale-[0.97] hover:shadow-lg hover:shadow-cyan-500/25 transition-all"
+              className="hidden sm:flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-brand-blue to-brand-cyan text-white font-bold text-xs active:scale-[0.97] hover:shadow-lg hover:shadow-brand-cyan/20 transition-all"
             >
               <span
                 className="material-symbols-outlined"
