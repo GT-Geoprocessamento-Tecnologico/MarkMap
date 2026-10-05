@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useProjectPages } from "../../lib/hooks/projects";
+import { AppIcon } from "../AppIcon";
 
 export function MobileDashboard({ desktop = false }: { desktop?: boolean }) {
   const projectsQuery = useProjectPages();
@@ -48,7 +49,7 @@ export function MobileDashboard({ desktop = false }: { desktop?: boolean }) {
             <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row lg:max-w-2xl lg:justify-end">
               <label className="relative min-w-0 flex-1">
                 <span className="sr-only">Buscar projetos</span>
-                <span className="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" style={{ fontSize: "18px" }} aria-hidden="true">search</span>
+                <AppIcon name="search" size="sm" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" />
                 <input aria-label="Buscar projetos" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar por nome ou descrição" className="min-h-[44px] w-full rounded-xl border border-outline-variant bg-surface-container pl-10 pr-4 text-sm text-on-surface placeholder:text-on-surface-variant focus:border-primary" />
               </label>
               <button type="button" aria-label={sortNewest ? "Ordenar por mais antigos" : "Ordenar por mais recentes"} onClick={() => setSortNewest((value) => !value)} className="min-h-[44px] rounded-xl border border-outline-variant bg-surface-container px-4 text-sm font-semibold text-on-surface hover:border-primary/40">{sortNewest ? "Mais recentes" : "Mais antigos"}</button>
@@ -100,16 +101,16 @@ export function MobileDashboard({ desktop = false }: { desktop?: boolean }) {
         </section>
 
         <div className="border-t border-outline-variant pt-6">
-          <Link to="/imports" className="inline-flex min-h-[48px] items-center gap-2 rounded-xl bg-gradient-to-r from-brand-blue to-brand-cyan px-5 text-sm font-bold text-white"><span className="material-symbols-outlined" style={{ fontSize: "18px" }} aria-hidden="true">upload_file</span>Importar conjunto de dados</Link>
+          <Link to="/imports" className="inline-flex min-h-[48px] items-center gap-2 rounded-xl bg-gradient-to-r from-brand-blue to-brand-cyan px-5 text-sm font-bold text-white"><AppIcon name="upload" size="md" />Importar conjunto de dados</Link>
         </div>
       </div>
 
       {!desktop && (
         <nav className="fixed bottom-0 left-0 right-0 z-30 grid min-h-16 grid-cols-4 border-t border-outline-variant bg-surface-container/95 px-2 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl" aria-label="Navegação móvel">
-          <Link to="/workspace" className="flex min-h-[56px] flex-col items-center justify-center gap-1 text-[11px] text-on-surface-variant"><span className="material-symbols-outlined" style={{ fontSize: "19px" }} aria-hidden="true">map</span>Mapa</Link>
-          <Link to="/" className="flex min-h-[56px] flex-col items-center justify-center gap-1 text-[11px] font-bold text-primary"><span className="material-symbols-outlined" style={{ fontSize: "19px" }} aria-hidden="true">folder</span>Projetos</Link>
-          <Link to="/imports" className="flex min-h-[56px] flex-col items-center justify-center gap-1 text-[11px] text-on-surface-variant"><span className="material-symbols-outlined" style={{ fontSize: "19px" }} aria-hidden="true">database</span>Dados</Link>
-          <Link to="/settings" className="flex min-h-[56px] flex-col items-center justify-center gap-1 text-[11px] text-on-surface-variant"><span className="material-symbols-outlined" style={{ fontSize: "19px" }} aria-hidden="true">settings</span>Ajustes</Link>
+          <Link to="/workspace" className="flex min-h-[56px] flex-col items-center justify-center gap-1 text-[11px] text-on-surface-variant"><AppIcon name="map" size="md" />Mapa</Link>
+          <Link to="/" className="flex min-h-[56px] flex-col items-center justify-center gap-1 text-[11px] font-bold text-primary"><AppIcon name="projects" size="md" />Projetos</Link>
+          <Link to="/imports" className="flex min-h-[56px] flex-col items-center justify-center gap-1 text-[11px] text-on-surface-variant"><AppIcon name="data" size="md" />Dados</Link>
+          <Link to="/settings" className="flex min-h-[56px] flex-col items-center justify-center gap-1 text-[11px] text-on-surface-variant"><AppIcon name="settings" size="md" />Ajustes</Link>
         </nav>
       )}
     </section>
