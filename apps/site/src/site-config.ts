@@ -1,10 +1,7 @@
 export const siteConfig = {
-  appWebUrl: null as string | null,
-  androidDownloadUrl: null as string | null,
-  iosStoreUrl: null as string | null,
+  appDownloadUrl: null as string | null,
+  compatibility: ["Android", "iOS"] as const,
   distribution: {
-    web: false,
-    android: false,
-    ios: false,
+    app: false,
   },
 };

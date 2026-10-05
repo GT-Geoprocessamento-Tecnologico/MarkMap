@@ -23,7 +23,7 @@ export function MobileDashboard({ desktop = false }: { desktop?: boolean }) {
   const loadedCount = projectsQuery.data?.items.length ?? 0;
 
   return (
-    <section className={`min-w-0 bg-background px-4 py-6 md:px-8 md:py-8 ${desktop ? "" : "pb-[calc(7rem+env(safe-area-inset-bottom))]"}`}>
+    <section className={`markmap-dashboard min-w-0 bg-background px-4 py-6 md:px-8 md:py-8 ${desktop ? "" : "pb-[calc(7rem+env(safe-area-inset-bottom))]"}`}>
       <div className="mx-auto flex w-full max-w-[1500px] min-w-0 flex-col">
         <header className="border-b border-outline-variant pb-7">
           <div className="flex flex-wrap items-end justify-between gap-5">
@@ -32,7 +32,7 @@ export function MobileDashboard({ desktop = false }: { desktop?: boolean }) {
               <h1 className="text-3xl font-bold tracking-[-0.035em] text-on-surface md:text-4xl">Projetos</h1>
               <p className="mt-2 max-w-xl text-sm leading-relaxed text-on-surface-variant">Acesse o trabalho salvo neste dispositivo e continue operando mesmo sem conexão.</p>
             </div>
-            <Link to="/projects" className="inline-flex min-h-[44px] items-center justify-center rounded-full bg-primary px-5 text-sm font-bold text-white shadow-[0_10px_30px_-18px_rgba(0,117,214,.75)]">Gerenciar projetos</Link>
+            <Link to="/projects" className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-gradient-to-r from-brand-blue to-brand-cyan px-5 text-sm font-bold text-white shadow-[0_10px_30px_-18px_rgba(0,117,214,.75)]">Gerenciar projetos</Link>
           </div>
 
           <dl className="mt-7 flex flex-wrap gap-x-8 gap-y-3 border-t border-outline-variant pt-5 text-sm">
@@ -49,16 +49,16 @@ export function MobileDashboard({ desktop = false }: { desktop?: boolean }) {
               <label className="relative min-w-0 flex-1">
                 <span className="sr-only">Buscar projetos</span>
                 <span className="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" style={{ fontSize: "18px" }} aria-hidden="true">search</span>
-                <input aria-label="Buscar projetos" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar por nome ou descrição" className="min-h-[44px] w-full rounded-full border border-outline-variant bg-surface-container pl-10 pr-4 text-sm text-on-surface placeholder:text-on-surface-variant focus:border-primary" />
+                <input aria-label="Buscar projetos" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar por nome ou descrição" className="min-h-[44px] w-full rounded-xl border border-outline-variant bg-surface-container pl-10 pr-4 text-sm text-on-surface placeholder:text-on-surface-variant focus:border-primary" />
               </label>
-              <button type="button" aria-label={sortNewest ? "Ordenar por mais antigos" : "Ordenar por mais recentes"} onClick={() => setSortNewest((value) => !value)} className="min-h-[44px] rounded-full border border-outline-variant bg-surface-container px-4 text-sm font-semibold text-on-surface hover:border-primary/40">{sortNewest ? "Mais recentes" : "Mais antigos"}</button>
+              <button type="button" aria-label={sortNewest ? "Ordenar por mais antigos" : "Ordenar por mais recentes"} onClick={() => setSortNewest((value) => !value)} className="min-h-[44px] rounded-xl border border-outline-variant bg-surface-container px-4 text-sm font-semibold text-on-surface hover:border-primary/40">{sortNewest ? "Mais recentes" : "Mais antigos"}</button>
             </div>
           </div>
 
           {projectsQuery.hasNextPage && (
             <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-on-surface-variant">
               <span>A busca considera os projetos já carregados.</span>
-              <button disabled={projectsQuery.isFetchingNextPage || projectsQuery.isError} onClick={() => void projectsQuery.fetchNextPage()} className="min-h-[44px] rounded-full border border-outline-variant px-4 font-semibold text-primary disabled:opacity-50">{projectsQuery.isFetchingNextPage ? "Carregando…" : "Carregar mais"}</button>
+              <button disabled={projectsQuery.isFetchingNextPage || projectsQuery.isError} onClick={() => void projectsQuery.fetchNextPage()} className="min-h-[44px] rounded-xl border border-outline-variant px-4 font-semibold text-primary disabled:opacity-50">{projectsQuery.isFetchingNextPage ? "Carregando…" : "Carregar mais"}</button>
             </div>
           )}
 
@@ -72,7 +72,7 @@ export function MobileDashboard({ desktop = false }: { desktop?: boolean }) {
             <div className="mt-6 border-y border-outline-variant py-10 text-center">
               <p className="font-bold text-on-surface">Nenhum projeto encontrado</p>
               <p className="mt-2 text-sm text-on-surface-variant">{search ? "Ajuste a busca para ver outros projetos." : "Crie seu primeiro projeto para começar a mapear."}</p>
-              <Link to="/projects" className="mt-5 inline-flex min-h-[44px] items-center rounded-full bg-primary px-5 text-sm font-bold text-white">Ir para projetos</Link>
+              <Link to="/projects" className="mt-5 inline-flex min-h-[44px] items-center rounded-xl bg-gradient-to-r from-brand-blue to-brand-cyan px-5 text-sm font-bold text-white">Ir para projetos</Link>
             </div>
           )}
 
@@ -89,9 +89,9 @@ export function MobileDashboard({ desktop = false }: { desktop?: boolean }) {
                     <p className="mt-2 text-[11px] text-on-surface-variant">Atualizado em {new Date(project.updatedAt).toLocaleDateString("pt-BR")}</p>
                   </div>
                   <div className="flex flex-wrap gap-2 md:justify-end">
-                    <Link to="/projects/$projectId" params={{ projectId: project.id }} className="inline-flex min-h-[44px] items-center rounded-full border border-outline-variant px-4 text-sm font-semibold text-on-surface hover:border-primary/40">Detalhes</Link>
-                    <Link to="/projects/$projectId/map" params={{ projectId: project.id }} className="inline-flex min-h-[44px] items-center rounded-full bg-primary px-4 text-sm font-bold text-white">Abrir mapa</Link>
-                    <Link to="/projects/$projectId/mesh" params={{ projectId: project.id }} className="inline-flex min-h-[44px] items-center rounded-full border border-outline-variant px-4 text-sm font-semibold text-on-surface hover:border-secondary/50">Malha 3D</Link>
+                    <Link to="/projects/$projectId" params={{ projectId: project.id }} className="inline-flex min-h-[44px] items-center rounded-xl border border-outline-variant px-4 text-sm font-semibold text-on-surface hover:border-primary/40">Detalhes</Link>
+                    <Link to="/projects/$projectId/map" params={{ projectId: project.id }} className="inline-flex min-h-[44px] items-center rounded-xl bg-gradient-to-r from-brand-blue to-brand-cyan px-4 text-sm font-bold text-white">Abrir mapa</Link>
+                    <Link to="/projects/$projectId/mesh" params={{ projectId: project.id }} className="inline-flex min-h-[44px] items-center rounded-xl border border-outline-variant px-4 text-sm font-semibold text-on-surface hover:border-secondary/50">Malha 3D</Link>
                   </div>
                 </article>
               ))}
@@ -100,7 +100,7 @@ export function MobileDashboard({ desktop = false }: { desktop?: boolean }) {
         </section>
 
         <div className="border-t border-outline-variant pt-6">
-          <Link to="/imports" className="inline-flex min-h-[48px] items-center gap-2 rounded-full bg-gradient-to-r from-primary to-secondary px-5 text-sm font-bold text-white"><span className="material-symbols-outlined" style={{ fontSize: "18px" }} aria-hidden="true">upload_file</span>Importar conjunto de dados</Link>
+          <Link to="/imports" className="inline-flex min-h-[48px] items-center gap-2 rounded-xl bg-gradient-to-r from-brand-blue to-brand-cyan px-5 text-sm font-bold text-white"><span className="material-symbols-outlined" style={{ fontSize: "18px" }} aria-hidden="true">upload_file</span>Importar conjunto de dados</Link>
         </div>
       </div>
 
