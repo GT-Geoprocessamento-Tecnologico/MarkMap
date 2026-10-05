@@ -11,6 +11,7 @@ import AnalyticsPage from './pages/dashboard/AnalyticsPage';
 import CoordinateSystemsPage from './pages/dashboard/CoordinateSystemsPage';
 
 import { RootLayout } from './components/layout/RootLayout';
+import { AppIcon } from './components/AppIcon';
 
 const rootRoute = createRootRoute({ component: () => <RootLayout /> });
 const LazyMeshStudioPage = lazy(() => import('./pages/workspace/MeshStudioPage'));
@@ -117,9 +118,7 @@ const coordinateSystemsRoute = createRoute({
 function TelemetryFrozen() {
   return (
     <section className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
-      <span className="material-symbols-outlined text-on-surface-variant" style={{ fontSize: "40px" }}>
-        satellite_alt
-      </span>
+      <AppIcon name="telemetry" size="lg" className="text-on-surface-variant" />
       <h1 className="text-lg font-bold text-on-surface">Telemetria indisponível</h1>
       <p className="max-w-md text-sm text-on-surface-variant">
         Esta tela estava em desenvolvimento e foi desativada. Os seus dados
