@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { Brand } from "./Brand";
+import { ThemeToggle } from "./ThemeToggle";
 
 const nav = [
   ["/produto", "Produto"],
+  ["/#recursos", "Recursos"],
   ["/offline", "Offline"],
-  ["/baixar", "Baixar app"],
+  ["/#contato", "Contato"],
 ] as const;
 
 export function Header() {
@@ -41,24 +43,34 @@ export function Header() {
 
         <nav className="site-header__nav" aria-label="Principal">
           {nav.map(([href, label]) => (
-            <a key={href} href={href} aria-current={path === href ? "page" : undefined}>
+            <a
+              key={href}
+              href={href}
+              aria-current={href.startsWith("/") && !href.includes("#") && path === href ? "page" : undefined}
+            >
               {label}
             </a>
           ))}
-          <a href="/baixar" className="button button--primary button--small">Baixar app</a>
         </nav>
 
-        <button
-          className="menu-button"
-          type="button"
-          aria-expanded={open}
-          aria-controls="mobile-menu"
-          aria-label={open ? "Fechar menu" : "Abrir menu"}
-          onClick={() => setOpen((value) => !value)}
-        >
-          <span />
-          <span />
-        </button>
+        <div className="site-header__actions">
+          <ThemeToggle />
+          <a href="/baixar" className="button button--primary button--small">
+            <span className="download-icon" aria-hidden="true">↓</span>
+            Baixar app
+          </a>
+          <button
+            className="menu-button"
+            type="button"
+            aria-expanded={open}
+            aria-controls="mobile-menu"
+            aria-label={open ? "Fechar menu" : "Abrir menu"}
+            onClick={() => setOpen((value) => !value)}
+          >
+            <span />
+            <span />
+          </button>
+        </div>
       </div>
 
       {open && (
@@ -68,7 +80,10 @@ export function Header() {
             {nav.map(([href, label]) => (
               <a key={href} href={href} onClick={() => setOpen(false)}>{label}</a>
             ))}
-            <a href="/baixar" className="button button--primary" onClick={() => setOpen(false)}>Baixar app</a>
+            <a href="/baixar" className="button button--primary" onClick={() => setOpen(false)}>
+              <span className="download-icon" aria-hidden="true">↓</span>
+              Baixar app
+            </a>
           </div>
         </nav>
       )}
