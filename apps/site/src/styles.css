@@ -1377,3 +1377,29 @@ html[data-theme="light"] .theme-toggle__thumb { transform: translateX(18px); }
 @media (prefers-reduced-motion: reduce) {
   .landing-phone { animation: none; transform: rotate(4deg); }
 }
+
+
+/* Frontend refinement: keep floating controls clear of footer content */
+.site-footer__bottom {
+  padding-right: 84px;
+}
+
+.back-to-top {
+  right: max(22px, env(safe-area-inset-right));
+  bottom: max(22px, calc(env(safe-area-inset-bottom) + 22px));
+}
+
+.back-to-top.is-near-footer {
+  bottom: max(88px, calc(env(safe-area-inset-bottom) + 88px));
+}
+
+@media (max-width: 760px) {
+  .site-footer__bottom {
+    padding-right: 0;
+    padding-bottom: 86px;
+  }
+
+  .back-to-top.is-near-footer {
+    bottom: max(102px, calc(env(safe-area-inset-bottom) + 102px));
+  }
+}
