@@ -31,7 +31,9 @@ export type AppIconName =
   | "delete"
   | "view"
   | "copy"
-  | "sync";
+  | "sync"
+  | "sun"
+  | "moon";
 
 const glyphs: Record<AppIconName, string> = {
   dashboard: "🏠",
@@ -67,6 +69,8 @@ const glyphs: Record<AppIconName, string> = {
   view: "👁️",
   copy: "📋",
   sync: "🔄",
+  sun: "☀️",
+  moon: "🌙",
 };
 
 interface AppIconProps {
