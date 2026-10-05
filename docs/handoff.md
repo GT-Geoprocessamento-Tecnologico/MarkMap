@@ -39,3 +39,15 @@ Não há P0 funcional automatizável conhecido aberto após esta consolidação.
 ## Próximo passo de release
 
 Obter os dados/autorizações externos acima e executar o preflight de `docs/release-runbook.md`.
+
+
+## Rebranding MarkMap — 2026-10-05
+
+- marca pública alterada de GeoNexo para **MarkMap — Planejamento Inteligente**;
+- `apps/site` criado como site público React/Vite independente do app operacional;
+- `apps/admin` recebeu identidade visual MarkMap preservando offline-first, GIS, sync e contratos existentes;
+- PWA e Capacitor passam a exibir MarkMap;
+- novo identificador móvel pré-release: `dev.mtsferreira.markmap`;
+- namespaces internos `@geonexo/*` e identificadores históricos de infraestrutura permanecem por compatibilidade até uma migração específica e validada;
+- nenhum deploy, release ou publicação em loja foi executado;
+- renomear o repositório GitHub para `MarkMap` continua pendente de configuração administrativa do GitHub.

@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>pt_BR</string>
 	<key>CFBundleDisplayName</key>
-        <string>GeoNexo</string>
+        <string>MarkMap</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -67,6 +67,6 @@
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>O GeoNexo usa a sua localização para posicionar no mapa o ponto onde você está, coletar feições em campo e alinhar plantas georreferenciadas.</string>
+	<string>A MarkMap usa a sua localização para posicionar no mapa o ponto onde você está, coletar feições em campo e alinhar plantas georreferenciadas.</string>
 </dict>
 </plist>

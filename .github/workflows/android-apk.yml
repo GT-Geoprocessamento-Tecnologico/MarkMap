@@ -40,7 +40,7 @@ jobs:
       - name: Install web dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build GeoNexo web app
+      - name: Build MarkMap web app
         run: pnpm turbo run build --filter=admin...
 
       - name: Generate Android project
@@ -61,10 +61,10 @@ jobs:
         working-directory: apps/admin/android
         run: ./gradlew assembleDebug --no-daemon
 
-      - name: Upload GeoNexo APK
+      - name: Upload MarkMap APK
         uses: actions/upload-artifact@v4
         with:
-          name: geonexo-android-debug
+          name: markmap-android-debug
           path: apps/admin/android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30

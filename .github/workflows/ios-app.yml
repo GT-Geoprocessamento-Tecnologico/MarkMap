@@ -69,7 +69,7 @@ jobs:
       - name: Install web dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build GeoNexo web app
+      - name: Build MarkMap web app
         run: pnpm turbo run build --filter=admin...
 
       # `cap sync` (copy + update) basta porque apps/admin/ios já está versionado:
@@ -133,13 +133,13 @@ jobs:
           echo "App empacotado: $app_path"
           mkdir -p Payload
           cp -R "$app_path" Payload/
-          (cd Payload && zip -qry ../GeoNexo-debug-ipa.zip .)
+          (cd Payload && zip -qry ../MarkMap-debug-ipa.zip .)
           rm -rf Payload
 
-      - name: Upload GeoNexo .ipa
+      - name: Upload MarkMap .ipa
         uses: actions/upload-artifact@v4
         with:
-          name: geonexo-ios-debug
-          path: apps/admin/ios/App/GeoNexo-debug-ipa.zip
+          name: markmap-ios-debug
+          path: apps/admin/ios/App/MarkMap-debug-ipa.zip
           if-no-files-found: error
           retention-days: 30

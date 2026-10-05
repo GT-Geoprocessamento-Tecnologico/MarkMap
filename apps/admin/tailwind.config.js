@@ -9,6 +9,9 @@ export default {
   theme: {
     extend: {
       "colors": {
+        "cyan": {"50":"#edf8ff","100":"#dceeff","200":"#b8ddff","300":"#7bc3ff","400":"#00d6db","500":"#0075d6","600":"#005fae","700":"#004c8c","800":"#083f6e","900":"#0b2f50","950":"#071f35"},
+        "brand-blue": "#0075d6",
+        "brand-cyan": "#00d6db",
         "secondary-fixed": "var(--color-secondary)",
         "on-surface-variant": "var(--text-secondary)",
         "inverse-on-surface": "var(--text-primary)",
@@ -33,7 +36,7 @@ export default {
         "background": "var(--bg-main)",
         "outline": "var(--outline-variant)",
         "surface-container-high": "var(--surface-container-high)",
-        "on-secondary": "#003824",
+        "on-secondary": "#07131f",
         "primary-fixed": "#7df4ff",
         "surface-dim": "var(--bg-main)",
         "on-primary-fixed": "#002022",
@@ -52,7 +55,7 @@ export default {
         "on-tertiary-fixed-variant": "#2f2ebe",
         "surface-bright": "var(--surface-container-high)",
         "on-tertiary": "#1000a9",
-        "on-primary": "#00363a",
+        "on-primary": "#ffffff",
         "error": "#ffb4ab",
         "inverse-primary": "var(--color-primary)",
         "primary": "var(--color-primary)",

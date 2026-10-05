@@ -19,7 +19,7 @@ if ("serviceWorker" in navigator && import.meta.env.PROD) {
 
 const container = document.getElementById("root");
 if (container === null) {
-  throw new Error("GeoNexo: element #root not found in index.html");
+  throw new Error("MarkMap: element #root not found in index.html");
 }
 
 createRoot(container).render(

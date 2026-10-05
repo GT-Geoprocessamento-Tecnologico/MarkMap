@@ -34,6 +34,7 @@ Não devem entrar no Git:
 - relatórios Playwright
 - arquivos `.env*` sensíveis
 - Android gerado em `apps/admin/android/`
+apps/site        site público MarkMap (React/Vite)
 - assets/builds iOS gerados
 - diretórios locais de referência/modelos
 
