@@ -43,7 +43,7 @@ export function RootLayout() {
 
   return (
     <div className="flex h-[100dvh] min-h-[100dvh] min-w-0 overflow-hidden bg-background font-sans text-on-surface selection:bg-primary/20">
-      {sidebarOpen && <button type="button" className="fixed inset-0 z-40 bg-black/70 lg:hidden" onClick={closeSidebar} aria-label="Fechar menu" />}
+      {sidebarOpen && <button type="button" className="fixed inset-0 z-40 bg-black/70 lg:hidden" onClick={closeSidebar} aria-label="Fechar navegação lateral" />}
 
       <aside
         id="sidebar"
