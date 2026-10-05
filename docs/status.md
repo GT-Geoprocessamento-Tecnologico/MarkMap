@@ -23,3 +23,14 @@ Baseline funcional validado em 2026-10-03: `d371135`.
 | Testes físicos | PENDENTE EXTERNO | não inferidos de CI |
 
 Nenhuma ação destrutiva ou alteração de production foi executada.
+
+
+## Rebranding MarkMap — 2026-10-05
+
+- site público em `apps/site`;
+- identidade visual MarkMap aplicada à aplicação operacional;
+- display name Web/PWA/Capacitor/iOS: MarkMap;
+- identificadores nativos existentes preservados por compatibilidade;
+- PR #3 em validação; build, CI, PostGIS e Quality/Security verdes na primeira execução;
+- E2E da primeira execução encontrou regressões de navegação/testes de marca e recebeu correções subsequentes;
+- nenhum deploy público ou publicação mobile executados.

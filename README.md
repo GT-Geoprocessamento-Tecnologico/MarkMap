@@ -1,22 +1,35 @@
-# GeoNexo
+# MarkMap
 
-GeoNexo é uma aplicação GIS **offline-first** para trabalho de campo, com React/Vite, MapLibre, Terra Draw, IndexedDB/outbox e sincronização por API Hono para PostgreSQL/Neon + PostGIS.
+MarkMap é uma aplicação GIS **offline-first** para planejamento e trabalho de campo, com React/Vite, MapLibre, Terra Draw, IndexedDB/outbox e sincronização por API Hono para PostgreSQL/Neon + PostGIS.
+
+## Produtos no monorepo
+
+- `apps/admin`: aplicação operacional Web/PWA + núcleo usado pelo Capacitor Android/iOS;
+- `apps/site`: site público da MarkMap para apresentação e futura distribuição;
+- `services/api`: API Hono;
+- `packages/*`: contratos, banco, GIS, mapas e UI compartilhada.
 
 ## Estado atual
 
 - operação local: IndexedDB + outbox;
 - sync: push/pull, retry, idempotência, tombstones e conflitos explícitos;
-- PWA: manifest, service worker, cold offline e upgrade local automatizados;
-- GIS: MapLibre, Terra Draw, SIRGAS 2000, GeoPDF e auto-calibração por grade;
-- mobile: Capacitor opcional Android/iOS;
-- qualidade: lint, typecheck, unit, build, E2E, PostGIS, Lighthouse/a11y, dependency audit e secret scan.
+- PWA: manifest, service worker, cold offline e upgrade local;
+- GIS: MapLibre, Terra Draw, SIRGAS 2000, GeoPDF e calibração;
+- mobile: Capacitor Android/iOS;
+- identidade pública: **MarkMap — Planejamento Inteligente**.
 
-## Desenvolvimento rápido
+## Desenvolvimento
 
 ```bash
 corepack enable
 pnpm install --frozen-lockfile
 pnpm dev
+```
+
+Site público:
+
+```bash
+pnpm --filter markmap-site dev
 ```
 
 ## Gates
@@ -29,25 +42,15 @@ pnpm build
 pnpm test:e2e
 ```
 
-## Documentação
+## Compatibilidade da migração de marca
 
-A documentação oficial está em [`docs/`](docs/README.md). Para preparação de release use [`docs/release-runbook.md`](docs/release-runbook.md).
-
-## Estrutura
-
-```text
-apps/admin       PWA e app Capacitor
-services/api     API Hono
-packages/*       contratos, banco, GIS, mapas e UI
-docs             documentação oficial
-.github/workflows CI, E2E, integração, qualidade/segurança e builds mobile
-```
+Os namespaces internos `@geonexo/*`, nomes históricos de infraestrutura e identificadores remotos existentes permanecem temporariamente preservados para evitar quebra de contratos, storage e sincronização. A marca exibida ao usuário e os novos identificadores de app são MarkMap.
 
 ## Regras importantes
 
+- offline-first continua sendo requisito central;
 - não introduzir arquitetura paralela de offline/sync/GIS;
 - não colocar credenciais privilegiadas no cliente;
-- não executar migration destrutiva, deploy público, release/tag, publicação ou rotação de secrets sem autorização explícita;
-- não considerar testes físicos concluídos a partir de CI.
+- não executar migration destrutiva, deploy público, release/tag, publicação ou rotação de secrets sem autorização explícita.
 
-Para dependências e atribuições consulte [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
+Documentação oficial: [`docs/`](docs/README.md).

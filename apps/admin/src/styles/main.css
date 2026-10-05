@@ -29,74 +29,62 @@
 
 @layer base {
   :root {
-    /* Light theme with strong contrast */
-    --bg-main: #f8fafc;
+    --bg-main: #f6f8fa;
     --bg-sidebar: #ffffff;
-    --bg-header: rgba(255, 255, 255, 0.8);
+    --bg-header: rgba(255, 255, 255, 0.9);
     --bg-input: #ffffff;
-    --text-primary: #1e293b;
-    --text-secondary: #43444a;
+    --text-primary: #101820;
+    --text-secondary: #5f6d78;
     --text-inverse: #ffffff;
-    --border-color: rgba(0, 0, 0, 0.1);
+    --border-color: #dbe3e8;
     --surface-container: #ffffff;
-    --surface-container-high: #f1f5f9;
-    --outline-variant: rgba(0, 0, 0, 0.1);
-    --shadow-sm: rgba(0, 0, 0, 0.05);
-    --shadow-md: rgba(0, 0, 0, 0.1);
-
-    /* Primary brand colors */
-    --color-primary: #006970;
-    --color-primary-container: #002022;
-    --color-secondary: #6ffbbe;
-    --color-secondary-container: #00311f;
+    --surface-container-high: #edf2f5;
+    --outline-variant: #dbe3e8;
+    --shadow-sm: rgba(16, 24, 32, 0.06);
+    --shadow-md: rgba(16, 24, 32, 0.12);
+    --color-primary: #0075d6;
+    --color-primary-container: #dceeff;
+    --color-secondary: #00aeb4;
+    --color-secondary-container: #d9fbfc;
   }
 
   .dark {
-    /* Dark theme with strong contrast */
-    --bg-main: #070b14;
-    --bg-sidebar: #0d121e;
-    --bg-header: rgba(11, 15, 25, 0.8);
-    --bg-input: #111822;
-    --text-primary: #cbd5e1;
-    --text-secondary: #88929e;
-    --text-inverse: #ffffff;
+    --bg-main: #07131f;
+    --bg-sidebar: #0b1926;
+    --bg-header: rgba(7, 19, 31, 0.9);
+    --bg-input: #0e2030;
+    --text-primary: #f2f7fa;
+    --text-secondary: #9cadb9;
+    --text-inverse: #07131f;
     --border-color: rgba(255, 255, 255, 0.1);
-    --surface-container: #0f131c;
-    --surface-container-high: #262a33;
-    --outline-variant: rgba(255, 255, 255, 0.1);
-    --shadow-sm: rgba(0, 0, 0, 0.3);
+    --surface-container: #0d1d2b;
+    --surface-container-high: #142839;
+    --outline-variant: rgba(255, 255, 255, 0.12);
+    --shadow-sm: rgba(0, 0, 0, 0.25);
     --shadow-md: rgba(0, 0, 0, 0.4);
+    --color-primary: #3da7ff;
+    --color-primary-container: #083f6e;
+    --color-secondary: #32e4e7;
+    --color-secondary-container: #074e50;
   }
 }
 
-.dark canvas.maplibregl-canvas {
-  filter: none;
-}
-
-html,
-body,
-#root {
-  min-width: 0;
-  min-height: 100%;
-}
-
-body {
-  overflow-x: hidden;
-}
-
-button,
-a,
-input,
-select,
-textarea {
-  touch-action: manipulation;
-}
-
-button, a, select {
-  min-height: 44px;
-}
-
+.dark canvas.maplibregl-canvas { filter: none; }
+html, body, #root { min-width: 0; min-height: 100%; }
+html { background: var(--bg-main); }
+body { overflow-x: hidden; background: var(--bg-main); color: var(--text-primary); text-rendering: optimizeLegibility; }
+::selection { background: rgba(0, 214, 219, 0.25); color: var(--text-primary); }
+button, a, input, select, textarea { touch-action: manipulation; }
+button, a, select { min-height: 44px; }
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
-  outline: 2px solid #22d3ee;
-  outline-offset: 2px;
+  outline: 2px solid #0075d6;
+  outline-offset: 3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

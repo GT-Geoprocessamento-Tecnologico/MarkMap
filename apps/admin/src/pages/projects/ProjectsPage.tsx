@@ -99,7 +99,7 @@ export default function ProjectsPage() {
                   Novo Projeto Cartográfico
                 </DialogTitle>
                 <DialogDescription className="text-on-surface-variant">
-                  Informe os detalhes para iniciar um novo projeto no GeoNexo.
+                  Informe os detalhes para iniciar um novo projeto na MarkMap.
                 </DialogDescription>
               </DialogHeader>
 

@@ -60,8 +60,8 @@ test.describe("PWA installability and local-data upgrade", () => {
 
     await context.setOffline(true);
     await page.reload({ waitUntil: "domcontentloaded" });
-    await expect(page).toHaveTitle(/GeoNexo/i);
-    await expect(page.getByText("GeoNexo", { exact: true }).first()).toBeVisible();
+    await expect(page).toHaveTitle(/MarkMap/i);
+    await expect(page.getByLabel("MarkMap — Planejamento Inteligente").first()).toBeVisible();
     await context.setOffline(false);
   });
 

@@ -1,4 +1,4 @@
-# Documentação do GeoNexo
+# Documentação do MarkMap
 
 Esta pasta é a fonte documental do repositório e separa estado comprovado de pendências externas.
 
@@ -41,3 +41,8 @@ Esta pasta é a fonte documental do repositório e separa estado comprovado de p
 5. hipóteses.
 
 Mudanças relevantes devem atualizar documentação e Checklist Mestre.
+
+
+## Marca e distribuição
+
+A identidade pública vigente é **MarkMap — Planejamento Inteligente**. O site público vive em `apps/site`; a aplicação operacional permanece em `apps/admin` para preservar os pipelines existentes.

@@ -1,17 +1,21 @@
 {
-  "name": "GeoNexo - Orbital Core GIS",
-  "short_name": "GeoNexo",
-  "description": "Plataforma de inteligência espacial e telemetria GIS com suporte offline-first e alta performance.",
+  "name": "MarkMap — Planejamento Inteligente",
+  "short_name": "MarkMap",
+  "description": "Mapeamento de campo offline-first com GPS, GeoPDF, camadas geoespaciais e sincronização posterior.",
   "id": "./",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
-  "theme_color": "#070b14",
-  "background_color": "#070b14",
+  "theme_color": "#07131f",
+  "background_color": "#07131f",
   "lang": "pt-BR",
   "dir": "ltr",
-  "categories": ["navigation", "utilities", "productivity"],
+  "categories": [
+    "navigation",
+    "utilities",
+    "productivity"
+  ],
   "icons": [
     {
       "src": "/icons/icon-180x180.png",
@@ -46,18 +50,40 @@
   ],
   "shortcuts": [
     {
-      "name": "Telemetria",
-      "short_name": "Telemetria",
-      "description": "Mapa e Telemetria em tempo real",
-      "url": "/telemetry",
-      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
+      "name": "Projetos",
+      "short_name": "Projetos",
+      "description": "Abrir projetos de campo",
+      "url": "/projects",
+      "icons": [
+        {
+          "src": "/icons/icon-192x192.png",
+          "sizes": "192x192"
+        }
+      ]
     },
     {
-      "name": "Conjuntos de Dados",
-      "short_name": "Datasets",
-      "description": "Gerenciar arquivos GIS",
+      "name": "Mapa",
+      "short_name": "Mapa",
+      "description": "Abrir o mapa de trabalho",
+      "url": "/workspace",
+      "icons": [
+        {
+          "src": "/icons/icon-192x192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Dados",
+      "short_name": "Dados",
+      "description": "Importar e gerenciar dados GIS",
       "url": "/imports",
-      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
+      "icons": [
+        {
+          "src": "/icons/icon-192x192.png",
+          "sizes": "192x192"
+        }
+      ]
     }
   ]
 }

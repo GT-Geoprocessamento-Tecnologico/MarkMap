@@ -40,7 +40,7 @@ const pngDimensions = (file: string): { width: number; height: number } => {
 describe("PWA installability contract", () => {
   it("declares a standalone manifest linked from the application shell", () => {
     expect(manifest.name.length).toBeGreaterThan(0);
-    expect(manifest.short_name).toBe("GeoNexo");
+    expect(manifest.short_name).toBe("MarkMap");
     expect(manifest.id).toBe("./");
     expect(manifest.start_url).toBe("./");
     expect(manifest.scope).toBe("./");
