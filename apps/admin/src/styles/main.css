@@ -234,3 +234,21 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
     to { opacity: 1; transform: none; }
   }
 }
+
+
+/* Native icon system: avoids font-glyph failures in PWA/WebView/Capacitor. */
+.markmap-app-icon {
+  display: inline-grid;
+  width: 1.45em;
+  min-width: 1.45em;
+  height: 1.45em;
+  place-items: center;
+  flex-shrink: 0;
+  line-height: 1;
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", system-ui, sans-serif;
+  font-style: normal;
+  font-weight: 400;
+  text-align: center;
+  vertical-align: middle;
+  filter: saturate(.92);
+}
