@@ -4,7 +4,8 @@ Atualizado em 2026-10-05.
 
 ## Estado atual
 
-- Baseline anterior validado: `cc2331d`.
+- Baseline funcional anterior validado: `cc2331d`.
+- HEAD atual da `main`: `0cbb58e` (merge do rebranding/site MarkMap).
 - Branch remota esperada: somente `main`.
 - Arquitetura preservada: React/Vite/TypeScript + Hono + Neon/PostgreSQL/PostGIS + MapLibre + Terra Draw + IndexedDB/outbox.
 - Experiência principal instalável: PWA.
@@ -50,6 +51,7 @@ Obter os dados/autorizações externos acima e executar o preflight de `docs/rel
 - nome visível mobile passa a MarkMap; identificadores nativos existentes permanecem estáveis para preservar continuidade de instalação e dados locais;
 - namespaces internos `@geonexo/*` e identificadores históricos de infraestrutura permanecem por compatibilidade até uma migração específica e validada;
 - nenhum deploy, release ou publicação em loja foi executado;
-- renomear o repositório GitHub para `MarkMap` continua pendente de configuração administrativa do GitHub.
-
-- Rebranding em validação no PR #3; não integrar enquanto algum gate obrigatório estiver vermelho.
+- repositório GitHub renomeado para `mmatteuus/MarkMap`.
+- PR #3 integrado em `main`.
+- branch `feat/markmap-rebrand-site` não contém trabalho exclusivo após o merge e pode ser removida.
+- revalidação completa do HEAD pós-merge segue pendente; as últimas tentativas de GitHub Actions encerraram antes de iniciar steps.
