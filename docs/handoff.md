@@ -1,10 +1,10 @@
 # Handoff de continuidade
 
-Atualizado em 2026-10-03.
+Atualizado em 2026-10-05.
 
 ## Estado atual
 
-- Baseline funcional validado: `d371135`.
+- Baseline anterior validado: `cc2331d`.
 - Branch remota esperada: somente `main`.
 - Arquitetura preservada: React/Vite/TypeScript + Hono + Neon/PostgreSQL/PostGIS + MapLibre + Terra Draw + IndexedDB/outbox.
 - Experiência principal instalável: PWA.
@@ -47,7 +47,9 @@ Obter os dados/autorizações externos acima e executar o preflight de `docs/rel
 - `apps/site` criado como site público React/Vite independente do app operacional;
 - `apps/admin` recebeu identidade visual MarkMap preservando offline-first, GIS, sync e contratos existentes;
 - PWA e Capacitor passam a exibir MarkMap;
-- novo identificador móvel pré-release: `dev.mtsferreira.markmap`;
+- nome visível mobile passa a MarkMap; identificadores nativos existentes permanecem estáveis para preservar continuidade de instalação e dados locais;
 - namespaces internos `@geonexo/*` e identificadores históricos de infraestrutura permanecem por compatibilidade até uma migração específica e validada;
 - nenhum deploy, release ou publicação em loja foi executado;
 - renomear o repositório GitHub para `MarkMap` continua pendente de configuração administrativa do GitHub.
+
+- Rebranding em validação no PR #3; não integrar enquanto algum gate obrigatório estiver vermelho.
