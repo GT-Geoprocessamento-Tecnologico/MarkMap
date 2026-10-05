@@ -2,132 +2,125 @@ import { Footer } from "../components/Footer";
 import { Header } from "../components/Header";
 import { HeroVisual } from "../components/HeroVisual";
 import { Reveal } from "../components/Reveal";
-import { siteConfig } from "../site-config";
-
-const features = [
-  ["Offline-first", "Trabalhe sem conexão", "O dispositivo continua sendo a base operacional quando o sinal some."],
-  ["GPS", "Localização em campo", "Use a geolocalização do dispositivo quando a permissão estiver disponível."],
-  ["GeoPDF", "Referência cartográfica", "Trabalhe com GeoPDF georreferenciado e fluxos de calibração suportados."],
-  ["GIS", "Mapas, camadas e feições", "Organize o trabalho geoespacial sem sair do mesmo fluxo."],
-  ["Sincronização", "Rede na hora certa", "Envie alterações e receba atualizações quando a conectividade voltar."],
-  ["Multiplataforma", "Web, PWA e mobile", "O mesmo núcleo web atende PWA e empacotamento Android/iOS."],
-] as const;
-
-const platforms = [
-  ["Web / PWA", "Acesso pelo navegador e experiência instalável quando a distribuição web estiver liberada.", siteConfig.distribution.web && Boolean(siteConfig.appWebUrl), siteConfig.appWebUrl],
-  ["Android", "Empacotamento Android preparado para distribuição depois das validações e assinatura finais.", siteConfig.distribution.android && Boolean(siteConfig.androidDownloadUrl), siteConfig.androidDownloadUrl],
-  ["iOS", "Empacotamento iOS preparado para distribuição depois de signing, provisioning e validações finais.", siteConfig.distribution.ios && Boolean(siteConfig.iosStoreUrl), siteConfig.iosStoreUrl],
-] as const;
 
 export function HomePage() {
   return (
     <>
       <Header />
       <main id="conteudo">
-        <section className="hero" id="inicio">
+        <section className="hero">
           <HeroVisual />
           <div className="site-container hero__inner">
             <div className="hero__copy">
-              <p className="eyebrow hero-enter hero-enter--1"><span />Mapeamento offline-first</p>
-              <h1 className="hero-enter hero-enter--2"><strong>MarkMap</strong><span>Planejamento inteligente, até onde a internet não chega.</span></h1>
-              <p className="hero__lead hero-enter hero-enter--3">Mapeie, colete informações em campo e continue trabalhando sem conexão. Quando a rede voltar, sincronize o que ficou pendente.</p>
+              <p className="eyebrow hero-enter hero-enter--1"><span />Mapeamento em campo</p>
+              <h1 className="hero-enter hero-enter--2">
+                <strong>MarkMap</strong>
+                <span>Mapeamento que continua quando a rede para.</span>
+              </h1>
+              <p className="hero__lead hero-enter hero-enter--3">
+                Planeje, colete, desenhe e consulte dados geoespaciais no próprio dispositivo. A conexão volta a ser necessária apenas quando for hora de sincronizar.
+              </p>
               <div className="hero__actions hero-enter hero-enter--4">
-                <a className="button button--primary" href="#recursos">Explorar recursos <span aria-hidden="true">↘</span></a>
-                <a className="button button--ghost" href="#como-funciona">Como funciona</a>
+                <a className="button button--primary" href="/baixar">Baixar app <span aria-hidden="true">↘</span></a>
+                <a className="button button--ghost" href="/produto">Conhecer o produto</a>
               </div>
-              <div className="hero__signals hero-enter hero-enter--5">
-                {['Offline-first','GPS','GeoPDF','Sync posterior'].map((item) => <span key={item}>{item}</span>)}
-              </div>
+              <p className="hero__compat hero-enter hero-enter--5">Compatível com Android e iOS</p>
             </div>
           </div>
+          <div className="hero__scroll" aria-hidden="true"><span />Role para explorar</div>
         </section>
 
-        <section className="section section--light">
-          <div className="site-container split">
+        <section className="section section--statement">
+          <div className="site-container statement-grid">
             <Reveal>
-              <p className="eyebrow">Campo real</p>
-              <h2 className="display-title">O sinal pode parar.<span>O trabalho não.</span></h2>
-              <p className="section-lead">A MarkMap foi pensada para equipes que precisam produzir em campo sem transformar internet em requisito operacional.</p>
+              <p className="eyebrow">Feito para o terreno</p>
+              <h2 className="display-title">A internet não deveria decidir se o trabalho continua.</h2>
             </Reveal>
-            <ol className="number-list">
-              {[
-                ["01", "Opera no dispositivo", "O trabalho principal continua localmente, mesmo quando a conectividade some."],
-                ["02", "Mantém o contexto de campo", "Projetos, mapas, camadas e feições permanecem organizados no mesmo fluxo."],
-                ["03", "Sincroniza depois", "A rede volta a ser importante no momento certo: para enviar, receber e reconciliar dados."],
-              ].map(([n,title,text], index) => <li key={n}><Reveal delay={index*80}><span>{n}</span><div><h3>{title}</h3><p>{text}</p></div></Reveal></li>)}
-            </ol>
+            <Reveal delay={100}>
+              <p className="statement-copy">
+                O MarkMap mantém projeto, mapa, camadas e coleta acessíveis localmente. Você trabalha primeiro; a sincronização acontece depois.
+              </p>
+              <a className="text-link" href="/offline">Entender o modo offline ↘</a>
+            </Reveal>
           </div>
         </section>
 
-        <section className="section" id="recursos">
+        <section className="product-stage">
           <div className="site-container">
-            <Reveal><p className="eyebrow">Recursos</p><h2 className="section-title">Menos fricção entre o planejamento e o terreno.</h2><p className="section-lead">O mapa e o dado de campo ficam no centro. O restante existe para manter o fluxo simples, previsível e recuperável.</p></Reveal>
-            <div className="feature-list">
-              {features.map(([tag,title,text], index) => <Reveal key={title} delay={(index%3)*60}><article className="feature-row"><span className="feature-index">{String(index+1).padStart(2,'0')}</span><span className="feature-tag">{tag}</span><h3>{title}</h3><p>{text}</p></article></Reveal>)}
-            </div>
+            <Reveal>
+              <div className="product-stage__head">
+                <div>
+                  <p className="eyebrow eyebrow--inverse">O produto</p>
+                  <h2>Um espaço de trabalho geoespacial, sem distração.</h2>
+                </div>
+                <a className="text-link text-link--inverse" href="/produto">Ver detalhes ↘</a>
+              </div>
+            </Reveal>
+
+            <Reveal delay={100}>
+              <div className="product-shell" aria-label="Prévia da interface do MarkMap">
+                <div className="product-shell__rail">
+                  <span className="product-shell__logo">M</span>
+                  <i /><i /><i className="is-active" /><i /><i />
+                </div>
+                <div className="product-shell__canvas">
+                  <div className="product-shell__map">
+                    <svg viewBox="0 0 900 560" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+                      <g fill="none" stroke="rgba(102,180,182,.2)" strokeWidth="1.3">
+                        <path d="M-20 120C120 40 230 190 365 110S610 30 760 155 910 175 980 115"/>
+                        <path d="M-20 220C120 130 245 285 390 195S625 120 780 248 925 250 980 210"/>
+                        <path d="M-20 360C130 270 260 430 405 340S640 265 795 390 925 410 980 355"/>
+                      </g>
+                      <path d="M410 110L650 95 770 248 690 410 440 440 332 270Z" fill="rgba(0,214,219,.10)" stroke="#4ee9eb" strokeWidth="2"/>
+                      <path d="M180 490C290 390 315 350 390 318S515 245 570 210 690 165 790 105" fill="none" stroke="#55d8ff" strokeWidth="4" strokeLinecap="round"/>
+                      <circle cx="570" cy="210" r="9" fill="#07131f" stroke="#55f0ee" strokeWidth="2"/>
+                    </svg>
+                    <div className="product-shell__status"><span /> Offline · alterações salvas localmente</div>
+                  </div>
+                  <aside className="product-shell__panel">
+                    <small>CAMADAS</small>
+                    <strong>Conteúdo do mapa</strong>
+                    <div className="mock-layer is-active"><span />Talhões 2026<small>42 feições</small></div>
+                    <div className="mock-layer"><span />Pontos de inspeção<small>18 feições</small></div>
+                    <div className="mock-layer"><span />Rotas de acesso<small>7 feições</small></div>
+                  </aside>
+                </div>
+              </div>
+            </Reveal>
           </div>
         </section>
 
-        <section className="section section--dark" id="como-funciona">
-          <div className="site-container">
-            <Reveal><p className="eyebrow eyebrow--inverse">Como funciona</p><h2 className="section-title section-title--inverse">Do escritório ao campo, sem quebrar o fluxo.</h2><p className="section-lead section-lead--inverse">Três momentos claros. Nenhuma dependência de conexão para manter a atividade principal andando.</p></Reveal>
-            <ol className="steps">
-              {[
-                ["01","Prepare","Organize projeto, mapas, camadas e materiais necessários para a atividade."],
-                ["02","Vá a campo","Use mapas, GPS e ferramentas geoespaciais com ou sem conectividade contínua."],
-                ["03","Sincronize","Quando a rede voltar, processe as alterações pendentes e receba atualizações remotas."],
-              ].map(([n,title,text], index) => <li key={n}><Reveal delay={index*90}><span>{n}</span><h3>{title}</h3><p>{text}</p></Reveal></li>)}
-            </ol>
+        <section className="section">
+          <div className="site-container capability-list">
+            {[
+              ["01", "Mapeie", "Mapas, camadas e feições no mesmo contexto operacional."],
+              ["02", "Colete", "GPS e desenho geoespacial para registrar o que acontece no terreno."],
+              ["03", "Consulte", "GeoPDF e dados locais disponíveis mesmo quando a conexão desaparece."],
+              ["04", "Sincronize", "Alterações pendentes seguem para a rede quando ela estiver disponível."],
+            ].map(([n, title, text], index) => (
+              <Reveal key={title} delay={index * 70}>
+                <article className="capability-row">
+                  <span>{n}</span>
+                  <h3>{title}</h3>
+                  <p>{text}</p>
+                </article>
+              </Reveal>
+            ))}
           </div>
         </section>
 
-        <section className="section section--muted">
-          <div className="site-container split split--bottom">
-            <Reveal><p className="eyebrow">Arquitetura offline-first</p><h2 className="section-title">A nuvem ajuda. O campo não espera por ela.</h2><p className="section-lead">O dispositivo é a base operacional. Sincronização, backup e consultas remotas entram quando há conectividade.</p></Reveal>
-            <div className="pipeline" aria-label="Fluxo offline-first">
-              {['Operação local','Outbox durável','Reconexão','Sync e conflitos'].map((item,index)=><div key={item}><span>0{index+1}</span><strong>{item}</strong></div>)}
-            </div>
+        <section className="download-band">
+          <div className="site-container download-band__inner">
+            <Reveal>
+              <p className="eyebrow eyebrow--inverse">MarkMap no seu dispositivo</p>
+              <h2>Leve o mapa com você.</h2>
+              <p>Um único app, preparado para acompanhar o trabalho em campo.</p>
+              <div className="download-band__actions">
+                <a className="button button--primary" href="/baixar">Baixar app</a>
+                <span>Compatível com Android e iOS</span>
+              </div>
+            </Reveal>
           </div>
-        </section>
-
-        <section className="section" id="plataformas">
-          <div className="site-container">
-            <Reveal><p className="eyebrow">Plataformas</p><h2 className="section-title">A MarkMap vai aonde o trabalho acontece.</h2><p className="section-lead">Os canais de distribuição permanecem fechados até que cada release esteja realmente pronta.</p></Reveal>
-            <div className="platform-grid">
-              {platforms.map(([title,text,enabled,url]) => <article key={title} className="platform"><div className="platform__status"><span>{enabled ? 'Disponível' : 'Em preparação'}</span></div><h3>{title}</h3><p>{text}</p>{enabled && url ? <a href={url} target="_blank" rel="noopener noreferrer" className="button button--dark">Abrir</a> : <button type="button" disabled>Disponibilização em preparação</button>}</article>)}
-            </div>
-          </div>
-        </section>
-
-        <section className="section section--muted" id="seguranca">
-          <div className="site-container split">
-            <Reveal><p className="eyebrow">Segurança</p><h2 className="section-title">Dados de campo pedem uma base técnica responsável.</h2><p className="section-lead">A arquitetura separa a operação local do acesso remoto e evita expor credenciais privilegiadas do banco no navegador.</p><a className="text-link" href="/privacidade">Privacidade ↘</a></Reveal>
-            <div className="security-list">
-              {[
-                ["Local-first","O dispositivo permanece como base operacional durante a atividade em campo."],
-                ["Acesso remoto mediado por API","O navegador não recebe credenciais privilegiadas do banco para acessar dados diretamente."],
-                ["Sincronização controlada","O fluxo remoto usa isolamento por workspace e mecanismos próprios de sincronização."],
-              ].map(([title,text])=><article key={title}><h3>{title}</h3><p>{text}</p></article>)}
-            </div>
-          </div>
-        </section>
-
-        <section className="section" id="faq">
-          <div className="site-container split">
-            <Reveal><p className="eyebrow">FAQ</p><h2 className="section-title">Perguntas frequentes</h2></Reveal>
-            <div className="faq">
-              {[
-                ["A MarkMap funciona sem internet?","A operação principal foi projetada para funcionar localmente no dispositivo. Recursos remotos aguardam conectividade para sincronizar."],
-                ["Posso usar GPS em campo?","Sim, quando o dispositivo oferece geolocalização e a permissão correspondente é concedida."],
-                ["A MarkMap trabalha com GeoPDF?","Sim. O produto possui suporte a GeoPDF georreferenciado e recursos de calibração para os cenários suportados."],
-                ["A MarkMap já está disponível nas lojas?","A distribuição pública para Android e iOS depende de assinatura, validações finais e publicação autorizada."],
-              ].map(([question,answer])=><details key={question}><summary>{question}<span>⌄</span></summary><p>{answer}</p></details>)}
-            </div>
-          </div>
-        </section>
-
-        <section className="section section--dark final-cta">
-          <div className="site-container"><Reveal><p className="eyebrow eyebrow--inverse">MarkMap</p><h2>Leve o planejamento para o campo.</h2><p>Uma plataforma geoespacial desenhada para continuar útil quando conectividade deixa de ser garantida.</p><a className="button button--primary" href="#plataformas">Ver plataformas ↘</a></Reveal></div>
         </section>
       </main>
       <Footer />
