@@ -9,7 +9,12 @@
     <title>MarkMap — Planejamento Inteligente</title>
     <script>
       (() => {
-        const saved = localStorage.getItem("markmap-theme");
+        let saved = null;
+        try {
+          saved = localStorage.getItem("markmap-theme");
+        } catch {
+          saved = null;
+        }
         const theme = saved === "light" || saved === "dark"
           ? saved
           : (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
