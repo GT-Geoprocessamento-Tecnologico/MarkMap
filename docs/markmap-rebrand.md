@@ -10,8 +10,8 @@ A identidade pública do produto passa a ser **MarkMap — Planejamento Intelige
 
 - UI principal e dashboard;
 - PWA: título, manifest e ícones;
-- Capacitor: `appName=MarkMap` e `appId=dev.mtsferreira.markmap`;
-- iOS: display name, bundle identifier e texto de localização;
+- Capacitor: `appName=MarkMap`; o `appId` histórico é preservado para continuidade de instalação e dados locais;
+- iOS: display name e texto de localização; o bundle identifier permanece estável;
 - artefatos de CI mobile;
 - site público em `apps/site`.
 
@@ -21,7 +21,8 @@ Para não quebrar contratos e dados já estabilizados, permanecem temporariament
 
 - packages internos `@geonexo/*`;
 - nomes históricos de recursos remotos, buckets e banco;
-- caminhos internos `apps/admin`.
+- caminhos internos `apps/admin`;
+- identificadores nativos estáveis enquanto houver instalações compatíveis.
 
 Esses itens são técnicos e não fazem parte da marca apresentada ao usuário.
 
