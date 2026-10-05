@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Footer } from "../components/Footer";
 import { Header } from "../components/Header";
 import { HeroVisual } from "../components/HeroVisual";
@@ -7,7 +8,7 @@ type IconName = "map" | "cloud" | "shield" | "team" | "pin" | "layers" | "note" 
 
 function Icon({ name }: { name: IconName }) {
   const common = { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
-  const paths: Record<IconName, JSX.Element> = {
+  const paths: Record<IconName, ReactNode> = {
     map: <><path d="m3 6 5-2 8 2 5-2v14l-5 2-8-2-5 2Z"/><path d="M8 4v14M16 6v14"/></>,
     cloud: <path d="M7 18h10a4 4 0 0 0 .5-8A6 6 0 0 0 6 8.5 4.5 4.5 0 0 0 7 18Z"/>,
     shield: <><path d="M12 3 5 6v5c0 5 3 8 7 10 4-2 7-5 7-10V6Z"/><path d="m9.5 12 1.7 1.7 3.6-4"/></>,
