@@ -1,6 +1,6 @@
 # Status técnico
 
-Baseline funcional validado em 2026-10-03: `d371135`.
+Baseline funcional validado em 2026-10-05: `fccda004`.
 
 | Área | Estado | Evidência/observação |
 |---|---|---|
@@ -34,5 +34,6 @@ Nenhuma ação destrutiva ou alteração de production foi executada.
 - PR #3 integrado em `main`;
 - Build, CI, PostGIS e Quality/Security ficaram verdes na primeira execução do PR antes das correções finais;
 - E2E da primeira execução encontrou regressões de navegação/testes de marca e recebeu correções antes do merge;
-- validação completa do HEAD pós-merge ainda precisa ser reexecutada com runner disponível;
-- nenhum deploy público ou publicação mobile executados.
+- validação completa do HEAD pós-merge **reexecutada e passou** com runner disponível;
+- nenhum deploy público ou publicação mobile executados;
+- correções de ícones do menu lateral e remoção do rótulo "Offline-first" aplicadas e validadas.
