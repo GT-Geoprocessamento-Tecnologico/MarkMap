@@ -5,7 +5,7 @@ Atualizado em 2026-10-05.
 ## Estado atual
 
 - Baseline funcional anterior validado: `cc2331d`.
-- HEAD atual da `main`: `0cbb58e` (merge do rebranding/site MarkMap).
+- HEAD atual da `main`: `e1fb691` (design MarkMap unificado no site público e na aplicação operacional).
 - Branch remota esperada: somente `main`.
 - Arquitetura preservada: React/Vite/TypeScript + Hono + Neon/PostgreSQL/PostGIS + MapLibre + Terra Draw + IndexedDB/outbox.
 - Experiência principal instalável: PWA.
@@ -54,4 +54,5 @@ Obter os dados/autorizações externos acima e executar o preflight de `docs/rel
 - repositório GitHub renomeado para `mmatteuus/MarkMap`.
 - PR #3 integrado em `main`.
 - branch `feat/markmap-rebrand-site` não contém trabalho exclusivo após o merge e pode ser removida.
+- PR #4 integrado em `main`, unificando a direção visual aprovada entre `apps/site` e `apps/admin`; Android/iOS herdam o mesmo frontend via Capacitor.
 - revalidação completa do HEAD pós-merge segue pendente; as últimas tentativas de GitHub Actions encerraram antes de iniciar steps.
