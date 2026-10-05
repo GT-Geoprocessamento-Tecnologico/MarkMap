@@ -1,6 +1,14 @@
-export function MarkMapBrand({ compact = false }: { compact?: boolean }) {
+type MarkMapBrandProps = {
+  compact?: boolean;
+  ariaLabel?: string;
+};
+
+export function MarkMapBrand({
+  compact = false,
+  ariaLabel = "MarkMap — Planejamento Inteligente",
+}: MarkMapBrandProps) {
   return (
-    <div className="flex min-w-0 items-center gap-3" aria-label="MarkMap — Planejamento Inteligente">
+    <div className="flex min-w-0 items-center gap-3" aria-label={ariaLabel || undefined}>
       <svg viewBox="0 0 128 96" className="h-10 w-12 shrink-0" aria-hidden="true">
         <defs>
           <linearGradient id="markmap-brand-gradient" x1="0" y1="0" x2=".8" y2="1">

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useToast } from "@geonexo/ui";
 import { useCreateProject, useProjectPages } from "../lib/hooks/projects";
 import { useDialogFocus } from "../lib/hooks/use-dialog-focus";
+import { MarkMapBrand } from "./MarkMapBrand";
 
 // ---------------------------------------------------------------------------
 // Modal de Novo Projeto
@@ -299,6 +300,10 @@ export function TopNavBar() {
                 <span className="hidden sm:inline text-xs">Voltar</span>
               </button>
             )}
+
+            <div className="min-w-0 flex-1 sm:hidden">
+              <MarkMapBrand />
+            </div>
 
             {/* Barra de busca */}
             <div className="relative flex-1 hidden sm:block">
