@@ -5,7 +5,7 @@ Atualizado em 2026-10-05.
 ## Estado atual
 
 - Baseline funcional anterior validado: `cc2331d`.
-- HEAD atual da `main`: `e1fb691` (design MarkMap unificado no site público e na aplicação operacional).
+- HEAD funcional do design integrado: `e1fb691` (site público + aplicação operacional); este Handoff foi atualizado depois desse merge.
 - Branch remota esperada: somente `main`.
 - Arquitetura preservada: React/Vite/TypeScript + Hono + Neon/PostgreSQL/PostGIS + MapLibre + Terra Draw + IndexedDB/outbox.
 - Experiência principal instalável: PWA.
