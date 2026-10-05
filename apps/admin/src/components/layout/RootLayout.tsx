@@ -3,6 +3,7 @@ import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { useLayoutStore } from "../../lib/store/layout";
 import { TopNavBar } from "../TopNavBar";
 import { MarkMapBrand } from "../MarkMapBrand";
+import { useIsDesktop } from "../../lib/hooks/useIsDesktop";
 
 const baseLink = "group flex min-h-[44px] items-center gap-3 rounded-xl border px-3 py-2.5 text-xs font-semibold transition-all duration-200";
 const activeLink = "border-brand-cyan/25 bg-brand-cyan/10 text-brand-cyan shadow-[inset_3px_0_0_#00D6DB]";
@@ -10,6 +11,7 @@ const inactiveLink = "border-transparent text-on-surface-variant hover:border-wh
 
 export function RootLayout() {
   const [collapsed, setCollapsed] = useState(false);
+  const isDesktop = useIsDesktop();
   const { sidebarOpen, closeSidebar } = useLayoutStore();
   const matches = useRouterState({ select: (state) => state.matches });
   const projectId = [...matches]
@@ -50,8 +52,8 @@ export function RootLayout() {
         className={`markmap-shell-sidebar fixed left-0 top-0 z-50 flex h-[100dvh] max-w-[calc(100vw-1rem)] flex-col border-r border-outline-variant bg-sidebar/95 p-3 pt-[max(.75rem,env(safe-area-inset-top))] backdrop-blur-xl transition-[transform,width] duration-300 lg:translate-x-0 lg:z-40 ${sidebarOpen ? "w-72 translate-x-0 visible pointer-events-auto" : "w-72 -translate-x-full invisible pointer-events-none lg:visible lg:pointer-events-auto"} ${collapsed ? "lg:w-20" : "lg:w-72"}`}
       >
         <div className="flex items-center justify-between gap-2 px-1 py-1">
-          <Link to="/" onClick={closeOnMobile} className="min-w-0 no-underline" aria-hidden="true">
-            <MarkMapBrand compact={collapsed} ariaLabel="" />
+          <Link to="/" onClick={closeOnMobile} className="min-w-0 no-underline" aria-hidden={!isDesktop}>
+            <MarkMapBrand compact={collapsed} ariaLabel={isDesktop ? "MarkMap — Planejamento Inteligente" : ""} />
           </Link>
           <button type="button" onClick={() => setCollapsed((value) => !value)} className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-full border border-outline-variant text-on-surface-variant hover:border-primary/40 hover:text-primary lg:flex" aria-label={collapsed ? "Expandir menu" : "Recolher menu"}>
             {icon(collapsed ? "menu_open" : "left_panel_close")}
