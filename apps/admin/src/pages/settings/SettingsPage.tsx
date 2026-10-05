@@ -319,7 +319,7 @@ export default function SettingsPage() {
         <button
           disabled={installed}
           onClick={() => void install()}
-          className="rounded-lg bg-cyan-500 px-4 py-2 font-semibold text-slate-950 disabled:opacity-50"
+          className="rounded-lg bg-gradient-to-r from-brand-blue to-brand-cyan px-4 py-2 font-semibold text-white hover:brightness-110 disabled:opacity-50"
         >
           {installed ? "Instalado" : "Instalar aplicativo"}
         </button>
@@ -386,7 +386,7 @@ export default function SettingsPage() {
         <p className="my-3 text-sm text-on-surface-variant">
           Instale um pacote licenciado com manifest.json, um arquivo PMTiles, estilo, fontes e sprites. O pacote fica neste dispositivo.
         </p>
-        <label className="inline-flex min-h-[44px] cursor-pointer items-center rounded-lg bg-cyan-500 px-4 py-2 font-semibold text-slate-950">
+        <label className="inline-flex min-h-[44px] cursor-pointer items-center rounded-lg bg-gradient-to-r from-brand-blue to-brand-cyan px-4 py-2 font-semibold text-white hover:brightness-110">
           {packageBusy ? "Processando pacote…" : "Selecionar pasta do pacote"}
           <input
             type="file"
