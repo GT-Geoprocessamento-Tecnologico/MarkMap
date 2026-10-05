@@ -136,7 +136,7 @@ export default function ProjectsPage() {
                   type="button"
                   variant="ghost"
                   onClick={() => setIsOpen(false)}
-                  className="text-on-surface-variant hover:text-on-surface hover:bg-white/5"
+                  className="text-on-surface-variant hover:text-on-surface hover:bg-on-surface/5"
                 >
                   Cancelar
                 </Button>
@@ -180,9 +180,9 @@ export default function ProjectsPage() {
       {/* Conteudo Principal */}
       {isLoading ? (
         <div className="space-y-3 rounded-xl border border-outline-variant bg-surface-container p-6">
-          <Skeleton className="h-12 w-full bg-white/5" />
-          <Skeleton className="h-12 w-full bg-white/5" />
-          <Skeleton className="h-12 w-full bg-white/5" />
+          <Skeleton className="h-12 w-full bg-on-surface/5" />
+          <Skeleton className="h-12 w-full bg-on-surface/5" />
+          <Skeleton className="h-12 w-full bg-on-surface/5" />
         </div>
       ) : isError ? (
         <div className="rounded-xl border border-red-500/30 bg-red-500/5 p-6 text-center text-red-400">
