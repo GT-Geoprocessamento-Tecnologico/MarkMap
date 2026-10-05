@@ -179,7 +179,7 @@ export default function MeshStudioPage() {
           >
             Voltar
           </Link>
-          <label className="cursor-pointer rounded bg-cyan-500 px-3 py-2 text-sm font-semibold text-slate-950">
+          <label className="cursor-pointer rounded-lg bg-gradient-to-r from-brand-blue to-brand-cyan px-3 py-2 text-sm font-semibold text-white hover:brightness-110">
             {busy ? "Processando..." : "Importar GLB"}
             <input
               className="sr-only"
@@ -225,7 +225,7 @@ export default function MeshStudioPage() {
               {meshes.map((item) => (
                 <li key={item.id}>
                   <button
-                    className={`w-full rounded p-2 text-left text-sm ${selected?.id === item.id ? "bg-cyan-500/20 text-cyan-300" : "hover:bg-white/5"}`}
+                    className={`w-full rounded p-2 text-left text-sm ${selected?.id === item.id ? "bg-cyan-500/20 text-cyan-300" : "hover:bg-on-surface/5"}`}
                     onClick={() => {
                       void selectMesh(item);
                     }}
