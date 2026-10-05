@@ -4,6 +4,7 @@ import { useLayoutStore } from "../../lib/store/layout";
 import { TopNavBar } from "../TopNavBar";
 import { MarkMapBrand } from "../MarkMapBrand";
 import { useIsDesktop } from "../../lib/hooks/useIsDesktop";
+import { AppIcon, type AppIconName } from "../AppIcon";
 
 const baseLink = "group flex min-h-[44px] items-center gap-3 rounded-xl border px-3 py-2.5 text-xs font-semibold transition-all duration-200";
 const activeLink = "border-brand-cyan/25 bg-brand-cyan/10 text-brand-cyan shadow-[inset_3px_0_0_#00D6DB]";
@@ -39,9 +40,7 @@ export function RootLayout() {
     if (window.innerWidth < 1024) closeSidebar();
   };
 
-  const icon = (name: string) => (
-    <span className="material-symbols-outlined shrink-0 text-current" style={{ fontSize: "19px" }} aria-hidden="true">{name}</span>
-  );
+  const icon = (name: AppIconName) => <AppIcon name={name} />;
 
   return (
     <div className="markmap-shell flex h-[100dvh] min-h-[100dvh] min-w-0 overflow-hidden bg-background font-sans text-on-surface selection:bg-primary/20">
@@ -56,24 +55,24 @@ export function RootLayout() {
             <MarkMapBrand compact={collapsed} ariaLabel={isDesktop ? "MarkMap — Planejamento Inteligente" : ""} />
           </Link>
           <button type="button" onClick={() => setCollapsed((value) => !value)} className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-full border border-outline-variant text-on-surface-variant hover:border-primary/40 hover:text-primary lg:flex" aria-label={collapsed ? "Expandir menu" : "Recolher menu"}>
-            {icon(collapsed ? "menu_open" : "left_panel_close")}
+            {icon(collapsed ? "expand" : "collapse")}
           </button>
           <button type="button" onClick={closeSidebar} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-outline-variant text-on-surface-variant lg:hidden" aria-label="Fechar menu">{icon("close")}</button>
         </div>
 
         <nav aria-label="Navegação principal" className="mt-6 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
-          <Link to="/" activeOptions={{ exact: true }} activeProps={{ className: activeLink }} inactiveProps={{ className: inactiveLink }} className={baseLink} onClick={closeOnMobile}>{icon("dashboard")}{!collapsed && <span>Visão geral</span>}</Link>
-          <Link to="/projects" activeProps={{ className: activeLink }} inactiveProps={{ className: inactiveLink }} className={baseLink} onClick={closeOnMobile}>{icon("inventory_2")}{!collapsed && <span>Projetos</span>}</Link>
-          <Link to="/workspace" activeProps={{ className: activeLink }} inactiveProps={{ className: inactiveLink }} className={baseLink} onClick={closeOnMobile}>{icon("map")}{!collapsed && <span>Mapa</span>}</Link>
-          <Link to="/imports" activeProps={{ className: activeLink }} inactiveProps={{ className: inactiveLink }} className={baseLink} onClick={closeOnMobile}>{icon("dataset")}{!collapsed && <span>Dados</span>}</Link>
+          <Link to="/" title="Visão geral" activeOptions={{ exact: true }} activeProps={{ className: activeLink }} inactiveProps={{ className: inactiveLink }} className={baseLink} onClick={closeOnMobile}>{icon("dashboard")}{!collapsed && <span>Visão geral</span>}</Link>
+          <Link to="/projects" title="Projetos" activeProps={{ className: activeLink }} inactiveProps={{ className: inactiveLink }} className={baseLink} onClick={closeOnMobile}>{icon("projects")}{!collapsed && <span>Projetos</span>}</Link>
+          <Link to="/workspace" title="Mapa" activeProps={{ className: activeLink }} inactiveProps={{ className: inactiveLink }} className={baseLink} onClick={closeOnMobile}>{icon("map")}{!collapsed && <span>Mapa</span>}</Link>
+          <Link to="/imports" title="Dados" activeProps={{ className: activeLink }} inactiveProps={{ className: inactiveLink }} className={baseLink} onClick={closeOnMobile}>{icon("data")}{!collapsed && <span>Dados</span>}</Link>
           {projectId ? (
-            <Link to="/projects/$projectId/mesh" params={{ projectId }} aria-label="Estúdio de Malhas 3D" activeProps={{ className: activeLink }} inactiveProps={{ className: inactiveLink }} className={baseLink} onClick={closeOnMobile}>{icon("view_in_ar")}{!collapsed && <span>Malhas 3D</span>}</Link>
+            <Link to="/projects/$projectId/mesh" params={{ projectId }} aria-label="Estúdio de Malhas 3D" activeProps={{ className: activeLink }} inactiveProps={{ className: inactiveLink }} className={baseLink} onClick={closeOnMobile}>{icon("mesh")}{!collapsed && <span>Malhas 3D</span>}</Link>
           ) : (
-            <Link to="/mesh" aria-label="Estúdio de Malhas 3D" activeProps={{ className: activeLink }} inactiveProps={{ className: inactiveLink }} className={baseLink} onClick={closeOnMobile}>{icon("view_in_ar")}{!collapsed && <span>Malhas 3D</span>}</Link>
+            <Link to="/mesh" aria-label="Estúdio de Malhas 3D" activeProps={{ className: activeLink }} inactiveProps={{ className: inactiveLink }} className={baseLink} onClick={closeOnMobile}>{icon("mesh")}{!collapsed && <span>Malhas 3D</span>}</Link>
           )}
-          <Link to="/coordinate-systems" activeProps={{ className: activeLink }} inactiveProps={{ className: inactiveLink }} className={baseLink} onClick={closeOnMobile}>{icon("location_searching")}{!collapsed && <span>Sistemas de coordenadas</span>}</Link>
-          <Link to="/analytics" activeProps={{ className: activeLink }} inactiveProps={{ className: inactiveLink }} className={baseLink} onClick={closeOnMobile}>{icon("insights")}{!collapsed && <span>Análises</span>}</Link>
-          <Link to="/settings" activeProps={{ className: activeLink }} inactiveProps={{ className: inactiveLink }} className={baseLink} onClick={closeOnMobile}>{icon("settings")}{!collapsed && <span>Configurações</span>}</Link>
+          <Link to="/coordinate-systems" title="Sistemas de coordenadas" activeProps={{ className: activeLink }} inactiveProps={{ className: inactiveLink }} className={baseLink} onClick={closeOnMobile}>{icon("coordinates")}{!collapsed && <span>Sistemas de coordenadas</span>}</Link>
+          <Link to="/analytics" title="Análises" activeProps={{ className: activeLink }} inactiveProps={{ className: inactiveLink }} className={baseLink} onClick={closeOnMobile}>{icon("analytics")}{!collapsed && <span>Análises</span>}</Link>
+          <Link to="/settings" title="Configurações" activeProps={{ className: activeLink }} inactiveProps={{ className: inactiveLink }} className={baseLink} onClick={closeOnMobile}>{icon("settings")}{!collapsed && <span>Configurações</span>}</Link>
         </nav>
 
         <div className="border-t border-outline-variant pt-3">
