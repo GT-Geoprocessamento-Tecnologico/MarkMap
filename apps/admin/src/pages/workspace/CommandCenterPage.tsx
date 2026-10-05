@@ -43,6 +43,7 @@ import {
   createOfflineProtocol,
 } from "@geonexo/maps/offline/protocol";
 import { adaptOfflineStyle } from "@geonexo/maps/offline/style";
+import { AppIcon, type AppIconName } from "../../components/AppIcon";
 
 // ---------------------------------------------------------------------------
 // Tipos
@@ -896,7 +897,7 @@ export default function CommandCenterPage() {
         <ToolBtn
           active={sidePanel === "telemetria"}
           onClick={() => togglePanel("telemetria")}
-          icon="satellite_alt"
+          icon="telemetry"
           label="Telemetria"
           color="cyan"
         />
@@ -912,7 +913,7 @@ export default function CommandCenterPage() {
         <ToolBtn
           active={sidePanel === "filtros"}
           onClick={() => togglePanel("filtros")}
-          icon="filter_list"
+          icon="filters"
           label="Filtros"
           color="violet"
         />
@@ -920,7 +921,7 @@ export default function CommandCenterPage() {
         <ToolBtn
           active={sidePanel === "ferramentas"}
           onClick={() => togglePanel("ferramentas")}
-          icon="handyman"
+          icon="tools"
           label="Ferramentas"
           color="slate"
         />
@@ -931,7 +932,7 @@ export default function CommandCenterPage() {
         <ToolBtn
           active={false}
           onClick={handleMyLocation}
-          icon="my_location"
+          icon="location"
           label="Minha localização"
           color="emerald"
         />
@@ -939,28 +940,28 @@ export default function CommandCenterPage() {
         <ToolBtn
           active={measuring}
           onClick={toggleMeasure}
-          icon="straighten"
+          icon="measure"
           label={measuring ? "Encerrar medição" : "Medir distância"}
           color="amber"
         />
         <ToolBtn
           active={drawingSession?.type === "Point"}
           onClick={() => void startDrawing("Point")}
-          icon="add_location_alt"
+          icon="point"
           label="Adicionar ponto"
           color="cyan"
         />
         <ToolBtn
           active={drawingSession?.type === "LineString"}
           onClick={() => void startDrawing("LineString")}
-          icon="timeline"
+          icon="line"
           label="Desenhar linha"
           color="blue"
         />
         <ToolBtn
           active={drawingSession?.type === "Polygon"}
           onClick={() => void startDrawing("Polygon")}
-          icon="hexagon"
+          icon="polygon"
           label="Desenhar polígono"
           color="violet"
         />
@@ -1005,12 +1006,7 @@ export default function CommandCenterPage() {
       {/* ── Indicador de medição ativo ── */}
       {measuring && (
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 bg-amber-50 border border-amber-300 text-amber-800 text-xs font-semibold px-4 py-2 rounded-full flex items-center gap-2 shadow-lg">
-          <span
-            className="material-symbols-outlined"
-            style={{ fontSize: "15px" }}
-          >
-            straighten
-          </span>
+          <AppIcon name="measure" size="sm" />
           {measurePoints.length === 0
             ? "Clique no mapa para iniciar a medição"
             : `${measurePoints.length} ponto${measurePoints.length > 1 ? "s" : ""} · ${formatDistance(totalDistance)}`}
@@ -1031,18 +1027,18 @@ export default function CommandCenterPage() {
           {/* Header do painel */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-outline-variant flex-shrink-0">
             <span className="text-on-surface font-bold text-base flex items-center gap-2">
-              <span
-                className="material-symbols-outlined text-cyan-600"
-                style={{ fontSize: "20px" }}
-              >
-                {sidePanel === "telemetria"
-                  ? "satellite_alt"
-                  : sidePanel === "camadas"
-                    ? "layers"
-                    : sidePanel === "filtros"
-                      ? "filter_list"
-                      : "handyman"}
-              </span>
+              <AppIcon
+                name={
+                  sidePanel === "telemetria"
+                    ? "telemetry"
+                    : sidePanel === "camadas"
+                      ? "layers"
+                      : sidePanel === "filtros"
+                        ? "filters"
+                        : "tools"
+                }
+                size="md"
+              />
               {sidePanel === "telemetria"
                 ? "Telemetria"
                 : sidePanel === "camadas"
@@ -1056,12 +1052,7 @@ export default function CommandCenterPage() {
               onClick={() => setSidePanel("none")}
               className="w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-variant transition-colors"
             >
-              <span
-                className="material-symbols-outlined"
-                style={{ fontSize: "18px" }}
-              >
-                close
-              </span>
+              <AppIcon name="close" size="sm" />
             </button>
           </div>
 
@@ -1152,12 +1143,7 @@ export default function CommandCenterPage() {
                   onClick={toggleMeasure}
                   className="w-full py-2.5 rounded-xl border border-outline-variant bg-surface-container-high text-on-surface-variant text-sm font-semibold hover:bg-surface-variant transition-colors flex items-center justify-center gap-2"
                 >
-                  <span
-                    className="material-symbols-outlined"
-                    style={{ fontSize: "16px" }}
-                  >
-                    straighten
-                  </span>
+                  <AppIcon name="measure" size="sm" />
                   Iniciar medição de distância
                 </button>
               )}
@@ -1187,7 +1173,7 @@ export default function CommandCenterPage() {
                       dataset: !prev.dataset,
                     }))
                   }
-                  className={`w-11 h-6 rounded-full relative transition-colors duration-200 flex-shrink-0 ${layerVisibility.dataset ? "bg-cyan-500" : "bg-slate-200"}`}
+                  className={`w-11 h-6 rounded-full relative transition-colors duration-200 flex-shrink-0 ${layerVisibility.dataset ? "bg-secondary" : "bg-on-surface/15"}`}
                 >
                   <span
                     className={`absolute top-0.5 w-5 h-5 rounded-full bg-surface-container shadow transition-all duration-200 ${layerVisibility.dataset ? "left-[calc(100%-22px)]" : "left-0.5"}`}
@@ -1232,7 +1218,7 @@ export default function CommandCenterPage() {
                         [layer.id]: !(prev[layer.id] ?? layer.visibleByDefault),
                       }))
                     }
-                    className={`h-5 w-9 rounded-full ${(layerVisibility[layer.id] ?? layer.visibleByDefault) ? "bg-cyan-500" : "bg-slate-200"}`}
+                    className={`h-5 w-9 rounded-full ${(layerVisibility[layer.id] ?? layer.visibleByDefault) ? "bg-secondary" : "bg-on-surface/15"}`}
                   >
                     <span
                       className={`block h-4 w-4 rounded-full bg-white transition-transform ${(layerVisibility[layer.id] ?? layer.visibleByDefault) ? "translate-x-4" : "translate-x-0.5"}`}
@@ -1241,7 +1227,7 @@ export default function CommandCenterPage() {
                 </div>
               ))}
               {projectFeatureError && (
-                <p role="alert" className="text-sm text-red-700">
+                <p role="alert" className="text-sm text-red-400">
                   Não foi possível carregar as feições do projeto:{" "}
                   {projectFeatureError instanceof Error
                     ? projectFeatureError.message
@@ -1346,7 +1332,7 @@ export default function CommandCenterPage() {
               </p>
               {[
                 {
-                  icon: "straighten",
+                  icon: "measure" as AppIconName,
                   label: "Medir Distância",
                   desc: "Clique em pontos no mapa para medir.",
                   action: () => {
@@ -1355,13 +1341,13 @@ export default function CommandCenterPage() {
                   },
                 },
                 {
-                  icon: "my_location",
+                  icon: "location" as AppIconName,
                   label: "Minha Localização",
                   desc: "Centralizar o mapa na sua posição atual.",
                   action: handleMyLocation,
                 },
                 {
-                  icon: "download",
+                  icon: "download" as AppIconName,
                   label: "Exportar Dados",
                   desc: "Exportar o dataset selecionado em GeoJSON.",
                   action: () => {
@@ -1384,7 +1370,7 @@ export default function CommandCenterPage() {
                   },
                 },
                 {
-                  icon: "content_copy",
+                  icon: "copy" as AppIconName,
                   label: "Copiar coordenadas",
                   desc: "Copiar o centro atual do mapa.",
                   action: async () => {
@@ -1413,7 +1399,7 @@ export default function CommandCenterPage() {
                   },
                 },
                 {
-                  icon: "upload_file",
+                  icon: "upload" as AppIconName,
                   label: "Importar dataset",
                   desc: "Abrir a página de importação local.",
                   action: () => {
@@ -1424,14 +1410,9 @@ export default function CommandCenterPage() {
                 <button
                   key={tool.icon}
                   onClick={tool.action}
-                  className="w-full flex items-start gap-3 px-3 py-3 rounded-xl border border-outline-variant bg-surface-container-high hover:bg-cyan-50 hover:border-cyan-200 transition-colors text-left"
+                  className="w-full flex items-start gap-3 px-3 py-3 rounded-xl border border-outline-variant bg-surface-container-high hover:bg-primary/10 hover:border-primary/30 transition-colors text-left"
                 >
-                  <span
-                    className="material-symbols-outlined text-cyan-600 flex-shrink-0 mt-0.5"
-                    style={{ fontSize: "20px" }}
-                  >
-                    {tool.icon}
-                  </span>
+                  <AppIcon name={tool.icon} size="md" className="mt-0.5" />
                   <div>
                     <p className="text-on-surface font-semibold text-sm">
                       {tool.label}
@@ -1460,17 +1441,17 @@ function ToolBtn({
 }: {
   active: boolean;
   onClick: () => void;
-  icon: string;
+  icon: AppIconName;
   label: string;
   color: string;
 }) {
   const activeColors: Record<string, string> = {
-    cyan: "bg-cyan-100 border-cyan-300 text-cyan-700",
-    blue: "bg-blue-100 border-blue-300 text-blue-700",
-    violet: "bg-violet-100 border-violet-300 text-violet-700",
-    slate: "bg-slate-200 border-slate-300 text-on-surface-variant",
-    emerald: "bg-emerald-100 border-emerald-300 text-emerald-700",
-    amber: "bg-amber-100 border-amber-300 text-amber-700",
+    cyan: "bg-cyan-500/15 border-cyan-400/40 text-cyan-400",
+    blue: "bg-blue-500/15 border-blue-400/40 text-blue-400",
+    violet: "bg-violet-500/15 border-violet-400/40 text-violet-400",
+    slate: "bg-white/10 border-white/15 text-on-surface",
+    emerald: "bg-emerald-500/15 border-emerald-400/40 text-emerald-400",
+    amber: "bg-amber-500/15 border-amber-400/40 text-amber-400",
   };
   const idleClass =
     "bg-surface-container border-outline-variant text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface";
@@ -1482,9 +1463,7 @@ function ToolBtn({
       aria-pressed={active}
       className={`min-h-[44px] min-w-[44px] p-2.5 rounded-xl border flex items-center justify-center transition-all shadow-sm ${active ? (activeColors[color] ?? activeColors["slate"]) : idleClass}`}
     >
-      <span className="material-symbols-outlined" style={{ fontSize: "22px" }}>
-        {icon}
-      </span>
+      <AppIcon name={icon} size="lg" />
     </button>
   );
 }
