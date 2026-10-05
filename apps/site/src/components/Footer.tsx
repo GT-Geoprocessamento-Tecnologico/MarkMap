@@ -2,7 +2,7 @@ import { Brand } from "./Brand";
 
 export function Footer() {
   return (
-    <footer className="site-footer">
+    <footer className="site-footer" id="rodape">
       <div className="site-container site-footer__grid">
         <div>
           <Brand inverse />
@@ -10,13 +10,14 @@ export function Footer() {
         </div>
         <nav aria-label="Rodapé">
           <a href="/produto">Produto</a>
+          <a href="/#recursos">Recursos</a>
           <a href="/offline">Offline</a>
-          <a href="/baixar">Baixar app</a>
+          <a href="/#contato">Contato</a>
           <a href="/privacidade">Privacidade</a>
         </nav>
       </div>
       <div className="site-container site-footer__bottom">
-        <span>© {new Date().getFullYear()} MarkMap.</span>
+        <span>© {new Date().getFullYear()} MarkMap. Todos os direitos reservados.</span>
         <span>Desenvolvido por <a href="https://mtsferreira.dev" target="_blank" rel="noopener noreferrer">MtsFerreira</a></span>
       </div>
     </footer>
