@@ -1,0 +1,36 @@
+import { useEffect, useState } from "react";
+
+type Theme = "light" | "dark";
+
+function getInitialTheme(): Theme {
+  const current = document.documentElement.dataset.theme;
+  if (current === "light" || current === "dark") return current;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+export function ThemeToggle() {
+  const [theme, setTheme] = useState<Theme>(getInitialTheme);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem("markmap-theme", theme);
+  }, [theme]);
+
+  const nextTheme: Theme = theme === "dark" ? "light" : "dark";
+
+  return (
+    <button
+      type="button"
+      className="theme-toggle"
+      onClick={() => setTheme(nextTheme)}
+      aria-label={`Mudar para tema ${nextTheme === "dark" ? "escuro" : "claro"}`}
+      title={`Mudar para tema ${nextTheme === "dark" ? "escuro" : "claro"}`}
+    >
+      <span className="theme-toggle__sun" aria-hidden="true">☼</span>
+      <span className="theme-toggle__track" aria-hidden="true">
+        <span className="theme-toggle__thumb" />
+      </span>
+      <span className="theme-toggle__moon" aria-hidden="true">◐</span>
+    </button>
+  );
+}
