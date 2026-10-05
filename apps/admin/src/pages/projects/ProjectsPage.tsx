@@ -78,7 +78,7 @@ export default function ProjectsPage() {
             Gerencie os projetos de mapeamento, levantamentos e conjuntos de
             camadas geoespaciais.
           </p>
-          <p className="mt-2 text-xs text-cyan-500">
+          <p className="mt-2 text-xs text-primary">
             Os projetos são salvos neste dispositivo e sincronizados quando houver conexão.
           </p>
         </div>
@@ -86,7 +86,7 @@ export default function ProjectsPage() {
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
           <DialogTrigger asChild>
             <Button
-              className="bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-bold hover:from-cyan-400 hover:to-cyan-300 transition-all shadow-[0_0_15px_rgba(6,182,212,0.3)]"
+              className="bg-gradient-to-r from-brand-blue to-brand-cyan text-white font-bold hover:brightness-110 transition-all shadow-[0_0_15px_rgba(6,182,212,0.3)]"
               variant="primary"
             >
               + Criar Novo Projeto
@@ -114,7 +114,7 @@ export default function ProjectsPage() {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     required
-                    className="bg-background border-outline-variant text-on-surface placeholder:text-slate-600 focus:border-cyan-500/50 focus:ring-cyan-500/20"
+                    className="bg-background border-outline-variant text-on-surface placeholder:text-on-surface-variant/70 focus:border-primary/60 focus:ring-primary/15"
                   />
                 </div>
                 <div className="space-y-2">
@@ -126,7 +126,7 @@ export default function ProjectsPage() {
                     placeholder="Ex: Mapeamento de quadras e pontos de controle"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    className="bg-background border-outline-variant text-on-surface placeholder:text-slate-600 focus:border-cyan-500/50 focus:ring-cyan-500/20"
+                    className="bg-background border-outline-variant text-on-surface placeholder:text-on-surface-variant/70 focus:border-primary/60 focus:ring-primary/15"
                   />
                 </div>
               </div>
@@ -144,7 +144,7 @@ export default function ProjectsPage() {
                   type="submit"
                   variant="primary"
                   loading={createProjectMutation.isPending}
-                  className="bg-cyan-500 text-slate-950 font-bold hover:bg-cyan-400 transition-colors"
+                  className="bg-primary text-white font-bold hover:brightness-110 transition-colors"
                 >
                   Salvar Projeto
                 </Button>
@@ -161,7 +161,7 @@ export default function ProjectsPage() {
           placeholder="Buscar projetos por nome ou descrição..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="max-w-md bg-surface-container border-outline-variant text-on-surface placeholder:text-slate-500 focus:border-cyan-500/50 focus:ring-cyan-500/20"
+          className="max-w-md bg-surface-container border-outline-variant text-on-surface placeholder:text-on-surface-variant/70 focus:border-primary/60 focus:ring-primary/15"
         />
       </div>
 
@@ -200,7 +200,7 @@ export default function ProjectsPage() {
             <Button
               variant="primary"
               onClick={() => setIsOpen(true)}
-              className="bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-950 font-bold"
+              className="bg-gradient-to-r from-brand-blue to-brand-cyan text-white font-bold"
             >
               + Criar Primeiro Projeto
             </Button>
@@ -220,18 +220,18 @@ export default function ProjectsPage() {
                 <Link
                   to="/projects/$projectId"
                   params={{ projectId: project.id }}
-                  className="min-w-0 break-words font-semibold text-cyan-400"
+                  className="min-w-0 break-words font-semibold text-primary"
                 >
                   {project.name}
                 </Link>
-                <span className="shrink-0 rounded-full border border-emerald-500/20 bg-cyan-500/10 px-2.5 py-1 text-xs font-medium text-emerald-400">
+                <span className="shrink-0 rounded-full border border-secondary/30 bg-secondary/10 px-2.5 py-1 text-xs font-semibold text-secondary">
                   {project.status}
                 </span>
               </div>
               <p className="mt-2 break-words text-sm text-on-surface-variant">
                 {project.description ?? "Sem descrição"}
               </p>
-              <p className="mt-2 text-xs text-slate-500">
+              <p className="mt-2 text-xs text-on-surface-variant">
                 Atualizado em {new Date(project.updatedAt).toLocaleDateString("pt-BR")}
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
@@ -245,7 +245,7 @@ export default function ProjectsPage() {
                 <Link
                   to="/projects/$projectId/map"
                   params={{ projectId: project.id }}
-                  className="flex min-h-[44px] items-center rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-sm text-cyan-400"
+                  className="flex min-h-[44px] items-center rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-sm text-primary"
                 >
                   Abrir mapa
                 </Link>
