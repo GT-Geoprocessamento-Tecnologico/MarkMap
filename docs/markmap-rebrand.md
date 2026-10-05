@@ -33,3 +33,7 @@ Esses itens são técnicos e não fazem parte da marca apresentada ao usuário.
 - alteração destrutiva de banco/storage;
 - migração dos namespaces internos;
 - renomeação administrativa do repositório GitHub.
+
+## Validação
+
+Mudança submetida ao PR #3 para execução dos gates antes da integração em `main`.
