@@ -394,7 +394,7 @@ export function PdfPreview({ record }: { record: OriginalRecord }) {
       canvas.width = 0;
       canvas.height = 0;
     };
-  }, [record.blob, record.sha256]);
+  }, [record.blob, record.sha256, record.blobId]);
 
   const hasMapReference = Boolean(storedReference || embeddedReference);
   const geographicStatus = storedReference
