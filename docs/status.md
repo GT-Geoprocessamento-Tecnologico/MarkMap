@@ -31,6 +31,8 @@ Nenhuma ação destrutiva ou alteração de production foi executada.
 - identidade visual MarkMap aplicada à aplicação operacional;
 - display name Web/PWA/Capacitor/iOS: MarkMap;
 - identificadores nativos existentes preservados por compatibilidade;
-- PR #3 em validação; build, CI, PostGIS e Quality/Security verdes na primeira execução;
-- E2E da primeira execução encontrou regressões de navegação/testes de marca e recebeu correções subsequentes;
+- PR #3 integrado em `main`;
+- Build, CI, PostGIS e Quality/Security ficaram verdes na primeira execução do PR antes das correções finais;
+- E2E da primeira execução encontrou regressões de navegação/testes de marca e recebeu correções antes do merge;
+- validação completa do HEAD pós-merge ainda precisa ser reexecutada com runner disponível;
 - nenhum deploy público ou publicação mobile executados.
