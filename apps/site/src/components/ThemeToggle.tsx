@@ -5,6 +5,14 @@ type Theme = "light" | "dark";
 function getInitialTheme(): Theme {
   const current = document.documentElement.dataset.theme;
   if (current === "light" || current === "dark") return current;
+
+  try {
+    const stored = localStorage.getItem("markmap-theme");
+    if (stored === "light" || stored === "dark") return stored;
+  } catch {
+    // Theme still follows the system preference when storage is unavailable.
+  }
+
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
@@ -13,7 +21,11 @@ export function ThemeToggle() {
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
-    localStorage.setItem("markmap-theme", theme);
+    try {
+      localStorage.setItem("markmap-theme", theme);
+    } catch {
+      // Theme remains functional without persistence.
+    }
   }, [theme]);
 
   const nextTheme: Theme = theme === "dark" ? "light" : "dark";
