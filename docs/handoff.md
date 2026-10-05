@@ -5,7 +5,7 @@ Atualizado em 2026-10-05.
 ## Estado atual
 
 - Baseline funcional anterior validado: `cc2331d`.
-- HEAD funcional do design integrado: `fccda004` (site público + aplicação operacional); este Handoff foi atualizado depois desse merge.
+- HEAD funcional do design integrado: `9b4fb391` (refino visual do site e aplicação operacional; documentação atualizada em seguida).
 - Branch remota esperada: somente `main`.
 - Arquitetura preservada: React/Vite/TypeScript + Hono + Neon/PostgreSQL/PostGIS + MapLibre + Terra Draw + IndexedDB/outbox.
 - Experiência principal instalável: PWA.
@@ -56,3 +56,15 @@ Obter os dados/autorizações externos acima e executar o preflight de `docs/rel
 - branch `feat/markmap-rebrand-site` não contém trabalho exclusivo após o merge e pode ser removida.
 - PR #4 integrado em `main`, unificando a direção visual aprovada entre `apps/site` e `apps/admin`; Android/iOS herdam o mesmo frontend via Capacitor.
 - revalidação completa do HEAD pós-merge segue pendente; as últimas tentativas de GitHub Actions encerraram antes de iniciar steps.
+
+
+## Refinamento frontend — 2026-10-05
+
+- auditoria visual classificada como **AUDITAR E MELHORAR**;
+- site: botão voltar ao topo deixa de sobrepor o crédito “Desenvolvido por MtsFerreira”, com ajuste responsivo junto ao footer;
+- site: persistência/bootstrap do tema protegidos quando `localStorage` estiver indisponível;
+- app: dependência visual de Material Symbols removida dos componentes React; menus lateral, mapa, topo, navegação móvel, imports e CRS usam ícones nativos/emoji centralizados em `AppIcon`;
+- app: ações primárias e estados de hover/contraste refinados para os tokens MarkMap `#0075D6` / `#00D6DB`;
+- app: mapa, projetos, imports, malhas, analytics, settings, sync e PDF receberam ajustes de consistência sem alterar regras de negócio;
+- arquitetura offline-first, GIS, sync, IndexedDB/outbox e Capacitor preservados;
+- GitHub Actions do HEAD refinado foram reexecutados uma vez, mas os jobs encerraram novamente **antes de qualquer step** (steps vazios), sem evidência de regressão de código. A validação automatizada do HEAD atual segue pendente por runner/infra.
