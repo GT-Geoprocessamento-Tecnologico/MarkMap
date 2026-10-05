@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import type { ReactNode } from "react";
 import { useToast } from "@geonexo/ui";
 import { useDialogFocus } from "../../lib/hooks/use-dialog-focus";
+import { AppIcon } from "../../components/AppIcon";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -131,7 +132,7 @@ function CrsModal({ isOpen, onClose, title, onSave, children }: CrsModalProps) {
             onClick={onClose}
             className="min-w-[44px] text-on-surface-variant hover:text-on-surface-variant transition-colors"
           >
-            <span className="material-symbols-outlined">close</span>
+            <AppIcon name="close" size="md" />
           </button>
         </div>
         <div className="min-h-0 overflow-y-auto p-6">{children}</div>
@@ -279,7 +280,7 @@ export default function CoordinateSystemsPage() {
               type="text"
               value={newCrsCode}
               onChange={(e) => setNewCrsCode(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg text-on-surface"
+              className="w-full rounded-lg border border-outline-variant bg-surface-container px-3 py-2 text-on-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15"
             />
           </div>
           <div>
@@ -291,7 +292,7 @@ export default function CoordinateSystemsPage() {
               type="text"
               value={newCrsName}
               onChange={(e) => setNewCrsName(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg text-on-surface"
+              className="w-full rounded-lg border border-outline-variant bg-surface-container px-3 py-2 text-on-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15"
             />
           </div>
         </div>
@@ -337,12 +338,7 @@ export default function CoordinateSystemsPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="text-2xl font-bold text-on-surface flex items-center gap-2">
-            <span
-              aria-hidden="true"
-              className="material-symbols-outlined text-cyan-400"
-            >
-              explore
-            </span>
+            <AppIcon name="coordinates" size="lg" />
             Sistemas de Coordenadas
           </h1>
           <p className="text-sm text-on-surface-variant mt-1">
@@ -353,9 +349,9 @@ export default function CoordinateSystemsPage() {
         <div className="flex gap-2">
           <button
             onClick={() => setShowModal(true)}
-            className="flex-1 md:flex-none px-4 py-2 min-h-[44px] rounded-lg bg-cyan-500 hover:bg-cyan-600 text-on-surface font-medium transition-colors flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/20"
+            className="flex-1 md:flex-none px-4 py-2 min-h-[44px] rounded-lg bg-gradient-to-r from-brand-blue to-brand-cyan text-white hover:brightness-110 font-medium transition-colors flex items-center justify-center gap-2 shadow-lg shadow-brand-cyan/20"
           >
-            <span className="material-symbols-outlined text-sm">add</span>
+            <AppIcon name="add" size="sm" />
             Novo CRS
           </button>
         </div>
@@ -363,16 +359,14 @@ export default function CoordinateSystemsPage() {
 
       <div className="bg-surface-container-high border border-outline-variant/50 rounded-xl p-4 mb-6 flex flex-col md:flex-row gap-4 items-center">
         <div className="relative w-full flex-1">
-          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">
-            search
-          </span>
+          <AppIcon name="search" size="sm" className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" />
           <input
             aria-label="Buscar sistemas de coordenadas"
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar por código, nome ou região..."
-            className="w-full bg-black/20 border border-outline-variant/50 rounded-lg pl-10 pr-4 py-2 min-h-[44px] text-sm text-on-surface focus:outline-none focus:border-cyan-500/50 transition-colors"
+            className="w-full min-h-[44px] rounded-lg border border-outline-variant bg-surface-container pl-10 pr-4 py-2 text-sm text-on-surface placeholder:text-on-surface-variant/70 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15 transition-colors"
           />
         </div>
         <div className="w-full md:w-auto flex items-center gap-2">
@@ -383,7 +377,7 @@ export default function CoordinateSystemsPage() {
             aria-label="Tipo de sistema de coordenadas"
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
-            className="w-full md:w-auto px-4 py-2 min-h-[44px] bg-on-surface/5 border border-outline-variant/50 rounded-lg text-sm text-on-surface focus:outline-none focus:border-cyan-500/50"
+            className="w-full md:w-auto min-h-[44px] rounded-lg border border-outline-variant bg-surface-container px-4 py-2 text-sm text-on-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15"
           >
             <option value="Todos" className="text-black">
               Todos os tipos
@@ -430,7 +424,7 @@ export default function CoordinateSystemsPage() {
                     className="hover:bg-on-surface/5 transition-colors"
                   >
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="px-2 py-1 bg-cyan-500/10 text-cyan-400 rounded border border-cyan-500/20 font-mono text-xs">
+                      <span className="px-2 py-1 bg-primary/10 text-primary rounded border border-primary/20 font-mono text-xs">
                         {sys.code}
                       </span>
                     </td>
@@ -451,11 +445,9 @@ export default function CoordinateSystemsPage() {
                       <button
                         aria-label={`Detalhes de ${sys.code}`}
                         onClick={() => handleShowDetails(sys)}
-                        className="w-9 h-9 rounded text-on-surface-variant hover:text-cyan-400 hover:bg-cyan-400/10 flex items-center justify-center transition-colors"
+                        className="w-9 h-9 rounded text-on-surface-variant hover:text-primary hover:bg-cyan-400/10 flex items-center justify-center transition-colors"
                       >
-                        <span className="material-symbols-outlined text-[18px]">
-                          info
-                        </span>
+                        <AppIcon name="info" size="md" />
                       </button>
                       <button
                         aria-label={`${favorites.has(sys.code) ? "Remover favorito" : "Favoritar"} ${sys.code}`}
@@ -467,9 +459,10 @@ export default function CoordinateSystemsPage() {
                             : "text-on-surface-variant hover:text-amber-400 hover:bg-amber-400/10"
                         }`}
                       >
-                        <span className="material-symbols-outlined text-[18px]">
-                          {favorites.has(sys.code) ? "star" : "star_border"}
-                        </span>
+                        <AppIcon
+                          name={favorites.has(sys.code) ? "favorite" : "favoriteOutline"}
+                          size="md"
+                        />
                       </button>
                     </td>
                   </tr>
