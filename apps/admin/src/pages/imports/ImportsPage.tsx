@@ -16,6 +16,7 @@ import {
 } from "../../lib/mesh/mesh-store";
 import { PdfPreview, sha256Blob } from "../../lib/pdf/pdf-preview";
 import { localRepository, type OriginalRecord } from "../../lib/local-repositories";
+import { AppIcon } from "../../components/AppIcon";
 
 const formatSize = (bytes: number) =>
   `${(bytes / (1024 * 1024)).toFixed(2)} MiB`;
@@ -109,12 +110,7 @@ export default function ImportsPage() {
     <div className="flex h-full min-w-0 flex-col overflow-y-auto bg-background p-4 text-on-surface md:p-6">
       <header className="mb-6">
         <h1 className="flex items-center gap-2 text-2xl font-bold">
-          <span
-            aria-hidden="true"
-            className="material-symbols-outlined text-cyan-500"
-          >
-            dataset
-          </span>
+          <AppIcon name="data" size="lg" />
           Conjuntos de dados
         </h1>
         <p className="mt-1 text-sm text-on-surface-variant">
@@ -130,9 +126,7 @@ export default function ImportsPage() {
           className="absolute inset-0 z-10 cursor-pointer opacity-0"
           aria-label="Selecionar GeoJSON, PDF ou GLB"
         />
-        <span className="material-symbols-outlined mb-3 text-4xl text-cyan-500">
-          cloud_upload
-        </span>
+        <AppIcon name="upload" size="lg" className="mb-3" />
         <h2 className="font-bold">
           {isUploading ? "Validando arquivo…" : "Selecione GeoJSON, PDF ou GLB"}
         </h2>
@@ -145,7 +139,7 @@ export default function ImportsPage() {
       {error && (
         <div
           role="alert"
-          className="mb-4 rounded-xl border border-red-300 bg-red-50 p-3 text-sm text-red-800"
+          className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-400"
         >
           {error}
         </div>
@@ -154,7 +148,7 @@ export default function ImportsPage() {
         value={searchTerm}
         onChange={(event) => setSearchTerm(event.target.value)}
         placeholder="Buscar dataset por nome…"
-        className="mb-4 w-full rounded-xl border border-outline-variant bg-surface-container px-4 py-2.5 text-sm"
+        className="mb-4 w-full rounded-xl border border-outline-variant bg-surface-container px-4 py-2.5 text-sm text-on-surface placeholder:text-on-surface-variant/70 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15"
       />
       <div className="min-w-0 rounded-2xl border border-outline-variant bg-surface-container">
         <table className="w-full text-left text-sm">
@@ -228,14 +222,9 @@ export default function ImportsPage() {
                         href={`/workspace?datasetId=${encodeURIComponent(dataset.id)}`}
                         title="Visualizar no mapa"
                         aria-label="Visualizar no mapa"
-                        className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-xs font-medium text-cyan-400 lg:px-2"
+                        className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-medium text-primary hover:bg-primary/15 lg:px-2"
                       >
-                        <span
-                          className="material-symbols-outlined text-[18px]"
-                          aria-hidden="true"
-                        >
-                          visibility
-                        </span>
+                        <AppIcon name="view" size="md" />
                         <span className="lg:hidden">Visualizar no mapa</span>
                       </a>
                       <button
@@ -245,12 +234,7 @@ export default function ImportsPage() {
                         aria-label="Exportar GeoJSON"
                         className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-outline-variant px-3 py-2 text-xs font-medium text-on-surface-variant lg:px-2"
                       >
-                        <span
-                          className="material-symbols-outlined text-[18px]"
-                          aria-hidden="true"
-                        >
-                          download
-                        </span>
+                        <AppIcon name="download" size="md" />
                         <span className="lg:hidden">Exportar GeoJSON</span>
                       </button>
                       <button
@@ -260,12 +244,7 @@ export default function ImportsPage() {
                         aria-label="Excluir dataset"
                         className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-red-500/30 px-3 py-2 text-xs font-medium text-red-400 lg:px-2"
                       >
-                        <span
-                          className="material-symbols-outlined text-[18px]"
-                          aria-hidden="true"
-                        >
-                          delete
-                        </span>
+                        <AppIcon name="delete" size="md" />
                         <span className="lg:hidden">Excluir dataset</span>
                       </button>
                     </div>
@@ -301,9 +280,7 @@ export default function ImportsPage() {
                     title="Visualizar malha"
                     aria-label="Visualizar malha"
                   >
-                    <span className="material-symbols-outlined">
-                      view_in_ar
-                    </span>
+                    <AppIcon name="mesh" size="md" />
                   </a>
                   <button
                     onClick={() =>
@@ -321,7 +298,7 @@ export default function ImportsPage() {
                     title="Excluir malha"
                     aria-label="Excluir malha"
                   >
-                    <span className="material-symbols-outlined">delete</span>
+                    <AppIcon name="delete" size="md" />
                   </button>
                 </span>
               </div>
