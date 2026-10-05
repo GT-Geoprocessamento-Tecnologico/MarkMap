@@ -33,8 +33,8 @@ Esses itens são técnicos e não fazem parte da marca apresentada ao usuário.
 - publicação Android/iOS;
 - alteração destrutiva de banco/storage;
 - migração dos namespaces internos;
-- renomeação administrativa do repositório GitHub.
+- nenhuma relacionada ao nome do repositório; ele já foi renomeado para `MarkMap`.
 
 ## Validação
 
-Mudança submetida ao PR #3 para execução dos gates antes da integração em `main`.
+PR #3 integrado em `main`. A validação completa do HEAD pós-merge deve ser reexecutada quando o runner do GitHub Actions estiver disponível.
