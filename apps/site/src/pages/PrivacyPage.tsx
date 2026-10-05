@@ -4,7 +4,7 @@ import { Header } from "../components/Header";
 export function PrivacyPage() {
   return (
     <>
-      <Header home={false} />
+      <Header />
       <main id="conteudo" className="legal site-container">
         <p className="eyebrow">Privacidade</p>
         <h1>Privacidade na MarkMap</h1>
