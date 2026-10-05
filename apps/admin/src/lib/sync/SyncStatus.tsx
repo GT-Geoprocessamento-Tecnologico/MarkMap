@@ -303,7 +303,7 @@ export function SyncStatus() {
                     type="button"
                     disabled={resolving === conflict.operationId}
                     onClick={() => void resolve(conflict, "keep-local")}
-                    className="min-h-[44px] rounded-lg bg-cyan-500 px-3 text-sm font-bold text-slate-950 disabled:opacity-50"
+                    className="min-h-[44px] rounded-lg bg-gradient-to-r from-brand-blue to-brand-cyan px-3 text-sm font-bold text-white hover:brightness-110 disabled:opacity-50"
                   >
                     Manter deste aparelho
                   </button>
