@@ -651,7 +651,7 @@ export function PdfPreview({ record }: { record: OriginalRecord }) {
               type="button"
               disabled={!readyToSave}
               onClick={() => void saveCalibration()}
-              className="min-h-[44px] rounded-lg bg-cyan-500 px-4 font-bold text-slate-950 disabled:opacity-40"
+              className="min-h-[44px] rounded-lg bg-gradient-to-r from-brand-blue to-brand-cyan px-4 font-bold text-white hover:brightness-110 disabled:opacity-40"
             >
               Salvar posicionamento
             </button>
