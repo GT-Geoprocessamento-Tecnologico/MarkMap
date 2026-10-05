@@ -62,24 +62,23 @@ export function RootLayout() {
         </div>
 
         <nav aria-label="Navegação principal" className="mt-6 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
-          <Link to="/" activeOptions={{ exact: true }} activeProps={{ className: activeLink }} inactiveProps={{ className: inactiveLink }} className={baseLink} onClick={closeOnMobile}>{icon("home")}{!collapsed && <span>Visão geral</span>}</Link>
-          <Link to="/projects" activeProps={{ className: activeLink }} inactiveProps={{ className: inactiveLink }} className={baseLink} onClick={closeOnMobile}>{icon("folder_open")}{!collapsed && <span>Projetos</span>}</Link>
+          <Link to="/" activeOptions={{ exact: true }} activeProps={{ className: activeLink }} inactiveProps={{ className: inactiveLink }} className={baseLink} onClick={closeOnMobile}>{icon("dashboard")}{!collapsed && <span>Visão geral</span>}</Link>
+          <Link to="/projects" activeProps={{ className: activeLink }} inactiveProps={{ className: inactiveLink }} className={baseLink} onClick={closeOnMobile}>{icon("inventory_2")}{!collapsed && <span>Projetos</span>}</Link>
           <Link to="/workspace" activeProps={{ className: activeLink }} inactiveProps={{ className: inactiveLink }} className={baseLink} onClick={closeOnMobile}>{icon("map")}{!collapsed && <span>Mapa</span>}</Link>
-          <Link to="/imports" activeProps={{ className: activeLink }} inactiveProps={{ className: inactiveLink }} className={baseLink} onClick={closeOnMobile}>{icon("database")}{!collapsed && <span>Dados</span>}</Link>
+          <Link to="/imports" activeProps={{ className: activeLink }} inactiveProps={{ className: inactiveLink }} className={baseLink} onClick={closeOnMobile}>{icon("dataset")}{!collapsed && <span>Dados</span>}</Link>
           {projectId ? (
             <Link to="/projects/$projectId/mesh" params={{ projectId }} aria-label="Estúdio de Malhas 3D" activeProps={{ className: activeLink }} inactiveProps={{ className: inactiveLink }} className={baseLink} onClick={closeOnMobile}>{icon("view_in_ar")}{!collapsed && <span>Malhas 3D</span>}</Link>
           ) : (
             <Link to="/mesh" aria-label="Estúdio de Malhas 3D" activeProps={{ className: activeLink }} inactiveProps={{ className: inactiveLink }} className={baseLink} onClick={closeOnMobile}>{icon("view_in_ar")}{!collapsed && <span>Malhas 3D</span>}</Link>
           )}
-          <Link to="/coordinate-systems" activeProps={{ className: activeLink }} inactiveProps={{ className: inactiveLink }} className={baseLink} onClick={closeOnMobile}>{icon("explore")}{!collapsed && <span>Sistemas de coordenadas</span>}</Link>
-          <Link to="/analytics" activeProps={{ className: activeLink }} inactiveProps={{ className: inactiveLink }} className={baseLink} onClick={closeOnMobile}>{icon("monitoring")}{!collapsed && <span>Análises</span>}</Link>
+          <Link to="/coordinate-systems" activeProps={{ className: activeLink }} inactiveProps={{ className: inactiveLink }} className={baseLink} onClick={closeOnMobile}>{icon("location_searching")}{!collapsed && <span>Sistemas de coordenadas</span>}</Link>
+          <Link to="/analytics" activeProps={{ className: activeLink }} inactiveProps={{ className: inactiveLink }} className={baseLink} onClick={closeOnMobile}>{icon("insights")}{!collapsed && <span>Análises</span>}</Link>
           <Link to="/settings" activeProps={{ className: activeLink }} inactiveProps={{ className: inactiveLink }} className={baseLink} onClick={closeOnMobile}>{icon("settings")}{!collapsed && <span>Configurações</span>}</Link>
         </nav>
 
         <div className="border-t border-outline-variant pt-3">
           {!collapsed ? (
             <div className="space-y-2 px-2">
-              <div className="flex items-center gap-2 text-[11px] font-semibold text-on-surface-variant"><span className="h-2 w-2 rounded-full bg-secondary shadow-[0_0_0_4px_rgba(0,214,219,.1)]" />Offline-first</div>
               <p className="text-[10px] leading-relaxed text-on-surface-variant">Desenvolvido por <a href="https://mtsferreira.dev" target="_blank" rel="noopener noreferrer" className="font-bold text-primary hover:underline">MtsFerreira</a></p>
             </div>
           ) : (
