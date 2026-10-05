@@ -5,6 +5,7 @@ import { useToast } from "@geonexo/ui";
 import { useCreateProject, useProjectPages } from "../lib/hooks/projects";
 import { useDialogFocus } from "../lib/hooks/use-dialog-focus";
 import { MarkMapBrand } from "./MarkMapBrand";
+import { AppIcon } from "./AppIcon";
 
 // ---------------------------------------------------------------------------
 // Modal de Novo Projeto
@@ -90,12 +91,7 @@ function NewProjectModal({ onClose }: { onClose: () => void }) {
             aria-label="Fechar novo projeto"
             className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-on-surface-variant hover:text-on-surface-variant hover:bg-surface-variant transition-colors"
           >
-            <span
-              className="material-symbols-outlined"
-              style={{ fontSize: "20px" }}
-            >
-              close
-            </span>
+            <AppIcon name="close" size="md" />
           </button>
         </div>
 
@@ -144,22 +140,12 @@ function NewProjectModal({ onClose }: { onClose: () => void }) {
           <button
             onClick={handleCreate}
             disabled={createProjectMutation.isPending}
-            className="flex-1 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-cyan-400 text-white font-bold text-sm hover:from-cyan-600 hover:to-cyan-500 active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/20"
+            className="flex-1 py-3 rounded-xl bg-gradient-to-r from-brand-blue to-brand-cyan text-white font-bold text-sm hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-brand-cyan/20"
           >
             {createProjectMutation.isPending ? (
-              <span
-                className="material-symbols-outlined animate-spin"
-                style={{ fontSize: "18px" }}
-              >
-                progress_activity
-              </span>
+              <AppIcon name="loading" size="md" className="animate-pulse" />
             ) : (
-              <span
-                className="material-symbols-outlined"
-                style={{ fontSize: "18px" }}
-              >
-                add_circle
-              </span>
+              <AppIcon name="add" size="md" />
             )}
             {createProjectMutation.isPending ? "Criando..." : "Criar Projeto"}
           </button>
@@ -276,12 +262,7 @@ export function TopNavBar() {
               onClick={toggleSidebar}
               aria-label="Abrir menu"
             >
-              <span
-                className="material-symbols-outlined"
-                style={{ fontSize: "22px" }}
-              >
-                menu
-              </span>
+              <AppIcon name="menu" size="lg" />
             </button>
 
             {/* Botão Voltar */}
@@ -291,12 +272,7 @@ export function TopNavBar() {
                 className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-on-surface-variant hover:text-cyan-300 hover:bg-on-surface/5 transition-colors text-sm flex-shrink-0"
                 aria-label="Voltar"
               >
-                <span
-                  className="material-symbols-outlined"
-                  style={{ fontSize: "18px" }}
-                >
-                  arrow_back
-                </span>
+                <AppIcon name="back" size="md" />
                 <span className="hidden sm:inline text-xs">Voltar</span>
               </button>
             )}
@@ -308,12 +284,7 @@ export function TopNavBar() {
             {/* Barra de busca */}
             <div className="relative flex-1 hidden sm:block">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <span
-                  className="material-symbols-outlined text-on-surface-variant"
-                  style={{ fontSize: "16px" }}
-                >
-                  search
-                </span>
+                <AppIcon name="search" size="sm" className="text-on-surface-variant" />
               </div>
               <input
                 className="w-full min-h-[40px] pl-9 pr-10 py-1.5 bg-surface-container-high/70 border border-outline-variant text-on-surface text-xs rounded-xl focus:border-brand-cyan/60 focus:ring-1 focus:ring-brand-cyan/25 focus:outline-none transition-colors placeholder:text-on-surface-variant/60"
@@ -387,12 +358,7 @@ export function TopNavBar() {
               aria-label="Buscar"
               onClick={() => setShowMobileSearch(!showMobileSearch)}
             >
-              <span
-                className="material-symbols-outlined"
-                style={{ fontSize: "20px" }}
-              >
-                search
-              </span>
+              <AppIcon name="search" size="md" />
             </button>
           </div>
 
@@ -414,12 +380,7 @@ export function TopNavBar() {
               className="markmap-theme-button p-2 rounded-xl text-on-surface-variant hover:text-brand-cyan hover:bg-white/5 transition-colors"
               title="Alternar Tema"
             >
-              <span
-                className="material-symbols-outlined"
-                style={{ fontSize: "20px" }}
-              >
-                {isDark ? "light_mode" : "dark_mode"}
-              </span>
+              <AppIcon name={isDark ? "sun" : "moon"} size="md" />
             </button>
 
             {/* Notificações */}
@@ -428,12 +389,7 @@ export function TopNavBar() {
               onClick={() => setShowNotifications(!showNotifications)}
               title="Notificações"
             >
-              <span
-                className="material-symbols-outlined"
-                style={{ fontSize: "20px" }}
-              >
-                notifications
-              </span>
+              <AppIcon name="notifications" size="md" />
             </button>
 
             {/* Botão Novo Projeto */}
@@ -441,12 +397,7 @@ export function TopNavBar() {
               onClick={() => setShowNewProject(true)}
               className="hidden sm:flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-brand-blue to-brand-cyan text-white font-bold text-xs active:scale-[0.97] hover:shadow-lg hover:shadow-brand-cyan/20 transition-all"
             >
-              <span
-                className="material-symbols-outlined"
-                style={{ fontSize: "16px" }}
-              >
-                add
-              </span>
+              <AppIcon name="add" size="sm" />
               Novo Projeto
             </button>
           </div>
@@ -458,12 +409,7 @@ export function TopNavBar() {
         <div className="sm:hidden fixed top-[52px] left-0 right-0 z-40 p-3 bg-header border-b border-outline-variant/10">
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <span
-                className="material-symbols-outlined text-on-surface-variant"
-                style={{ fontSize: "16px" }}
-              >
-                search
-              </span>
+              <AppIcon name="search" size="sm" className="text-on-surface-variant" />
             </div>
             <input
               autoFocus
@@ -533,12 +479,7 @@ export function TopNavBar() {
             </h3>
           </div>
           <div className="px-4 py-6 text-center">
-            <span
-              className="material-symbols-outlined text-on-surface-variant"
-              style={{ fontSize: "32px" }}
-            >
-              notifications_off
-            </span>
+            <AppIcon name="notificationsOff" size="lg" className="text-on-surface-variant" />
             <p className="text-sm text-on-surface-variant mt-2">
               Sem notificações
             </p>
