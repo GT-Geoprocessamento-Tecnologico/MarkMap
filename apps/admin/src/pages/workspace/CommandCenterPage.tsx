@@ -849,7 +849,7 @@ export default function CommandCenterPage() {
 
   return (
     <div
-      className="relative h-full w-full flex flex-col overflow-hidden"
+      className="markmap-workspace relative h-full w-full flex flex-col overflow-hidden"
       data-map-ready={mapReady ? "true" : "false"}
       data-feature-count={appliedCount}
       data-geopdf-ready={geoPdfReady ? "true" : "false"}
@@ -891,7 +891,7 @@ export default function CommandCenterPage() {
       />
 
       {/* ── Barra de ferramentas flutuante ── */}
-      <div className="absolute bottom-[calc(4rem+env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 lg:bottom-auto lg:top-6 lg:left-4 lg:translate-x-0 bg-surface-container/95 backdrop-blur border border-outline-variant rounded-2xl p-2 flex lg:flex-col gap-1.5 shadow-xl z-10 w-max max-w-[92vw] overflow-x-auto">
+      <div className="absolute bottom-[calc(4rem+env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 lg:bottom-auto lg:top-6 lg:left-4 lg:translate-x-0 markmap-map-tools bg-surface-container/90 backdrop-blur-xl border border-outline-variant rounded-2xl p-2 flex lg:flex-col gap-1.5 shadow-2xl z-10 w-max max-w-[92vw] overflow-x-auto">
         {/* Telemetria */}
         <ToolBtn
           active={sidePanel === "telemetria"}
