@@ -236,19 +236,12 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 
 
-/* Native icon system: avoids font-glyph failures in PWA/WebView/Capacitor. */
+/* Self-contained SVG icon system: stable across browsers, PWA and Capacitor WebViews. */
 .markmap-app-icon {
-  display: inline-grid;
-  width: 1.45em;
-  min-width: 1.45em;
-  height: 1.45em;
-  place-items: center;
+  display: inline-block;
+  min-width: 0;
   flex-shrink: 0;
-  line-height: 1;
-  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", system-ui, sans-serif;
-  font-style: normal;
-  font-weight: 400;
-  text-align: center;
+  overflow: visible;
+  color: currentColor;
   vertical-align: middle;
-  filter: saturate(.92);
 }
