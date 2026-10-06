@@ -313,7 +313,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .pwa-install-prompt {
     left: max(.75rem, env(safe-area-inset-left));
     right: max(.75rem, env(safe-area-inset-right));
-    bottom: max(.75rem, calc(env(safe-area-inset-bottom) + .75rem));
+    bottom: max(5rem, calc(env(safe-area-inset-bottom) + 5rem));
     width: auto;
   }
 }
