@@ -20,7 +20,8 @@ function detectStandalone(): boolean {
   if (typeof window === "undefined" || typeof navigator === "undefined") return false;
   const navigatorWithStandalone = navigator as Navigator & { standalone?: boolean };
   return (
-    window.matchMedia("(display-mode: standalone)").matches ||
+    (typeof window.matchMedia === "function" &&
+      window.matchMedia("(display-mode: standalone)").matches) ||
     navigatorWithStandalone.standalone === true
   );
 }
