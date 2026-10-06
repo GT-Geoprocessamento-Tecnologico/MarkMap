@@ -26,6 +26,20 @@ export interface StorageBreakdown {
   totalBytes: number;
 }
 
+// Backward-compatible name used by the settings UI.
+export type StorageBreakdownItem = CategoryBreakdown;
+
+const storageCategories: readonly StorageCategory[] = [
+  "soft-deleted-datasets",
+  "telemetry",
+  "offline-maps",
+  "original-pdfs",
+];
+
+function isStorageCategory(value: string): value is StorageCategory {
+  return storageCategories.includes(value as StorageCategory);
+}
+
 /**
  * Get itemized storage breakdown across all categories.
  */
@@ -63,7 +77,7 @@ export async function getStorageBreakdown(): Promise<StorageBreakdown> {
   try {
     const telemetry = (await offlineDB.getAll("telemetry")) as unknown[];
     const bytes = telemetry.reduce(
-      (sum, record) => sum + JSON.stringify(record).length * 2,
+      (sum: number, record) => sum + JSON.stringify(record).length * 2,
       0
     );
 
@@ -87,7 +101,15 @@ export async function getStorageBreakdown(): Promise<StorageBreakdown> {
   // 3. Offline map packages
   try {
     const packages = await offlineMapStore.list();
-    const bytes = packages.reduce((sum, p) => sum + (p.bytes ?? 0), 0);
+    const bytes = packages.reduce(
+      (sum, p) =>
+        sum +
+        p.manifest.archive.bytes +
+        p.manifest.style.blob.bytes +
+        p.manifest.glyphs.reduce((glyphTotal, range) => glyphTotal + range.blob.bytes, 0) +
+        p.manifest.sprites.reduce((spriteTotal, sprite) => spriteTotal + sprite.blob.bytes, 0),
+      0,
+    );
 
     categories.push({
       category: "offline-maps",
@@ -144,12 +166,14 @@ export async function getStorageBreakdown(): Promise<StorageBreakdown> {
  * NEVER deletes without explicit call from user-confirmed action.
  */
 export async function cleanStorageCategories(
-  categoriesToClean: StorageCategory[]
+  categoriesToClean: string[]
 ): Promise<{ cleaned: StorageCategory[]; errors: Array<{ category: StorageCategory; error: string }> }> {
   const cleaned: StorageCategory[] = [];
   const errors: Array<{ category: StorageCategory; error: string }> = [];
 
-  for (const category of categoriesToClean) {
+  for (const value of categoriesToClean) {
+    if (!isStorageCategory(value)) continue;
+    const category = value;
     try {
       switch (category) {
         case "soft-deleted-datasets":
@@ -255,7 +279,7 @@ async function cleanTelemetry(): Promise<void> {
 async function cleanOfflineMaps(): Promise<void> {
   const packages = await offlineMapStore.list();
   for (const pkg of packages) {
-    await offlineMapStore.remove(pkg.id);
+    await offlineMapStore.remove(pkg.manifest.id);
   }
 }
 
