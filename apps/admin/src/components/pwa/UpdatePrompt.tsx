@@ -58,7 +58,7 @@ export function UpdatePrompt({ durableWritesReady = () => false, compatibilityRe
 
   return (
     <aside role="status" aria-live="polite" className="pwa-update-prompt">
-      <span>Uma atualização do GeoNexo está pronta.</span>
+      <span>Uma atualização do MarkMap está pronta.</span>
       <button type="button" onClick={() => void accept()} disabled={busy}>
         {busy ? "Verificando…" : "Atualizar"}
       </button>
