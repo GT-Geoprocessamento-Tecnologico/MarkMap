@@ -38,6 +38,6 @@ Antes de distribuição pública, o responsável precisa definir e revisar:
 9. regras sobre fotos/arquivos caso essas funções sejam habilitadas;
 10. URL pública onde a política será hospedada.
 
-## Estado
 
-**BLOQUEADO PARA PUBLICAÇÃO**, não por código, mas por fatos legais/operacionais que não podem ser inferidos do repositório. Após esses dados serem definidos, o texto público deve passar por revisão jurídica antes de publicação.
+
+

@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import { cx } from '../lib/cx';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'destructive';
@@ -11,33 +11,27 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   children: ReactNode;
 }
 
-export function Button({
-  variant = 'primary',
-  size = 'md',
-  loading = false,
-  disabled,
-  className,
-  children,
-  type,
-  ...rest
-}: ButtonProps) {
-  const isDisabled = loading || disabled === true;
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
+  ({ variant = 'primary', size = 'md', loading = false, disabled, className, children, type, ...rest }, ref) => {
+    const isDisabled = loading || disabled === true;
 
-  return (
-    <button
-      {...rest}
-      type={type ?? 'button'}
-      className={cx(
-        'gn-button',
-        `gn-button--${variant}`,
-        `gn-button--${size}`,
-        className,
-      )}
-      disabled={isDisabled}
-      aria-busy={loading}
-    >
-      {loading ? <span className="gn-button__spinner" aria-hidden="true" /> : null}
-      {children}
-    </button>
-  );
-}
+    return (
+      <button
+        {...rest}
+        ref={ref}
+        type={type ?? 'button'}
+        className={cx(
+          'gn-button',
+          `gn-button--${variant}`,
+          `gn-button--${size}`,
+          className,
+        )}
+        disabled={isDisabled}
+        aria-busy={loading}
+      >
+        {loading ? <span className="gn-button__spinner" aria-hidden="true" /> : null}
+        {children}
+      </button>
+    );
+  },
+);

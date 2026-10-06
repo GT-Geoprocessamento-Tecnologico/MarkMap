@@ -35,7 +35,7 @@ export function Header() {
   }, [open]);
 
   return (
-    <header className={"site-header" + (scrolled ? " is-scrolled" : "")}>
+    <header className={"site-header" + (scrolled ? " is-scrolled" : "") + (open ? " site-header--menu-open" : "")}>
       <div className="site-container site-header__inner">
         <a href="/" className="site-header__brand" aria-label="MarkMap — página inicial">
           <Brand inverse />

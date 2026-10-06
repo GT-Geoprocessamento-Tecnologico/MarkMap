@@ -49,6 +49,14 @@ button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px soli
   background: rgba(6,17,23,.82);
   backdrop-filter: blur(22px) saturate(1.2);
 }
+.site-header--menu-open {
+  background: var(--deep);
+  backdrop-filter: none;
+}
+.site-header--menu-open .mobile-menu {
+  background: var(--deep);
+  backdrop-filter: none !important;
+}
 .site-header__inner { height: 76px; display: flex; align-items: center; justify-content: space-between; gap: 28px; }
 .site-header__brand { text-decoration: none; }
 .site-header__nav { display: flex; align-items: center; gap: 30px; }
@@ -81,7 +89,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px soli
   height: 46px;
   border: 1px solid rgba(255,255,255,.14);
   border-radius: 50%;
-  background: rgba(255,255,255,.04);
+  background: rgba(6,17,23,.82);
   place-content: center;
   gap: 6px;
 }
@@ -90,12 +98,14 @@ button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px soli
   position: fixed;
   inset: 76px 0 0;
   z-index: 59;
-  background: rgba(6,17,23,.98);
+  background-color: #061117 !important;
+  background: #061117 !important;
   color: #fff;
-  backdrop-filter: blur(18px);
+  backdrop-filter: none !important;
+  opacity: 1 !important;
 }
-.mobile-menu__inner { display: grid; align-content: start; padding-block: 22px 34px; }
-.mobile-menu a:not(.button) { padding: 18px 0; border-bottom: 1px solid rgba(255,255,255,.09); font-size: 20px; font-weight: 720; text-decoration: none; }
+.mobile-menu__inner { display: grid; align-content: start; justify-items: center; text-align: center; padding-block: 22px 34px; background: #061117; }
+.mobile-menu a:not(.button) { padding: 18px 0; text-align: center; font-size: 20px; font-weight: 720; text-decoration: none; }
 .mobile-menu .button { margin-top: 28px; }
 
 .button {
