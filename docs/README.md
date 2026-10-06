@@ -26,6 +26,7 @@ Esta pasta é a fonte documental do repositório e separa estado comprovado de p
 | [troubleshooting.md](troubleshooting.md) | Diagnóstico |
 | [status.md](status.md) | Matriz de estado |
 | [repository-audit.md](repository-audit.md) | Auditoria do repositório |
+| [master-checklist.md](master-checklist.md) | Checklist Mestre operacional espelhado do Notion |
 | [handoff.md](handoff.md) | Continuidade |
 | [release-checklist.md](release-checklist.md) | Gates de release |
 | [legal.md](legal.md) | Licenças/terceiros |
@@ -40,8 +41,14 @@ Esta pasta é a fonte documental do repositório e separa estado comprovado de p
 4. documentação;
 5. hipóteses.
 
-Mudanças relevantes devem atualizar documentação e Checklist Mestre.
+## Sincronização operacional
 
+O Checklist Mestre existe em dois locais:
+
+- Notion: visão operacional colaborativa;
+- `docs/master-checklist.md`: espelho versionado no Git.
+
+Mudanças relevantes de fase, arquitetura, bloqueio, evidência ou próximo passo devem atualizar **Notion + `docs/master-checklist.md` + `docs/handoff.md` na mesma execução**. Nenhum item deve ser marcado como concluído sem evidência.
 
 ## Marca e distribuição
 
