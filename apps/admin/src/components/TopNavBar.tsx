@@ -363,7 +363,7 @@ export function TopNavBar() {
           </div>
 
           {/* ── Lado Direito: pills + ações ── */}
-          <div className="flex items-center gap-1.5 flex-shrink-0">
+          <div className="flex items-center gap-1.5 flex-shrink-0 bg-surface-container rounded-xl p-1.5 border border-outline-variant/10">
             {/* Pill CRS — apenas em telas grandes */}
             <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 bg-on-surface/5 rounded-lg border border-outline-variant/50 text-xs font-mono">
               <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 flex-shrink-0" />

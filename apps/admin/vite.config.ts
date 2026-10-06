@@ -35,14 +35,14 @@ export default defineConfig({
     alias: geonexoAliases,
   },
   server: {
-    port: 5173,
-    strictPort: true,
+    port: 5177,
+    strictPort: false,
     host: true, // Listen on all network interfaces
   },
   preview: {
     https: false,
     host: "127.0.0.1",
-    port: 5173,
-    strictPort: true,
+    port: 5177,
+    strictPort: false,
   },
 });
