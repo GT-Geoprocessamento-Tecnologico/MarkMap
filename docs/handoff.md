@@ -28,7 +28,7 @@ Atualizado em 2026-10-06.
 ## Bloqueios externos/release
 
 - política pública de privacidade precisa de identidade/contato/retenção/provedores reais e revisão jurídica;
-- domínio do site definido e publicado em `markmap.mtsferreira.dev`; domínio do app `appmarkmap.mtferreira.dev` está associado na Vercel, mas bloqueado no DNS porque a zona `mtferreira.dev` não está disponível na conta Cloudflare conectada;
+- domínio do site definido e publicado em `markmap.mtsferreira.dev`; domínio correto do app `appmarkmap.mtsferreira.dev` associado/verificado na Vercel e CNAME criado na Cloudflare; validação externa pode depender apenas da propagação DNS/SSL;
 - smoke production exige autorização;
 - testes físicos/PWA instalada;
 - signing/publicação mobile.
@@ -93,6 +93,6 @@ Obter os dados/autorizações externos acima e executar o preflight de `docs/rel
 - Vercel configurada com dois projetos Git separados no monorepo: `markmap-site` (`apps/site`) e `markmap-app` (`apps/admin`).
 - site público: deployment production READY e domínio `markmap.mtsferreira.dev` associado; Cloudflare `mtsferreira.dev` recebeu CNAME DNS-only `markmap -> markmap-site.vercel.app`; verificação externa carregou a página MarkMap por HTTPS.
 - app operacional: os dois primeiros deploys falharam por erros TypeScript em `storage-management.ts`; correções mínimas foram integradas nos commits `4a22770` e `1332350c`, preservando a lógica offline-first. Deployment production do commit `1332350c` ficou READY e `https://markmap-app.vercel.app` foi validado externamente.
-- domínio solicitado para o app `appmarkmap.mtferreira.dev` foi associado ao projeto Vercel, porém a zona `mtferreira.dev` não existe na conta Cloudflare conectada; portanto o DNS customizado do app permanece bloqueado até a zona/provedor correto estar acessível. Não substituir silenciosamente por `mtsferreira.dev`.
+- domínio correto do app `appmarkmap.mtsferreira.dev` está associado ao projeto Vercel e verificado; Cloudflare `mtsferreira.dev` recebeu CNAME DNS-only `appmarkmap -> markmap-app.vercel.app`. A propagação/HTTPS externo ainda pode levar alguns instantes após a criação do registro.
 - o app continua operacional local-first. Sync remoto de production não foi ativado: `VITE_API_MODE` permanece sem configuração no projeto recém-criado e a API Hono/Neon não recebeu um alvo/domínio de production nesta execução.
 - nenhum migration, DROP/TRUNCATE/DELETE, rotação de secret, release/tag ou publicação mobile foi executado.
