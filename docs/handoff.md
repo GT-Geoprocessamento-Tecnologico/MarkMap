@@ -79,3 +79,11 @@ Obter os dados/autorizações externos acima e executar o preflight de `docs/rel
 - imagens de sprite conhecidamente ausentes (`sports_centre`, `swimming_pool`, `gate`, `office`) recebem fallback transparente via `styleimagemissing`, sem quebrar o mapa;
 - o código fonte atual não possui handler `beforeinstallprompt` que chame `preventDefault()`; esse aviso do Chromium não foi tratado adicionando prompt PWA, para preservar a direção de produto de não forçar instalação;
 - GitHub Actions foram executadas e reexecutadas uma vez para este HEAD; os jobs continuam encerrando antes de qualquer step (steps vazios), portanto não há evidência de falha de código nem validação verde do HEAD atual.
+
+
+## Correção de menus — 2026-10-05
+
+- ícones emoji dos menus foram substituídos por SVG inline autocontido em `AppIcon`, eliminando dependência da disponibilidade de fontes/emoji do navegador ou WebView;
+- correção cobre sidebar, navegação móvel, header e ferramentas do mapa que já consomem `AppIcon`;
+- teste de regressão `apps/admin/src/test/app-icon.test.tsx` garante renderização SVG sem texto/glyph;
+- workflows do HEAD atual foram disparados e estavam em fila no momento deste registro.
