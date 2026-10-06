@@ -106,8 +106,8 @@ export async function getStorageBreakdown(): Promise<StorageBreakdown> {
         sum +
         p.manifest.archive.bytes +
         p.manifest.style.blob.bytes +
-        p.manifest.glyphs.reduce((glyphTotal, range) => glyphTotal + range.blob.bytes, 0) +
-        p.manifest.sprites.reduce((spriteTotal, sprite) => spriteTotal + sprite.blob.bytes, 0),
+        p.manifest.glyphs.reduce((glyphTotal: number, range: { blob: { bytes: number } }) => glyphTotal + range.blob.bytes, 0) +
+        p.manifest.sprites.reduce((spriteTotal: number, sprite: { blob: { bytes: number } }) => spriteTotal + sprite.blob.bytes, 0),
       0,
     );
 
