@@ -1,87 +1,34 @@
-import { useEffect, useState } from "react";
-
-interface BeforeInstallPromptEvent extends Event {
-  prompt(): Promise<void>;
-  userChoice: Promise<{
-    outcome: "accepted" | "dismissed";
-    platform: string;
-  }>;
-}
-
-interface NavigatorWithStandalone extends Navigator {
-  standalone?: boolean;
-}
-
-function isStandalone(): boolean {
-  return (
-    window.matchMedia("(display-mode: standalone)").matches ||
-    Boolean((navigator as NavigatorWithStandalone).standalone)
-  );
-}
-
-function isIosSafari(): boolean {
-  const userAgent = navigator.userAgent;
-  const isIos = /iPad|iPhone|iPod/.test(userAgent);
-  const isWebKit = /WebKit/.test(userAgent);
-  const isCriOS = /CriOS/.test(userAgent);
-  const isFxiOS = /FxiOS/.test(userAgent);
-  return isIos && isWebKit && !isCriOS && !isFxiOS;
-}
+import { useState, useSyncExternalStore } from "react";
+import {
+  getPwaInstallSnapshot,
+  requestPwaInstall,
+  subscribePwaInstall,
+} from "../../lib/pwa-install";
 
 export function PwaInstallPrompt() {
-  const [installEvent, setInstallEvent] =
-    useState<BeforeInstallPromptEvent | null>(null);
-  const [installed, setInstalled] = useState(() => isStandalone());
+  const installState = useSyncExternalStore(
+    subscribePwaInstall,
+    getPwaInstallSnapshot,
+    getPwaInstallSnapshot,
+  );
   const [dismissed, setDismissed] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [iosSafari, setIosSafari] = useState(false);
 
-  useEffect(() => {
-    setIosSafari(isIosSafari());
-
-    const onBeforeInstallPrompt = (event: Event) => {
-      const installPromptEvent = event as BeforeInstallPromptEvent;
-      installPromptEvent.preventDefault();
-      setInstallEvent(installPromptEvent);
-      setDismissed(false);
-    };
-
-    const onInstalled = () => {
-      setInstalled(true);
-      setInstallEvent(null);
-      setDismissed(false);
-    };
-
-    window.addEventListener("beforeinstallprompt", onBeforeInstallPrompt);
-    window.addEventListener("appinstalled", onInstalled);
-
-    return () => {
-      window.removeEventListener("beforeinstallprompt", onBeforeInstallPrompt);
-      window.removeEventListener("appinstalled", onInstalled);
-    };
-  }, []);
-
-  if (installed || dismissed) return null;
+  if (installState.installed || dismissed) return null;
 
   const install = async () => {
-    if (!installEvent || busy) return;
+    if (!installState.available || busy) return;
 
     setBusy(true);
     try {
-      await installEvent.prompt();
-      const choice = await installEvent.userChoice;
-      setInstallEvent(null);
-      if (choice.outcome === "accepted") {
-        setInstalled(true);
-      } else {
-        setDismissed(true);
-      }
+      const outcome = await requestPwaInstall();
+      if (outcome !== "accepted") setDismissed(true);
     } finally {
       setBusy(false);
     }
   };
 
-  if (installEvent) {
+  if (installState.available) {
     return (
       <aside
         className="pwa-install-prompt"
@@ -114,7 +61,7 @@ export function PwaInstallPrompt() {
     );
   }
 
-  if (iosSafari) {
+  if (installState.iosSafari) {
     return (
       <aside
         className="pwa-install-prompt"
