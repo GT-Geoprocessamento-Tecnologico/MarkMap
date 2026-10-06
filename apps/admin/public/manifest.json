@@ -2,9 +2,9 @@
   "name": "MarkMap — Planejamento Inteligente",
   "short_name": "MarkMap",
   "description": "Mapeamento de campo offline-first com GPS, GeoPDF, camadas geoespaciais e sincronização posterior.",
-  "id": "./",
-  "start_url": "./",
-  "scope": "./",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "orientation": "any",
   "theme_color": "#07131f",
@@ -85,5 +85,10 @@
         }
       ]
     }
+  ],
+  "prefer_related_applications": false,
+  "display_override": [
+    "standalone",
+    "minimal-ui"
   ]
 }
