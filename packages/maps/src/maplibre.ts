@@ -14,6 +14,7 @@ import {
   setWorkerUrl,
 } from 'maplibre-gl';
 import mapLibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
+import { sanitizeKnownBasemapFilter, shouldProvideMissingStyleImage } from './style-safety.js';
 
 // MapLibre's ESM build does not discover its worker automatically in Vite.
 // Pin the worker emitted by Vite so production builds do not fall back to a
@@ -52,6 +53,36 @@ export async function createMapLibreMap(args: CreateMapArgs): Promise<MapWithCon
   }
 
   const map = new MLMap(options);
+
+  const repairKnownStyleFilters = () => {
+    for (const layerId of [
+      'highway-shield-non-us',
+      'highway-shield-us-interstate',
+      'road_shield_us',
+    ]) {
+      if (!map.getLayer(layerId)) continue;
+      const currentFilter = map.getFilter(layerId);
+      if (!currentFilter) continue;
+      const nextFilter = sanitizeKnownBasemapFilter(layerId, currentFilter);
+      if (JSON.stringify(nextFilter) === JSON.stringify(currentFilter)) continue;
+      map.setFilter(
+        layerId,
+        nextFilter as Parameters<MapLibreMap['setFilter']>[1],
+      );
+    }
+  };
+
+  map.on('style.load', repairKnownStyleFilters);
+  if (map.isStyleLoaded()) repairKnownStyleFilters();
+
+  map.on('styleimagemissing', (event) => {
+    if (!shouldProvideMissingStyleImage(event.id) || map.hasImage(event.id)) return;
+    map.addImage(event.id, {
+      width: 1,
+      height: 1,
+      data: new Uint8Array([0, 0, 0, 0]),
+    });
+  });
   map.addControl(new NavigationControl({ showCompass: true }), 'top-right');
   map.addControl(new ScaleControl({ unit: 'metric' }), 'bottom-left');
 
