@@ -8,6 +8,7 @@ import { localRepository } from "./lib/local-repositories";
 import { SyncController } from "./lib/sync/SyncController";
 import { SyncStatus } from "./lib/sync/SyncStatus";
 import { UpdatePrompt } from "./components/pwa/UpdatePrompt";
+import { PwaInstallPrompt } from "./components/pwa/PwaInstallPrompt";
 
 function createQueryClient(): QueryClient {
   return new QueryClient({
@@ -32,6 +33,7 @@ export default function App() {
       <ToastProvider>
         <SyncController />
         <SyncStatus />
+        <PwaInstallPrompt />
         <UpdatePrompt
           durableWritesReady={async () => {
             await localRepository.listOutbox();
