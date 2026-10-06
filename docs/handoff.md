@@ -68,3 +68,14 @@ Obter os dados/autorizações externos acima e executar o preflight de `docs/rel
 - app: mapa, projetos, imports, malhas, analytics, settings, sync e PDF receberam ajustes de consistência sem alterar regras de negócio;
 - arquitetura offline-first, GIS, sync, IndexedDB/outbox e Capacitor preservados;
 - GitHub Actions do HEAD refinado foram reexecutados uma vez, mas os jobs encerraram novamente **antes de qualquer step** (steps vazios), sem evidência de regressão de código. A validação automatizada do HEAD atual segue pendente por runner/infra.
+
+
+## Console/browser hardening — 2026-10-05
+
+- funcional HEAD da correção: `58cafb64`;
+- adicionado `mobile-web-app-capable=yes` mantendo compatibilidade iOS;
+- removido `aria-hidden` do link focável da marca no sidebar, eliminando o conflito de foco/a11y reportado pelo Chromium;
+- filtros numéricos nullable dos shields do OpenFreeMap agora são protegidos antes do uso em tiles;
+- imagens de sprite conhecidamente ausentes (`sports_centre`, `swimming_pool`, `gate`, `office`) recebem fallback transparente via `styleimagemissing`, sem quebrar o mapa;
+- o código fonte atual não possui handler `beforeinstallprompt` que chame `preventDefault()`; esse aviso do Chromium não foi tratado adicionando prompt PWA, para preservar a direção de produto de não forçar instalação;
+- GitHub Actions foram executadas e reexecutadas uma vez para este HEAD; os jobs continuam encerrando antes de qualquer step (steps vazios), portanto não há evidência de falha de código nem validação verde do HEAD atual.
