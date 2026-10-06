@@ -245,3 +245,75 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   color: currentColor;
   vertical-align: middle;
 }
+
+
+/* PWA install prompt */
+.pwa-install-prompt {
+  position: fixed;
+  right: max(1rem, env(safe-area-inset-right));
+  bottom: max(1rem, calc(env(safe-area-inset-bottom) + 1rem));
+  z-index: 80;
+  display: grid;
+  width: min(420px, calc(100vw - 2rem));
+  gap: .9rem;
+  padding: 1rem;
+  border: 1px solid var(--outline-variant);
+  border-radius: 1rem;
+  background:
+    radial-gradient(circle at 100% 0, rgba(0, 214, 219, .12), transparent 35%),
+    color-mix(in srgb, var(--surface-container) 96%, transparent);
+  box-shadow: 0 22px 60px rgba(3, 14, 20, .28);
+  backdrop-filter: blur(18px);
+}
+
+.pwa-install-prompt__copy {
+  display: grid;
+  gap: .25rem;
+}
+
+.pwa-install-prompt__copy strong {
+  color: var(--text-primary);
+  font-size: .95rem;
+}
+
+.pwa-install-prompt__copy span {
+  color: var(--text-secondary);
+  font-size: .8rem;
+  line-height: 1.45;
+}
+
+.pwa-install-prompt__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: .65rem;
+}
+
+.pwa-install-prompt__primary,
+.pwa-install-prompt__secondary {
+  min-height: 42px;
+  border-radius: .75rem;
+  padding: .6rem .9rem;
+  font-size: .8rem;
+  font-weight: 700;
+}
+
+.pwa-install-prompt__primary {
+  border: 0;
+  background: linear-gradient(135deg, #0075d6, #00d6db);
+  color: #fff;
+}
+
+.pwa-install-prompt__secondary {
+  border: 1px solid var(--outline-variant);
+  background: transparent;
+  color: var(--text-primary);
+}
+
+@media (max-width: 640px) {
+  .pwa-install-prompt {
+    left: max(.75rem, env(safe-area-inset-left));
+    right: max(.75rem, env(safe-area-inset-right));
+    bottom: max(.75rem, calc(env(safe-area-inset-bottom) + .75rem));
+    width: auto;
+  }
+}
