@@ -1,5 +1,5 @@
 import { useEffect, useState, type InputHTMLAttributes } from "react";
-import { useToast } from "@geonexo/ui";
+import { useToast, Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger, Button, Checkbox } from "@geonexo/ui";
 import {
   offlineMapPackageManifestSchema,
   type OfflineMapPackageManifest,
@@ -11,6 +11,7 @@ import {
 } from "../../lib/storage/offline-map-selection";
 import { offlineDB } from "../../lib/storage/offline-db";
 import { ensureLocationPermission } from "../../lib/device-location-permission";
+import { getStorageBreakdown, cleanStorageCategories, type StorageBreakdownItem, type StorageCategory } from "../../lib/storage/storage-management";
 
 type InstallPrompt = Event & {
   prompt(): Promise<void>;
@@ -54,14 +55,50 @@ export default function SettingsPage() {
   const [offlinePackages, setOfflinePackages] = useState<OfflineMapPackageManifest[]>([]);
   const [selectedOfflineMapId, setSelectedOfflineMapIdState] = useState<string | null>(getSelectedOfflineMapId);
   const [packageBusy, setPackageBusy] = useState(false);
+  const [storageBreakdown, setStorageBreakdown] = useState<StorageBreakdownItem[]>([]);
+  const [cleanupDialogOpen, setCleanupDialogOpen] = useState(false);
+  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
+  const [cleanupBusy, setCleanupBusy] = useState(false);
   const refreshStorage = async () => {
     try {
       const estimate = await navigator.storage?.estimate?.();
       const persistent = await navigator.storage?.persisted?.();
+      const breakdown = await getStorageBreakdown();
       setStorage({ ...estimate, persistent });
+      setStorageBreakdown(breakdown.categories);
     } catch {
       setError("Não foi possível consultar o armazenamento deste dispositivo.");
     }
+  };
+  const performCleanup = async () => {
+    if (selectedCategories.size === 0) return;
+    setCleanupBusy(true);
+    setError(null);
+    try {
+      const result = await cleanStorageCategories(Array.from(selectedCategories));
+      if (result.errors.length > 0) {
+        setError(`Erro ao limpar algumas categorias: ${result.errors.map(e => e.category).join(", ")}`);
+      }
+      setCleanupDialogOpen(false);
+      setSelectedCategories(new Set());
+      await refreshStorage();
+      await refreshOfflinePackages();
+      toast({
+        title: "Limpeza concluída",
+        description: `${result.cleaned.length} categoria(s) limpa(s) com sucesso.`,
+        variant: "success",
+      });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Falha na limpeza.");
+    } finally {
+      setCleanupBusy(false);
+    }
+  };
+  const toggleCategory = (category: StorageCategory) => {
+    const next = new Set(selectedCategories);
+    if (next.has(category)) next.delete(category);
+    else next.add(category);
+    setSelectedCategories(next);
   };
   const refreshOfflinePackages = async () => {
     const installed = await offlineMapStore.list();
@@ -356,30 +393,76 @@ export default function SettingsPage() {
         <h2 className="text-lg font-semibold">Armazenamento local</h2>
         <dl className="my-3 grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
           <div>
-            <dt>Uso</dt>
-            <dd>{formatBytes(storage.usage)}</dd>
+            <dt>Uso total estimado</dt>
+            <dd className="font-semibold">{formatBytes(storage.usage)}</dd>
           </div>
           <div>
-            <dt>Quota total estimada</dt>
+            <dt>Quota total</dt>
             <dd>{formatBytes(storage.quota)}</dd>
           </div>
           <div>
-            <dt>Proteção persistente</dt>
-            <dd>
-              {storage.persistent === true
-                ? "Concedida"
-                : storage.persistent === false
-                  ? "Não concedida"
-                  : "Não informada"}
-            </dd>
+            <dt>Persistente</dt>
+            <dd>{storage.persistent ? "Sim" : "Não"}</dd>
           </div>
         </dl>
-        <button
-          onClick={() => void preserveStorage()}
-          className="rounded-lg border border-outline-variant px-4 py-2"
-        >
-          Proteger dados locais
-        </button>
+
+        {storageBreakdown.length > 0 && (
+          <div className="my-4 space-y-2 rounded-xl border border-outline-variant p-3 bg-surface">
+            <p className="text-xs font-semibold uppercase text-on-surface-variant">Detalhamento</p>
+            {storageBreakdown.map(item => (
+              <div key={item.category} className="flex justify-between text-xs">
+                <span>{item.label} ({item.itemCount})</span>
+                <span className="font-mono">{formatBytes(item.estimatedBytes)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="flex gap-3">
+          <button
+            onClick={() => void preserveStorage()}
+            className="rounded-lg border border-outline-variant px-4 py-2 text-sm"
+          >
+            Proteger dados
+          </button>
+          <Dialog open={cleanupDialogOpen} onOpenChange={setCleanupDialogOpen}>
+            <DialogTrigger asChild>
+              <button
+                className="rounded-lg border border-red-400/40 px-4 py-2 text-sm text-red-500 hover:bg-red-50"
+              >
+                Limpar dados...
+              </button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Limpar Armazenamento</DialogTitle>
+                <DialogDescription>
+                  Selecione as categorias para remoção permanente. Ação irreversível.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-2 py-4">
+                {storageBreakdown.filter(i => i.itemCount > 0).map(item => (
+                  <label key={item.category} className="flex items-center gap-3 p-2 rounded hover:bg-surface-container">
+                    <Checkbox
+                      checked={selectedCategories.has(item.category)}
+                      onCheckedChange={() => toggleCategory(item.category as StorageCategory)}
+                    />
+                    <div className="text-sm">
+                      <p className="font-medium">{item.label}</p>
+                      <p className="text-xs text-on-surface-variant">{formatBytes(item.estimatedBytes)} • {item.description}</p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+              <DialogFooter>
+                <Button variant="ghost" onClick={() => setCleanupDialogOpen(false)}>Cancelar</Button>
+                <Button variant="destructive" onClick={() => void performCleanup()} disabled={cleanupBusy || selectedCategories.size === 0}>
+                  {cleanupBusy ? "Limpando..." : "Confirmar Limpeza"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
       <div className="rounded-2xl border border-outline-variant bg-surface-container p-5">
         <h2 className="text-lg font-semibold">Mapa offline</h2>
