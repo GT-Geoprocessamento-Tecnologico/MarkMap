@@ -3,7 +3,6 @@ import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { useLayoutStore } from "../../lib/store/layout";
 import { TopNavBar } from "../TopNavBar";
 import { MarkMapBrand } from "../MarkMapBrand";
-import { useIsDesktop } from "../../lib/hooks/useIsDesktop";
 import { AppIcon, type AppIconName } from "../AppIcon";
 
 const baseLink = "group flex min-h-[44px] items-center gap-3 rounded-xl border px-3 py-2.5 text-xs font-semibold transition-all duration-200";
@@ -12,7 +11,6 @@ const inactiveLink = "border-transparent text-on-surface-variant hover:border-wh
 
 export function RootLayout() {
   const [collapsed, setCollapsed] = useState(false);
-  const isDesktop = useIsDesktop();
   const { sidebarOpen, closeSidebar } = useLayoutStore();
   const matches = useRouterState({ select: (state) => state.matches });
   const projectId = [...matches]
