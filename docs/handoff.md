@@ -1,16 +1,16 @@
 # Handoff de continuidade
 
-Atualizado em 2026-10-05.
+Atualizado em 2026-10-06.
 
 ## Estado atual
 
 - Baseline funcional anterior validado: `cc2331d`.
-- HEAD funcional do design integrado: `9b4fb391` (refino visual do site e aplicação operacional; documentação atualizada em seguida).
+- HEAD funcional publicado do app: `1332350c` (correções de build do gerenciamento de armazenamento); site público permanece no deployment READY do código de site do commit `6224203`.
 - Branch remota esperada: somente `main`.
 - Arquitetura preservada: React/Vite/TypeScript + Hono + Neon/PostgreSQL/PostGIS + MapLibre + Terra Draw + IndexedDB/outbox.
 - Experiência principal instalável: PWA.
 - Capacitor permanece somente como empacotamento opcional.
-- Nenhum deploy, release/tag, migration de production, publicação em loja ou rotação de secrets foi executado.
+- Deploy Web/Vercel autorizado e executado em 2026-10-06; nenhum release/tag, migration de production, publicação em loja ou rotação de secrets foi executado.
 
 ## Concluído com evidência
 
@@ -28,7 +28,7 @@ Atualizado em 2026-10-05.
 ## Bloqueios externos/release
 
 - política pública de privacidade precisa de identidade/contato/retenção/provedores reais e revisão jurídica;
-- domínio/provedor de produção não definido;
+- domínio do site definido e publicado em `markmap.mtsferreira.dev`; domínio do app `appmarkmap.mtferreira.dev` está associado na Vercel, mas bloqueado no DNS porque a zona `mtferreira.dev` não está disponível na conta Cloudflare conectada;
 - smoke production exige autorização;
 - testes físicos/PWA instalada;
 - signing/publicação mobile.
@@ -67,7 +67,7 @@ Obter os dados/autorizações externos acima e executar o preflight de `docs/rel
 - app: ações primárias e estados de hover/contraste refinados para os tokens MarkMap `#0075D6` / `#00D6DB`;
 - app: mapa, projetos, imports, malhas, analytics, settings, sync e PDF receberam ajustes de consistência sem alterar regras de negócio;
 - arquitetura offline-first, GIS, sync, IndexedDB/outbox e Capacitor preservados;
-- GitHub Actions do HEAD refinado foram reexecutados uma vez, mas os jobs encerraram novamente **antes de qualquer step** (steps vazios), sem evidência de regressão de código. A validação automatizada do HEAD atual segue pendente por runner/infra.
+- GitHub Actions do HEAD refinado foram reexecutadas uma vez, mas os jobs encerraram novamente **antes de qualquer step** (steps vazios), sem evidência de regressão de código. A validação automatizada do HEAD atual segue pendente por runner/infra.
 
 
 ## Console/browser hardening — 2026-10-05
@@ -87,3 +87,12 @@ Obter os dados/autorizações externos acima e executar o preflight de `docs/rel
 - correção cobre sidebar, navegação móvel, header e ferramentas do mapa que já consomem `AppIcon`;
 - teste de regressão `apps/admin/src/test/app-icon.test.tsx` garante renderização SVG sem texto/glyph;
 - workflows do HEAD atual foram disparados e estavam em fila no momento deste registro.
+
+## Deploy Web/Vercel — 2026-10-06
+
+- Vercel configurada com dois projetos Git separados no monorepo: `markmap-site` (`apps/site`) e `markmap-app` (`apps/admin`).
+- site público: deployment production READY e domínio `markmap.mtsferreira.dev` associado; Cloudflare `mtsferreira.dev` recebeu CNAME DNS-only `markmap -> markmap-site.vercel.app`; verificação externa carregou a página MarkMap por HTTPS.
+- app operacional: os dois primeiros deploys falharam por erros TypeScript em `storage-management.ts`; correções mínimas foram integradas nos commits `4a22770` e `1332350c`, preservando a lógica offline-first. Deployment production do commit `1332350c` ficou READY e `https://markmap-app.vercel.app` foi validado externamente.
+- domínio solicitado para o app `appmarkmap.mtferreira.dev` foi associado ao projeto Vercel, porém a zona `mtferreira.dev` não existe na conta Cloudflare conectada; portanto o DNS customizado do app permanece bloqueado até a zona/provedor correto estar acessível. Não substituir silenciosamente por `mtsferreira.dev`.
+- o app continua operacional local-first. Sync remoto de production não foi ativado: `VITE_API_MODE` permanece sem configuração no projeto recém-criado e a API Hono/Neon não recebeu um alvo/domínio de production nesta execução.
+- nenhum migration, DROP/TRUNCATE/DELETE, rotação de secret, release/tag ou publicação mobile foi executado.
