@@ -117,7 +117,8 @@
 - [ ] **P1** Definir signing/provisioning iOS para distribuição.
 - [ ] **P1** 🟡 Deploy web:
   - [x] site `markmap.mtsferreira.dev` publicado e validado via Vercel + Cloudflare;
-  - [x] app `appmarkmap.mtsferreira.dev` associado/verificado na Vercel, CNAME criado na Cloudflare e HTTPS validado externamente;
+  - [x] app `appmarkmap.mtsferreira.dev` associado/verificado na Vercel; Cloudflare DNS-only atualizado para o alvo recomendado pela Vercel `b1fa89794ccd409d.vercel-dns-017.com`; HTTPS validado externamente;
+  - [x] confirmado que `appmarkmap.mtferreira.dev` (sem `s`) não é o domínio configurado e não pertence à zona Cloudflare ativa; usar sempre `appmarkmap.mtsferreira.dev`;
   - [x] app fallback `markmap-app.vercel.app` validado;
   - [ ] API/sync remoto de production ainda não publicado/configurado.
 - [ ] **P1** Release notes e versão candidata.

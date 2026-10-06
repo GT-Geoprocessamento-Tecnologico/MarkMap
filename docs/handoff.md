@@ -90,6 +90,7 @@ Obter os dados/autorizações externos acima e executar o preflight de `docs/rel
 - Vercel configurada com `markmap-site` (`apps/site`) e `markmap-app` (`apps/admin`);
 - site: `markmap.mtsferreira.dev` via CNAME DNS-only para `markmap-site.vercel.app`, HTTPS validado;
 - app: erros TypeScript de `storage-management.ts` corrigidos nos commits `4a22770` e `1332350c`;
-- app: `appmarkmap.mtsferreira.dev` associado/verificado na Vercel, CNAME DNS-only para `markmap-app.vercel.app`, HTTPS validado;
+- app: `appmarkmap.mtsferreira.dev` associado/verificado na Vercel; Cloudflare DNS-only atualizado para o alvo recomendado pela Vercel `b1fa89794ccd409d.vercel-dns-017.com`; HTTPS validado externamente;
+- diagnóstico de acesso: `appmarkmap.mtferreira.dev` (sem `s`) não é o domínio configurado e não pertence à zona Cloudflare ativa; o domínio correto é `appmarkmap.mtsferreira.dev`;
 - sync remoto de production permanece desativado até publicação/configuração da API Hono;
 - nenhuma migration destrutiva, rotação de secret, release/tag ou publicação mobile foi executada.
