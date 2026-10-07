@@ -420,3 +420,49 @@ body {
     background: #06131a;
   }
 }
+
+
+.markmap-network-status {
+  position: fixed;
+  left: 50%;
+  top: calc(env(safe-area-inset-top) + .75rem);
+  z-index: 90;
+  display: inline-flex;
+  max-width: calc(100vw - 1.5rem);
+  min-height: 42px;
+  transform: translateX(-50%);
+  align-items: center;
+  gap: .55rem;
+  border: 1px solid var(--outline-variant);
+  border-radius: 999px;
+  padding: .55rem .85rem;
+  background: color-mix(in srgb, var(--surface-container) 94%, transparent);
+  color: var(--text-primary);
+  box-shadow: 0 12px 34px rgba(3, 14, 20, .2);
+  backdrop-filter: blur(16px);
+  font-size: .76rem;
+  font-weight: 700;
+}
+
+.markmap-network-status.is-offline {
+  border-color: rgba(251, 191, 36, .35);
+}
+
+.markmap-network-status.is-online {
+  border-color: rgba(0, 214, 219, .35);
+}
+
+html {
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
+@media (max-width: 640px) {
+  .markmap-network-status {
+    top: calc(env(safe-area-inset-top) + .5rem);
+    font-size: .72rem;
+  }
+}
