@@ -1,2 +1,2 @@
 import { MobileDashboard } from './MobileDashboard';
-export function DesktopDashboard() { return <MobileDashboard desktop />; }
+export function DesktopDashboard() { return <MobileDashboard />; }
