@@ -43,6 +43,7 @@ function isAppNavigationPath(pathname) {
   return [
     /^\/$/,
     /^\/imports$/,
+    /^\/install$/,
     /^\/projects(?:\/[^/]+(?:\/(?:map|mesh))?)?$/,
     /^\/settings$/,
     /^\/analytics$/,
