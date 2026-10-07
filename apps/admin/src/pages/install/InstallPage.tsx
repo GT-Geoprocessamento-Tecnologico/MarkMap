@@ -44,7 +44,7 @@ export default function InstallPage() {
               Leve o MarkMap para o campo.
             </h1>
             <p className="mt-6 max-w-xl text-sm leading-7 text-white/65 sm:text-base">
-              Instale o PWA para abrir o MarkMap como aplicativo e manter o acesso ao fluxo offline no dispositivo.
+              Instale o app MarkMap no dispositivo para ter uma experiência de aplicativo e manter o acesso offline.
             </p>
 
             <div className="mt-8">
