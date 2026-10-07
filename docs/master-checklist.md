@@ -14,7 +14,7 @@
 
 **Objetivo:** manter uma única visão executável da MarkMap. O produto é offline-first; Neon/PostGIS é sincronização/backup, não requisito para o trabalho de campo.
 
-**Auditoria:** frontend auditado e refinado. Site e app operacionais; hardening recente inclui PWA/mobile metadata, correções de acessibilidade, proteção de filtros numéricos do OpenFreeMap, fallback para sprites ausentes e iconografia SVG autocontida. GitHub Actions recentes tiveram execuções encerradas antes dos steps; a baseline verde anterior continua sendo a evidência automatizada consolidada.
+**Auditoria:** frontend auditado e refinado. PWA recebeu correção de instalação: captura global e antecipada de `beforeinstallprompt`, fluxo único reutilizado pela página de Configurações, registro antecipado do service worker e manifesto normalizado com `id/start_url/scope` em `/`. O deploy de produção do app está READY e `appmarkmap.mtsferreira.dev` entrega HTML, manifest e `sw.js` com HTTP 200. GitHub Actions do HEAD atual continuam encerrando antes dos steps; a baseline verde anterior continua sendo a evidência automatizada consolidada.
 
 **Fase atual:** frontends Web/PWA publicados na Vercel com domínios customizados configurados. Release continua condicionado à API/sync remoto de produção, testes físicos, política pública de privacidade, smoke de produção e signing/publicação mobile autorizados.
 
@@ -78,7 +78,7 @@
 - [x] **P0** UpdatePrompt com ativação controlada.
 - [x] **P0** Validação automatizada de PWA: manifest/ícones/installability, service worker, app shell offline e migração IndexedDB preservando workspace, entidade e outbox. Evidência: `ad83ff2` e `8aed47d`.
 - [x] **P1** Regressões PWA recentes corrigidas: bloqueio de zoom removido e `@vitejs/plugin-basic-ssl` restaurado no desenvolvimento.
-- [ ] **P0** Validar instalação real em Android pelo navegador.
+- [ ] **P0** 🟡 Instalação PWA corrigida no código e publicada: captura global de `beforeinstallprompt`, botão/CTA de instalação funcional e manifesto normalizado; falta confirmar instalação real em Android pelo navegador.
 - [ ] **P1** Validar Add to Home Screen no Safari iOS.
 - [ ] **P1** Registrar evidência de atualização de versão preservando IndexedDB/outbox em aparelho real.
 
