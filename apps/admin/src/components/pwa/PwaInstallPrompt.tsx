@@ -14,7 +14,6 @@ export function PwaInstallPrompt() {
   const [dismissed, setDismissed] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  if (window.location.pathname === "/install") return null;
   if (installState.installed || dismissed) return null;
 
   const install = async () => {
