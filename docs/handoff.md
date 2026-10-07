@@ -145,3 +145,12 @@ Obter os dados/autorizações externos acima e executar o preflight de `docs/rel
 - a própria tela `/install` também aplica a mesma guarda caso seja alcançada por navegação dentro do app instalado;
 - teste unitário cobre: app instalado em `/install` redireciona; app instalado em `/` não redireciona; navegador não instalado em `/install` continua no instalador;
 - validação física Android/iOS continua pendente.
+
+## Remoção da rota `/install` — 2026-10-07
+
+- a página dedicada `/install` foi removida do código e do roteador;
+- os CTAs “Baixar app” do site agora apontam diretamente para `https://appmarkmap.mtsferreira.dev/`;
+- acessos legados a `/install` redirecionam para `/` no bootstrap, na Vercel e no service worker, cobrindo também abertura offline;
+- o manifest mantém `start_url: "/"`, portanto o app instalado inicia no dashboard;
+- build de produção do commit funcional `9ee5733` ficou READY na Vercel com `tsc --noEmit && vite build` verde;
+- validação em navegador confirmou que abrir `/install` termina em `https://appmarkmap.mtsferreira.dev/` e exibe o dashboard, sem página intermediária.
