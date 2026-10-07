@@ -13,6 +13,7 @@ export function RootLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const { sidebarOpen, closeSidebar } = useLayoutStore();
   const matches = useRouterState({ select: (state) => state.matches });
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
   const projectId = [...matches]
     .reverse()
     .map((match) => {
@@ -39,6 +40,8 @@ export function RootLayout() {
   };
 
   const icon = (name: AppIconName) => <AppIcon name={name} />;
+
+  if (pathname === "/install") return <Outlet />;
 
   return (
     <div className="markmap-shell flex h-[100dvh] min-h-[100dvh] min-w-0 overflow-hidden bg-background font-sans text-on-surface selection:bg-primary/20">
