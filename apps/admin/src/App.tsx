@@ -9,6 +9,7 @@ import { SyncController } from "./lib/sync/SyncController";
 import { SyncStatus } from "./lib/sync/SyncStatus";
 import { UpdatePrompt } from "./components/pwa/UpdatePrompt";
 import { PwaInstallPrompt } from "./components/pwa/PwaInstallPrompt";
+import { NetworkStatusBanner } from "./components/pwa/NetworkStatusBanner";
 
 function createQueryClient(): QueryClient {
   return new QueryClient({
@@ -33,6 +34,7 @@ export default function App() {
       <ToastProvider>
         <SyncController />
         <SyncStatus />
+        <NetworkStatusBanner />
         <PwaInstallPrompt />
         <UpdatePrompt
           durableWritesReady={async () => {
