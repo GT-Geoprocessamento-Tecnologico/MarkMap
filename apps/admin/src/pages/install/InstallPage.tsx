@@ -1,9 +1,10 @@
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { MarkMapBrand } from "../../components/MarkMapBrand";
 import { AppIcon } from "../../components/AppIcon";
 import {
   getPwaInstallSnapshot,
   requestPwaInstall,
+  shouldRedirectInstalledAppToHome,
   subscribePwaInstall,
 } from "../../lib/pwa-install";
 
@@ -15,6 +16,17 @@ export default function InstallPage() {
   );
   const [busy, setBusy] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+
+  useEffect(() => {
+    if (
+      shouldRedirectInstalledAppToHome(
+        window.location.pathname,
+        installState.installed,
+      )
+    ) {
+      window.location.replace("/");
+    }
+  }, [installState.installed]);
 
   const install = async () => {
     if (!installState.available || busy) return;
