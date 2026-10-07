@@ -5,7 +5,7 @@ Atualizado em 2026-10-06.
 ## Estado atual
 
 - Baseline funcional anterior validado: `cc2331d`.
-- HEAD funcional publicado do app: `1332350c` (correções de build do gerenciamento de armazenamento); frontends atuais seguem READY na Vercel.
+- HEAD funcional publicado do PWA: `038deb9f` (instalação PWA corrigida e publicada); frontends atuais seguem READY na Vercel.
 - Branch remota esperada: somente `main`.
 - Arquitetura preservada: React/Vite/TypeScript + Hono + Neon/PostgreSQL/PostGIS + MapLibre + Terra Draw + IndexedDB/outbox.
 - Experiência principal instalável: PWA.
@@ -94,3 +94,14 @@ Obter os dados/autorizações externos acima e executar o preflight de `docs/rel
 - diagnóstico de acesso: `appmarkmap.mtferreira.dev` (sem `s`) não é o domínio configurado e não pertence à zona Cloudflare ativa; o domínio correto é `appmarkmap.mtsferreira.dev`;
 - sync remoto de production permanece desativado até publicação/configuração da API Hono;
 - nenhuma migration destrutiva, rotação de secret, release/tag ou publicação mobile foi executada.
+
+
+## Correção de instalação PWA — 2026-10-06
+
+- causa principal identificada: o `beforeinstallprompt` era capturado apenas dentro de Configurações, tarde demais em navegações onde o navegador disparava o evento antes da página montar;
+- captura agora acontece globalmente antes do render do app e o mesmo estado é reutilizado pela UI de instalação e pela página de Configurações;
+- service worker passa a registrar imediatamente em production, sem aguardar `window.load`;
+- manifesto normalizado com `id: "/"`, `start_url: "/"`, `scope: "/"`, `display: "standalone"` e `prefer_related_applications: false`;
+- produção validada: `https://appmarkmap.mtsferreira.dev/`, `/manifest.json` e `/sw.js` respondem HTTP 200;
+- deploy Vercel do HEAD funcional `038deb9f` está READY;
+- confirmação física de instalação em Android/iOS segue pendente.
