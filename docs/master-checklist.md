@@ -79,7 +79,7 @@
 - [x] **P0** Validação automatizada de PWA: manifest/ícones/installability, service worker, app shell offline e migração IndexedDB preservando workspace, entidade e outbox. Evidência: `ad83ff2` e `8aed47d`.
 - [x] **P1** Regressões PWA recentes corrigidas: bloqueio de zoom removido e `@vitejs/plugin-basic-ssl` restaurado no desenvolvimento.
 - [ ] **P0** 🟡 Instalação PWA corrigida no código e publicada: captura global de `beforeinstallprompt`, botão/CTA de instalação funcional e manifesto normalizado; falta confirmar instalação real em Android pelo navegador.
-- [ ] **P1** Validar Add to Home Screen no Safari iOS.
+- [ ] **P1** 🟡 UX iOS preparada com safe areas, `apple-mobile-web-app-capable`, status bar e fluxo Add to Home Screen; falta validação física no Safari iOS.
 - [ ] **P1** Registrar evidência de atualização de versão preservando IndexedDB/outbox em aparelho real.
 
 # FASE 5 — GIS e GeoPDF
