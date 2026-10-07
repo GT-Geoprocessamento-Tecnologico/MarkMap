@@ -14,7 +14,7 @@
 
 **Objetivo:** manter uma única visão executável da MarkMap. O produto é offline-first; Neon/PostGIS é sincronização/backup, não requisito para o trabalho de campo.
 
-**Auditoria:** frontend auditado e refinado. O fluxo “Baixar app” foi alterado para instalação PWA: os CTAs do site apontam para `https://appmarkmap.mtsferreira.dev/install`, uma página dedicada de instalação fora do shell operacional. A instalação continua dependendo da confirmação nativa do navegador, pois PWAs não podem ser instalados silenciosamente por outro domínio.
+**Auditoria:** fluxo de instalação pelo site foi redesenhado para mesma origem: `markmap.mtsferreira.dev` agora possui manifest/service worker próprios, captura `beforeinstallprompt` antes do render, CTAs chamam `prompt()` no clique e o app operacional é montado em `/app/` por rewrite para o projeto `markmap-app`. O código está em `main`, mas a publicação do HEAD atual está bloqueada temporariamente pelo limite diário da Vercel Free (`api-deployments-free-per-day`, >100); produção ainda não é evidência desta versão.
 
 **Fase atual:** frontends Web/PWA publicados na Vercel com domínios customizados configurados. Release continua condicionado à API/sync remoto de produção, testes físicos, política pública de privacidade, smoke de produção e signing/publicação mobile autorizados.
 
@@ -78,7 +78,7 @@
 - [x] **P0** UpdatePrompt com ativação controlada.
 - [x] **P0** Validação automatizada de PWA: manifest/ícones/installability, service worker, app shell offline e migração IndexedDB preservando workspace, entidade e outbox. Evidência: `ad83ff2` e `8aed47d`.
 - [x] **P1** Regressões PWA recentes corrigidas: bloqueio de zoom removido e `@vitejs/plugin-basic-ssl` restaurado no desenvolvimento.
-- [ ] **P0** 🟡 Instalação PWA corrigida no código e publicada: captura global de `beforeinstallprompt`, botão/CTA de instalação funcional e manifesto normalizado; falta confirmar instalação real em Android pelo navegador.
+- [ ] **P0** 🟡 Instalação do app pelo site implementada em mesma origem: manifest/service worker no site, CTAs chamam `beforeinstallprompt.prompt()` e o app inicia em `/app/`; falta publicar o HEAD atual após liberação do limite diário da Vercel e validar prompt real em Android/Chromium.
 - [ ] **P1** 🟡 UX iOS preparada com safe areas, `apple-mobile-web-app-capable`, status bar e fluxo Add to Home Screen; falta validação física no Safari iOS.
 - [ ] **P1** Registrar evidência de atualização de versão preservando IndexedDB/outbox em aparelho real.
 
@@ -116,7 +116,7 @@
 - [ ] **P1** Definir assinatura/release Android para distribuição.
 - [ ] **P1** Definir signing/provisioning iOS para distribuição.
 - [ ] **P1** 🟡 Deploy web:
-  - [x] site `markmap.mtsferreira.dev` publicado e validado via Vercel + Cloudflare; rotas SPA `/baixar`, `/produto` e `/offline` respondem HTTP 200 e os CTAs “Baixar app” apontam para `appmarkmap.mtsferreira.dev`;
+  - [ ] 🟡 site `markmap.mtsferreira.dev`: implementação de instalação em mesma origem pronta em `main` (`/app/` + manifest/service worker + CTA de instalação); publicação do HEAD atual pendente por limite diário da Vercel Free. Produção anterior continua disponível;
   - [x] app `appmarkmap.mtsferreira.dev` associado/verificado na Vercel; Cloudflare DNS-only atualizado para o alvo recomendado pela Vercel `b1fa89794ccd409d.vercel-dns-017.com`; HTTPS validado externamente;
   - [x] confirmado que `appmarkmap.mtferreira.dev` (sem `s`) não é o domínio configurado e não pertence à zona Cloudflare ativa; usar sempre `appmarkmap.mtsferreira.dev`;
   - [x] app fallback `markmap-app.vercel.app` validado;
@@ -146,7 +146,7 @@ Próximos passos:
 1. publicar/configurar a API Hono de production;
 2. configurar `VITE_API_MODE=live`, `VITE_API_URL` e CORS;
 3. autorizar e executar smoke de sync contra production;
-4. testes físicos Android/iOS e instalação PWA real;
+4. publicar o HEAD atual quando o limite diário da Vercel liberar e validar site → prompt de instalação → app em `/app/`; depois executar testes físicos Android/iOS;
 5. fechar política pública de privacidade;
 6. definir versão/release notes e signing mobile;
 7. autorizar publicação/release quando os gates estiverem verdes.
