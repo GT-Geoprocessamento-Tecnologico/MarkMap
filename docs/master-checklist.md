@@ -14,7 +14,7 @@
 
 **Objetivo:** manter uma única visão executável da MarkMap. O produto é offline-first; Neon/PostGIS é sincronização/backup, não requisito para o trabalho de campo.
 
-**Auditoria:** frontend auditado e refinado. PWA recebeu correção de instalação: captura global e antecipada de `beforeinstallprompt`, fluxo único reutilizado pela página de Configurações, registro antecipado do service worker e manifesto normalizado com `id/start_url/scope` em `/`. O deploy de produção do app está READY e `appmarkmap.mtsferreira.dev` entrega HTML, manifest e `sw.js` com HTTP 200. GitHub Actions do HEAD atual continuam encerrando antes dos steps; a baseline verde anterior continua sendo a evidência automatizada consolidada.
+**Auditoria:** frontend auditado e refinado. PWA recebeu correção de instalação e o site público teve o fluxo de download corrigido: CTAs agora apontam para `https://appmarkmap.mtsferreira.dev/` e o projeto `apps/site` possui rewrite SPA na Vercel. Produção responde HTTP 200 para `/baixar`, `/produto` e `/offline`, eliminando os 404 de navegação direta. O deploy de produção do site para o HEAD funcional `17afdb5` está READY.
 
 **Fase atual:** frontends Web/PWA publicados na Vercel com domínios customizados configurados. Release continua condicionado à API/sync remoto de produção, testes físicos, política pública de privacidade, smoke de produção e signing/publicação mobile autorizados.
 
@@ -116,7 +116,7 @@
 - [ ] **P1** Definir assinatura/release Android para distribuição.
 - [ ] **P1** Definir signing/provisioning iOS para distribuição.
 - [ ] **P1** 🟡 Deploy web:
-  - [x] site `markmap.mtsferreira.dev` publicado e validado via Vercel + Cloudflare;
+  - [x] site `markmap.mtsferreira.dev` publicado e validado via Vercel + Cloudflare; rotas SPA `/baixar`, `/produto` e `/offline` respondem HTTP 200 e os CTAs “Baixar app” apontam para `appmarkmap.mtsferreira.dev`;
   - [x] app `appmarkmap.mtsferreira.dev` associado/verificado na Vercel; Cloudflare DNS-only atualizado para o alvo recomendado pela Vercel `b1fa89794ccd409d.vercel-dns-017.com`; HTTPS validado externamente;
   - [x] confirmado que `appmarkmap.mtferreira.dev` (sem `s`) não é o domínio configurado e não pertence à zona Cloudflare ativa; usar sempre `appmarkmap.mtsferreira.dev`;
   - [x] app fallback `markmap-app.vercel.app` validado;
