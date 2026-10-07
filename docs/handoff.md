@@ -154,3 +154,16 @@ Obter os dados/autorizações externos acima e executar o preflight de `docs/rel
 - o manifest mantém `start_url: "/"`, portanto o app instalado inicia no dashboard;
 - build de produção do commit funcional `9ee5733` ficou READY na Vercel com `tsc --noEmit && vite build` verde;
 - validação em navegador confirmou que abrir `/install` termina em `https://appmarkmap.mtsferreira.dev/` e exibe o dashboard, sem página intermediária.
+
+## Instalação do app diretamente pelo site — 2026-10-07
+
+- auditado: o CTA anterior apenas navegava para outro domínio; por isso não podia abrir o prompt nativo no mesmo clique;
+- `apps/site` agora possui manifest e service worker próprios na origem `markmap.mtsferreira.dev`;
+- todos os CTAs “Baixar app” do site foram convertidos para ação de instalação que retém `beforeinstallprompt` e chama `prompt()` no clique do usuário;
+- Safari iOS usa fallback de instrução Compartilhar → Adicionar à Tela de Início, pois não expõe `beforeinstallprompt`;
+- o app operacional é servido em `markmap.mtsferreira.dev/app/` por rewrite para `appmarkmap.mtsferreira.dev`, preservando o projeto/app atual;
+- o router operacional detecta `/app` como basepath para manter navegação interna correta;
+- assets do site foram isolados em `site-assets/`; `/assets`, `/icons` e `/fonts` ficam disponíveis para o bundle operacional proxied;
+- o service worker do site pré-cacheia o shell operacional a partir de `shell-manifest.json`, preservando cold offline após instalação;
+- teste de contrato foi adicionado para manifest `id/start_url = /app/` e rewrite de mesma origem;
+- bloqueio atual: tentativa de deployment explícito recebeu HTTP 402 da Vercel por limite diário Free `api-deployments-free-per-day` (>100). Os commits estão em `main`, mas essa versão ainda não foi validada em produção.
