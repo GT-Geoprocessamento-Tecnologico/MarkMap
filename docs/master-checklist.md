@@ -1,5 +1,8 @@
 # MarkMap — Checklist Mestre de Execução
 
+> Documento mestre único da iniciativa Maps Engine v2: `docs/MARKMAP_MASTER.md`.
+> Versão baseline em `main`: `0.1.0`. Linha de desenvolvimento ativa: `0.2.0-dev.0` em `feat/maps-engine-v2-offline`.
+
 > Espelho versionado do **Checklist Mestre do Notion**.
 >
 > Notion: https://app.notion.com/p/3ed8e0bd0f4d81b6832bcf848c0ab504?pvs=204

@@ -1,5 +1,8 @@
 # Handoff de continuidade
 
+> Documento mestre único da iniciativa Maps Engine v2: `docs/MARKMAP_MASTER.md`.
+> Versão baseline em `main`: `0.1.0`. Linha de desenvolvimento ativa: `0.2.0-dev.0`.
+
 Atualizado em 2026-10-07.
 
 ## Estado atual
@@ -63,7 +66,7 @@ O Notion é a visão operacional colaborativa; o arquivo no repositório é o es
 
 ## Próximo item executável
 
-Preparar/publicar o ambiente da API Hono de production e configurar `VITE_API_MODE=live`, `VITE_API_URL` e CORS, sem migration destrutiva. Smoke de sync real continua exigindo autorização explícita.
+Na iniciativa Maps Engine v2, executar `MM-MAP-000` em `feat/maps-engine-v2-offline`, depois `MM-MAP-010` e seguir a ordem registrada em `docs/MARKMAP_MASTER.md`. O trabalho de API Hono production continua pendente em paralelo e não deve ser misturado nessa branch.
 
 ## Próximo passo de release
 
