@@ -1,12 +1,12 @@
 # Handoff de continuidade
 
-Atualizado em 2026-10-06.
+Atualizado em 2026-10-07.
 
 ## Estado atual
 
 - Baseline funcional anterior validado: `cc2331d`.
 - HEAD funcional publicado do PWA: `038deb9f` (instalação PWA corrigida e publicada); frontends atuais seguem READY na Vercel.
-- Branch remota esperada: somente `main`.
+- Branches relevantes: `main` e branch isolada de integração `feat/maps-engine-v2-offline` para a iniciativa Maps Engine v2.
 - Arquitetura preservada: React/Vite/TypeScript + Hono + Neon/PostgreSQL/PostGIS + MapLibre + Terra Draw + IndexedDB/outbox.
 - Experiência principal instalável: PWA.
 - Capacitor permanece somente como empacotamento opcional.
@@ -37,6 +37,21 @@ O Notion é a visão operacional colaborativa; o arquivo no repositório é o es
 - builds debug Android/iOS;
 - site `markmap.mtsferreira.dev` publicado/validado;
 - app `appmarkmap.mtsferreira.dev` publicado/configurado e validado por HTTPS.
+
+## Maps Engine v2 offline — iniciativa isolada
+
+- branch criada a partir de `main@156d4e8`: `feat/maps-engine-v2-offline`;
+- PRD/Handoff executor: `docs/markmap-maps-engine-v2-prd-handoff.md`;
+- não implementar esta iniciativa diretamente em `main`;
+- PRs de agentes paralelos devem apontar para a branch de integração;
+- primeiro Task ID livre: `MM-MAP-000`;
+- sequência macro: baseline/licenças → atualização do app → storage/package v2 → OSM/formatos → busca/elevação → roteamento/voz → conteúdo/transporte → Android Auto/CarPlay → hardening/PR;
+- MapLibre, Terra Draw, IndexedDB/outbox, Hono, Neon/PostGIS e Capacitor permanecem preservados;
+- objetivo: maximizar uso offline seguro do dispositivo com storage adaptativo, workers, pacotes regionais, busca, routing, elevação e conteúdo local;
+- Data Files `.mwm/.bin` do Organic Maps não devem ser redistribuídos;
+- código GPL do `openstreetmap-website` não deve ser incorporado;
+- `UpdatePrompt` existente será evoluído para popup explícito de nova versão com `Atualizar agora`/`Depois`, proteção de outbox e compatibilidade; builds Capacitor terão aviso próprio para abrir canal oficial de atualização;
+- nenhuma implementação funcional desta trilha está marcada como concluída ainda; somente planejamento/branch/PRD foram criados.
 
 ## Bloqueios externos/release
 

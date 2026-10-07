@@ -6,9 +6,11 @@
 >
 > **Regra de sincronização:** qualquer mudança relevante de fase, arquitetura, bloqueio, evidência ou próximo passo deve atualizar, na mesma execução, este arquivo, o Checklist Mestre no Notion e `docs/handoff.md`. Não marcar item como concluído sem evidência.
 
-**Snapshot:** 2026-10-06  
+**Snapshot:** 2026-10-07  
 **Repositório:** `mmatteuus/MarkMap`  
-**HEAD de referência anterior à criação deste espelho:** `469c781`
+**HEAD main auditado para esta iniciativa:** `156d4e8`
+
+**Branch de integração Maps Engine v2:** `feat/maps-engine-v2-offline`
 
 ## Estado operacional
 
@@ -124,6 +126,82 @@
 - [ ] **P1** Release notes e versão candidata.
 - [ ] **P2** Processo operacional pós-distribuição depende do ambiente real; runbook em `docs/release-runbook.md`.
 
+
+# FASE 8 — Maps Engine v2 offline
+
+> PRD/Handoff executor: `docs/markmap-maps-engine-v2-prd-handoff.md`. Toda implementação desta iniciativa deve ocorrer na branch `feat/maps-engine-v2-offline` ou em branches curtas derivadas dela. PRs intermediários apontam para a branch de integração, nunca diretamente para `main`.
+
+## M0 — Governança e baseline
+
+- [ ] **MM-MAP-000 P0** Revalidar baseline da branch: HEAD, trabalho paralelo, lint, typecheck, testes e build aplicáveis; registrar FUNCIONA/PARCIAL/QUEBRADO/NÃO IMPLEMENTADO.
+- [ ] **MM-MAP-010 P0** Fechar inventário de proveniência/licenças dos repositórios-modelo; não incorporar código GPL do `openstreetmap-website`; não redistribuir `.mwm/.bin` do Organic Maps.
+
+## M1 — Atualizações do aplicativo
+
+- [ ] **MM-UPD-010 P0** Criar version/build manifest público com versão, SHA, protocolo de shell, schema local e release notes curtas.
+- [ ] **MM-UPD-020 P0** Evoluir `UpdatePrompt` para checagem periódica/conservadora, `Atualizar agora` + `Depois`, compatibilidade, outbox durável e reload após `controllerchange`.
+- [ ] **MM-UPD-030 P1** Criar aviso equivalente de nova versão em builds Capacitor, abrindo o canal oficial de atualização da plataforma.
+- [ ] **MM-UPD-040 P0** Criar atualização independente de pacotes de mapas com staging, checksum, resume, swap atômico e rollback.
+
+## M2 — Storage e Region Package v2
+
+- [ ] **MM-MAP-100 P0** Criar `DeviceStorageProfile` com quota/usage/persistência/backend e orçamento seguro por dispositivo.
+- [ ] **MM-MAP-110 P0** Criar `LargeBlobStore` com fallback IndexedDB, OPFS na Web/PWA e filesystem Capacitor somente quando justificado.
+- [ ] **MM-MAP-120 P0** Evoluir contrato de pacote offline para v2 com capabilities, componentes opcionais, compatibilidade, fontes/licenças e checksums por arquivo.
+- [ ] **MM-MAP-130 P0** Implementar instalador resumível com staging, retry idempotente, validação e ativação atômica.
+- [ ] **MM-MAP-140 P1** Criar gerenciador de regiões: versão, tamanho, data OSM, atualizar, reparar, remover e atribuições.
+
+## M3 — Mapa OSM moderno
+
+- [ ] **MM-MAP-200 P0** Criar pipeline regional reproduzível OSM PBF → artefatos MarkMap, sem depender de `tile.openstreetmap.org`.
+- [ ] **MM-MAP-210 P0** Criar estilos MarkMap light/dark/outdoor com estradas, vias rurais, ciclovias, trilhas, footways, rios, áreas, POIs, picos e estações.
+- [ ] **MM-MAP-220 P1** Criar catálogo/versionamento e atualização de regiões.
+
+## M4 — GPX/KML/KMZ/GeoJSON
+
+- [ ] **MM-MAP-300 P0** Implementar GPX import/export com waypoints, tracks, routes, elevação e timestamps quando presentes.
+- [ ] **MM-MAP-310 P0** Implementar KML/KMZ import/export com validação contra path traversal/zip bomb.
+- [ ] **MM-MAP-320 P0** Criar round-trip fixtures e garantir não regressão do GeoJSON existente.
+
+## M5 — Busca offline
+
+- [ ] **MM-MAP-400 P0** Criar builder de índice regional de nomes, endereços, refs, categorias POI, aliases e coordenadas.
+- [ ] **MM-MAP-410 P0** Executar busca em Web Worker com normalização, prefix, fuzzy conservador, ranking, filtros e cancelamento.
+- [ ] **MM-MAP-420 P1** Integrar UX de busca no mapa, histórico local, `perto de mim`, centralizar e navegar.
+
+## M6 — Elevação e outdoor
+
+- [ ] **MM-MAP-500 P0** Criar pipeline DEM/contours baseado em fontes licenciadas e metadata de resolução/licença.
+- [ ] **MM-MAP-510 P1** Implementar altitude de ponto/cursor/waypoint offline.
+- [ ] **MM-MAP-520 P0** Implementar perfil de elevação: distância, ganho, perda, mínimo, máximo e gráfico.
+- [ ] **MM-MAP-530 P1** Adicionar contours/hillshade/picos ao estilo outdoor.
+
+## M7 — Roteamento e navegação offline
+
+- [ ] **MM-MAP-600 P0** Criar routing graph builder a partir do OSM com one-way, access, restrictions, surface, bicycle/foot/car.
+- [ ] **MM-MAP-610 P0** Implementar router offline em worker para walk/bicycle/car.
+- [ ] **MM-MAP-620 P0** Implementar manobras e instruções passo a passo.
+- [ ] **MM-MAP-630 P0** Implementar progresso GPS, off-route, recálculo local, ETA e chegada.
+- [ ] **MM-MAP-640 P1** Implementar orientação por voz/TTS local, pt-BR primeiro, sem serviço cloud obrigatório.
+
+## M8 — Conteúdo e transporte
+
+- [ ] **MM-MAP-700 P1** Adicionar conteúdo Wikipedia/Wikidata offline com pipeline, compactação, idioma e atribuição.
+- [ ] **MM-MAP-710 P2** Adicionar estações/linhas de transporte/metro e busca; multimodal fica para fase posterior.
+
+## M9 — Android Auto e CarPlay
+
+- [ ] **MM-MAP-800 P2** Integrar Android Auto somente após M7 estável e validação das restrições da plataforma.
+- [ ] **MM-MAP-810 P2** Integrar CarPlay somente após M7 estável e validação das restrições da plataforma.
+
+## M10 — Hardening e gate de merge
+
+- [ ] **MM-MAP-900 P0** Medir performance/storage/memória/bateria em aparelhos reais; definir budgets por evidência.
+- [ ] **MM-MAP-910 P0** Testar corrupção, checksum, path traversal, zip bomb, resource exhaustion, pacote truncado e XSS/URLs externas.
+- [ ] **MM-MAP-920 P0** Garantir convivência/migração v1→v2, compatibilidade e rollback.
+- [ ] **MM-MAP-930 P0** Atualizar ADRs, arquitetura, guia, testes, privacidade, `THIRD_PARTY_NOTICES.md`, checklist e handoff.
+- [ ] **MM-MAP-940 P0** Só então liberar PR da branch `feat/maps-engine-v2-offline` para `main`, com lint/typecheck/tests/build/E2E/mobile/licenças/documentação e evidências físicas aplicáveis verdes.
+
 # Backlog transversal
 
 - [x] Cliente HTTP legado auditado; operação principal é IndexedDB + `/sync/*`.
@@ -139,17 +217,21 @@
 
 # Próximo item livre
 
-**Não há P0 funcional interno conhecido aberto além da preparação do ambiente remoto de produção.**
+**Iniciativa Maps Engine v2 aberta em branch isolada.** O primeiro item livre para agentes desta trilha é **MM-MAP-000**.
 
-Próximos passos:
+Sequência obrigatória da trilha Maps Engine v2:
 
-1. publicar/configurar a API Hono de production;
-2. configurar `VITE_API_MODE=live`, `VITE_API_URL` e CORS;
-3. autorizar e executar smoke de sync contra production;
-4. publicar o HEAD atual quando o limite diário da Vercel liberar e validar site → prompt de instalação → app em `/app/`; depois executar testes físicos Android/iOS;
-5. fechar política pública de privacidade;
-6. definir versão/release notes e signing mobile;
-7. autorizar publicação/release quando os gates estiverem verdes.
+1. MM-MAP-000;
+2. MM-MAP-010;
+3. M1 — atualização do app;
+4. M2 — storage + Region Package v2;
+5. M3/M4 — mapa OSM + formatos;
+6. M5/M6 — busca + elevação;
+7. M7 — routing/navegação;
+8. M8/M9 — conteúdo/transporte/automotive;
+9. M10 — hardening e gate de PR para `main`.
+
+A preparação da API Hono de production e os gates de release atuais continuam pendentes em paralelo, sem misturar implementação com a branch do Maps Engine v2.
 
 # Regra para novas conversas/agentes
 
