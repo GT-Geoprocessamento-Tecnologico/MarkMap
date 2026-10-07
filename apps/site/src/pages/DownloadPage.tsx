@@ -13,17 +13,17 @@ export function DownloadPage() {
             <Reveal>
               <p className="eyebrow eyebrow--inverse">Baixar MarkMap</p>
               <h1>Seu mapa. No seu dispositivo.</h1>
-              <p className="download-page__lead">O MarkMap foi preparado para acompanhar o trabalho em campo em dispositivos Android e iOS.</p>
+              <p className="download-page__lead">Instale o MarkMap como PWA no seu dispositivo para usar a experiência de aplicativo e manter o fluxo offline.</p>
               <div className="download-page__compat">
                 <span><i>✓</i> Android</span>
                 <span><i>✓</i> iOS</span>
               </div>
               {siteConfig.appDownloadUrl ? (
-                <a className="button button--primary button--download" href={siteConfig.appDownloadUrl}>Baixar app</a>
+                <a className="button button--primary button--download" href={siteConfig.appDownloadUrl}>Instalar MarkMap</a>
               ) : (
                 <button className="button button--primary button--download" type="button" disabled>Download em breve</button>
               )}
-              <small>A distribuição pública será ativada quando a versão estiver liberada.</small>
+              <small>A instalação é concluída pelo navegador. Android e iOS usam os fluxos nativos de instalação do PWA.</small>
             </Reveal>
 
             <Reveal delay={120}>
