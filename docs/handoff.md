@@ -105,3 +105,11 @@ Obter os dados/autorizações externos acima e executar o preflight de `docs/rel
 - produção validada: `https://appmarkmap.mtsferreira.dev/`, `/manifest.json` e `/sw.js` respondem HTTP 200;
 - deploy Vercel do HEAD funcional `038deb9f` está READY;
 - confirmação física de instalação em Android/iOS segue pendente.
+
+## Correção do fluxo “Baixar app” no site — 2026-10-06
+
+- causa confirmada: o site público é SPA, mas o deploy Vercel não tinha rewrite para `index.html`; acessos diretos a `/baixar`, `/produto` e `/offline` retornavam 404;
+- causa secundária: `siteConfig.appDownloadUrl` estava `null`, deixando a página de download sem destino real;
+- CTAs “Baixar app” do header e landing agora apontam diretamente para `https://appmarkmap.mtsferreira.dev/`;
+- `apps/site/vercel.json` adiciona rewrite SPA para preservar rotas públicas;
+- produção validada após deploy READY do HEAD funcional `17afdb5`: `/baixar`, `/produto` e `/offline` respondem HTTP 200.
