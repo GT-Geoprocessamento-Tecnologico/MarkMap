@@ -47,6 +47,14 @@ function publish(next: PwaInstallSnapshot): void {
   for (const listener of listeners) listener();
 }
 
+async function preserveLocalStorageBestEffort(): Promise<void> {
+  try {
+    await navigator.storage?.persist?.();
+  } catch {
+    // Persistência é otimização; nunca bloqueia instalação nem trabalho local.
+  }
+}
+
 export function initializePwaInstall(): void {
   if (initialized || typeof window === "undefined") return;
   initialized = true;
@@ -69,6 +77,7 @@ export function initializePwaInstall(): void {
       installed: true,
       iosSafari: detectIosSafari(),
     });
+    void preserveLocalStorageBestEffort();
   });
 }
 
@@ -91,11 +100,14 @@ export async function requestPwaInstall(): Promise<
   const choice = await promptEvent.userChoice;
   installPrompt = null;
 
+  const installed = choice.outcome === "accepted" || detectStandalone();
   publish({
     available: false,
-    installed: choice.outcome === "accepted" || detectStandalone(),
+    installed,
     iosSafari: detectIosSafari(),
   });
+
+  if (installed) void preserveLocalStorageBestEffort();
 
   return choice.outcome;
 }
