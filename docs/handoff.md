@@ -113,3 +113,13 @@ Obter os dados/autorizações externos acima e executar o preflight de `docs/rel
 - CTAs “Baixar app” do header e landing agora apontam diretamente para `https://appmarkmap.mtsferreira.dev/`;
 - `apps/site/vercel.json` adiciona rewrite SPA para preservar rotas públicas;
 - produção validada após deploy READY do HEAD funcional `17afdb5`: `/baixar`, `/produto` e `/offline` respondem HTTP 200.
+
+## Instalador PWA dedicado — 2026-10-06
+
+- o CTA “Baixar app” do site não abre mais diretamente o dashboard operacional;
+- os CTAs agora apontam para `https://appmarkmap.mtsferreira.dev/install`;
+- `/install` é uma página dedicada, fora do shell do sistema, que usa `beforeinstallprompt` para solicitar instalação do PWA;
+- Android/Chromium recebe botão “Instalar MarkMap” quando o navegador declara o PWA elegível;
+- Safari iOS recebe a instrução nativa de Compartilhar → Adicionar à Tela de Início;
+- navegadores exigem confirmação do usuário para instalar PWA; instalação silenciosa/cross-origin não é permitida;
+- `apps/admin/vercel.json` adiciona fallback SPA para o instalador e demais rotas diretas.
