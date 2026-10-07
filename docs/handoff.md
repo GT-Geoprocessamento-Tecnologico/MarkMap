@@ -137,3 +137,11 @@ Obter os dados/autorizações externos acima e executar o preflight de `docs/rel
 - preload/estilos antigos de Material Symbols removidos; ícones permanecem SVG inline;
 - build de produção Vercel do HEAD funcional `e80097c` concluído READY, com `tsc --noEmit && vite build` verde;
 - TinyFish validou o fluxo público site → `/install` sem links quebrados e o fluxo do app em produção sem falhas críticas; ambiente do teste final era desktop, então bottom tab bar e comportamento físico iOS/Android continuam pendentes de validação em aparelho/viewport real.
+
+## Abertura do app instalado — 2026-10-06
+
+- problema: instalações criadas a partir de `/install` podiam reabrir nessa rota em vez do início;
+- manifest já mantém `start_url: "/"`; a correção adiciona uma guarda em modo instalado/standalone que substitui `/install` por `/` antes do render;
+- a própria tela `/install` também aplica a mesma guarda caso seja alcançada por navegação dentro do app instalado;
+- teste unitário cobre: app instalado em `/install` redireciona; app instalado em `/` não redireciona; navegador não instalado em `/install` continua no instalador;
+- validação física Android/iOS continua pendente.
