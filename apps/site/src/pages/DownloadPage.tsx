@@ -1,7 +1,7 @@
 import { Footer } from "../components/Footer";
 import { Header } from "../components/Header";
 import { Reveal } from "../components/Reveal";
-import { siteConfig } from "../site-config";
+import { InstallAppButton } from "../components/InstallAppButton";
 
 export function DownloadPage() {
   return (
@@ -18,11 +18,9 @@ export function DownloadPage() {
                 <span><i>✓</i> Android</span>
                 <span><i>✓</i> iOS</span>
               </div>
-              {siteConfig.appDownloadUrl ? (
-                <a className="button button--primary button--download" href={siteConfig.appDownloadUrl}>Instalar MarkMap</a>
-              ) : (
-                <button className="button button--primary button--download" type="button" disabled>Download em breve</button>
-              )}
+              <InstallAppButton className="button button--primary button--download">
+                Instalar MarkMap
+              </InstallAppButton>
               <small>A instalação é concluída pelo navegador. Android e iOS usam os fluxos nativos de instalação do app.</small>
             </Reveal>
 
