@@ -228,8 +228,10 @@ export function TopNavBar() {
   }, []);
 
   useEffect(() => {
+    const themeColor = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
     if (isDark) {
       document.documentElement.classList.add("dark");
+      themeColor?.setAttribute("content", "#06131a");
       try {
         localStorage.setItem("theme", "dark");
       } catch {
@@ -237,6 +239,7 @@ export function TopNavBar() {
       }
     } else {
       document.documentElement.classList.remove("dark");
+      themeColor?.setAttribute("content", "#f4f8fb");
       try {
         localStorage.setItem("theme", "light");
       } catch {
@@ -379,7 +382,8 @@ export function TopNavBar() {
             <button
               onClick={() => setIsDark(!isDark)}
               className="markmap-theme-button p-2 rounded-xl text-on-surface-variant hover:text-brand-cyan hover:bg-white/5 transition-colors"
-              title="Alternar Tema"
+              title="Alternar tema"
+              aria-label={isDark ? "Ativar tema claro" : "Ativar tema escuro"}
             >
               <AppIcon name={isDark ? "sun" : "moon"} size="md" />
             </button>
