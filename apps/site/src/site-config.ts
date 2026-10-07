@@ -1,7 +1,7 @@
 export const siteConfig = {
-  appDownloadUrl: null as string | null,
+  appDownloadUrl: "https://appmarkmap.mtsferreira.dev/" as string,
   compatibility: ["Android", "iOS"] as const,
   distribution: {
-    app: false,
+    app: true,
   },
 };
