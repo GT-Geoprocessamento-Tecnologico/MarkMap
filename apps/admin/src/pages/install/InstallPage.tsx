@@ -31,14 +31,8 @@ export default function InstallPage() {
   return (
     <main className="min-h-[100dvh] bg-[#06131a] text-white">
       <div className="mx-auto flex min-h-[100dvh] w-full max-w-6xl flex-col px-5 py-6 sm:px-8 lg:px-10">
-        <header className="flex items-center justify-between border-b border-white/10 pb-5">
+        <header className="flex items-center border-b border-white/10 pb-5">
           <MarkMapBrand />
-          <a
-            href="/"
-            className="rounded-xl border border-white/10 px-4 py-2 text-xs font-semibold text-white/70 transition hover:border-brand-cyan/35 hover:text-brand-cyan"
-          >
-            Abrir versão web
-          </a>
         </header>
 
         <section className="grid flex-1 items-center gap-12 py-12 lg:grid-cols-[1.05fr_.95fr] lg:py-16">
