@@ -29,11 +29,8 @@ async function cacheAppShell() {
       return asset;
     });
 
-  await cache.addAll([
-    APP_START,
-    "/manifest.json",
-    ...new Set(scopedAssets),
-  ]);
+  const targets = [...new Set([APP_START, "/manifest.json", ...scopedAssets])];
+  await cache.addAll(targets);
 }
 
 self.addEventListener("install", (event) => {
