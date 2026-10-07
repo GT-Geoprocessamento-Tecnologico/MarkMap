@@ -55,18 +55,15 @@ async function preserveLocalStorageBestEffort(): Promise<void> {
   }
 }
 
-export function shouldRedirectInstalledAppToHome(
-  pathname: string,
-  installed: boolean,
-): boolean {
-  return installed && pathname === "/install";
+export function shouldRedirectLegacyInstallPath(pathname: string): boolean {
+  return pathname === "/install";
 }
 
 export function initializePwaInstall(): void {
   if (initialized || typeof window === "undefined") return;
   initialized = true;
 
-  if (shouldRedirectInstalledAppToHome(window.location.pathname, detectStandalone())) {
+  if (shouldRedirectLegacyInstallPath(window.location.pathname)) {
     window.location.replace("/");
     return;
   }
