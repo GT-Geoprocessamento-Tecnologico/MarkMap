@@ -1,4 +1,11 @@
 {
+  "redirects": [
+    {
+      "source": "/install",
+      "destination": "/",
+      "permanent": true
+    }
+  ],
   "rewrites": [
     {
       "source": "/((?!assets/|icons/|fonts/|api/|manifest.json|sw.js|favicon.ico).*)",
