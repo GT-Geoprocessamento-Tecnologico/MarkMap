@@ -3,14 +3,14 @@ import {
   getPwaInstallSnapshot,
   initializePwaInstall,
   requestPwaInstall,
-  shouldRedirectInstalledAppToHome,
+  shouldRedirectLegacyInstallPath,
 } from "../lib/pwa-install";
 
 describe("PWA install prompt lifecycle", () => {
-  it("redirects only an installed app away from the installer route", () => {
-    expect(shouldRedirectInstalledAppToHome("/install", true)).toBe(true);
-    expect(shouldRedirectInstalledAppToHome("/", true)).toBe(false);
-    expect(shouldRedirectInstalledAppToHome("/install", false)).toBe(false);
+  it("treats the old installer URL as a permanent redirect to app home", () => {
+    expect(shouldRedirectLegacyInstallPath("/install")).toBe(true);
+    expect(shouldRedirectLegacyInstallPath("/")).toBe(false);
+    expect(shouldRedirectLegacyInstallPath("/settings")).toBe(false);
   });
 
   it("captures the browser install event and calls prompt after a user action", async () => {
