@@ -14,7 +14,7 @@
 
 **Objetivo:** manter uma única visão executável da MarkMap. O produto é offline-first; Neon/PostGIS é sincronização/backup, não requisito para o trabalho de campo.
 
-**Auditoria:** frontend auditado e refinado. PWA recebeu correção de instalação e o site público teve o fluxo de download corrigido: CTAs agora apontam para `https://appmarkmap.mtsferreira.dev/` e o projeto `apps/site` possui rewrite SPA na Vercel. Produção responde HTTP 200 para `/baixar`, `/produto` e `/offline`, eliminando os 404 de navegação direta. O deploy de produção do site para o HEAD funcional `17afdb5` está READY.
+**Auditoria:** frontend auditado e refinado. O fluxo “Baixar app” foi alterado para instalação PWA: os CTAs do site apontam para `https://appmarkmap.mtsferreira.dev/install`, uma página dedicada de instalação fora do shell operacional. A instalação continua dependendo da confirmação nativa do navegador, pois PWAs não podem ser instalados silenciosamente por outro domínio.
 
 **Fase atual:** frontends Web/PWA publicados na Vercel com domínios customizados configurados. Release continua condicionado à API/sync remoto de produção, testes físicos, política pública de privacidade, smoke de produção e signing/publicação mobile autorizados.
 
