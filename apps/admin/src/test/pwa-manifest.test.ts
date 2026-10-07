@@ -15,6 +15,9 @@ interface PwaManifest {
   scope: string;
   display: string;
   prefer_related_applications?: boolean;
+  launch_handler?: {
+    client_mode?: string;
+  };
   icons: ManifestIcon[];
 }
 
@@ -29,6 +32,7 @@ describe("PWA manifest installability", () => {
     expect(manifest.scope).toBe("/");
     expect(manifest.display).toBe("standalone");
     expect(manifest.prefer_related_applications).toBe(false);
+    expect(manifest.launch_handler?.client_mode).toBe("navigate-existing");
   });
 
   it("declares the required install icons", () => {
