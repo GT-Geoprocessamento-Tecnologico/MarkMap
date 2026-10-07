@@ -9,8 +9,6 @@ import ImportsPage from './pages/imports/ImportsPage';
 import SettingsPage from './pages/settings/SettingsPage';
 import AnalyticsPage from './pages/dashboard/AnalyticsPage';
 import CoordinateSystemsPage from './pages/dashboard/CoordinateSystemsPage';
-import InstallPage from './pages/install/InstallPage';
-
 import { RootLayout } from './components/layout/RootLayout';
 import { AppIcon } from './components/AppIcon';
 
@@ -99,12 +97,6 @@ const analyticsRoute = createRoute({
   component: AnalyticsPage,
 });
 
-const installRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/install',
-  component: InstallPage,
-});
-
 const coordinateSystemsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/coordinate-systems',
@@ -152,7 +144,6 @@ const routeTree = rootRoute.addChildren([
   importsRoute,
   settingsRoute,
   analyticsRoute,
-  installRoute,
   coordinateSystemsRoute,
   telemetryRoute,
 ]);
