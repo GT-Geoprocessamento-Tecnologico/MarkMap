@@ -55,9 +55,21 @@ async function preserveLocalStorageBestEffort(): Promise<void> {
   }
 }
 
+export function shouldRedirectInstalledAppToHome(
+  pathname: string,
+  installed: boolean,
+): boolean {
+  return installed && pathname === "/install";
+}
+
 export function initializePwaInstall(): void {
   if (initialized || typeof window === "undefined") return;
   initialized = true;
+
+  if (shouldRedirectInstalledAppToHome(window.location.pathname, detectStandalone())) {
+    window.location.replace("/");
+    return;
+  }
 
   window.addEventListener("beforeinstallprompt", (event) => {
     const promptEvent = event as BeforeInstallPromptEvent;
