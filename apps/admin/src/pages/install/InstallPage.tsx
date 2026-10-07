@@ -49,13 +49,12 @@ export default function InstallPage() {
 
             <div className="mt-8">
               {installState.installed ? (
-                <a
-                  href="/"
-                  className="inline-flex min-h-[52px] items-center gap-2 rounded-xl bg-gradient-to-r from-brand-blue to-brand-cyan px-6 py-3 text-sm font-black text-white shadow-lg shadow-brand-cyan/10 transition hover:brightness-110"
-                >
-                  <AppIcon name="map" size="md" />
-                  Abrir MarkMap
-                </a>
+                <div className="rounded-2xl border border-brand-cyan/20 bg-brand-cyan/5 p-5">
+                  <strong className="block text-sm text-white">MarkMap instalado</strong>
+                  <p className="mt-2 text-sm leading-6 text-white/60">
+                    O aplicativo já está instalado neste dispositivo.
+                  </p>
+                </div>
               ) : installState.available ? (
                 <button
                   type="button"
