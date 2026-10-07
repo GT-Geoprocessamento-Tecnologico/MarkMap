@@ -2,31 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-@font-face {
-  font-family: 'Material Symbols Outlined';
-  font-style: normal;
-  font-weight: 400;
-  font-display: block;
-  src: url('/fonts/material-symbols-outlined.woff2') format('woff2');
-}
-
-.material-symbols-outlined {
-  font-family: 'Material Symbols Outlined';
-  font-weight: 400;
-  font-style: normal;
-  font-size: 24px;
-  display: inline-block;
-  line-height: 1;
-  letter-spacing: normal;
-  text-transform: none;
-  white-space: nowrap;
-  direction: ltr;
-  font-feature-settings: 'liga';
-  flex-shrink: 0;
-  max-width: 1.5em;
-  overflow: hidden;
-}
-
 @layer base {
   :root {
     --bg-main: #f4f8fb;
@@ -72,7 +47,7 @@
 .dark canvas.maplibregl-canvas { filter: none; }
 html, body, #root { min-width: 0; min-height: 100%; }
 html { background: var(--bg-main); }
-body { overflow-x: hidden; background: var(--bg-main); color: var(--text-primary); text-rendering: optimizeLegibility; }
+body { overflow-x: hidden; background: var(--bg-main); color: var(--text-primary); text-rendering: optimizeLegibility; -webkit-overflow-scrolling: touch; }
 ::selection { background: rgba(0, 214, 219, 0.25); color: var(--text-primary); }
 button, a, input, select, textarea { touch-action: manipulation; }
 button, a, select { min-height: 44px; }
