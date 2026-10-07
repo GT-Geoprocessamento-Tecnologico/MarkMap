@@ -148,8 +148,14 @@ const routeTree = rootRoute.addChildren([
   telemetryRoute,
 ]);
 
+const appBasepath =
+  window.location.pathname === '/app' || window.location.pathname.startsWith('/app/')
+    ? '/app'
+    : '/';
+
 export const router = createRouter({
   routeTree,
+  basepath: appBasepath,
   defaultPreload: 'intent',
   scrollRestoration: true,
 });
