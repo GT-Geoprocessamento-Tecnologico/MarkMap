@@ -123,3 +123,17 @@ Obter os dados/autorizações externos acima e executar o preflight de `docs/rel
 - Safari iOS recebe a instrução nativa de Compartilhar → Adicionar à Tela de Início;
 - navegadores exigem confirmação do usuário para instalar PWA; instalação silenciosa/cross-origin não é permitida;
 - `apps/admin/vercel.json` adiciona fallback SPA para o instalador e demais rotas diretas.
+
+## Refinamento PWA nativo — 2026-10-07
+
+- experiência móvel refinada sem alterar IndexedDB/outbox, sync, GIS ou regras de negócio;
+- adicionada navegação inferior global estilo app para telas <1024px: Mapa, Projetos, Dados e Ajustes;
+- safe areas aplicadas a header, tab bar, overlays, instalador e prompts;
+- status de sync foi deslocado acima da tab bar em mobile para evitar sobreposição;
+- feedback curto de conectividade: offline continua salvando localmente e online informa reconexão;
+- `navigator.storage.persist()` solicitado em best-effort após instalação do PWA;
+- `launch_handler.client_mode = navigate-existing` adicionado ao manifest para reutilizar janela instalada em browsers compatíveis;
+- `theme-color` acompanha tema claro/escuro para integrar chrome/status bar do sistema;
+- preload/estilos antigos de Material Symbols removidos; ícones permanecem SVG inline;
+- build de produção Vercel do HEAD funcional `e80097c` concluído READY, com `tsc --noEmit && vite build` verde;
+- TinyFish validou o fluxo público site → `/install` sem links quebrados e o fluxo do app em produção sem falhas críticas; ambiente do teste final era desktop, então bottom tab bar e comportamento físico iOS/Android continuam pendentes de validação em aparelho/viewport real.
