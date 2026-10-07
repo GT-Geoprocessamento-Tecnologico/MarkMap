@@ -30,7 +30,7 @@ export default function InstallPage() {
 
   return (
     <main className="min-h-[100dvh] bg-[#06131a] text-white">
-      <div className="mx-auto flex min-h-[100dvh] w-full max-w-6xl flex-col px-5 py-6 sm:px-8 lg:px-10">
+      <div className="mx-auto flex min-h-[100dvh] w-full max-w-6xl flex-col px-5 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-8 lg:px-10">
         <header className="flex items-center border-b border-white/10 pb-5">
           <MarkMapBrand />
         </header>
