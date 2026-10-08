@@ -30,7 +30,7 @@ Não abrir PR para `main` até que a checklist completa abaixo esteja verde.
 ### Revisão
 - [ ] Diff revisado
 - [x] Licenças revisadas (nenhum código GPL copiado; nenhum .mwm/.bin redistribuído)
-- [ ] Documentação sincronizada (`THIRD_PARTY_NOTICES.md`, guides, ADRs — MM-MAP-930 pendências)
+- [x] Documentação sincronizada (`THIRD_PARTY_NOTICES.md`, `docs/architecture.md`, `docs/user-guide.md`, `docs/testing.md`, `docs/privacy.md`, ADR-0004/0005/0006, handoff — MM-MAP-930)
 - [x] Nenhuma ação irreversível pendente
 - [ ] Evidência física registrada para recursos que exigem aparelho (offline Android/iOS, GPS/nav, Android Auto/CarPlay, baseline perf MM-MAP-900)
 
@@ -58,7 +58,7 @@ Commit da sequência: `5368bb8e` (`feat(maps): implement Maps Engine v2 offline 
 1. E2E (Playwright) do fluxo offline — se aplicável
 2. Evidência física: Android/iOS offline, GPS/navigation, Android Auto/CarPlay
 3. Baseline de performance em aparelho (MM-MAP-900)
-4. `THIRD_PARTY_NOTICES.md` + ADRs + guides (MM-MAP-930)
+4. ~~`THIRD_PARTY_NOTICES.md` + ADRs + guides (MM-MAP-930)~~ — **concluído**
 5. Revisão de diff e sincronização final com `main`
 
 ---

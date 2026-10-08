@@ -12,16 +12,17 @@ Atualizar documentação e artefatos legais: `docs/architecture.md`, doc de maps
 
 | Item PRD | Status | Onde |
 |---|---|---|
-| `docs/architecture.md` | ✅ arquitetura v2 (offline, sharded search, routing, elevation) | pendente de sync na revisão do gate |
+| `docs/architecture.md` | ✅ seção "Maps Engine v2 offline" adicionada (diagrama, módulos, ADRs) | `docs/architecture.md` |
 | Doc de maps engine / `docs/gis-geopdf.md` | ✅ entregáveis MM-MAP-000..940 em `docs/` | `docs/MM-MAP-*.md` (22 documentos) |
-| `docs/user-guide.md` | ⏳ atualizar com busca offline, rota, elevation, GPX/KML | pendente |
-| `docs/testing.md` | ⏳ documentar suites novas (search/routing/elevation/security/geo) | pendente |
-| `docs/privacy.md` | ⏳ somente se novos dados pessoais (offline sem telemetria) | avaliar |
-| `THIRD_PARTY_NOTICES.md` | ⏳ atribuições OSM/DEM/Wikipedia/transit por pacote | pendente |
-| ADR package v2 | ⏳ decisão de versionamento + ativação atômica | ver MM-MAP-920 |
-| ADR storage | ⏳ IndexedDB/outbox + staging | pendente |
-| ADR routing | ⏳ Dijkstra custo-tempo, perfis, sem GPL | ver MM-MAP-600/610 |
+| `docs/user-guide.md` | ✅ seções 9–13: pacotes offline, busca, rota/navegação, elevação, import GPX/KML | `docs/user-guide.md` |
+| `docs/testing.md` | ✅ seção "Maps Engine v2 offline" com tabela de suítes e gate | `docs/testing.md` |
+| `docs/privacy.md` | ✅ avaliação por recurso: nenhuma categoria pessoal nova | `docs/privacy.md` |
+| `THIRD_PARTY_NOTICES.md` | ✅ seção de fontes de dados (OSM/DEM/Wikipedia/transit) + origem de código inspirado | `THIRD_PARTY_NOTICES.md` |
+| ADR package v2 | ✅ ADR-0004 (versionamento + ativação atômica) | `docs/adr/0004-pacote-regional-v2-ativacao-atomica.md` |
+| ADR storage | ✅ ADR-0005 (LargeBlobStore multi-backend + DeviceStorageProfile) | `docs/adr/0005-storage-regional-largeblobstore.md` |
+| ADR routing | ✅ ADR-0006 (Dijkstra custo-tempo, perfis, sem GPL) | `docs/adr/0006-roteamento-offline-dijkstra-custo-tempo.md` |
 | Checklist/handoff | ✅ `docs/handoff.md` atualizado M3→M10 | esta iniciativa |
+| ADR index | ✅ `docs/adr/README.md` com 0001–0006 | `docs/adr/README.md` |
 
 ## Restrições Legais Confirmadas
 

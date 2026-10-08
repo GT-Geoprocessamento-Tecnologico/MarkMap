@@ -162,7 +162,10 @@ npx turbo run lint build test --filter='./packages/*' --force   → 15/15 succes
 2. E2E (Playwright) do fluxo offline — quando aplicável
 3. Evidência física: Android/iOS offline, GPS/navigation, Android Auto/CarPlay
 4. Baseline de performance em aparelho (MM-MAP-900)
-5. `THIRD_PARTY_NOTICES.md` + ADRs + guides (MM-MAP-930)
+5. ~~`THIRD_PARTY_NOTICES.md` + ADRs + guides (MM-MAP-930)~~ — **concluído**:
+   `THIRD_PARTY_NOTICES.md` (fontes OSM/DEM/Wikipedia/transit + origem de código),
+   `docs/adr/0004..0006`, `docs/architecture.md`, `docs/user-guide.md`,
+   `docs/testing.md`, `docs/privacy.md`
 6. ~~Commit desta sequência (M3→M10 + código + testes + docs)~~ — **concluído**: `5368bb8e`.
 7. PR para `main` só após fechar o gate MM-MAP-940
 
@@ -175,5 +178,5 @@ npx turbo run lint build test --filter='./packages/*' --force   → 15/15 succes
   - proteção de outbox (não descartar transações pendentes ao adiar);
   - compatibilidade com o fluxo de sync existente.
 - builds Capacitor devem ter aviso próprio (sem depender do fluxo PWA principal).
-- **Status (2026-10-08):** fases M0→M10 com docs entregues; código real de M3→M10 implementado em `packages/contracts`, `packages/maps`, `packages/geo`; suítes de teste novas verdes (lint/build/test 15/15). Sequência commitada em `5368bb8e`. Pendências: E2E, evidência de dispositivo, THIRD_PARTY/ADRs, gate MM-MAP-940 antes de PR para `main`.
+- **Status (2026-10-08):** fases M0→M10 com docs entregues; código real de M3→M10 implementado em `packages/contracts`, `packages/maps`, `packages/geo`; suítes de teste novas verdes (lint/build/test 15/15). Sequência commitada em `5368bb8e`. MM-MAP-930 fechado (THIRD_PARTY + ADR-0004/0005/0006 + guides). Pendências restantes: E2E, evidência de dispositivo, baseline de performance, gate MM-MAP-940 antes de PR para `main`.
 - Atualizado em 2026-10-08.
