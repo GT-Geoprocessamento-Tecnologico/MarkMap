@@ -42,9 +42,10 @@ Não abrir PR para `main` até que a checklist completa abaixo esteja verde.
 ## Evidência Executada Nesta Sequência
 
 ```
-npx turbo run build --filter='./packages/*'   → 5/5 successful
-npx turbo run test  --filter='./packages/*'   → 7/7 successful
+npx turbo run lint build test --filter='./packages/*' --force   → 15/15 successful
 ```
+
+Commit da sequência: `5368bb8e` (`feat(maps): implement Maps Engine v2 offline phases M3-M10`, 75 arquivos).
 
 - `contracts`: 117 tests
 - `maps`: 112 tests
