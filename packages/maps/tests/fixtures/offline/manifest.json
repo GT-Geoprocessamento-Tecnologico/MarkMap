@@ -35,5 +35,17 @@
     {"path":"sprites/light@2x.png","blob":{"id":"00000000-0000-4000-8000-000000000012","sha256":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","bytes":128000,"mediaType":"image/png"}}
   ],
   "attribution": "© OpenStreetMap contributors · Protomaps Basemap (ODbL). Consulte LICENSES/.",
-  "createdAt": "2026-09-30T12:00:00.000Z"
+  "createdAt": "2026-09-30T12:00:00.000Z",
+  "packageVersion": "1.0.0",
+  "osmDataDate": "2026-09-30T00:00:00.000Z",
+  "capabilities": [],
+  "checksums": {
+    "archive": "035eb103c8d5f7fc7d153afdece190b45fd2343b65d2543726eeafc40c6f3fa6"
+  },
+  "totalBytes": 4300633,
+  "sources": {
+    "osm": "OpenStreetMap",
+    "attributions": []
+  },
+  "minimumCompatibleVersion": "1.0.0"
 }

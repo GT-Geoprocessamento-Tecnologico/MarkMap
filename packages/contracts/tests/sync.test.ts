@@ -222,6 +222,13 @@ describe("shared local-first contracts", () => {
       sprites: [],
       attribution: "Source",
       createdAt: date,
+      packageVersion: "1.0.0",
+      osmDataDate: date,
+      capabilities: [],
+      checksums: { archive: "a".repeat(64) },
+      totalBytes: archiveBlob.bytes,
+      sources: { osm: "OpenStreetMap", attributions: [] },
+      minimumCompatibleVersion: "1.0.0",
     };
     expect(offlineMapPackageManifestSchema.safeParse(manifest).success).toBe(
       true,

@@ -11,6 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@geonexo/contracts": "workspace:*",
     "@types/maplibre-gl": "^1.14.0",
     "maplibre-gl": "^6.11.2",
     "pmtiles": "4.5.0",

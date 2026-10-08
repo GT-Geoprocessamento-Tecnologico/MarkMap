@@ -174,3 +174,52 @@ export type {
   ServerChange,
   PullSyncResponse,
 } from "./sync.js";
+
+export {
+  demMetadataSchema,
+  contourSchema,
+  contourLayerSchema,
+  elevationProfileSchema,
+} from "./elevation.js";
+export type {
+  DemMetadata,
+  Contour,
+  ContourLayer,
+  ElevationProfile,
+} from "./elevation.js";
+
+export {
+  routingProfileSchema,
+  graphNodeSchema,
+  graphEdgeSchema,
+  turnRestrictionSchema,
+  routingGraphSchema,
+  maneuverSchema,
+  routeStepSchema,
+  routeSchema,
+  routeRequestSchema,
+} from "./routing.js";
+export type {
+  RoutingProfile,
+  GraphNode,
+  GraphEdge,
+  TurnRestriction,
+  RoutingGraph,
+  Maneuver,
+  RouteStep,
+  Route,
+  RouteRequest,
+} from "./routing.js";
+
+export {
+  wikipediaArticleSchema,
+  transitStationSchema,
+  transitLineSchema,
+  transitNetworkSchema,
+} from "./content.js";
+export type {
+  WikipediaArticle,
+  TransitStation,
+  TransitLine,
+  TransitNetwork,
+} from "./content.js";

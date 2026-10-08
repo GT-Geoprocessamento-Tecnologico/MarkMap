@@ -67,6 +67,20 @@ const assetRefSchema = z
   .object({ path: assetPathSchema, blob: assetBlobSchema })
   .strict();
 
+const capabilitySchema = z.enum([
+  "basemap",
+  "search",
+  "routing.walk",
+  "routing.bicycle",
+  "routing.car",
+  "elevation",
+  "contours",
+  "wikipedia",
+  "transit",
+]);
+
+export const capabilityPathSchema = z.string().regex(/^[A-Za-z0-9._@-]+$/);
+
 export const offlineMapPackageManifestSchema = z
   .object({
     id: z.string().regex(/^[a-z0-9][a-z0-9._-]{0,127}$/),
@@ -89,6 +103,55 @@ export const offlineMapPackageManifestSchema = z
     sprites: z.array(assetRefSchema).max(256),
     attribution: z.string().trim().min(1).max(2_000),
     createdAt: z.string().datetime(),
+    /** Versionamento do pacote */
+    packageVersion: z.string().trim().min(1).max(64),
+    /** Data da fonte OSM */
+    osmDataDate: z.string().datetime(),
+    /** Capabilities (features) do pacote */
+    capabilities: z.array(capabilitySchema).default([]),
+    /** Checksums individuais de cada componente */
+    checksums: z.object({
+      archive: z.string().regex(/^[a-f0-9]{64}$/),
+      style: z
+        .string()
+        .regex(/^[a-f0-9]{64}$/)
+        .optional(),
+      glyphs: z.array(z.string().regex(/^[a-f0-9]{64}$/)).default([]),
+      sprites: z.array(z.string().regex(/^[a-f0-9]{64}$/)).default([]),
+    }),
+    /** Tamanho total do pacote (bytes) */
+    totalBytes: z
+      .number()
+      .int()
+      .int()
+      .positive()
+      .max(250 * 1024 * 1024),
+    /** Fonte/licenças */
+    sources: z
+      .object({
+        osm: z.string().min(1),
+        attributions: z
+          .array(z.object({ name: z.string(), url: z.string().url() }))
+          .default([]),
+      })
+      .default({ osm: "", attributions: [] }),
+    /** Componentes opcionais do pacote */
+    optionalComponents: z
+      .object({
+        search: z.object({}).default({}),
+        routing: z
+          .object({
+            walk: z.boolean().default(true),
+            bicycle: z.boolean().default(true),
+            car: z.boolean().default(false),
+          })
+          .default({}),
+        elevation: z.boolean().default(true),
+        contours: z.boolean().default(true),
+      })
+      .default({}),
+    /** Compatibilidade */
+    minimumCompatibleVersion: z.string().trim().min(1).max(64),
   })
   .strict()
   .superRefine((manifest, ctx) => {
@@ -120,3 +183,28 @@ export type OfflineMapArchiveRef = z.infer<typeof offlineMapArchiveRefSchema>;
 export type OfflineMapPackageManifest = z.infer<
   typeof offlineMapPackageManifestSchema
 >;
+
+export type Capability = z.infer<typeof capabilitySchema>;
+
+export type OptionalComponents = {
+  search: Record<string, never>;
+  routing: {
+    walk: boolean;
+    bicycle: boolean;
+    car: boolean;
+  };
+  elevation: boolean;
+  contours: boolean;
+};
+
+export type ManifestChecksums = {
+  archive: string;
+  style?: string;
+  glyphs: string[];
+  sprites: string[];
+};
+
+export type ManifestSources = {
+  osm: string;
+  attributions: Array<{ name: string; url: string }>;
+};
