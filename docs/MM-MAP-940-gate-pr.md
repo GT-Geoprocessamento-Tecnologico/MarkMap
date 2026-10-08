@@ -20,7 +20,7 @@ Não abrir PR para `main` até que a checklist completa abaixo esteja verde.
 - [x] Integração branch atualizada com main sem apagar trabalho
 - [x] Lint verde
 - [x] Typecheck verde (`tsc --noEmit` em todos os packages)
-- [x] Unit/integration verdes (`npx turbo run test --filter='./packages/*'` → 7/7)
+- [x] Unit/integration verdes (`npx turbo run lint build test --filter='./packages/*' --force` → 15/15)
 - [x] Build verde (`npx turbo run build --filter='./packages/*'` → 5/5)
 - [ ] E2E aplicável verde (Playwright — quando suíte existir para o fluxo)
 - [x] Testes offline aplicáveis verdes (parsers, manifest, search, routing, elevation, security)
@@ -48,7 +48,7 @@ npx turbo run lint build test --filter='./packages/*' --force   → 15/15 succes
 Commit da sequência: `5368bb8e` (`feat(maps): implement Maps Engine v2 offline phases M3-M10`, 75 arquivos).
 
 - `contracts`: 117 tests
-- `maps`: 112 tests
+- `maps`: 126 tests (inclui pipeline M3)
 - `geo`: 70 passed + 3 skipped
 - `ui`: 18 tests
 - demais packages: verdes

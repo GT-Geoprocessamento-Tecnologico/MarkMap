@@ -139,17 +139,21 @@ Esta seção documenta a iniciativa Maps Engine v2 offline (Parte C), mantida em
 **Geo** (`packages/geo/src/`):
 - `gpx.ts`/`kml.ts`/`gpx-types.ts` — parsers regex (sem DOMParser/XXE, sem zod)
 
+**Pipeline (M3)** (`scripts/`):
+- `region-pipeline.mjs` — CLI ESM sem dependências: valida entrada, gera shards de busca,
+  valida grafo/contours, copia OSM/style, calcula SHA-256 e grava manifest v2.
+  Importável como módulo (tipos em `region-pipeline.d.mts`), executável com `--dry-run`/`--help`.
+
 ### Testes (suites novas)
 
 - `packages/contracts`: 117 tests
-- `packages/maps`: 112 tests (search, elevation, routing, security, offline)
+- `packages/maps`: 126 tests (search, elevation, routing, security, offline, pipeline)
 - `packages/geo`: 70 passed + 3 skipped (gpx, kml)
 - `packages/ui`: 18 tests
 
 **Evidência executada (2026-10-08):**
 ```
-npx turbo run build --filter='./packages/*'   → 5/5 successful
-npx turbo run test  --filter='./packages/*'   → 7/7 successful
+npx turbo run lint build test --filter='./packages/*' --force   → 15/15 successful
 ```
 
 ### Pendências conhecidas

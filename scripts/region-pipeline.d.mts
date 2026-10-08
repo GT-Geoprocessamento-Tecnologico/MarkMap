@@ -1,0 +1,106 @@
+export const PIPELINE_VERSION: string;
+
+export const PIPELINE_LIMITS: {
+  readonly maxArtifactBytes: number;
+  readonly maxPlaces: number;
+  readonly maxShardBytes: number;
+  readonly shardsPerLetter: number;
+};
+
+export class PipelineError extends Error {
+  readonly code: string;
+  constructor(message: string, code: string);
+}
+
+export interface PipelineRecord {
+  id: string;
+  name: string;
+  normalized: string;
+  type: string;
+  category: string;
+  lon: number;
+  lat: number;
+  description?: string;
+}
+
+export interface SearchShard {
+  id: string;
+  records: PipelineRecord[];
+}
+
+export interface PipelineArtifact {
+  path: string;
+  bytes: number;
+  sha256: string;
+  mediaType: string;
+}
+
+export interface PipelineSources {
+  osm: string;
+  attributions: string[];
+}
+
+export interface PipelineManifest {
+  id: string;
+  version: string;
+  label: string;
+  bounds: [number, number, number, number];
+  minZoom: number;
+  maxZoom: number;
+  archive: PipelineArtifact;
+  style: { path: string; blob: PipelineArtifact };
+  glyphs: never[];
+  sprites: never[];
+  attribution: string;
+  createdAt: string;
+  packageVersion: string;
+  osmDataDate: string;
+  capabilities: string[];
+  checksums: Record<string, string>;
+  totalBytes: number;
+  sources: PipelineSources;
+  minimumCompatibleVersion: string;
+}
+
+export interface PipelineResult {
+  dryRun: boolean;
+  artifacts: PipelineArtifact[];
+  manifest: PipelineManifest | null;
+  warnings: string[];
+  inputDir: string;
+  outputDir: string;
+}
+
+export interface RunPipelineOptions {
+  input?: string;
+  output?: string;
+  dryRun?: boolean;
+  now?: Date;
+}
+
+export function sha256(bytes: Uint8Array | string): string;
+export function normalizeName(name: unknown): string;
+export function getShardId(normalized: string): string;
+export function buildSearchShards(
+  records: unknown,
+  shardsPerLetter?: number,
+): SearchShard[];
+export function validateRoutingGraph(graph: unknown): {
+  nodeCount: number;
+  edgeCount: number;
+};
+export function validateContours(contours: unknown): {
+  interval: number;
+  majorInterval: number;
+  count: number;
+};
+export function buildManifest(options: {
+  id: string;
+  label: string;
+  bounds: number[];
+  artifacts: Array<{ path: string; bytes: number; sha256: string; mediaType?: string }>;
+  sources: PipelineSources;
+  osmDataDate: string;
+  packageVersion?: string;
+}): PipelineManifest;
+export function runPipeline(options: RunPipelineOptions): Promise<PipelineResult>;

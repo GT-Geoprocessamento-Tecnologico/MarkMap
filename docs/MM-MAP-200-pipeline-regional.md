@@ -105,66 +105,37 @@ O manifest deve declarar quais capabilities o pacote suporta:
 
 ## Implementação Técnica
 
-### 1. Script de Pipeline (scripts/region-pipeline.sh)
-Script bash/node para orquestrar o pipeline:
+### 1. Script de Pipeline (`scripts/region-pipeline.mjs`)
+Script Node ESM (sem dependências externas, sem rede) que orquestra o pipeline.
+Legível como CLI e importável como módulo para testes:
 
 ```bash
-#!/bin/bash
-# region-pipeline.sh - Pipeline regional OSM PBF → MarkMap
-
-set -e
-
-# Parâmetros
-OSM_PBF="$1"          # Caminho do arquivo PBF
-OUTPUT_DIR="$2"       # Diretório de saída
-GENERATOR="$3"        # Gerador de vector tiles (opcional)
-
-# Validar entrada
-if [ ! -f "$OSM_PBF" ]; then
-    echo "Erro: Arquivo PBF não encontrado: $OSM_PBF"
-    exit 1
-fi
-
-if [ -z "$OUTPUT_DIR" ]; then
-    echo "Erro: Diretório de saída não especificado"
-    exit 1
-fi
-
-mkdir -p "$OUTPUT_DIR"
-
-# Etapa 1: Extrair entidades do OSM PBF
-echo "=== Etapa 1: Extraindo entidades do OSM PBF ==="
-osmium extract -p "$OSM_PBF" -o region/osm.pbf --ways --relations --nodes-meta all
-
-# Etapa 2: Gerar vector tiles (se generator especificado)
-if [ -n "$GENERATOR" ]; then
-    echo "=== Etapa 2: Gerando vector tiles ==="
-    $GENERATOR --input region/osm.pbf --output region/basemap.pmtiles --styles light dark outdoor
-fi
-
-# Etapa 3: Gerar glyphs e sprites
-echo "=== Etapa 3: Gerando glyphs e sprites ==="
-# ... (uso de ferramentas como protobufs)
-
-# Etapa 4: Gerar grafo de roteamento
-echo "=== Etapa 4: Gerando grafo de roteamento ==="
-# ... (uso de tools like osm2pgrouting, o5m2pg, etc.)
-
-# Etapa 5: Gerar curvas de nível/DEM
-echo "=== Etapa 5: Gerando curvas de nível ==="
-# ... (uso de SRTM data, etc.)
-
-# Etapa 6: Gerar metadados de busca
-echo "=== Etapa 6: Gerando metadados de busca ==="
-# ... (indexação de nomes, aliases, categorias)
-
-# Etapa 7: Gerar manifest
-echo "=== Etapa 7: Gerando manifest ==="
-# ... (gerar manifest.json com checksums, capabilities, etc.)
-
-echo "=== Pipeline concluído ==="
-echo "Saída: $OUTPUT_DIR"
+node scripts/region-pipeline.mjs --input <dir> --output <dir> [--dry-run]
 ```
+
+Etapas reais implementadas:
+
+| Etapa | Entrada | Saída | Comportamento se ausente |
+|---|---|---|---|
+| 1. Validação | `--input`, `--output` | — | falha com código (`MISSING_ARGS`, `INPUT_MISSING`, `SAME_DIR`) |
+| 2. Índice de busca | `places.json` | `search/<shard>.json` | warning, segue |
+| 3. Grafo de roteamento | `graph.json` | `routing/graph.json` | warning, segue |
+| 4. Curvas de nível | `contours.json` | `elevation/contours.json` | warning, segue |
+| 5. Dados OSM brutos | `osm.pbf` | `osm/osm.pbf` | warning, segue |
+| 6. Estilo | `style.json` | `style.json` | warning, segue |
+| 7. Manifest v2 | artefatos | `manifest.json` | falha se nenhum artefato (`NO_OUTPUT`) |
+
+Funções exportadas (testadas): `runPipeline`, `buildSearchShards`, `getShardId`,
+`normalizeName`, `validateRoutingGraph`, `validateContours`, `buildManifest`,
+`sha256`, `PipelineError`.
+
+Garantias:
+- sharding idêntico ao runtime (`getShardId` / `normalizeName`);
+- checksum SHA-256 e bytes por artefato;
+- manifest v2 com `packageVersion`, `osmDataDate`, `capabilities`, `checksums`,
+  `totalBytes`, `sources`, `minimumCompatibleVersion` (MM-MAP-120);
+- limites defensivos (`PIPELINE_LIMITS`);
+- nenhum serviço de rede.
 
 ### 2. Configuração do Gerador de Vector Tiles
 A escolha do gerador de vector tiles deve ser fechada apenas após benchmark/licença no início deste item. Opções populares:
@@ -192,11 +163,13 @@ O MarkMap deve fornecer:
 - ✅ Capabilities no manifest
 - ✅ Remover teto fixo de 250 MiB
 
-### 2. Pipeline Script (scripts/region-pipeline.sh)
-- ✅ Script bash para orquestrar pipeline
-- ✅ Parâmetros de entrada e saída
-- ✅ Etapas sequenciais (extrair → gerar → indexar → manifest)
-- ✅ Tratamento de erros
+### 2. Pipeline Script (`scripts/region-pipeline.mjs`)
+- ✅ Script Node ESM executável (`node scripts/region-pipeline.mjs --input <dir> --output <dir>`)
+- ✅ Parâmetros de entrada/saída + `--dry-run` + `--help`
+- ✅ Etapas sequenciais (validar → indexar → grafo → contours → manifest)
+- ✅ Tratamento de erros com códigos (`MISSING_ARGS`, `INPUT_MISSING`, `SAME_DIR`, `INVALID_*`, `NO_OUTPUT`)
+- ✅ Warnings não bloqueiam etapas opcionais ausentes
+- ✅ Testado: `packages/maps/tests/pipeline/region-pipeline.test.ts` (14 testes)
 
 ### 3. Choice of Tile Generator (pending benchmark/license)
 - ✅ ProtoQL avaliado como referência
