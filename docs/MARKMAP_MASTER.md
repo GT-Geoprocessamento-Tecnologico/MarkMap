@@ -2,14 +2,31 @@
 
 > **Fonte operacional única para a iniciativa Maps Engine v2.** Este arquivo consolida PRD, roadmap/checklist, handoff e política de versões. O Checklist Mestre do Notion continua sendo a visão colaborativa obrigatória e deve permanecer sincronizado.
 
+## Auditoria 2026-10-09 — estado verificado (prevalece sobre os registros históricos abaixo)
+
+**main:** `156d4e8`; **branch de desenvolvimento:** `feat/maps-engine-v2-offline`; **versão de trabalho:** `0.2.0-dev.0`.
+**Situação:** MERGE PARA MAIN BLOQUEADO, por segurança funcional e para impedir publicação Vercel automática. Ambos os projetos Vercel (`markmap-site`, `markmap-app`) continuam ligados ao GitHub. Nenhum deploy Vercel nem CI GitHub foi iniciado manualmente nesta auditoria.
+
+**Classificação:**
+- **FUNCIONA (evidência histórica):** núcleo MapLibre/Terra Draw, operações locais IndexedDB/outbox, GeoPDF e PMTiles/PWA pré-existentes. Resultados históricos no gate são anteriores a esta auditoria.
+- **PARCIAL:** gerador regional (agora exige arquivo PMTiles e manifest corretos, mas não gera tiles OSM); prompt PWA (correção de checagem de atualização, sem E2E novo); parsers GPX/KML, busca, roteamento, elevação e conteúdo offline (implementações no código sem comprovação completa em aparelho e distribuição regional).
+- **BLOQUEADO:** instalador regional `MM-MAP-130` explicitamente desativado/fail-closed depois de identificar download simulado e ativação de staging vazio; gestão de atualização/reparo regional `MM-MAP-140` sem serviço real; gate `MM-MAP-940` ainda não satisfeito.
+- **NÃO COMPROVADO:** renderização de PMTiles regional real, download resumível, pacote com glyphs/sprites locais, iOS build e testes físicos, navegação por voz/Android Auto/CarPlay e métricas de memória/bateria.
+
+**Correções auditadas:** script `scripts/region-pipeline.mjs`, testes do pipeline/tipos, `ResumableInstaller`, `RegionManager` e `UpdatePrompt`. Agora rejeitam entradas incompletas e não alegam instalação/reparo realizado sem dados. **Validação atual executada sem CI:** `node --check`; **7/7 testes direcionados com Node**; parser TypeScript sem erros sintáticos nos 5 arquivos auditados. **Não executados nesta sessão:** pnpm lint/typecheck/Vitest/Playwright/build completo, iOS, testes em aparelhos físicos (workspace completo indisponível e dispositivo remoto offline). Portanto não é possível garantir que tudo funcionará em produção.
+
+**Próximas tarefas prioritárias na ordem de dependências:** `MM-MAP-200` (OSM PBF → PMTiles real + glyphs/sprites + pacote testado); `MM-MAP-130` (download/Range/resume/checksum/staging/activate/rollback reais); `MM-MAP-140` (gestor/updates/reparo seguros); `MM-UPD-010/020` (versões PWA/Capacitor com compatibilidade/outbox e E2E); `MM-MAP-900/940` (perf/dispositivos/iOS + diff + qualidade local completa); depois habilitar PR para `main` apenas com deploy automático Vercel efetivamente bloqueado e validações verdes.
+
+Os itens anteriores marcados como concluídos permanecem como **evidência histórica de desenvolvimento**, não como liberação atual para merge/release.
+
 ## Controle de versão do produto
 
 **Versão estável de referência observada em `main`:** `0.1.0`  
 **Linha de desenvolvimento ativa:** `0.2.0-dev.0`  
 **Branch:** `feat/maps-engine-v2-offline`  
 **Base da branch:** `main@156d4e819d6d876c6150969057f2fc3b9afdad45`  
-**Status:** planejamento consolidado; implementação funcional do Maps Engine v2 ainda não iniciada.  
-**Próximo Task ID:** `MM-MAP-000`
+**Status:** implementação parcial auditada em 2026-10-09; merge/main e deploy bloqueados até MM-MAP-940.  
+**Próximo Task ID prioritário:** `MM-MAP-200` (seguido de `MM-MAP-130`)
 
 ### Regra de versionamento
 
@@ -47,7 +64,7 @@ Além da versão do aplicativo, manter:
 | Versão | Estado | Referência | Observação |
 |---|---|---|---|
 | `0.1.0` | baseline atual | `main@156d4e8` | aplicação anterior ao Maps Engine v2 |
-| `0.2.0-dev.0` | desenvolvimento ativo | `feat/maps-engine-v2-offline` | roadmap/PRD consolidados; começar em MM-MAP-000 |
+| `0.2.0-dev.0` | desenvolvimento ativo | `feat/maps-engine-v2-offline` | implementação parcial; próximo MM-MAP-200; sem release |
 | `0.2.0-rc.1` | futuro | após MM-MAP-940 | somente com todos os gates verdes |
 | `0.2.0` | futuro | release autorizado | não criar sem autorização explícita |
 
