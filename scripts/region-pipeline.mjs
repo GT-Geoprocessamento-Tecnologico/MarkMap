@@ -31,7 +31,7 @@ export const PIPELINE_VERSION = "1.0.0";
 /** Limites defensivos por artefato (bytes). */
 export const PIPELINE_LIMITS = {
   maxArtifactBytes: 256 * 1024 * 1024,
-  maxPlaces: 500_000,
+  maxPlaces: 25_000,
   maxShardBytes: 4 * 1024 * 1024,
   shardsPerLetter: 4,
 };
@@ -54,6 +54,7 @@ export function normalizeName(name) {
     .normalize("NFD")
     .replace(/\p{Diacritic}/gu, "")
     .toLowerCase()
+    .replace(/[ºª]/g, "")
     .replace(/[^\p{L}\p{N}\s]/gu, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -94,14 +95,18 @@ export function buildSearchShards(records, shardsPerLetter = PIPELINE_LIMITS.sha
       throw new PipelineError(`registro inválido na posição ${index}`, "INVALID_RECORD");
     }
     const { id, name, type, category, lon, lat, description } = raw;
-    if (typeof id !== "string" || typeof name !== "string") {
+    if (typeof id !== "string" || typeof name !== "string" || !id || id.length > 160 || !name || name.length > 200) {
       throw new PipelineError(`registro ${index} sem id/name string`, "INVALID_RECORD");
     }
-    if (typeof lon !== "number" || typeof lat !== "number" || !Number.isFinite(lon) || !Number.isFinite(lat)) {
+    if (typeof lon !== "number" || typeof lat !== "number" || !Number.isFinite(lon) || !Number.isFinite(lat) ||
+        lon < -180 || lon > 180 || lat < -90 || lat > 90 ||
+        String(type ?? '').length > 60 || String(category ?? '').length > 60 ||
+        (description !== undefined && (typeof description !== 'string' || description.length > 500))) {
       throw new PipelineError(`registro ${id} com lon/lat inválidos`, "INVALID_COORDS");
     }
 
     const normalized = normalizeName(name);
+    if (!normalized) throw new PipelineError(`registro ${id} sem nome pesquisável`, 'INVALID_RECORD');
     const shardId = getShardId(normalized);
     const key = shardsPerLetter === PIPELINE_LIMITS.shardsPerLetter ? shardId : shardId;
 
@@ -207,13 +212,18 @@ export function buildManifest({
     throw new PipelineError("style.json ausente", "MISSING_STYLE");
   const spriteArtifacts = artifacts.filter((a) => a.path.startsWith('sprites/'));
   const glyphArtifacts = artifacts.filter((a) => a.path.startsWith('glyphs/'));
-  const activeArtifacts = [basemap, style, ...spriteArtifacts, ...glyphArtifacts];
+  const searchArtifacts = artifacts.filter((a) => /^search\/(?:[a-z][0-3]|0-9|other)\.json$/.test(a.path));
+  const activeArtifacts = [basemap, style, ...spriteArtifacts, ...glyphArtifacts, ...searchArtifacts];
   let totalBytes = 0;
   for (const a of artifacts) {
     if (!/^[a-f0-9]{64}$/.test(a.sha256) || !Number.isSafeInteger(a.bytes) || a.bytes <= 0)
       throw new PipelineError("artefato inválido: " + a.path, "INVALID_ARTIFACT");
   }
   totalBytes = activeArtifacts.reduce((sum, a) => sum + a.bytes, 0);
+  if (searchArtifacts.some((a) => a.bytes > 2 * 1024 * 1024) ||
+      searchArtifacts.reduce((sum, a) => sum + a.bytes, 0) > 12 * 1024 * 1024)
+    throw new PipelineError("índice de busca excede orçamento offline", "SEARCH_TOO_LARGE");
+  if (searchArtifacts.length > 64) throw new PipelineError("fragmentos de busca demais", "TOO_MANY_SEARCH_SHARDS");
   if (spriteArtifacts.length > 256 || glyphArtifacts.length > 256) throw new PipelineError("glyphs/sprites excedem 256 arquivos", "TOO_MANY_ASSETS");
   if (basemap.bytes > 250 * 1024 * 1024 || style.bytes > 25 * 1024 * 1024 ||
       totalBytes > 250 * 1024 * 1024)
@@ -236,10 +246,11 @@ export function buildManifest({
     archive: archiveRef, style: { path: style.path, blob: styleRef },
     glyphs: glyphArtifacts.map((a) => ({ path: a.path, blob: blobRef(a, a.mediaType) })),
     sprites: spriteArtifacts.map((a) => ({ path: a.path, blob: blobRef(a, a.mediaType) })),
+    ...(searchArtifacts.length ? { searchShards: searchArtifacts.map((a) => ({ path: a.path, blob: blobRef(a, 'application/json') })) } : {}),
     attribution: attributions.map((a) => a.name).join(" · "),
     createdAt: now.toISOString(), packageVersion, osmDataDate,
     // Auxiliary JSON files are not activated by the current offline store.
-    capabilities: ["basemap"],
+    capabilities: searchArtifacts.length ? ["basemap", "search"] : ["basemap"],
     checksums: { archive: basemap.sha256, style: style.sha256,
       glyphs: glyphArtifacts.map((a) => a.sha256), sprites: spriteArtifacts.map((a) => a.sha256) },
     totalBytes, sources: { osm: sources.osm, attributions },
@@ -386,7 +397,7 @@ export async function runPipeline({ input, output, dryRun = false, now = new Dat
   } else warnings.push("contours.json ausente: curvas de nível não foram empacotadas");
 
   if (hasOsm && !hasBasemap) warnings.push("Limite do builder integrado: ate 32 MiB de extrato PBF; use um gerador regional especializado para areas maiores");
-  warnings.push("glyphs/sprites e ativação de componentes auxiliares exigem integração posterior ao contrato v2");
+  warnings.push("Ativação de roteamento, elevação e conteúdo adicional ainda não integrada ao contrato v2");
 
   const manifest = buildManifest({
     ...metadata,

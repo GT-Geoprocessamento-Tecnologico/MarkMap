@@ -7,6 +7,7 @@ import {
   parseGpx,
   parseKml,
   tracksToGeoJSON,
+  extractKmzKml,
 } from "@geonexo/geo";
 import { offlineDB } from "../storage/offline-db";
 
@@ -30,7 +31,7 @@ export interface DatasetGeoJSON {
 export interface DatasetRecord {
   id: string;
   name: string;
-  format: "GeoJSON" | "GPX" | "KML";
+  format: "GeoJSON" | "GPX" | "KML" | "KMZ";
   sizeBytes: number;
   featuresCount: number;
   uploadedAt: string;
@@ -207,14 +208,14 @@ export async function parseGeoJSON(file: File): Promise<DatasetRecord> {
 /** Import GPX/KML through the existing parsers, then through the same GeoJSON safety gate. */
 export async function parseDatasetFile(file: File): Promise<DatasetRecord> {
   if (/\.(?:geojson|json)$/i.test(file.name)) return parseGeoJSON(file);
-  if (!/\.(?:gpx|kml)$/i.test(file.name))
-    throw new Error('Formato não suportado. Use GeoJSON, GPX ou KML.');
+  if (!/\.(?:gpx|kml|kmz)$/i.test(file.name))
+    throw new Error('Formato não suportado. Use GeoJSON, GPX, KML ou KMZ.');
   if (file.size > MAX_DATASET_BYTES) throw new Error('Arquivo excede o limite de 25 MiB.');
-  const raw = await file.text();
+  const raw = /\.kmz$/i.test(file.name) ? await extractKmzKml(file) : await file.text();
   // Treat XML as untrusted input. Existing parsers are text-only (no network/DTD resolution).
   if (/<!\s*(?:DOCTYPE|ENTITY)\b/i.test(raw))
     throw new Error('Declarações DTD/ENTITY não são permitidas.');
-  const format = /\.gpx$/i.test(file.name) ? 'GPX' : 'KML';
+  const format = /\.gpx$/i.test(file.name) ? 'GPX' : /\.kmz$/i.test(file.name) ? 'KMZ' : 'KML';
   if (!(format === 'GPX' ? /<(?:[\w-]+:)?gpx\b/i : /<(?:[\w-]+:)?kml\b/i).test(raw))
     throw new Error('XML incompatível com o formato informado.');
   const imported = format === 'GPX' ? parseGpx(raw) : parseKml(raw);

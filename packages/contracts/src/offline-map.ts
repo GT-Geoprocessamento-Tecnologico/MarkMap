@@ -101,6 +101,11 @@ export const offlineMapPackageManifestSchema = z
       .strict(),
     glyphs: z.array(assetRefSchema).max(256),
     sprites: z.array(assetRefSchema).max(256),
+    /** Optional, integrity-checked OSM name/POI indexes, stored with this generation. */
+    searchShards: z.array(assetRefSchema.refine(
+      (asset) => /^search\/(?:[a-z][0-3]|0-9|other)\.json$/.test(asset.path) && asset.blob.mediaType === 'application/json',
+      'regional search shard must be a JSON file in search/',
+    )).max(64).optional(),
     attribution: z.string().trim().min(1).max(2_000),
     createdAt: z.string().datetime(),
     /** Versionamento do pacote */
@@ -166,7 +171,12 @@ export const offlineMapPackageManifestSchema = z
       manifest.archive.bytes +
       manifest.style.blob.bytes +
       manifest.glyphs.reduce((sum, asset) => sum + asset.blob.bytes, 0) +
-      manifest.sprites.reduce((sum, asset) => sum + asset.blob.bytes, 0);
+      manifest.sprites.reduce((sum, asset) => sum + asset.blob.bytes, 0) +
+      (manifest.searchShards ?? []).reduce((sum, asset) => sum + asset.blob.bytes, 0);
+    if (manifest.capabilities.includes('search') !== Boolean(manifest.searchShards?.length)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['capabilities'],
+        message: 'search capability must match installed search shards' });
+    }
     if (bytes > 250 * 1024 * 1024)
       ctx.addIssue({
         code: z.ZodIssueCode.too_big,

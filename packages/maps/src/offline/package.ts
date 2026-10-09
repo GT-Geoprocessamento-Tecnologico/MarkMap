@@ -1,3 +1,4 @@
+import { MAX_REGIONAL_SEARCH_BYTES, MAX_REGIONAL_SHARD_BYTES, MAX_REGIONAL_SEARCH_RECORDS, parseRegionalShard } from "../search/regional-shards.js";
 // @ts-expect-error contracts emits runtime JS without declarations in this workspace
 import { offlineMapPackageManifestSchema, type OfflineMapPackageManifest } from "../../../contracts/dist/src/offline-map.js";
 
@@ -41,7 +42,9 @@ export async function validateOfflinePackage(manifestInput: unknown, assets: Pac
   const parsed = offlineMapPackageManifestSchema.safeParse(manifestInput);
   if (!parsed.success) return { ok: false, code: "invalid-manifest", detail: "manifest does not match the canonical contract" };
   const manifest = parsed.data;
-  const refs = [manifest.style, ...manifest.glyphs, ...manifest.sprites];
+  const refs = [manifest.style, ...manifest.glyphs, ...manifest.sprites, ...(manifest.searchShards ?? [])];
+  let indexedRecords = 0;
+  let searchBytes = 0;
   const paths = refs.map((r) => r.path);
   if (paths.some((p) => !isSafePackagePath(p)) || paths.includes("package.pmtiles") || new Set(paths).size !== paths.length)
     return { ok: false, code: "unsafe-path", detail: "asset paths must be unique and safe" };
@@ -65,6 +68,19 @@ export async function validateOfflinePackage(manifestInput: unknown, assets: Pac
     const bytes = await bytesOf(value);
     if (bytes.byteLength !== ref.blob.bytes) return { ok: false, code: "size-mismatch", detail: `asset size mismatch: ${ref.path}` };
     if ((await sha256(bytes)).toLowerCase() !== ref.blob.sha256.toLowerCase()) return { ok: false, code: "checksum-mismatch", detail: `asset checksum mismatch: ${ref.path}` };
+    if (ref.path.startsWith('search/')) {
+      searchBytes += bytes.byteLength;
+      if (bytes.byteLength > MAX_REGIONAL_SHARD_BYTES || searchBytes > MAX_REGIONAL_SEARCH_BYTES)
+        return { ok: false, code: 'search-too-large', detail: 'regional search budget exceeded' };
+      try {
+        const shard = parseRegionalShard(JSON.parse(new TextDecoder().decode(bytes)), ref.path);
+        indexedRecords += shard.records.length;
+        if (indexedRecords > MAX_REGIONAL_SEARCH_RECORDS)
+          return { ok: false, code: 'search-too-large', detail: 'too many indexed places' };
+      } catch {
+        return { ok: false, code: 'invalid-search-shard', detail: `invalid OSM search shard: ${ref.path}` };
+      }
+    }
     if (ref.path === manifest.style.path) {
       let style: { glyphs?: unknown; sprite?: unknown; sources?: Record<string, { url?: unknown; tiles?: unknown[] }> };
       try { style = JSON.parse(new TextDecoder().decode(bytes)) as typeof style; } catch { return { ok: false, code: "invalid-style", detail: "style is not JSON" }; }

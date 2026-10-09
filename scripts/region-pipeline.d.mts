@@ -55,8 +55,9 @@ export interface PipelineManifest {
   maxZoom: number;
   archive: PipelineBlobRef;
   style: { path: string; blob: PipelineBlobRef };
-  glyphs: never[];
-  sprites: never[];
+  glyphs: Array<{ path: string; blob: PipelineBlobRef }>;
+  sprites: Array<{ path: string; blob: PipelineBlobRef }>;
+  searchShards?: Array<{ path: string; blob: PipelineBlobRef }>;
   attribution: string;
   createdAt: string;
   packageVersion: string;

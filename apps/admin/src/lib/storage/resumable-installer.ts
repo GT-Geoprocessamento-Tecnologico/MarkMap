@@ -100,7 +100,7 @@ export class ResumableInstaller {
     const manifest = parsed.data;
     const files = [
       { path: archivePath, target: 'package.pmtiles', size: manifest.archive.bytes, sha256: manifest.archive.sha256 },
-      ...[manifest.style, ...manifest.glyphs, ...manifest.sprites].map((ref) => ({ path: ref.path, target: ref.path, size: ref.blob.bytes, sha256: ref.blob.sha256 })),
+      ...[manifest.style, ...manifest.glyphs, ...manifest.sprites, ...(manifest.searchShards ?? [])].map((ref) => ({ path: ref.path, target: ref.path, size: ref.blob.bytes, sha256: ref.blob.sha256 })),
     ];
     if (files.some((f) => !safePath(f.path) || !safePath(f.target)))
       return fail('invalid-path', 'O manifest inclui caminho inseguro');
