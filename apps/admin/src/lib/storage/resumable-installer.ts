@@ -14,9 +14,8 @@
  */
 
 import { getDeviceStorageProfile } from "./device-storage-profile";
-import { type LargeBlobStore, type StoreResult, IndexedDBBlobStore, createBlobStoreError } from "./large-blob-store";
+import { type LargeBlobStore, type StoreResult, createBlobStoreError } from "./large-blob-store";
 import { offlineMapPackageManifestSchema, type OfflineMapPackageManifest } from "@geonexo/contracts";
-import { validateOfflinePackage } from "@geonexo/maps/offline/package";
 
 /** Status do instalador */
 export type InstallerStatus = "idle" | "downloading" | "validating" | "activating" | "active" | "rollback" | "error";
@@ -87,24 +86,11 @@ export interface ResumeResult {
 
 /** Instalador resumível principal */
 export class ResumableInstaller {
-  private dbName = "resumable-installer";
-  private storeName = "installers";
-  private blobStore: LargeBlobStore;
-  private isCapacitor: boolean;
+  constructor(_blobStore: LargeBlobStore | null = null, _isCapacitor?: boolean) {}
 
-  constructor(blobStore: LargeBlobStore | null = null, isCapacitor?: boolean) {
-    this.isCapacitor = isCapacitor !== false;
-    this.blobStore = blobStore || this.createDefaultStore();
-  }
-
-  private createDefaultStore(): LargeBlobStore {
-    return new IndexedDBBlobStore();
-  }
-
-  /** Inicializar o instalador */
+  /** Verifica disponibilidade do storage, sem iniciar uma instalação. */
   async init(): Promise<{ success: boolean; error?: string }> {
     try {
-      // Ensure storage is available
       await getDeviceStorageProfile();
       return { success: true };
     } catch (error) {
@@ -112,289 +98,42 @@ export class ResumableInstaller {
     }
   }
 
-  /** Verificar se pode retomar um download interrompido */
-  async checkResume(packageId: string): Promise<ResumeResult> {
-    try {
-      // Verificar se existe checkpoint salvo
-      const checkpointKey = `checkpoint-${packageId}`;
-      let checkpoint: Checkpoint | null = null;
-
-      // Em IndexedDB
-      if (this.blobStore && this.blobStore.constructor.name === "IndexedDBBlobStore") {
-        // Conceptual - would check DB for checkpoint
-        const record = await this.blobStore.enumerate();
-        if (record.success) {
-          const stagingEntry = record.data.find((r) => r.id === packageId);
-          if (stagingEntry && stagingEntry.size > 0) {
-            checkpoint = {
-              id: checkpointKey,
-              timestamp: new Date().toISOString(),
-              downloadedBytes: stagingEntry.size,
-              totalBytes: stagingEntry.size,
-              speed: 0,
-              eta: 0,
-            };
-          }
-        }
-      }
-      // Em Capacitor
-      else if (this.isCapacitor) {
-        // Conceptual - would check filesystem for checkpoint
-      }
-
-      return { canResume: checkpoint !== null, checkpoint };
-    } catch (error) {
-      return { canResume: false, checkpoint: null, reason: error instanceof Error ? error.message : "Unknown error" };
-    }
+  /**
+   * Não declarar retomada possível até que checkpoints sejam persistidos e
+   * vinculados ao checksum do arquivo. Enumerar um staging não comprova bytes.
+   */
+  async checkResume(_packageId: string): Promise<ResumeResult> {
+    return { canResume: false, checkpoint: null, reason: "Checkpoint verificável ainda não implementado" };
   }
 
-  /** Iniciar instalação de um pacote regional */
+  /**
+   * Fail closed: o instalador anterior apenas simulava bytes/progresso,
+   * validava um Uint8Array vazio e podia ativar um staging sem mapa real.
+   * O contrato InstallParams ainda não contém URL/fonte de dados verificável.
+   */
   async startInstall(params: InstallParams): Promise<StoreResult<{ installId: string; status: InstallerStatus }>> {
-    try {
-      // 1. Validar manifest
-      const manifestValidation = offlineMapPackageManifestSchema.safeParse(params.manifest);
-      if (!manifestValidation.success) {
-        return {
-          success: false,
-          error: createBlobStoreError("invalid-manifest", "Manifest inválido", false),
-        };
-      }
-
-      // 2. Verificar espaço disponível
-      const profile = await getDeviceStorageProfile();
-      if (params.manifest.totalBytes > profile.safeLimit) {
-        return {
-          success: false,
-          error: createBlobStoreError("insufficient-space", "Espaço insuficiente para o pacote", false),
-        };
-      }
-
-      // 3. Iniciar staging
-      const stagingResult = await this.blobStore.staging(params.packageId, params.manifest.totalBytes);
-      if (!stagingResult.success) {
-        return {
-          success: false,
-          error: createBlobStoreError("staging-failed", stagingResult.error.message || "Falha no staging", true),
-        };
-      }
-
-      // 4. Download em chunks com checkpoint
-      const installId = `install-${params.packageId}-${Date.now()}`;
-      const chunkSize = 1024 * 1024; // 1MB chunks
-      let downloadedBytes = 0;
-      const totalBytes = params.manifest.totalBytes;
-      const abortController = new AbortController();
-
-      // Salvar checkpoint inicial
-      this.saveCheckpoint(installId, downloadedBytes, totalBytes, 0, 0);
-
-      // Se houver onProgress, chamar imediatamente com status inicial
-      params.onProgress?.({
-        status: "downloading",
-        percent: 0,
-        message: "Iniciando download do pacote regional",
-        downloadedBytes: 0,
-        totalBytes,
-        speed: 0,
-        eta: 0,
-        checkpoint: downloadedBytes,
-        lastCheckpoint: downloadedBytes,
-        abort: abortController.abort,
-      });
-
-      // Em um cenário real, aqui ocorreria o download real via HTTP Range requests
-      // Para este modelo, simulamos o download
-      const simulatedChunks = Math.ceil(totalBytes / chunkSize);
-
-      for (let i = 0; i < simulatedChunks && !abortController.signal.aborted; i++) {
-        // Simular chunk download
-        const chunkSizeActual = Math.min(chunkSize, totalBytes - downloadedBytes);
-        downloadedBytes += chunkSizeActual;
-
-        // Simular progresso
-        const percent = Math.min(100, Math.round((downloadedBytes / totalBytes) * 100));
-        const speed = 1024; // 1KB/s simulado
-        const eta = downloadedBytes > 0 ? Math.ceil((totalBytes - downloadedBytes) / speed) : 0;
-
-        // Salvar checkpoint a cada 5 chunks ou a cada 30 segundos (simulado)
-        if (i % 5 === 0 || downloadedBytes >= totalBytes) {
-          await this.saveCheckpoint(installId, downloadedBytes, totalBytes, speed, eta);
-          params.onProgress?.({
-            status: "downloading",
-            percent,
-            message: `Download em andamento: ${downloadedBytes}/${totalBytes} bytes`,
-            downloadedBytes,
-            totalBytes,
-            speed,
-            eta,
-            checkpoint: downloadedBytes,
-            lastCheckpoint: downloadedBytes,
-            abort: abortController.abort,
-          });
-        }
-
-        // Pequena pausa para simular download real
-        await new Promise((resolve) => setTimeout(resolve, 50));
-      }
-
-      // 5. Validar pacote baixado
-      if (!params.forceValidate) {
-        const resumeResult = await this.checkResume(params.packageId);
-        if (resumeResult.canResume && !params.forceValidate) {
-          // Já tem checkpoint, pular validação pesada
-          params.onProgress?.({
-            status: "validating",
-            percent: 100,
-            message: "Validando pacote (usando checkpoint existente)",
-            downloadedBytes: totalBytes,
-            totalBytes,
-            speed: 0,
-            eta: 0,
-            checkpoint: totalBytes,
-            lastCheckpoint: totalBytes,
-            abort: abortController.abort,
-          });
-        } else {
-          // Validar pacote completo
-          params.onProgress?.({
-            status: "validating",
-            percent: 70,
-            message: "Validando pacote baixado...",
-            downloadedBytes,
-            totalBytes,
-            speed: 0,
-            eta: 0,
-            checkpoint: downloadedBytes,
-            lastCheckpoint: downloadedBytes,
-            abort: abortController.abort,
-          });
-
-          const validateResult = await validateOfflinePackage(
-            params.manifest,
-            new Map([[params.manifest.archivePath, new Uint8Array()]])
-          );
-
-          if (!validateResult.ok) {
-            return {
-              success: false,
-              error: createBlobStoreError("validation-failed", validateResult.detail || "Falha na validação do pacote", true),
-            };
-          }
-        }
-      } else {
-        // forceValidate: validar do zero
-        params.onProgress?.({
-          status: "validating",
-          percent: 70,
-          message: "Validando pacote (força validação)",
-          downloadedBytes,
-          totalBytes,
-          speed: 0,
-          eta: 0,
-          checkpoint: downloadedBytes,
-          lastCheckpoint: downloadedBytes,
-          abort: abortController.abort,
-        });
-
-        const validateResult = await validateOfflinePackage(
-          params.manifest,
-          new Map([[params.manifest.archivePath, new Uint8Array()]])
-        );
-
-        if (!validateResult.ok) {
-          return {
-            success: false,
-            error: createBlobStoreError("validation-failed", validateResult.detail || "Falha na validação do pacote", true),
-          };
-        }
-      }
-
-      // 6. Ativar pacote (atomic swap)
-      params.onProgress?.({
-        status: "activating",
-        percent: 90,
-        message: "Ativando pacote regional...",
-        downloadedBytes: totalBytes,
-        totalBytes,
-        speed: 0,
-        eta: 0,
-        checkpoint: downloadedBytes,
-        lastCheckpoint: downloadedBytes,
-        abort: abortController.abort,
-      });
-
-      const activateResult = await this.blobStore.activate(stagingResult.data.stagingKey);
-      if (!activateResult.success) {
-        // Rollback: manter pacote antigo ativo
-        return {
-          success: false,
-          error: createBlobStoreError("activation-failed", activateResult.error.message || "Falha ao ativar pacote", true),
-        };
-      }
-
-      // 7. Concluir instalação
-      params.onProgress?.({
-        status: "active",
-        percent: 100,
-        message: "Pacote instalado com sucesso!",
-        downloadedBytes: totalBytes,
-        totalBytes,
-        speed: 0,
-        eta: 0,
-        checkpoint: totalBytes,
-        lastCheckpoint: totalBytes,
-        abort: abortController.abort,
-      });
-
-      return {
-        success: true,
-        data: { installId, status: "active" },
-      };
-    } catch (error) {
+    const parsed = offlineMapPackageManifestSchema.safeParse(params.manifest);
+    if (!parsed.success) {
       return {
         success: false,
-        error: createBlobStoreError(
-          "install-failed",
-          error instanceof Error ? error.message : "Unknown error",
-          true,
-        ),
+        error: createBlobStoreError("invalid-manifest", "Manifest inválido", false),
       };
     }
-  }
 
-  /** Salvamento de checkpoint */
-  private async saveCheckpoint(
-    installId: string,
-    downloadedBytes: number,
-    totalBytes: number | null,
-    speed: number,
-    eta: number
-  ): Promise<Checkpoint> {
-    const checkpointKey = `${installId}-checkpoint`;
-    const checkpoint: Checkpoint = {
-      id: checkpointKey,
-      timestamp: new Date().toISOString(),
-      downloadedBytes,
-      totalBytes,
-      speed,
-      eta,
+    // Nenhum staging/ativação/indicação de sucesso até existir transferência real
+    // com HTTP Range, checksum e validateOfflinePackage sobre os bytes recebidos.
+    return {
+      success: false,
+      error: createBlobStoreError(
+        "download-not-implemented",
+        "Download regional ainda não implementado. Nenhum dado foi alterado.",
+        false,
+      ),
     };
-
-    // Em IndexedDB
-    if (this.blobStore && this.blobStore.constructor.name === "IndexedDBBlobStore") {
-      // Conceptual - would save to DB
-    }
-    // Em Capacitor
-    else if (this.isCapacitor) {
-      // Conceptual - would save to filesystem
-    }
-
-    return checkpoint;
   }
 
-  /** Cancelar instalação em andamento */
   abortInstall(): void {
-    // Abortar transfers em andamento
+    // Sem transferências em andamento neste adapter.
   }
 }
 
