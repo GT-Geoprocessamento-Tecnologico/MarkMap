@@ -37,9 +37,15 @@ export interface PipelineArtifact {
 
 export interface PipelineSources {
   osm: string;
-  attributions: string[];
+  attributions: Array<{ name: string; url: string }>;
 }
 
+export interface PipelineBlobRef {
+  id: string;
+  bytes: number;
+  sha256: string;
+  mediaType: string;
+}
 export interface PipelineManifest {
   id: string;
   version: string;
@@ -47,8 +53,8 @@ export interface PipelineManifest {
   bounds: [number, number, number, number];
   minZoom: number;
   maxZoom: number;
-  archive: PipelineArtifact;
-  style: { path: string; blob: PipelineArtifact };
+  archive: PipelineBlobRef;
+  style: { path: string; blob: PipelineBlobRef };
   glyphs: never[];
   sprites: never[];
   attribution: string;
@@ -56,10 +62,11 @@ export interface PipelineManifest {
   packageVersion: string;
   osmDataDate: string;
   capabilities: string[];
-  checksums: Record<string, string>;
+  checksums: { archive: string; style: string; glyphs: string[]; sprites: string[] };
   totalBytes: number;
   sources: PipelineSources;
   minimumCompatibleVersion: string;
+  optionalComponents: { search: Record<string, never>; routing: { walk: boolean; bicycle: boolean; car: boolean }; elevation: boolean; contours: boolean };
 }
 
 export interface PipelineResult {
@@ -102,5 +109,9 @@ export function buildManifest(options: {
   sources: PipelineSources;
   osmDataDate: string;
   packageVersion?: string;
+  minZoom?: number;
+  maxZoom?: number;
+  minimumCompatibleVersion?: string;
+  now?: Date;
 }): PipelineManifest;
 export function runPipeline(options: RunPipelineOptions): Promise<PipelineResult>;

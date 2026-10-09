@@ -33,6 +33,29 @@ const places = [
   { id: "n3", name: "Estação Expresso", type: "node", category: "station", lon: -46.6, lat: -23.5 },
 ];
 
+
+async function writeRequiredRegionFiles() {
+  const pmtiles = Buffer.alloc(127);
+  pmtiles.write("PMTiles", 0, "ascii");
+  pmtiles[7] = 3;
+  for (let offset = 8; offset < 72; offset += 16) {
+    pmtiles.writeBigUInt64LE(127n, offset);
+    pmtiles.writeBigUInt64LE(0n, offset + 8);
+  }
+  await writeFile(join(inputDir, "basemap.pmtiles"), pmtiles);
+  await writeFile(join(inputDir, "style.json"), JSON.stringify({
+    version: 8, glyphs: "glyphs/{fontstack}/{range}.pbf",
+    sprite: "sprites/sprite",
+    sources: { basemap: { type: "vector", url: "pmtiles://package.pmtiles" } },
+    layers: [],
+  }));
+  await writeFile(join(inputDir, "region.json"), JSON.stringify({
+    id: "test-region", label: "Test Region", bounds: [-49, -25, -45, -21],
+    minZoom: 0, maxZoom: 14, osmDataDate: "2026-10-08T00:00:00.000Z",
+    minimumCompatibleVersion: "0.2.0-dev.0",
+  }));
+}
+
 describe("region-pipeline (MM-MAP-200)", () => {
   it("normalizes names for indexing", () => {
     expect(normalizeName("Avenida  Paulistá!")).toBe("avenida paulista");
@@ -93,45 +116,42 @@ describe("region-pipeline (MM-MAP-200)", () => {
     expect(() => validateContours({ interval: 20, majorInterval: 100, contours: [{}] })).toThrow(PipelineError);
   });
 
-  it("builds a v2 manifest with checksums and totalBytes", () => {
+  it("builds a contract-shaped v2 manifest only with a real basemap and style", () => {
     const artifacts = [
-      { path: "search/a0.json", bytes: 10, sha256: "a".repeat(64) },
-      { path: "routing/graph.json", bytes: 20, sha256: "b".repeat(64) },
+      { path: "package.pmtiles", bytes: 127, sha256: "a".repeat(64), mediaType: "application/vnd.pmtiles" },
+      { path: "style.json", bytes: 42, sha256: "b".repeat(64), mediaType: "application/json" },
+      { path: "search/a0.json", bytes: 10, sha256: "c".repeat(64), mediaType: "application/json" },
     ];
     const manifest = buildManifest({
-      id: "region-x",
-      label: "Teste",
-      bounds: [-48.4, -16.2, -47.2, -15.3],
-      artifacts,
-      sources: { osm: "OpenStreetMap", attributions: ["© OpenStreetMap contributors"] },
-      osmDataDate: "2026-10-08T00:00:00.000Z",
-      packageVersion: "1.0.0",
+      id: "region-x", label: "Teste", bounds: [-48.4, -16.2, -47.2, -15.3],
+      artifacts, sources: { osm: "OpenStreetMap", attributions: [] },
+      osmDataDate: "2026-10-08T00:00:00.000Z", packageVersion: "1.0.0",
+      now: new Date("2026-10-09T12:00:00.000Z"),
     });
-
-    expect(manifest.packageVersion).toBe("1.0.0");
-    expect(manifest.minimumCompatibleVersion).toBe("1.0.0");
-    expect(manifest.osmDataDate).toBe("2026-10-08T00:00:00.000Z");
-    expect(manifest.totalBytes).toBe(30);
-    expect(manifest.checksums["search/a0.json"]).toBe("a".repeat(64));
-    expect(manifest.bounds).toEqual([-48.4, -16.2, -47.2, -15.3]);
-    expect(manifest.capabilities).toContain("search");
-    expect(manifest.sources.osm).toBe("OpenStreetMap");
+    expect(manifest.archive.mediaType).toBe("application/vnd.pmtiles");
+    expect(manifest.archive.bytes).toBe(127);
+    expect(manifest.style.blob.sha256).toBe("b".repeat(64));
+    expect(manifest.checksums.archive).toBe("a".repeat(64));
+    expect(manifest.checksums.style).toBe("b".repeat(64));
+    expect(manifest.capabilities).toEqual(["basemap"]);
+    expect(manifest.sources.attributions).toEqual([
+      { name: "OpenStreetMap contributors", url: "https://www.openstreetmap.org/copyright" },
+    ]);
+    expect(manifest.createdAt).toBe("2026-10-09T12:00:00.000Z");
+    expect(manifest.minimumCompatibleVersion).toBe("0.2.0-dev.0");
+    expect(manifest.totalBytes).toBe(179);
   });
 
-  it("rejects invalid manifest inputs", () => {
+  it("fails closed instead of turning a search shard into a basemap", () => {
     const base = {
-      id: "x",
-      label: "x",
-      bounds: [1, 2, 3, 4],
-      artifacts: [{ path: "a", bytes: 1, sha256: "c".repeat(64) }],
+      id: "x", label: "x", bounds: [1, 2, 3, 4],
+      artifacts: [{ path: "search/a0.json", bytes: 1, sha256: "c".repeat(64), mediaType: "application/json" }],
       sources: { osm: "OpenStreetMap", attributions: [] },
       osmDataDate: "2026-01-01T00:00:00.000Z",
     };
-    expect(() => buildManifest({ ...base, bounds: [10, 2, 3, 4] })).toThrow(PipelineError);
+    expect(() => buildManifest(base)).toThrow(PipelineError);
     expect(() => buildManifest({ ...base, artifacts: [] })).toThrow(PipelineError);
-    expect(() =>
-      buildManifest({ ...base, artifacts: [{ path: "a", bytes: 1, sha256: "short" }] }),
-    ).toThrow(PipelineError);
+    expect(() => buildManifest({ ...base, bounds: [10, 2, 3, 4] })).toThrow(PipelineError);
   });
 
   it("runs end-to-end and writes artifacts plus manifest", async () => {
@@ -151,6 +171,7 @@ describe("region-pipeline (MM-MAP-200)", () => {
       JSON.stringify({ interval: 20, majorInterval: 100, contours: [{ elevation: 100, geometry: [[0, 0]] }] }),
     );
 
+    await writeRequiredRegionFiles();
     const result = await runPipeline({ input: inputDir, output: outputDir });
 
     expect(result.dryRun).toBe(false);
@@ -161,7 +182,8 @@ describe("region-pipeline (MM-MAP-200)", () => {
     const { readFile } = await import("node:fs/promises");
     const manifestOnDisk = JSON.parse(await readFile(join(outputDir, "manifest.json"), "utf8"));
     expect(manifestOnDisk.packageVersion).toBe("1.0.0");
-    expect(Object.keys(manifestOnDisk.checksums).length).toBeGreaterThanOrEqual(4);
+    expect(manifestOnDisk.checksums.archive).toMatch(/^[a-f0-9]{64}$/);
+    expect(manifestOnDisk.capabilities).toEqual(["basemap"]);
 
     const shardFiles = result.artifacts.filter((a: { path: string }) => a.path.startsWith("search/"));
     expect(shardFiles.length).toBeGreaterThan(0);
@@ -170,6 +192,7 @@ describe("region-pipeline (MM-MAP-200)", () => {
 
   it("warns instead of failing when optional inputs are missing", async () => {
     await writeFile(join(inputDir, "places.json"), JSON.stringify(places));
+    await writeRequiredRegionFiles();
     const result = await runPipeline({ input: inputDir, output: outputDir });
     expect(result.warnings.some((w: string) => w.includes("graph.json"))).toBe(true);
     expect(result.warnings.some((w: string) => w.includes("contours.json"))).toBe(true);
@@ -179,7 +202,15 @@ describe("region-pipeline (MM-MAP-200)", () => {
   it("fails when no artifacts can be produced", async () => {
     await expect(runPipeline({ input: inputDir, output: outputDir })).rejects.toMatchObject({
       name: "PipelineError",
-      code: "NO_OUTPUT",
+      code: "MISSING_BASEMAP",
+    });
+  });
+
+  it("rejects a truncated or counterfeit basemap", async () => {
+    await writeRequiredRegionFiles();
+    await writeFile(join(inputDir, "basemap.pmtiles"), Buffer.from("not-a-pmtiles"));
+    await expect(runPipeline({ input: inputDir, output: outputDir })).rejects.toMatchObject({
+      code: "INVALID_PMTILES",
     });
   });
 

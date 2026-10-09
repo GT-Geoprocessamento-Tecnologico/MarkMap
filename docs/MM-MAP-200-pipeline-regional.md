@@ -1,9 +1,27 @@
 # MM-MAP-200 — Pipeline Regional
 
-**Status**: M3 — Em andamento (item MM-MAP-200 da sequência M3)  
+**Status**: PARCIAL — necessita gerador OSM→PMTiles, recursos de estilo, integração e QA  
 **Task ID**: MM-MAP-200  
 **Predecessor**: MM-MAP-010 (Proveniência/licenças)  
 **Gate M3**: pipeline reproduzível, metadata de origem/data, logs, checksum, processamento fora do dispositivo, artefatos regionais, sem dependência em tile.openstreetmap.org
+
+
+> **Auditoria 2026-10-09:** o script original devolvia sucesso usando \`search/*.json\` como se fosse um arquivo PMTiles e gerava um manifest incompatível com o contrato. Correção aplicada: agora exige \`basemap.pmtiles\`, \`style.json\` e \`region.json\`; valida o header PMTiles v3 e emite um manifest com referência real de arquivo, checksum nomeado e capabilities apenas verificáveis (\`basemap\`).  
+> **Limite:** o script **não converte diretamente \`osm.pbf\` em PMTiles**, não resolve automaticamente fonts/sprites e não instala os arquivos auxiliares no dispositivo. As afirmações históricas de conclusão abaixo referem-se ao protótipo anterior e não são evidência do fluxo completo.
+
+### Entrada mínima atual
+
+\`\`\`text
+input/
+  basemap.pmtiles  # gerado por ferramenta externa, PMTiles v3
+  style.json       # estilo MapLibre com recursos locais
+  region.json      # id,label,bounds,minZoom,maxZoom,osmDataDate
+  places.json      # opcional
+  graph.json       # opcional
+  contours.json    # opcional
+\`\`\`
+
+**Pendente para concluir MM-MAP-200:** gerar \`basemap.pmtiles\` a partir de OSM PBF, empacotar glyphs/sprites, validar schema Zod/PMTiles no instalador, ativar componentes auxiliares e rodar testes em aparelhos reais.
 
 ## Objetivo
 Criar pipeline reproduzível de entrada OSM PBF → dados consumíveis pelo MarkMap. Este é o primeiro item da fase M3 — Mapa OSM moderno.
