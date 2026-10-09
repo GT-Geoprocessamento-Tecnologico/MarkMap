@@ -15,6 +15,8 @@ import { getStorageBreakdown, cleanStorageCategories, type CategoryBreakdown, ty
 import { getPwaInstallSnapshot, requestPwaInstall, subscribePwaInstall } from "../../lib/pwa-install";
 import { ResumableInstaller } from "../../lib/storage/resumable-installer";
 import { fetchRemoteRegionManifest } from "../../lib/storage/remote-region-manifest.mjs";
+import { RegionManager } from '../../lib/storage/region-manager';
+import { rememberRegionSource, forgetRegionSource, getRegionSourceUrl } from '../../lib/storage/region-source-registry';
 
 type GpsState = "prompt" | "granted" | "denied";
 const directoryPickerAttributes = {
@@ -58,6 +60,9 @@ export default function SettingsPage() {
   const [regionalManifestUrl, setRegionalManifestUrl] = useState('');
   const [regionalPercent, setRegionalPercent] = useState<number | null>(null);
   const activeRegionalInstaller = useRef<ResumableInstaller | null>(null);
+  const regionManager = useRef(new RegionManager());
+  const [checkingRegion, setCheckingRegion] = useState<string | null>(null);
+  const [regionUpdates, setRegionUpdates] = useState<Record<string, { available: boolean; message: string }>>({});
   const [storageBreakdown, setStorageBreakdown] = useState<CategoryBreakdown[]>([]);
   const [cleanupDialogOpen, setCleanupDialogOpen] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState<Set<StorageCategory>>(new Set());
@@ -281,7 +286,8 @@ export default function SettingsPage() {
         ...(manifest.routingGraph ? [manifest.routingGraph] : []),
         ...(manifest.contourLines ? [manifest.contourLines] : []),
         ...(manifest.wikipediaPack ? [manifest.wikipediaPack] : []),
-        ...(manifest.transitPack ? [manifest.transitPack] : [])]) {
+        ...(manifest.transitPack ? [manifest.transitPack] : []),
+        ...(manifest.demGrid ? [manifest.demGrid] : [])]) {
         const file = filesByPath.get(ref.path);
         if (!file) throw new Error(`O pacote não contém o arquivo ${ref.path}.`);
         assets.set(ref.path, file);
@@ -327,6 +333,7 @@ export default function SettingsPage() {
       setSelectedOfflineMapIdState(manifest.id);
       await refreshOfflinePackages();
       await refreshStorage();
+      rememberRegionSource(manifest.id, regionalManifestUrl.trim());
       toast({ title: 'Mapa offline instalado', description: `${manifest.label} está pronto para uso local.`, variant: 'success' });
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : 'Não foi possível instalar a região.';
@@ -352,6 +359,7 @@ export default function SettingsPage() {
     setError(null);
     try {
       await offlineMapStore.remove(manifest.id);
+      forgetRegionSource(manifest.id);
       if (selectedOfflineMapId === manifest.id) setSelectedOfflineMapId(null);
       await refreshOfflinePackages();
     } catch (cause) {
@@ -359,6 +367,35 @@ export default function SettingsPage() {
     } finally {
       setPackageBusy(false);
     }
+  };
+  const checkRegionUpdates = async (regionId: string) => {
+    if (packageBusy || checkingRegion) return;
+    setCheckingRegion(regionId);
+    try {
+      const result = await regionManager.current.checkUpdateAvailable(regionId);
+      setRegionUpdates(previous => ({ ...previous, [regionId]: {
+        available: result.hasUpdate,
+        message: result.hasUpdate ? `Nova versão ${String(result.updateInfo.availableVersion)} disponível.` :
+          String(result.updateInfo.reason ?? (result.updateInfo.status === 'current' ? 'Este mapa está atualizado.' : 'Nenhuma atualização aplicável.')),
+      } }));
+    } finally { setCheckingRegion(null); }
+  };
+  const updateRegion = async (regionId: string) => {
+    if (packageBusy || checkingRegion) return;
+    setPackageBusy(true);
+    setError(null);
+    try {
+      const result = await regionManager.current.applyUpdate(regionId);
+      if (!result.success) throw new Error(result.message);
+      await refreshOfflinePackages();
+      await refreshStorage();
+      setRegionUpdates(previous => ({ ...previous, [regionId]: { available: false, message: 'Atualização aplicada.' } }));
+      toast({ title: 'Mapa regional atualizado', description: result.message, variant: 'success' });
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : 'Falha na atualização regional.';
+      setError(message);
+      toast({ title: 'Atualização não concluída', description: message, variant: 'error' });
+    } finally { setPackageBusy(false); }
   };
   const formatBytes = (bytes?: number) =>
     bytes === undefined
@@ -564,8 +601,11 @@ export default function SettingsPage() {
                 <p className="font-semibold">{manifest.label}</p>
                 <p className="text-xs text-on-surface-variant">{manifest.attribution}</p>
                 {selectedOfflineMapId === manifest.id && <p className="text-xs text-emerald-500">Selecionado para abrir no mapa</p>}
+                {regionUpdates[manifest.id] && <p role="status" className="text-xs text-on-surface-variant">{regionUpdates[manifest.id].message}</p>}
               </div>
               <div className="flex gap-2">
+                {getRegionSourceUrl(manifest.id) && <button type="button" disabled={packageBusy || Boolean(checkingRegion)} onClick={() => void checkRegionUpdates(manifest.id)} className="min-h-[44px] rounded-lg border border-outline-variant px-3 text-sm">{checkingRegion === manifest.id ? 'Verificando…' : 'Ver atualizações'}</button>}
+                {regionUpdates[manifest.id]?.available && <button type="button" disabled={packageBusy || Boolean(checkingRegion)} onClick={() => void updateRegion(manifest.id)} className="min-h-[44px] rounded-lg border border-primary px-3 text-sm font-semibold">Atualizar região</button>}
                 {selectedOfflineMapId !== manifest.id && <button type="button" disabled={packageBusy} onClick={() => selectOfflinePackage(manifest)} className="min-h-[44px] rounded-lg border border-outline-variant px-3 text-sm">Usar no mapa</button>}
                 <button type="button" disabled={packageBusy} onClick={() => void removeOfflinePackage(manifest)} className="min-h-[44px] rounded-lg border border-red-400/40 px-3 text-sm text-red-500">Remover</button>
               </div>

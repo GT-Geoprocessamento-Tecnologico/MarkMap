@@ -12,6 +12,10 @@ import { offlineMapStore } from "./offline-map-store";
 import { offlineMapPackageManifestSchema, type OfflineMapPackageManifest } from "@geonexo/contracts";
 import { getSelectedOfflineMapId } from "./offline-map-selection";
 import { validateOfflinePackage } from "@geonexo/maps/offline/package";
+import { fetchRemoteRegionManifest } from './remote-region-manifest.mjs';
+import { ResumableInstaller } from './resumable-installer';
+import { getRegionSourceUrl } from './region-source-registry';
+import { compareRegionVersions } from './region-version';
 
 /** Tipo de operação de região */
 export type RegionOperation = "list" | "remove" | "repair" | "details";
@@ -222,7 +226,8 @@ export class RegionManager {
         ...(manifest.routingGraph ? [manifest.routingGraph] : []),
         ...(manifest.contourLines ? [manifest.contourLines] : []),
         ...(manifest.wikipediaPack ? [manifest.wikipediaPack] : []),
-        ...(manifest.transitPack ? [manifest.transitPack] : [])];
+        ...(manifest.transitPack ? [manifest.transitPack] : []),
+        ...(manifest.demGrid ? [manifest.demGrid] : [])];
       for (const path of ['package.pmtiles', ...refs.map((ref) => ref.path)]) {
         const blob = await offlineMapStore.asset(regionId, path);
         if (!blob) return { success: false, regionId, message: `Arquivo ausente no pacote: ${path}`, repairedFiles: 0 };
@@ -257,19 +262,66 @@ export class RegionManager {
     }
   }
 
-  /** Verificar se há atualização disponível para uma região */
-  async checkUpdateAvailable(_regionId: string): Promise<{ hasUpdate: boolean; updateInfo: Record<string, unknown> }> {
-    // Verificar se há novo manifest disponível
-    // ... (implementação simplificada)
-    return { hasUpdate: false, updateInfo: { status: "unavailable", reason: "Catálogo de atualizações ainda não integrado" } };
+  /** Check a user-configured HTTPS manifest without modifying installed data. */
+  async checkUpdateAvailable(regionId: string): Promise<{ hasUpdate: boolean; updateInfo: Record<string, unknown> }> {
+    const unavailable = (reason: string) => ({ hasUpdate: false, updateInfo: { status: 'unavailable', reason } });
+    const installed = await offlineMapStore.get(regionId).catch(() => null);
+    if (!installed) return unavailable('Região não encontrada neste dispositivo.');
+    const source = getRegionSourceUrl(regionId);
+    if (!source) return unavailable('Instale a região a partir de uma URL HTTPS para ativar atualizações.');
+    if (typeof navigator !== 'undefined' && navigator.onLine === false)
+      return unavailable('Conecte-se para consultar novas versões. O mapa instalado permanece offline.');
+    try {
+      const remote = await fetchRemoteRegionManifest(source);
+      const parsed = offlineMapPackageManifestSchema.safeParse(remote.manifest);
+      if (!parsed.success || parsed.data.id !== regionId)
+        return unavailable('Manifest remoto incompatível ou de outra região.');
+      const current = installed.manifest;
+      const next = parsed.data;
+      const order = compareRegionVersions(next.packageVersion, current.packageVersion);
+      if (order === null) return unavailable('Versões regionais precisam seguir MAJOR.MINOR.PATCH.');
+      if (order <= 0) return { hasUpdate: false, updateInfo: {
+        status: order < 0 ? 'older' : 'current', installedVersion: current.packageVersion,
+        availableVersion: next.packageVersion,
+      } };
+      const compatibility = compareRegionVersions(next.minimumCompatibleVersion, current.minimumCompatibleVersion);
+      if (compatibility === null || compatibility > 0)
+        return unavailable('Este mapa exige um protocolo de aplicativo mais recente. Atualize o MarkMap primeiro.');
+      return { hasUpdate: true, updateInfo: {
+        status: 'available', installedVersion: current.packageVersion,
+        availableVersion: next.packageVersion, bytes: next.totalBytes,
+      } };
+    } catch (cause) {
+      return unavailable(cause instanceof Error ? cause.message : 'Falha ao consultar o catálogo regional.');
+    }
   }
 
-  /** Aplicar atualização de região */
-  async applyUpdate(_regionId: string): Promise<{ success: boolean; message: string }> {
-    // Aplicar update usando o ResumableInstaller
-    // ... (implementação simplificada)
-    return { success: false, message: "Não implementado ainda" };
+  /** Apply only after an explicit click. The installer verifies all bytes before activation. */
+  async applyUpdate(regionId: string): Promise<{ success: boolean; message: string }> {
+    const check = await this.checkUpdateAvailable(regionId);
+    if (!check.hasUpdate) return { success: false, message: String(check.updateInfo.reason ?? 'Não existe atualização regional disponível.') };
+    const source = getRegionSourceUrl(regionId);
+    if (!source) return { success: false, message: 'Fonte HTTPS não configurada.' };
+    try {
+      const remote = await fetchRemoteRegionManifest(source);
+      const manifest = offlineMapPackageManifestSchema.parse(remote.manifest);
+      const installed = await offlineMapStore.get(regionId);
+      if (!installed || manifest.id !== regionId ||
+          compareRegionVersions(manifest.packageVersion, installed.manifest.packageVersion) !== 1 ||
+          (compareRegionVersions(manifest.minimumCompatibleVersion, installed.manifest.minimumCompatibleVersion) ?? 1) > 0)
+        return { success: false, message: 'Versão ou compatibilidade mudou. Consulte novamente antes de instalar.' };
+      const installer = new ResumableInstaller();
+      const result = await installer.startInstall({ packageId: regionId,
+        manifest: { ...manifest, archivePath: 'package.pmtiles' },
+        baseUrl: remote.baseUrl, forceValidate: true });
+      return result.success
+        ? { success: true, message: `Região ${manifest.label} atualizada para ${manifest.packageVersion}.` }
+        : { success: false, message: result.error.message };
+    } catch (cause) {
+      return { success: false, message: cause instanceof Error ? cause.message : 'Falha ao atualizar região.' };
+    }
   }
+
 }
 
 export default RegionManager;
