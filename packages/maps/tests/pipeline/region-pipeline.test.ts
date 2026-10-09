@@ -160,6 +160,8 @@ describe("region-pipeline (MM-MAP-200)", () => {
     await writeFile(
       join(inputDir, "graph.json"),
       JSON.stringify({
+        version: 'v1', bounds: [-49, -25, -45, -21], osmDataDate: '2026-10-08T00:00:00.000Z',
+        profiles: ['walk', 'bicycle', 'car'], turnRestrictions: [],
         nodes: [
           { id: 0, lon: -46.6, lat: -23.5 },
           { id: 1, lon: -46.5, lat: -23.5 },
@@ -169,7 +171,7 @@ describe("region-pipeline (MM-MAP-200)", () => {
     );
     await writeFile(
       join(inputDir, "contours.json"),
-      JSON.stringify({ interval: 20, majorInterval: 100, contours: [{ elevation: 100, geometry: [[0, 0]] }] }),
+      JSON.stringify({ interval: 20, majorInterval: 100, contours: [{ elevation: 100, geometry: [[-46.6, -23.5], [-46.5, -23.5]] }] }),
     );
 
     await writeRequiredRegionFiles();
@@ -184,8 +186,10 @@ describe("region-pipeline (MM-MAP-200)", () => {
     const manifestOnDisk = JSON.parse(await readFile(join(outputDir, "manifest.json"), "utf8"));
     expect(manifestOnDisk.packageVersion).toBe("1.0.0");
     expect(manifestOnDisk.checksums.archive).toMatch(/^[a-f0-9]{64}$/);
-    expect(manifestOnDisk.capabilities).toEqual(["basemap", "search"]);
+    expect(manifestOnDisk.capabilities).toEqual(['basemap','search','routing.walk','routing.bicycle','routing.car','contours']);
     expect(manifestOnDisk.searchShards?.length).toBeGreaterThan(0);
+    expect(manifestOnDisk.routingGraph.path).toBe('routing/graph.json');
+    expect(manifestOnDisk.contourLines.path).toBe('elevation/contours.json');
 
     const shardFiles = result.artifacts.filter((a: { path: string }) => a.path.startsWith("search/"));
     expect(shardFiles.length).toBeGreaterThan(0);
