@@ -33,6 +33,15 @@ function inside(point, bounds) {
 }
 function access(tags, profile, highway) {
   const key = profile === 'walk' ? 'foot' : 'bicycle';
+  // Exclude incomplete/conditional legal access rather than guess the local rule.
+  if (tags.area === 'yes' || tags.indoor === 'yes' || tags.construction ||
+      tags.proposed || tags.disused === 'yes' || tags.abandoned === 'yes' ||
+      tags['oneway:conditional'] || tags['access:forward'] || tags['access:backward'] ||
+      tags['foot:conditional'] || tags['bicycle:conditional'] ||
+      tags['vehicle:conditional'] || tags['access:conditional']) return false;
+  // Driveways/parking aisles and restricted access are not through-route shortcuts.
+  if (highway === 'service' && ['driveway', 'parking_aisle', 'private'].includes(tags.service)) return false;
+  if (['destination', 'delivery', 'customers', 'agricultural', 'forestry'].includes(tags.access)) return false;
   const rule = tags[key];
   if (rule === 'no' || rule === 'private') return false;
   if (rule === 'yes' || rule === 'designated' || rule === 'permissive') return true;
@@ -75,7 +84,8 @@ export function makeSmallOsmGraph(state, { bounds, osmDataDate }) {
       if (!inside(a, bounds) || !inside(b, bounds)) continue;
       const length = distanceM(a, b);
       if (!(length > 0) || length > 1_000_000) continue;
-      if (edges.length >= MAX_GRAPH_EDGES || nodes.size + 2 > MAX_GRAPH_NODES) return null;
+      const additionalNodes = Number(!nodes.has(fromId)) + Number(!nodes.has(toId));
+      if (edges.length >= MAX_GRAPH_EDGES || nodes.size + additionalNodes > MAX_GRAPH_NODES) return null;
       nodes.set(fromId, a);
       nodes.set(toId, b);
       const forward = !reverse || !cycleOneway;
