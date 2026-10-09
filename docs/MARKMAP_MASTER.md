@@ -1,38 +1,17 @@
 # MarkMap — Documento Mestre Único
 
-## Atualização vigente — M6/M7 offline routing + contours (2026-10-09)
+## Governança vigente — 2026-10-09 — branch única PWA
 
-**Base auditada:** `agent/MM-MAP-310-420-offline-packages@7d97d40`; **trabalho:** `agent/MM-MAP-600-640-offline-routing`; **versão dev:** `0.2.0-dev.0` (sem release/tag). **Documento:** `docs/MM-MAP-500-640-routing-contours-handoff.md`. **Estado:** **PARCIAL**, sem gate Web completo.
+**Fonte operacional:** `docs/MARKMAP_CONSOLIDATION_M8_HANDOFF.md`. **Única branch de desenvolvimento:** `dev/markmap-pwa-v2`, criada a partir do HEAD `86681a9` (todos os cinco branches anteriores em cadeia linear). **main:** `156d4e8` intocada. **Versão de desenvolvimento:** `0.2.0-dev.0`.
 
-- [x] **MM-MAP-600/610 (parcial):** pacote regional agora inclui `routing/graph.json` opcional com SHA-256, limites/contrato e ativação atômica no IndexedDB; importação por pasta e instalador URL incluem o arquivo.
-- [x] **MM-MAP-620 (parcial):** roteamento em Worker offline, escolha a pé/bicicleta/carro conforme grafo, origem pelo GPS/mapa e destino no mapa, rota desenhada em MapLibre, ETA e restrições `no_*`/`only_*` para carro.
-- [x] **MM-MAP-530 (parcial):** `elevation/contours.json` precomputado validado/hash e representado com linhas vetoriais offline; **não** gera DEM nem elevação ausente.
-- [x] **Prévia TTS (parcial):** primeira instrução falada sob clique; voz offline não garantida. Não confundir com navegação guiada contínua.
-- [x] **QA direcionado:** 18/18 testes Node em fixtures locais, `node --check` dos módulos, 12 arquivos TS/TSX sem erros de parse e `tsc --strict` isolado do roteador.
-- [ ] **Gate bloqueado:** não rodados monorepo `pnpm lint/typecheck/test/build`, Playwright/IndexedDB navegador, mapa/grafo/contornos OSM reais, navegador móvel e E2E offline. Não liberar PR/merge em `main` nem afirmar conclusão M6/M7.
-- [ ] **Próximo:** MM-MAP-900/940 QA local em checkout completo; então MM-MAP-200/600 com dados OSM reais, M7 GPS/rerouting/voz contínua, M6 DEM, M8 conteúdo licenciado. Testes físicos Android/iOS são recomendados, mas não bloqueiam o desenvolvimento PWA.
+- [x] Histórico consolidado sem cherry-pick/rebase/force push.
+- [ ] Exclusão das cinco refs antigas **PENDENTE**: API GitHub de deleção indisponível; somente remover depois da última checagem de ancestralidade/PR.
+- [x] Auditoria detectou instalação por pasta incompleta (search/routing/contours) e perfil DEM com 0 m fabricados: correções preparadas no ramo consolidado.
+- [x] M8 PARCIAL: conteúdo licenciado Wikipedia/transporte offline versionado, SHA-256, IndexedDB/instalação/UI; dados reais e E2E pendentes.
+- [x] QA local direcionado: 17/17 Node pipeline/rotas/conteúdo, 5/5 runtime hardening, `tsc --strict` isolado 0 erros, sintaxe TypeScript 14 arquivos aprovada. Não são QA monorepo.
+- [ ] Gate M10: lint/typecheck/Vitest/build/Playwright em checkout completo, pacotes reais, rollback/outbox e QA de licença/segurança.
 
-**Regras:** sem GitHub CI, deploy Vercel, release, migrações, force push ou merge para main. Baseline `main@156d4e8` preservado. Este bloco prevalece sobre os registros históricos abaixo.
-
-
-### Incremento M7 — algoritmo de rotas corrigido, ainda PARCIAL (2026-10-09)
-
-- [x] Corrigidos sentido permitido de `oneway`, unidades de ETA em segundos, geometria da rota (inclusive arestas reversas) e cálculo de curvas via coordenadas; regressões em algoritmo puro passaram no Node e `tsc --strict` isolado.
-- [ ] Não anunciar navegação operacional: `graph.json` validado/instalado e conectado ao Worker/UI/voz ainda pendente, turn restrictions não são aplicadas e nenhuma rota real em navegador foi testada.
-- [ ] Próxima prioridade M7: `MM-MAP-600/610` com grafo regional versionado e roteamento offline em Worker, depois `MM-MAP-620/630/640` GPS, manobras, recálculo e voz; gate Web sem CI Github.
-
-## Incremento M4/M5/M6 — 2026-10-09 (PWA-first, parcialmente validado)
-
-**Branch:** `agent/MM-MAP-310-420-offline-packages` (base `agent/MM-MAP-300-400-pwa-integration@706650b`); **versão:** `0.2.0-dev.0`, sem release. **Manual:** `docs/MM-MAP-310-530-kmz-regional-search-elevation.md`.
-
-- [x] **MM-MAP-310 parcial:** KMZ (`doc.kml` / KML único) com ZIP local limitado, path traversal/zip bomb/CRC32 bloqueados; usa mesmo validador GeoJSON; original preservado.
-- [x] **MM-MAP-400/410/420 parcial:** índice `search/*.json` registrado como `searchShards?` com checksum no manifest, orçamento defensivo, instalação no mesmo staging/generation IndexedDB, leitura no PWA e pesquisa no Worker sem rede.
-- [x] **MM-MAP-520 parcial:** perfil altimétrico de trilhas 3D importadas no painel Dados (distância, subidas/descidas e gráfico); sem altitude fictícia; não usa DEM.
-- [x] **QA isolada:** `tsc --strict` de 4 módulos puros, `node --check` do pipeline, transpilação sintática de 22 arquivos TS/TSX e testes Node locais de ZIP, CRC, busca/registros, reader e perfil executados com sucesso.
-- [ ] **QA completo pendente:** lint, typecheck, Vitest, build e Playwright do monorepo (checkout com dependências indisponível); IndexedDB real, PMTiles/OSM real, armazenamento após restart e navegadores móveis.
-- [ ] **Próxima fase:** dados DEM/contours reais (M6), roteamento regional + UI/voz (M7), Wikipedia/transporte (M8) e gate MM-MAP-940; não afirmar prontidão para `main`.
-
-Sem CI GitHub, sem deploy/release, sem alteração em `main` ou na branch de integração. Versão oficial permanece `0.1.0` em `main`.
+Regra **substitui para próximos agentes** quaisquer instruções históricas abaixo que mandem abrir novos ramos; manter apenas `main` e `dev/markmap-pwa-v2` após a limpeza autorizada. **Sem deploy/CI/tag/release/migration.**
 
 
 ## Progresso M4/M5 — 2026-10-09 (ainda PARCIAL)
