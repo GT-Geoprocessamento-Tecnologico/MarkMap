@@ -153,8 +153,15 @@ self.addEventListener('fetch', (event) => {
   }
 });
 
-// Listen for update messages from main thread
+// Respond to a waiting-tab compatibility handshake before accepting skipWaiting.
 self.addEventListener('message', (event) => {
+  if (event.data?.type === 'CHECK_COMPATIBILITY') {
+    event.ports?.[0]?.postMessage({
+      type: 'MARKMAP_COMPATIBILITY', shellProtocolVersion: 1,
+      localSchemaVersion: 1, regionPackageSchemaVersion: 2,
+    });
+    return;
+  }
   if (event.data && event.data.type === 'SKIP_WAITING' &&
       event.data.durableWritesReady === true && event.data.compatibilityVersion === 1) {
     self.skipWaiting();

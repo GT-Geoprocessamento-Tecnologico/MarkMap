@@ -1,5 +1,35 @@
 import { useEffect, useState } from "react";
 
+/** Ask the WAITING worker for protocol information; do not infer it from network status. */
+async function waitingWorkerCompatible(waiting: ServiceWorker): Promise<boolean> {
+  if (typeof MessageChannel === 'undefined') return false;
+  return new Promise((resolve) => {
+    const channel = new MessageChannel();
+    let settled = false;
+    const finish = (ok: boolean) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      channel.port1.close();
+      channel.port2.close();
+      resolve(ok);
+    };
+    const timeout = setTimeout(() => finish(false), 4000);
+    channel.port1.onmessage = (event: MessageEvent<{
+      type?: string; shellProtocolVersion?: number; localSchemaVersion?: number;
+      regionPackageSchemaVersion?: number;
+    }>) => {
+      const data = event.data;
+      finish(data?.type === 'MARKMAP_COMPATIBILITY' &&
+        data.shellProtocolVersion === 1 && data.localSchemaVersion === 1 &&
+        data.regionPackageSchemaVersion === 2);
+    };
+    try { waiting.postMessage({ type: 'CHECK_COMPATIBILITY' }, [channel.port2]); }
+    catch { finish(false); }
+  });
+}
+
+
 export interface UpdatePromptProps {
   /** Return true only after IndexedDB transactions and outbox writes are durable. */
   durableWritesReady?: () => boolean | Promise<boolean>;
@@ -14,6 +44,7 @@ export function UpdatePrompt({
 }: UpdatePromptProps) {
   const [registration, setRegistration] = useState<ServiceWorkerRegistration | null>(null);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [dismissedVersion, setDismissedVersion] = useState<ServiceWorker | null>(null);
 
   useEffect(() => {
@@ -103,14 +134,26 @@ export function UpdatePrompt({
     const waiting = registration.waiting;
     if (!waiting) return;
     setBusy(true);
+    setError(null);
     try {
-      const [writesReady, compatible] = await Promise.all([durableWritesReady(), compatibilityReady()]);
-      if (!writesReady || !compatible) return;
+      const [writesReady, appCompatible, workerCompatible] = await Promise.all([
+        durableWritesReady(), compatibilityReady(), waitingWorkerCompatible(waiting),
+      ]);
+      if (!writesReady || !appCompatible) {
+        setError('Aguarde o salvamento local dos dados antes de atualizar.');
+        return;
+      }
+      if (!workerCompatible) {
+        setError('Esta versão não confirmou compatibilidade dos dados locais. Atualização bloqueada por segurança.');
+        return;
+      }
       waiting.postMessage({
         type: "SKIP_WAITING",
         durableWritesReady: true,
         compatibilityVersion: 1,
       });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Não foi possível ativar a atualização com segurança.');
     } finally {
       setBusy(false);
     }
@@ -131,6 +174,7 @@ export function UpdatePrompt({
       className="pwa-update-prompt"
     >
       <span>Nova versão do MarkMap disponível.</span>
+      {error && <p role="alert" className="text-xs text-red-500">{error}</p>}
       <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
         <button
           type="button"

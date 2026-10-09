@@ -41,7 +41,7 @@ export default function App() {
             await localRepository.listOutbox();
             return true;
           }}
-          compatibilityReady={() => true}
+          compatibilityReady={() => typeof indexedDB !== 'undefined' && typeof caches !== 'undefined'}
         />
         <RouterProvider router={router} />
       </ToastProvider>
