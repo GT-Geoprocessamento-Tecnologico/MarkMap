@@ -109,7 +109,9 @@ export async function requestPwaInstall(): Promise<
   const choice = await promptEvent.userChoice;
   installPrompt = null;
 
-  const installed = choice.outcome === "accepted" || detectStandalone();
+  // User choice is not proof of completed installation.
+  // appinstalled or standalone mode is the authoritative installed state.
+  const installed = detectStandalone();
   publish({
     available: false,
     installed,

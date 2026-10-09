@@ -41,6 +41,8 @@ describe("PWA install prompt lifecycle", () => {
     await expect(requestPwaInstall()).resolves.toBe("accepted");
     expect(prompt).toHaveBeenCalledTimes(1);
     expect(getPwaInstallSnapshot().available).toBe(false);
+    expect(getPwaInstallSnapshot().installed).toBe(false);
+    window.dispatchEvent(new Event("appinstalled"));
     expect(getPwaInstallSnapshot().installed).toBe(true);
   });
 });

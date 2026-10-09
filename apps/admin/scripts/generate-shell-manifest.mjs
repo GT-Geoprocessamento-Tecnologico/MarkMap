@@ -34,7 +34,15 @@ export async function collectShellAssets(distDirectory) {
 export async function generateShellManifest(distDirectory) {
   const assets = await collectShellAssets(distDirectory);
   if (!assets.includes('/index.html')) throw new Error('shell manifest requires index.html');
-  const payload = JSON.stringify({ version: createHash('sha256').update(assets.join('\n')).digest('hex').slice(0, 16), assets }, null, 2) + '\n';
+  // Hash real content, including non-fingerprinted index.html and manifest.json.
+  const digest = createHash('sha256');
+  for (const asset of assets) {
+    digest.update(asset);
+    digest.update('\0');
+    digest.update(await readFile(join(distDirectory, asset.slice(1))));
+    digest.update('\0');
+  }
+  const payload = JSON.stringify({ version: digest.digest('hex').slice(0, 16), assets }, null, 2) + '\n';
   await writeFile(join(distDirectory, 'shell-manifest.json'), payload, 'utf8');
   const workerPath = join(distDirectory, 'sw.js');
   try {
