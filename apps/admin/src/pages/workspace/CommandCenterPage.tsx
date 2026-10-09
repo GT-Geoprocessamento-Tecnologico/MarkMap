@@ -140,7 +140,8 @@ export default function CommandCenterPage() {
       const color = station.lines.map(id => lines.get(id)?.color).find(Boolean) ?? '#2586a3';
       return { type: 'Feature', geometry: { type: 'Point', coordinates: [station.lon, station.lat] },
         properties: { name: station.name, operator: station.operator ?? '',
-          lines: names.join(', '), color } };
+          lines: names.join(', '), color,
+          attribution: transitNetwork?.attribution ?? '', license: (transitNetwork as (TransitNetwork & { license?: string }) | null)?.license ?? '' } };
     }) };
   }, [transitNetwork]);
   const transitGeoJSONRef = useRef(transitGeoJSON);

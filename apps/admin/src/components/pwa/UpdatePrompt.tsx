@@ -10,9 +10,8 @@ async function waitingWorkerCompatible(waiting: ServiceWorker): Promise<boolean>
       if (settled) return;
       settled = true;
       clearTimeout(timeout);
-      channel.port1.close();
-      channel.port2.close();
-      resolve(ok);
+      try { channel.port1.close(); channel.port2.close(); }
+      finally { resolve(ok); }
     };
     const timeout = setTimeout(() => finish(false), 4000);
     channel.port1.onmessage = (event: MessageEvent<{

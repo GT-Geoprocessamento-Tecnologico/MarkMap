@@ -63,12 +63,13 @@ export function makeSmallOsmGraph(state, { bounds, osmDataDate }) {
     if (!BASIC_HIGHWAYS.has(highway)) continue;
     const foot = access(tags, 'walk', highway) && !['no'].includes(tags['foot:forward']) &&
       !['no'].includes(tags['foot:backward']);
-    const bicycle = access(tags, 'bicycle', highway) && !['no'].includes(tags['bicycle:forward']) &&
+    let bicycle = access(tags, 'bicycle', highway) && !['no'].includes(tags['bicycle:forward']) &&
       !['no'].includes(tags['bicycle:backward']);
     if (!foot && !bicycle) continue;
     // Direction modifiers that our graph cannot model must not generate unsafe bicycle edges.
     const bikeDirection = tags['oneway:bicycle'];
-    if (bicycle && !['yes', 'no', '-1', '1', undefined].includes(bikeDirection)) continue;
+    if (bicycle && !['yes', 'no', '-1', '1', undefined].includes(bikeDirection)) bicycle = false;
+    if (!foot && !bicycle) continue;
     const cycleOneway = bicycle && bikeDirection !== 'no' &&
       (bikeDirection === 'yes' || bikeDirection === '1' || bikeDirection === '-1' ||
        tags.oneway === 'yes' || tags.oneway === '1' || tags.oneway === '-1');

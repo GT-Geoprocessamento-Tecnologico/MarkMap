@@ -293,6 +293,8 @@ export default function SettingsPage() {
         assets.set(ref.path, file);
       }
       await offlineMapStore.install(manifest, assets);
+      // A folder import has no trusted remote source; discard any old URL for this region ID.
+      forgetRegionSource(manifest.id);
       setSelectedOfflineMapId(manifest.id);
       setSelectedOfflineMapIdState(manifest.id);
       await refreshOfflinePackages();

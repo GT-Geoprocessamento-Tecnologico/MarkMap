@@ -29,6 +29,7 @@ import { validateRegionalGraph, MAX_GRAPH_BYTES } from '../packages/maps/src/rou
 import { validateRegionalContours, MAX_CONTOUR_BYTES } from '../packages/maps/src/elevation/contour-package.mjs';
 import { validateRegionalDem, MAX_REGIONAL_DEM_BYTES } from '../packages/maps/src/elevation/regional-dem.mjs';
 import { buildRegionalDemFromHgt } from './srtm-hgt.mjs';
+import { buildRegionalTransitFromGtfs } from './gtfs-static.mjs';
 import { buildPmtilesFromOsmFile, defaultOfflineStyle, OsmTileError } from "./osm-pbf-pmtiles.mjs";
 import { buildSmallOsmAddons } from "./osm-graph-search.mjs";
 
@@ -251,9 +252,13 @@ export function buildManifest({
   if (!Array.isArray(attributionItems) || attributionItems.some((a) =>
     !a || typeof a.name !== "string" || !a.name.trim() || typeof a.url !== "string" || !/^https:\/\//.test(a.url)
   )) throw new PipelineError("attributions deve conter name e URL HTTPS", "INVALID_SOURCES");
-  const attributions = attributionItems.length ? attributionItems : [
-    { name: "OpenStreetMap contributors", url: "https://www.openstreetmap.org/copyright" },
-  ];
+  const attributions = [...attributionItems];
+  // Every OSM-based map must retain a visible ODbL credit even when another data
+  // source (DEM, transit) supplies its own independent attribution.
+  if (!attributions.some(credit => /openstreetmap/i.test(credit.name) ||
+      credit.url === 'https://www.openstreetmap.org/copyright')) {
+    attributions.unshift({ name: 'OpenStreetMap contributors', url: 'https://www.openstreetmap.org/copyright' });
+  }
   if (routingArtifact && (!Array.isArray(graphProfiles) || graphProfiles.length < 1 || graphProfiles.length > 3 ||
       new Set(graphProfiles).size !== graphProfiles.length ||
       graphProfiles.some((p) => !['walk', 'bicycle', 'car'].includes(p))))
@@ -506,6 +511,32 @@ export async function runPipeline({ input, output, dryRun = false, now = new Dat
     artifacts.push(await writeArtifact(outputDir, outputName, JSON.stringify(parsed)));
   }
 
+  // Optional offline-only GTFS Schedule source. Extracted CSV files and distribution
+  // rights are furnished by the publisher; no GTFS feed URL is fetched or scraped.
+  let gtfsCredit = null;
+  const gtfsDir = join(inputDir, 'gtfs');
+  if (!(await exists(join(inputDir, 'transit.json'))) && (await exists(gtfsDir))) {
+    const sourceFile = join(inputDir, 'gtfs-source.json');
+    if (!(await exists(sourceFile)))
+      throw new PipelineError('GTFS requer gtfs-source.json com licença, URL e atribuição', 'MISSING_TRANSIT_LICENSE');
+    let source;
+    try { source = JSON.parse(await readFile(sourceFile, 'utf8')); }
+    catch { throw new PipelineError('gtfs-source.json inválido', 'INVALID_GTFS'); }
+    if (!source || typeof source.sourceUrl !== 'string' ||
+        !/^https:\/\/[^\s/]+/.test(source.sourceUrl) || source.sourceUrl.length > 500)
+      throw new PipelineError('GTFS requer URL HTTPS da fonte licenciada', 'INVALID_GTFS');
+    try {
+      const transit = await buildRegionalTransitFromGtfs({ directory: gtfsDir,
+        regionId: metadata.id, bounds: metadata.bounds, attribution: source.attribution,
+        license: source.license, version: source.version ?? 'gtfs-v1', generatedAt: now.toISOString() });
+      artifacts.push(await writeArtifact(outputDir, 'content/transit.json', JSON.stringify(transit)));
+      gtfsCredit = { name: source.attribution, url: source.sourceUrl };
+      warnings.push('GTFS estático inclui paradas/linhas apenas; não possui horários, geometria nem serviço em tempo real');
+    } catch (error) {
+      throw new PipelineError(error instanceof Error ? error.message : 'GTFS inválido', 'INVALID_GTFS');
+    }
+  }
+
   if (hasOsm && !hasBasemap) warnings.push("Limite do builder integrado: ate 32 MiB de extrato PBF; use um gerador regional especializado para areas maiores");
   warnings.push('Validacao GPS, fontes de dados e licença em campo continuam pendentes; nao distribuir rotas sem gate final');
 
@@ -514,11 +545,10 @@ export async function runPipeline({ input, output, dryRun = false, now = new Dat
     artifacts,
     sources: (() => {
       const baseSources = metadata.sources ?? { osm: 'OpenStreetMap', attributions: [] };
-      if (!localDem) return baseSources;
-      const osmCredits = baseSources.attributions?.length ? baseSources.attributions :
-        [{ name: 'OpenStreetMap contributors', url: 'https://www.openstreetmap.org/copyright' }];
-      const credit = { name: localDem.metadata.attribution, url: localDem.metadata.sourceUrl };
-      return { ...baseSources, attributions: [...osmCredits, credit] };
+      const credits = [...(baseSources.attributions ?? [])];
+      if (localDem) credits.push({ name: localDem.metadata.attribution, url: localDem.metadata.sourceUrl });
+      if (gtfsCredit) credits.push(gtfsCredit);
+      return { ...baseSources, attributions: credits };
     })(),
     osmDataDate: metadata.osmDataDate,
     graphProfiles,
