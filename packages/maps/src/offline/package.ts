@@ -1,3 +1,5 @@
+import { MAX_GRAPH_BYTES, validateRegionalGraph } from '../routing/graph-format.mjs';
+import { MAX_CONTOUR_BYTES, validateRegionalContours } from '../elevation/contour-package.mjs';
 import { MAX_REGIONAL_SEARCH_BYTES, MAX_REGIONAL_SHARD_BYTES, MAX_REGIONAL_SEARCH_RECORDS, parseRegionalShard } from "../search/regional-shards.js";
 // @ts-expect-error contracts emits runtime JS without declarations in this workspace
 import { offlineMapPackageManifestSchema, type OfflineMapPackageManifest } from "../../../contracts/dist/src/offline-map.js";
@@ -42,7 +44,7 @@ export async function validateOfflinePackage(manifestInput: unknown, assets: Pac
   const parsed = offlineMapPackageManifestSchema.safeParse(manifestInput);
   if (!parsed.success) return { ok: false, code: "invalid-manifest", detail: "manifest does not match the canonical contract" };
   const manifest = parsed.data;
-  const refs = [manifest.style, ...manifest.glyphs, ...manifest.sprites, ...(manifest.searchShards ?? [])];
+  const refs = [manifest.style, ...manifest.glyphs, ...manifest.sprites, ...(manifest.searchShards ?? []), ...(manifest.routingGraph ? [manifest.routingGraph] : []), ...(manifest.contourLines ? [manifest.contourLines] : [])];
   let indexedRecords = 0;
   let searchBytes = 0;
   const paths = refs.map((r) => r.path);
@@ -68,6 +70,24 @@ export async function validateOfflinePackage(manifestInput: unknown, assets: Pac
     const bytes = await bytesOf(value);
     if (bytes.byteLength !== ref.blob.bytes) return { ok: false, code: "size-mismatch", detail: `asset size mismatch: ${ref.path}` };
     if ((await sha256(bytes)).toLowerCase() !== ref.blob.sha256.toLowerCase()) return { ok: false, code: "checksum-mismatch", detail: `asset checksum mismatch: ${ref.path}` };
+    if (ref.path === 'routing/graph.json') {
+      if (bytes.byteLength > MAX_GRAPH_BYTES) return { ok: false, code: 'graph-too-large', detail: 'routing graph exceeds local budget' };
+      try {
+        const graph = validateRegionalGraph(JSON.parse(new TextDecoder().decode(bytes)), {
+          bounds: manifest.bounds, osmDataDate: manifest.osmDataDate,
+        });
+        for (const profile of ['walk', 'bicycle', 'car'] as const)
+          if (graph.profiles.includes(profile) !== manifest.capabilities.includes(`routing.${profile}`))
+            return { ok: false, code: 'graph-profile-mismatch', detail: `routing.${profile} capability does not match installed graph` };
+      } catch {
+        return { ok: false, code: 'invalid-routing-graph', detail: 'regional graph failed validation' };
+      }
+    }
+    if (ref.path === 'elevation/contours.json') {
+      if (bytes.byteLength > MAX_CONTOUR_BYTES) return { ok: false, code: 'contours-too-large', detail: 'regional contours exceed local budget' };
+      try { validateRegionalContours(JSON.parse(new TextDecoder().decode(bytes)), manifest.bounds); }
+      catch { return { ok: false, code: 'invalid-contours', detail: 'regional contour data failed validation' }; }
+    }
     if (ref.path.startsWith('search/')) {
       searchBytes += bytes.byteLength;
       if (bytes.byteLength > MAX_REGIONAL_SHARD_BYTES || searchBytes > MAX_REGIONAL_SEARCH_BYTES)

@@ -58,6 +58,8 @@ export interface PipelineManifest {
   glyphs: Array<{ path: string; blob: PipelineBlobRef }>;
   sprites: Array<{ path: string; blob: PipelineBlobRef }>;
   searchShards?: Array<{ path: string; blob: PipelineBlobRef }>;
+  routingGraph?: { path: string; blob: PipelineBlobRef };
+  contourLines?: { path: string; blob: PipelineBlobRef };
   attribution: string;
   createdAt: string;
   packageVersion: string;
@@ -113,6 +115,7 @@ export function buildManifest(options: {
   minZoom?: number;
   maxZoom?: number;
   minimumCompatibleVersion?: string;
+  graphProfiles?: Array<'walk' | 'bicycle' | 'car'>;
   now?: Date;
 }): PipelineManifest;
 export function runPipeline(options: RunPipelineOptions): Promise<PipelineResult>;

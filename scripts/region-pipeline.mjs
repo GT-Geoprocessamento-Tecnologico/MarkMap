@@ -24,6 +24,8 @@ import { createHash } from "node:crypto";
 import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { validateRegionalGraph, MAX_GRAPH_BYTES } from '../packages/maps/src/routing/graph-format.mjs';
+import { validateRegionalContours, MAX_CONTOUR_BYTES } from '../packages/maps/src/elevation/contour-package.mjs';
 import { buildPmtilesFromOsmFile, defaultOfflineStyle, OsmTileError } from "./osm-pbf-pmtiles.mjs";
 
 export const PIPELINE_VERSION = "1.0.0";
@@ -188,6 +190,7 @@ function blobRef(artifact, mediaType) {
 export function buildManifest({
   id, label, bounds, artifacts, sources, osmDataDate, packageVersion = PIPELINE_VERSION,
   minZoom = 0, maxZoom = 14, minimumCompatibleVersion = "0.2.0-dev.0", now = new Date(),
+  graphProfiles = [],
 }) {
   if (typeof id !== "string" || !/^[a-z0-9][a-z0-9._-]{0,127}$/.test(id))
     throw new PipelineError("id regional inválido", "INVALID_REGION_ID");
@@ -213,7 +216,10 @@ export function buildManifest({
   const spriteArtifacts = artifacts.filter((a) => a.path.startsWith('sprites/'));
   const glyphArtifacts = artifacts.filter((a) => a.path.startsWith('glyphs/'));
   const searchArtifacts = artifacts.filter((a) => /^search\/(?:[a-z][0-3]|0-9|other)\.json$/.test(a.path));
-  const activeArtifacts = [basemap, style, ...spriteArtifacts, ...glyphArtifacts, ...searchArtifacts];
+  const routingArtifact = artifacts.find((a) => a.path === 'routing/graph.json');
+  const contoursArtifact = artifacts.find((a) => a.path === 'elevation/contours.json');
+  const activeArtifacts = [basemap, style, ...spriteArtifacts, ...glyphArtifacts, ...searchArtifacts,
+    ...(routingArtifact ? [routingArtifact] : []), ...(contoursArtifact ? [contoursArtifact] : [])];
   let totalBytes = 0;
   for (const a of artifacts) {
     if (!/^[a-f0-9]{64}$/.test(a.sha256) || !Number.isSafeInteger(a.bytes) || a.bytes <= 0)
@@ -239,6 +245,14 @@ export function buildManifest({
   const attributions = attributionItems.length ? attributionItems : [
     { name: "OpenStreetMap contributors", url: "https://www.openstreetmap.org/copyright" },
   ];
+  if (routingArtifact && (!Array.isArray(graphProfiles) || graphProfiles.length < 1 || graphProfiles.length > 3 ||
+      new Set(graphProfiles).size !== graphProfiles.length ||
+      graphProfiles.some((p) => !['walk', 'bicycle', 'car'].includes(p))))
+    throw new PipelineError('perfis de roteamento não declarados', 'INVALID_GRAPH');
+  if (routingArtifact && (routingArtifact.bytes > MAX_GRAPH_BYTES || routingArtifact.mediaType !== 'application/json'))
+    throw new PipelineError('grafo regional excede limite', 'INVALID_GRAPH');
+  if (contoursArtifact && (contoursArtifact.bytes > MAX_CONTOUR_BYTES || contoursArtifact.mediaType !== 'application/json'))
+    throw new PipelineError('curvas de nível excedem limite', 'INVALID_CONTOURS');
   const archiveRef = blobRef(basemap, "application/vnd.pmtiles");
   const styleRef = blobRef(style, "application/json");
   return {
@@ -247,14 +261,21 @@ export function buildManifest({
     glyphs: glyphArtifacts.map((a) => ({ path: a.path, blob: blobRef(a, a.mediaType) })),
     sprites: spriteArtifacts.map((a) => ({ path: a.path, blob: blobRef(a, a.mediaType) })),
     ...(searchArtifacts.length ? { searchShards: searchArtifacts.map((a) => ({ path: a.path, blob: blobRef(a, 'application/json') })) } : {}),
+    ...(routingArtifact ? { routingGraph: { path: routingArtifact.path, blob: blobRef(routingArtifact, 'application/json') } } : {}),
+    ...(contoursArtifact ? { contourLines: { path: contoursArtifact.path, blob: blobRef(contoursArtifact, 'application/json') } } : {}),
     attribution: attributions.map((a) => a.name).join(" · "),
     createdAt: now.toISOString(), packageVersion, osmDataDate,
-    // Auxiliary JSON files are not activated by the current offline store.
-    capabilities: searchArtifacts.length ? ["basemap", "search"] : ["basemap"],
+    capabilities: ['basemap', ...(searchArtifacts.length ? ['search'] : []),
+      ...(routingArtifact ? graphProfiles.map((profile) => `routing.${profile}`) : []),
+      ...(contoursArtifact ? ['contours'] : [])],
     checksums: { archive: basemap.sha256, style: style.sha256,
       glyphs: glyphArtifacts.map((a) => a.sha256), sprites: spriteArtifacts.map((a) => a.sha256) },
     totalBytes, sources: { osm: sources.osm, attributions },
-    optionalComponents: { search: {}, routing: { walk: false, bicycle: false, car: false }, elevation: false, contours: false },
+    optionalComponents: { search: {}, routing: {
+      walk: Boolean(routingArtifact && graphProfiles.includes('walk')),
+      bicycle: Boolean(routingArtifact && graphProfiles.includes('bicycle')),
+      car: Boolean(routingArtifact && graphProfiles.includes('car')),
+    }, elevation: false, contours: Boolean(contoursArtifact) },
     minimumCompatibleVersion,
   };
 }
@@ -378,32 +399,41 @@ export async function runPipeline({ input, output, dryRun = false, now = new Dat
       artifacts.push(await writeArtifact(outputDir, "search/" + shard.id + ".json", JSON.stringify(shard)));
   } else warnings.push("places.json ausente: busca regional não foi empacotada");
 
+  let graphProfiles = [];
   const graphPath = join(inputDir, "graph.json");
   if (await exists(graphPath)) {
+    if ((await stat(graphPath)).size > MAX_GRAPH_BYTES) throw new PipelineError('graph.json acima do limite regional', 'INVALID_GRAPH');
     let graph;
     try { graph = JSON.parse(await readFile(graphPath, "utf8")); }
     catch { throw new PipelineError("graph.json inválido", "INVALID_JSON"); }
     validateRoutingGraph(graph);
+    try { validateRegionalGraph(graph, { bounds: metadata.bounds, osmDataDate: metadata.osmDataDate }); }
+    catch (error) { throw new PipelineError(error instanceof Error ? error.message : 'Grafo inválido', 'INVALID_GRAPH'); }
+    graphProfiles = graph.profiles;
     artifacts.push(await writeArtifact(outputDir, "routing/graph.json", JSON.stringify(graph)));
   } else warnings.push("graph.json ausente: roteamento não foi empacotado");
 
   const contoursPath = join(inputDir, "contours.json");
   if (await exists(contoursPath)) {
+    if ((await stat(contoursPath)).size > MAX_CONTOUR_BYTES) throw new PipelineError('contours.json acima do limite regional', 'INVALID_CONTOURS');
     let contours;
     try { contours = JSON.parse(await readFile(contoursPath, "utf8")); }
     catch { throw new PipelineError("contours.json inválido", "INVALID_JSON"); }
     validateContours(contours);
+    try { validateRegionalContours(contours, metadata.bounds); }
+    catch (error) { throw new PipelineError(error instanceof Error ? error.message : 'Curvas inválidas', 'INVALID_CONTOURS'); }
     artifacts.push(await writeArtifact(outputDir, "elevation/contours.json", JSON.stringify(contours)));
   } else warnings.push("contours.json ausente: curvas de nível não foram empacotadas");
 
   if (hasOsm && !hasBasemap) warnings.push("Limite do builder integrado: ate 32 MiB de extrato PBF; use um gerador regional especializado para areas maiores");
-  warnings.push("Ativação de roteamento, elevação e conteúdo adicional ainda não integrada ao contrato v2");
+  warnings.push('Grafos e curvas regionais são dados opcionais: DEM e navegação GPS assistida continuam pendentes');
 
   const manifest = buildManifest({
     ...metadata,
     artifacts,
     sources: metadata.sources ?? { osm: "OpenStreetMap", attributions: [] },
     osmDataDate: metadata.osmDataDate,
+    graphProfiles,
     now,
   });
   artifacts.push(await writeArtifact(outputDir, "manifest.json", JSON.stringify(manifest, null, 2)));

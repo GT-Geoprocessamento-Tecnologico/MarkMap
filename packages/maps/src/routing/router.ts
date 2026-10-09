@@ -3,7 +3,7 @@ import type {
 } from '@geonexo/contracts';
 
 type TraversedEdge = { edge: GraphEdge; from: number; to: number };
-type HeapItem = { id: number; cost: number };
+type HeapItem = { id: number; incomingEdge: number; cost: number };
 
 /** Dijkstra uses seconds as its only cost unit. It never queries the network. */
 class MinHeap {
@@ -105,42 +105,84 @@ function maneuverType(before: number, after: number): Pick<Maneuver, 'type' | 'm
     modifier: `${intensity}${side}` as Maneuver['modifier'] };
 }
 
+const MAX_SNAP_DISTANCE_METERS = 2_000;
+function metersBetween(a: [number, number], b: [number, number]): number {
+  const rad = Math.PI / 180;
+  const deltaLat = (b[1] - a[1]) * rad;
+  const deltaLon = (b[0] - a[0]) * rad;
+  const h = Math.sin(deltaLat / 2) ** 2 + Math.cos(a[1] * rad) * Math.cos(b[1] * rad) * Math.sin(deltaLon / 2) ** 2;
+  return 2 * 6_371_000 * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+type TransitionRule = { deny: Set<number>; only: Set<number> };
+function buildTransitionRules(graph: RoutingGraph): Map<string, TransitionRule> {
+  const rules = new Map<string, TransitionRule>();
+  for (const restriction of graph.turnRestrictions) {
+    const key = `${restriction.viaNode}:${restriction.fromEdge}`;
+    const rule = rules.get(key) ?? { deny: new Set<number>(), only: new Set<number>() };
+    if (restriction.type.startsWith('no_')) rule.deny.add(restriction.toEdge);
+    else rule.only.add(restriction.toEdge);
+    rules.set(key, rule);
+  }
+  return rules;
+}
+function transitionAllowed(rules: Map<string, TransitionRule>, incoming: number, via: number, outgoing: number, profile: RoutingProfile): boolean {
+  // The graph contract does not encode profile-specific restrictions. Motor-vehicle
+  // restrictions are honored for cars only, not assumed for foot or bicycle.
+  if (profile !== 'car' || incoming < 0) return true;
+  const rule = rules.get(`${via}:${incoming}`);
+  return !rule || (!rule.deny.has(outgoing) && (!rule.only.size || rule.only.has(outgoing)));
+}
+
 export function findRoute(graph: RoutingGraph, request: RouteRequest): Route | null {
-  if (graph.nodes.length === 0 || !['walk', 'bicycle', 'car'].includes(request.profile)) return null;
+  if (graph.nodes.length === 0 || !graph.profiles.includes(request.profile)) return null;
+  if (![...request.origin, ...request.destination].every(Number.isFinite)) return null;
   const originId = snapToNearestNode(graph, ...request.origin);
   const destinationId = snapToNearestNode(graph, ...request.destination);
   if (originId < 0 || destinationId < 0) return null;
+  const points = new Map(graph.nodes.map(n => [n.id, [n.lon, n.lat] as [number, number]]));
+  const startPoint = points.get(originId);
+  const endPoint = points.get(destinationId);
+  if (!startPoint || !endPoint ||
+      metersBetween(startPoint, request.origin) > MAX_SNAP_DISTANCE_METERS ||
+      metersBetween(endPoint, request.destination) > MAX_SNAP_DISTANCE_METERS) return null;
+
   const adjacency = buildAdjacencyList(graph, request.profile);
-  const costs = new Map<number, number>(graph.nodes.map((n) => [n.id, Infinity]));
-  const previous = new Map<number, { from: number; edge: GraphEdge }>();
-  const visited = new Set<number>();
-  costs.set(originId, 0);
+  const restrictions = buildTransitionRules(graph);
+  const key = (node: number, incoming: number) => `${node}:${incoming}`;
+  const initial = key(originId, -1);
+  const costs = new Map<string, number>([[initial, 0]]);
+  const previous = new Map<string, { state: string; part: TraversedEdge }>();
+  const visited = new Set<string>();
   const queue = new MinHeap();
-  queue.push({ id: originId, cost: 0 });
+  queue.push({ id: originId, incomingEdge: -1, cost: 0 });
+  let destinationState: string | null = null;
   while (queue.size) {
     const current = queue.pop()!;
-    if (visited.has(current.id)) continue;
-    visited.add(current.id);
-    if (current.id === destinationId) break;
+    const state = key(current.id, current.incomingEdge);
+    if (visited.has(state) || current.cost > (costs.get(state) ?? Infinity)) continue;
+    visited.add(state);
+    if (current.id === destinationId) { destinationState = state; break; }
     for (const { edge, reverse } of adjacency.get(current.id) ?? []) {
+      if (!transitionAllowed(restrictions, current.incomingEdge, current.id, edge.id, request.profile)) continue;
       const next = reverse ? edge.from : edge.to;
-      if (visited.has(next)) continue;
+      const nextState = key(next, edge.id);
+      if (visited.has(nextState)) continue;
       const candidate = current.cost + edgeSeconds(edge, request.profile);
-      if (candidate < (costs.get(next) ?? Infinity)) {
-        costs.set(next, candidate);
-        previous.set(next, { from: current.id, edge });
-        queue.push({ id: next, cost: candidate });
+      if (candidate < (costs.get(nextState) ?? Infinity)) {
+        costs.set(nextState, candidate);
+        previous.set(nextState, { state, part: { edge, from: current.id, to: next } });
+        queue.push({ id: next, incomingEdge: edge.id, cost: candidate });
       }
     }
   }
-  if (originId !== destinationId && !previous.has(destinationId)) return null;
+  if (!destinationState) return null;
   const traversed: TraversedEdge[] = [];
-  let cursor = destinationId;
-  while (cursor !== originId) {
+  let cursor = destinationState;
+  while (cursor !== initial) {
     const prev = previous.get(cursor);
     if (!prev) return null;
-    traversed.unshift({ edge: prev.edge, from: prev.from, to: cursor });
-    cursor = prev.from;
+    traversed.unshift(prev.part);
+    cursor = prev.state;
   }
   const nodes = new Map(graph.nodes.map((n): [number, [number, number]] => [n.id, [n.lon, n.lat]]));
   const start = nodes.get(originId)!;

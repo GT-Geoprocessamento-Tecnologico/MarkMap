@@ -106,6 +106,16 @@ export const offlineMapPackageManifestSchema = z
       (asset) => /^search\/(?:[a-z][0-3]|0-9|other)\.json$/.test(asset.path) && asset.blob.mediaType === 'application/json',
       'regional search shard must be a JSON file in search/',
     )).max(64).optional(),
+    /** Optional local routing network; absent means routing is unavailable. */
+    routingGraph: assetRefSchema.refine(
+      (asset) => asset.path === 'routing/graph.json' && asset.blob.mediaType === 'application/json',
+      'routing graph must be routing/graph.json',
+    ).optional(),
+    /** Optional precomputed contours; not a digital elevation model. */
+    contourLines: assetRefSchema.refine(
+      (asset) => asset.path === 'elevation/contours.json' && asset.blob.mediaType === 'application/json',
+      'contour lines must be elevation/contours.json',
+    ).optional(),
     attribution: z.string().trim().min(1).max(2_000),
     createdAt: z.string().datetime(),
     /** Versionamento do pacote */
@@ -172,10 +182,19 @@ export const offlineMapPackageManifestSchema = z
       manifest.style.blob.bytes +
       manifest.glyphs.reduce((sum, asset) => sum + asset.blob.bytes, 0) +
       manifest.sprites.reduce((sum, asset) => sum + asset.blob.bytes, 0) +
-      (manifest.searchShards ?? []).reduce((sum, asset) => sum + asset.blob.bytes, 0);
+      (manifest.searchShards ?? []).reduce((sum, asset) => sum + asset.blob.bytes, 0) +
+      (manifest.routingGraph?.blob.bytes ?? 0) + (manifest.contourLines?.blob.bytes ?? 0);
     if (manifest.capabilities.includes('search') !== Boolean(manifest.searchShards?.length)) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['capabilities'],
         message: 'search capability must match installed search shards' });
+    }
+    for (const profile of ['walk', 'bicycle', 'car'] as const) {
+      if (manifest.capabilities.includes(`routing.${profile}`) !== Boolean(manifest.routingGraph && manifest.optionalComponents.routing[profile])) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['capabilities'], message: `routing.${profile} capability inconsistent with graph` });
+      }
+    }
+    if (manifest.capabilities.includes('contours') !== Boolean(manifest.contourLines)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['capabilities'], message: 'contours capability inconsistent with data' });
     }
     if (bytes > 250 * 1024 * 1024)
       ctx.addIssue({

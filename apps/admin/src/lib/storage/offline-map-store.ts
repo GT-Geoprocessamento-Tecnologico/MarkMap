@@ -31,11 +31,12 @@ export class OfflineMapStore {
   async stage(manifest: OfflineMapPackageManifest, assets: PackageAssets): Promise<void> {
     const checked = await validateOfflinePackage(manifest, assets);
     if (!checked.ok) throw new Error(`${checked.code}: ${checked.detail}`);
-    const packageBytes = manifest.archive.bytes + manifest.style.blob.bytes + manifest.glyphs.reduce((n, r) => n + r.blob.bytes, 0) + manifest.sprites.reduce((n, r) => n + r.blob.bytes, 0) + (manifest.searchShards ?? []).reduce((n, r) => n + r.blob.bytes, 0);
+    const packageBytes = manifest.archive.bytes + manifest.style.blob.bytes + manifest.glyphs.reduce((n, r) => n + r.blob.bytes, 0) + manifest.sprites.reduce((n, r) => n + r.blob.bytes, 0) + (manifest.searchShards ?? []).reduce((n, r) => n + r.blob.bytes, 0) +
+      (manifest.routingGraph?.blob.bytes ?? 0) + (manifest.contourLines?.blob.bytes ?? 0);
     const estimate = typeof navigator !== "undefined" ? await navigator.storage?.estimate?.() : undefined;
     if (estimate?.quota !== undefined && estimate.usage !== undefined && estimate.usage + packageBytes > estimate.quota) throw new Error("offline map storage quota is insufficient");
     const materialized = new Map<string, Blob>();
-    for (const [path, asset] of [["package.pmtiles", assets.get("package.pmtiles")!], ...[manifest.style, ...manifest.glyphs, ...manifest.sprites, ...(manifest.searchShards ?? [])].map((ref) => [ref.path, assets.get(ref.path)!] as const)] as const) materialized.set(path, new Blob([await bytesOf(asset) as unknown as ArrayBuffer]));
+    for (const [path, asset] of [["package.pmtiles", assets.get("package.pmtiles")!], ...[manifest.style, ...manifest.glyphs, ...manifest.sprites, ...(manifest.searchShards ?? []), ...(manifest.routingGraph ? [manifest.routingGraph] : []), ...(manifest.contourLines ? [manifest.contourLines] : [])].map((ref) => [ref.path, assets.get(ref.path)!] as const)] as const) materialized.set(path, new Blob([await bytesOf(asset) as unknown as ArrayBuffer]));
     const db = await this.open();
     const generation = crypto.randomUUID();
     const key = `${manifest.id}:${generation}`;
