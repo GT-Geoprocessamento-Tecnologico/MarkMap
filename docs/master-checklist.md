@@ -147,6 +147,13 @@
 
 Os itens anteriores marcados como concluídos permanecem como **evidência histórica de desenvolvimento**, não como liberação atual para merge/release.
 
+## Atualização PWA-first — 2026-10-09
+**Decisão vigente:** MarkMap é PWA instalável como experiência primária em Android, iOS e desktop; React/Vite/TypeScript, MapLibre, Terra Draw e IndexedDB/outbox permanecem. Capacitor é empacotamento opcional e Android Auto/CarPlay nativos saem do gate de PWA.
+**Gate substituído:** testes em aparelhos físicos **não bloqueiam desenvolvimento nem integração PWA**; continuam recomendados para riscos específicos. O merge ainda depende de lint, typecheck, unit, build, E2E WebKit/Chromium/Firefox e simulações offline, com evidência no HEAD atual.
+**Correções registradas:** `3f7852e` corrige cache de shell gerado a partir de conteúdo SHA-256 (antes só nomes) e estado falso de instalação em `beforeinstallprompt.userChoice` (instalado apenas com `appinstalled` ou standalone). Teste Node direcionado passou (1/1); Vitest completo pendente pois workspace Git não está montado localmente.
+**Deploy:** nenhum deploy intencional, preview deployments desativados em `markmap-app` e `markmap-site` na Vercel. Push em `main` continua potencialmente ativando deploy de produção e permanece condicionado a bloqueio comprovado antes do merge.
+**Próximo funcional:** integrar distribuição de regiões offline reais (OSM→PMTiles + glyphs/sprites), instalador resumível, checksum e rollback. Sem afirmar que mapa offline distribuído esteja concluído.
+
 # FASE 8 — Maps Engine v2 offline
 
 > PRD/Handoff executor: `docs/markmap-maps-engine-v2-prd-handoff.md`. Toda implementação desta iniciativa deve ocorrer na branch `feat/maps-engine-v2-offline` ou em branches curtas derivadas dela. PRs intermediários apontam para a branch de integração, nunca diretamente para `main`.

@@ -22,6 +22,13 @@
 
 Os itens anteriores marcados como concluídos permanecem como **evidência histórica de desenvolvimento**, não como liberação atual para merge/release.
 
+## Atualização PWA-first — 2026-10-09
+**Decisão vigente:** MarkMap é PWA instalável como experiência primária em Android, iOS e desktop; React/Vite/TypeScript, MapLibre, Terra Draw e IndexedDB/outbox permanecem. Capacitor é empacotamento opcional e Android Auto/CarPlay nativos saem do gate de PWA.
+**Gate substituído:** testes em aparelhos físicos **não bloqueiam desenvolvimento nem integração PWA**; continuam recomendados para riscos específicos. O merge ainda depende de lint, typecheck, unit, build, E2E WebKit/Chromium/Firefox e simulações offline, com evidência no HEAD atual.
+**Correções registradas:** `3f7852e` corrige cache de shell gerado a partir de conteúdo SHA-256 (antes só nomes) e estado falso de instalação em `beforeinstallprompt.userChoice` (instalado apenas com `appinstalled` ou standalone). Teste Node direcionado passou (1/1); Vitest completo pendente pois workspace Git não está montado localmente.
+**Deploy:** nenhum deploy intencional, preview deployments desativados em `markmap-app` e `markmap-site` na Vercel. Push em `main` continua potencialmente ativando deploy de produção e permanece condicionado a bloqueio comprovado antes do merge.
+**Próximo funcional:** integrar distribuição de regiões offline reais (OSM→PMTiles + glyphs/sprites), instalador resumível, checksum e rollback. Sem afirmar que mapa offline distribuído esteja concluído.
+
 ## Objetivo
 Não abrir PR para `main` até que a checklist completa abaixo esteja verde.
 
@@ -42,14 +49,14 @@ Não abrir PR para `main` até que a checklist completa abaixo esteja verde.
 - [x] E2E aplicável verde (Playwright — 5 projetos: chromium, firefox, webkit, pixel-7, iphone-13)
 - [x] Testes offline aplicáveis verdes (parsers, manifest, search, routing, elevation, security)
 - [x] Android APK aplicável verde (evidência de dispositivo: `app-debug.apk` 6.5 MB instalado e executando no emulador Android_17; captura em `docs/quality/screenshots/android-emulator-launch.png`)
-- [ ] iOS build aplicável verde (evidência de dispositivo — exige macOS/Xcode)
+- [ ] Teste iOS físico / build nativo (recomendado, fora do gate PWA-first)
 
 ### Revisão
 - [ ] Diff revisado
 - [x] Licenças revisadas (nenhum código GPL copiado; nenhum .mwm/.bin redistribuído)
 - [x] Documentação sincronizada (`THIRD_PARTY_NOTICES.md`, `docs/architecture.md`, `docs/user-guide.md`, `docs/testing.md`, `docs/privacy.md`, ADR-0004/0005/0006, handoff — MM-MAP-930)
 - [x] Nenhuma ação irreversível pendente
-- [ ] Evidência física registrada para recursos que exigem aparelho (offline Android/iOS, GPS/nav, Android Auto/CarPlay, baseline perf MM-MAP-900)
+- [ ] Evidência física para recursos específicos (recomendada, não bloqueia merge PWA; Android Auto/CarPlay nativos fora do escopo)
 
 ### Gate explícito do PRD
 - [x] Nenhum código GPL do openstreetmap-website
