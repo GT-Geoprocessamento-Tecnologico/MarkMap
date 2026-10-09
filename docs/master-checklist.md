@@ -1,5 +1,24 @@
 # MarkMap — Checklist Mestre de Execução
 
+## Atualização prioritária — 2026-10-09 — após M6/M2/M1/M7 (PREVALECE)
+
+**Branch única:** `dev/markmap-pwa-v2@2a91716`; `main@156d4e8` intocada; `0.2.0-dev.0` em desenvolvimento. **Notion:** https://app.notion.com/p/3ed8e0bd0f4d81b6832bcf848c0ab504?pvs=204
+
+- [x] `MM-MAP-500/530` **CÓDIGO:** processamento opcional de SRTM `.hgt` bruto (1–4 quadrículas) / DEM licenciado em JSON, no-data explícito, grade até 256², SHA-256, IndexedDB, perfil da rota sem rede.
+- [x] `MM-MAP-140/700` **CÓDIGO:** URL HTTPS para consulta manual de versão regional e instalação apenas por clique/validação de conteúdo.
+- [x] `MM-UPD-020` **CÓDIGO:** SW em espera comprova protocolos via MessageChannel antes do popup ativar atualização.
+- [x] `MM-MAP-600` **CÓDIGO:** bloqueio conservador de trechos OSM ambíguos e contagem correta de nós.
+- [ ] Todos os itens acima são **não validados**. Por decisão do responsável, nenhum teste/lint/typecheck/build/E2E foi executado nesta sequência. Não marcar como FUNCIONA ou release.
+- [ ] Obter dados OSM/DEM reais e atestar licenças, datum, no-data/limites de memória, origem HTTPS/CORS, conservação da outbox e PWA em modo avião.
+- [ ] M7: automotivo com relações/turn restrictions; M8: fontes reais Wikipedia/transit; M9 nativo opcional fora de escopo PWA puro.
+- [ ] M10 `MM-MAP-900/940`: suíte local integral **somente ao final** do desenvolvimento. CI GitHub, deploy Vercel, PR/merge main, release/tag proibidos nesta etapa.
+- [ ] Limpeza remota dos cinco ramos antigos ainda pendente por limitação de ferramentas; não apagar sem autorização/verificação de refs.
+
+**Manual de continuidade:** `docs/MARKMAP_MASTER.md`. Handoff: `docs/handoff.md`. **Não abrir novas branches e não sobrescrever agentes.**
+
+---
+
+
 ## Incremento M3/M5/M7 - extratos OSM para busca e rotas basicas - 2026-10-09
 
 - [x] **Em codigo, NAO VALIDADO:** gerador pequeno `osm.pbf` -> POIs nomeados e grafo basico walk/bicycle com limites estritos; sem grafo de carro, sem relations/turn restrictions condicionais.

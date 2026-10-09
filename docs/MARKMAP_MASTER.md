@@ -1,5 +1,60 @@
 # MarkMap — Documento Mestre Único
 
+## Continuidade ativa — 2026-10-09: M6 DEM, M2 pacotes, M1 atualização PWA e M7 OSM (PREVALECE)
+
+**Produto:** MarkMap PWA-first, `0.2.0-dev.0` (sem tag). **Branch única:** `dev/markmap-pwa-v2`.
+**HEAD de código desta sequência:** `2a91716` (quatro commits sobre `0c827b3`: `6384c62`, `409a777`, `ae767f2`, `2a91716`). **`main@156d4e8` intocada.**
+**Estado:** IMPLEMENTADO EM CÓDIGO; NÃO VALIDADO. O responsável adiou TODOS os testes para a etapa final. Não declarar funcionalidades prontas para release até `MM-MAP-940`.
+
+### MM-MAP-500/520/530 — Grade altimétrica realmente offline (M6 parcial)
+
+- Fonte: `dem.json` licenciado e validado OU pasta `srtm/*.hgt` (1–4 arquivos HGT de 1201²/3601² amostras, big-endian) com `srtm.json` contendo `attribution`, `license`, `sourceUrl`, `width?`, `height?`. Dados brutos precisam ser obtidos e licenciados por quem cria o pacote; **nenhuma coleta automática de dados ou elevação inventada**.
+- `scripts/srtm-hgt.mjs` amostra o HGT por quadrícula WGS84 e produz `elevation/dem.json`. Saída limitada a 256×256 amostras, 2 MiB, valores int16 e marcador `-32768` para no-data; `metadata.resolutionMeters` corresponde à resolução EFETIVA da grade regional, não presume 30 m quando ela foi reduzida.
+- `packages/maps/src/elevation/regional-dem.mjs`: valida regionId, bounds, tipo, origem, URL HTTPS, licença/atribuição, amostras reais, limites; perfil e subidas/descidas ignoram trechos sem dados e expõem cobertura. Arquivo `.d.mts` fornece tipos ao front.
+- `demGrid?` e `capabilities: elevation` entram no manifest e no checksum/limite de bytes. Pipeline, download por URL, importação de pasta, IndexedDB e verificador de integridade passam a incluir o DEM antes da ativação. `OfflineElevation.tsx` mostra perfil da rota sem rede e aviso de trechos incompletos.
+- Resolução, datum vertical, licenças e direitos de distribuição precisam de revisão por fonte. Copernicus GLO-30 tem condições de crédito e acesso próprias; não combinar com SRTM por pressuposição.
+
+### MM-MAP-140 / MM-MAP-700 — Atualização de regiões (M2 parcial)
+
+- Após instalar por HTTPS, apenas a URL pública `manifest.json` validada é guardada em `localStorage` para futuras consultas; nenhuma credencial, mapa ou posição GPS nesse registry. Importação por pasta fica totalmente offline e sem URL de atualização.
+- O usuário toca **Ver atualizações**, compara versões SemVer e o limite mínimo de compatibilidade com a região atual, e pode tocar **Atualizar região**. Nada atualiza automaticamente. `ResumableInstaller` obtém os bytes por HTTPS, verifica tamanhos/SHA-256, ativa via IndexedDB apenas após validação e usa rollback implícito de falha de staging. Necessita espaço temporário; não prometer rollback posterior à ativação.
+- Mapa ativo e outbox não são deliberadamente removidos. Pacote de origem desconhecida não apresenta botão de atualização; upgrade incompatível ou sem rede é recusado.
+
+### MM-UPD-020 — Popup de atualização de PWA (M1 parcial)
+
+- Worker em espera passa a responder `CHECK_COMPATIBILITY` via `MessageChannel` com protocolos de shell/local/region (1/1/2). Antes de enviar `SKIP_WAITING`, popup verifica leitura durável da outbox e handshake do worker. Falha de compatibilidade deixa app atual ativo e apresenta erro; usuário decide **Atualizar agora** ou **Depois**.
+- Nenhum deploy ou habilitação de SW em produção foi executado. Migrações futuras precisarão evoluir protocolos, testes de dados antigos e backup; o handshake não garante que um formulário não salvo esteja persistido.
+
+### MM-MAP-600 — Segurança OSM (M7 parcial)
+
+- Fallback de rotas OSM pequeno exclui, por padrão, áreas/trechos propostos, abandonados, condicionais e acessos restritos ou de serviço privado ambíguo; limite de nós conta apenas novos IDs. Carro, relações OSM e acessos jurídicos complexos continuam DESABILITADOS nesse fallback.
+
+### Checklist sequencial (implementar e depois validar, sem duplicar trabalho)
+
+- [x] M6: inserir dados DEM reais SOMENTE quando operador fornecer arquivos/licença, com validação e hash, e mostrar altimetria offline no mapa (**código**).
+- [x] M2: revisão segura de versões de mapas regionais e atualização opt-in via HTTPS (**código**).
+- [x] M1: handshake de compatibilidade antes do botão de atualização PWA (**código**).
+- [x] M7: reforçar filtros de acessos OSM e gestão de limite de nós (**código**).
+- [ ] M6: adquirir amostras DEM legalmente redistribuíveis, verificar cobertura/no-data, georreferenciamento, datum e atribuição em pacotes reais.
+- [ ] M3/M7: pipeline OSM completo para regiões maiores, nomes/labels/relações/restrições, carro somente após regras completas e revisão de segurança.
+- [ ] M2/M8: avaliar quota de atualização de mapas grandes, catálogo assinado/de confiança, conteúdo Wikipedia/GTFS real e licenças.
+- [ ] M9: Android Auto/CarPlay dependem de integração nativa; PWA pura não oferece APIs equivalentes. Não bloquear PWA operacional por esse item.
+- [ ] MM-MAP-900/940 **ETAPA FINAL SOLICITADA**: pnpm lint/typecheck/test/build, Playwright Chromium/WebKit/Firefox, PWA offline instalada, GPS simulado, outbox/rollback/IndexedDB, SRTM/HGT e OSM reais, acessibilidade/perf, privacidade e licenças; sem GitHub CI.
+- [ ] 5 ramos legados continuam sem exclusão: conector não expõe delete branch; verificar ancestralidade e PR antes de ação remota. Sem apagar trabalho de agentes.
+- [ ] Só após gates verdes + autorização, criar PR para main, verificar bloqueio de deploy automático Vercel. Nunca publicar/taguear/mergear aqui.
+
+**Arquivos centrais alterados nesta sequência:**
+`packages/maps/src/elevation/{regional-dem.mjs,regional-dem.d.mts}`,
+`scripts/{srtm-hgt.mjs,region-pipeline.mjs,region-pipeline.d.mts,osm-graph-search.mjs}`,
+`packages/contracts/src/offline-map.ts`, `packages/maps/src/offline/package.ts`,
+`apps/admin/src/{App.tsx,components/map/OfflineElevation.tsx,components/pwa/UpdatePrompt.tsx,pages/settings/SettingsPage.tsx,pages/workspace/CommandCenterPage.tsx,lib/storage/region-manager.ts,lib/storage/region-source-registry.ts,lib/storage/region-version.ts,lib/storage/offline-map-store.ts,lib/storage/resumable-installer.ts}`,
+`apps/admin/public/sw.js`, mais checklist/handoff.
+
+**Riscos/rollback:** não foram realizados migrations, deploy, alteração de banco, tag ou merge. Reverter commits isolados após preservar IndexedDB; novos manifests DEM são opcionais para mapas legados. Previamente executados apenas testes históricos, NENHUM teste nesta rodada. Próximo agente: auditar HEAD + Notion, trabalhar **somente** no mesmo ramo; não anunciar release.
+
+---
+
+
 ## Incremento M3/M5/M7 - extratos OSM para busca e rotas basicas - 2026-10-09
 
 - [x] **Em codigo, NAO VALIDADO:** gerador pequeno `osm.pbf` -> POIs nomeados e grafo basico walk/bicycle com limites estritos; sem grafo de carro, sem relations/turn restrictions condicionais.

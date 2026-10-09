@@ -1,5 +1,22 @@
 # Handoff de continuidade
 
+## Estado operacional 2026-10-09 — M6/M2/M1/M7 contínuos (PREVALECE)
+
+**HEAD de desenvolvimento auditado no início:** `0c827b3`; **commits novos:** `6384c62` (SRTM DEM + contrato/pacote), `409a777` (UI perfil + atualização opt-in de regiões), `ae767f2` (popup SW seguro), `2a91716` (filtros OSM). **Branch:** `dev/markmap-pwa-v2`. **Main:** `156d4e8` sem mudança. **Versão:** `0.2.0-dev.0` sem release.
+
+- **Implementado em código, PARCIAL:** SRTM HGT local para grade regional atribuída/licenciada de até 256×256, no-data explícito, SHA-256 em todos os caminhos, perfil altimétrico de rota no dispositivo.
+- **Implementado em código, PARCIAL:** atualização de região somente por HTTPS configurado após instalação remota, comparação SemVer, confirmação por botão e validação integral antes da ativação. Pacotes instalados por pasta não recebem fonte remota arbitrária.
+- **Implementado em código, PARCIAL:** popup PWA com handshake de versão do Worker + leitura da outbox antes de skipWaiting. Versão antiga sem handshake não é ativada manualmente.
+- **Implementado em código, PARCIAL:** rotas OSM fallback ignoram vias com acesso ou status ambíguos; correção limite de nós.
+- **NÃO EXECUTADO:** testes, lint, typecheck, build, Playwright, verificações em navegador, dados reais e dispositivo físico nesta rodada (pedido expresso do responsável). Não afirmar que passou.
+- **PENDÊNCIAS:** dados de terreno e OSM licenciados reais, cobertura, perfis carro completos, catálogo/atualizações grandes, limites de armazenamento/rollback e gate de QA final `MM-MAP-940`. Cinco branches antigos ainda não excluídos; nada na main/Vercel.
+- **A seguir:** concluir módulos restantes de PWA offline viáveis em código; depois executar apenas na fase final `pnpm lint/typecheck/test/build` + E2E/GPS/IndexedDB/atribuições. Atualizar Checklist Notion e este arquivo ao mudar fase.
+
+**Fonte de escopo detalhado e riscos:** `docs/MARKMAP_MASTER.md`. Seguir somente na `dev/markmap-pwa-v2`, não duplicar trabalho paralelo; `[skip ci]` em commits; sem CI GitHub, deploy, merge, tag, migrations, alterações irreversíveis.
+
+---
+
+
 ## Incremento M3/M5/M7 - extratos OSM para busca e rotas basicas - 2026-10-09
 
 - [x] **Em codigo, NAO VALIDADO:** gerador pequeno `osm.pbf` -> POIs nomeados e grafo basico walk/bicycle com limites estritos; sem grafo de carro, sem relations/turn restrictions condicionais.
