@@ -41,8 +41,16 @@ export interface Route {
   points: RoutePoint[];
 }
 
+export interface KmlPolygon {
+  id: string;
+  name: string;
+  description?: string | null;
+  rings: TrackPoint[][];
+}
+
 export interface GpxImport {
   tracks: Track[];
   waypoints: Waypoint[];
   routes: Route[];
+  polygons?: KmlPolygon[];
 }
