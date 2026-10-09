@@ -17,9 +17,10 @@ async function readVerified(packageId: string, ref: { path: string; blob: { byte
 }
 
 /** Licensed, text-only regional knowledge. No network requests are performed. */
-export function OfflineKnowledge({ packageId, onStation }: {
+export function OfflineKnowledge({ packageId, onStation, onTransit }: {
   packageId: string | null;
   onStation: (lon: number, lat: number) => void;
+  onTransit: (network: TransitNetwork | null) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -31,6 +32,7 @@ export function OfflineKnowledge({ packageId, onStation }: {
     setData(empty);
     setSelectedArticle(null);
     setError('');
+    onTransit(null);
     if (!packageId) return () => { current = false; };
     void (async () => {
       try {
@@ -38,6 +40,7 @@ export function OfflineKnowledge({ packageId, onStation }: {
         if (!installed) return;
         const m = installed.manifest;
         const next: ContentState = { articles: [], stations: [], attribution: [] };
+        let verifiedTransit: TransitNetwork | null = null;
         if (m.wikipediaPack) {
           const raw = await readVerified(packageId, m.wikipediaPack, MAX_WIKIPEDIA_BYTES);
           const wiki = validateRegionalWikipedia(raw, m.id);
@@ -48,15 +51,16 @@ export function OfflineKnowledge({ packageId, onStation }: {
           const raw = await readVerified(packageId, m.transitPack, MAX_TRANSIT_BYTES);
           const network = validateRegionalTransit(raw, m.id, m.bounds);
           next.stations = network.stations;
+          verifiedTransit = network;
           next.attribution.push(`${network.attribution} · ${network.license}`);
         }
-        if (current) setData(next);
+        if (current) { setData(next); onTransit(verifiedTransit); }
       } catch (cause) {
         if (current) setError(cause instanceof Error ? cause.message : 'Conteúdo offline inválido.');
       }
     })();
     return () => { current = false; };
-  }, [packageId]);
+  }, [packageId, onTransit]);
   const term = query.trim().toLocaleLowerCase('pt-BR').slice(0, 100);
   const matches = useMemo(() => ({
     articles: term.length < 2 ? [] : data.articles.filter(a => a.title.toLocaleLowerCase('pt-BR').includes(term)).slice(0, 10),

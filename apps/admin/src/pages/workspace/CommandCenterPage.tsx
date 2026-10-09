@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { featureBounds, loadProjectFeatures, matchesFeature } from "./map-data";
 import { useParams, useSearch } from "@tanstack/react-router";
 import { useToast } from "@geonexo/ui";
-import type { GeoReference, Route } from "@geonexo/contracts";
+import type { GeoReference, Route, TransitNetwork } from "@geonexo/contracts";
 import {
   addDrawingVertex,
   createDrawingSession,
@@ -132,6 +132,19 @@ export default function CommandCenterPage() {
   const routingPickRef = useRef<RoutePointSelection['kind'] | null>(null);
   routingPickRef.current = routingPickMode;
   const [routingPoint, setRoutingPoint] = useState<RoutePointSelection | null>(null);
+  const [transitNetwork, setTransitNetwork] = useState<TransitNetwork | null>(null);
+  const transitGeoJSON = useMemo<GeoJSON.FeatureCollection>(() => {
+    const lines = new Map((transitNetwork?.lines ?? []).map(line => [line.id, line]));
+    return { type: 'FeatureCollection', features: (transitNetwork?.stations ?? []).map(station => {
+      const names = station.lines.map(id => lines.get(id)?.name).filter((value): value is string => Boolean(value));
+      const color = station.lines.map(id => lines.get(id)?.color).find(Boolean) ?? '#2586a3';
+      return { type: 'Feature', geometry: { type: 'Point', coordinates: [station.lon, station.lat] },
+        properties: { name: station.name, operator: station.operator ?? '',
+          lines: names.join(', '), color } };
+    }) };
+  }, [transitNetwork]);
+  const transitGeoJSONRef = useRef(transitGeoJSON);
+  transitGeoJSONRef.current = transitGeoJSON;
   const [plannedRoute, setPlannedRoute] = useState<Route | null>(null);
   const plannedRouteRef = useRef<Route | null>(null);
   plannedRouteRef.current = plannedRoute;
@@ -735,6 +748,13 @@ export default function CommandCenterPage() {
               paint: { 'line-color': '#9a754e', 'line-width': ['case', ['get', 'major'], 1.6, 0.8], 'line-opacity': 0.75 },
             });
           }
+          if (!map.getSource('regional-transit')) {
+            map.addSource('regional-transit', { type: 'geojson', data: transitGeoJSONRef.current });
+            map.addLayer({ id: 'regional-transit-points', type: 'circle', source: 'regional-transit',
+              paint: { 'circle-radius': 5, 'circle-color': ['coalesce', ['get', 'color'], '#2586a3'],
+                'circle-stroke-color': '#ffffff', 'circle-stroke-width': 1.4, 'circle-opacity': 0.9 },
+            });
+          }
           if (!map.getSource('offline-route')) {
             map.addSource('offline-route', { type: 'geojson', data: routeAsGeoJSON(plannedRouteRef.current) });
             map.addLayer({ id: 'offline-route-line', type: 'line', source: 'offline-route',
@@ -795,6 +815,12 @@ export default function CommandCenterPage() {
         });
         map.on("mouseleave", "local-dataset-points", () => {
           map.getCanvas().style.cursor = "";
+        });
+
+        map.on('click', 'regional-transit-points', (event) => {
+          if (measuringRef.current || drawingSessionRef.current || !event.features?.length) return;
+          new Popup().setLngLat(event.lngLat)
+            .setDOMContent(createPropertyPopupContent(event.features[0]?.properties ?? {})).addTo(map);
         });
 
         // Listener de clique para medição
@@ -897,6 +923,11 @@ export default function CommandCenterPage() {
     }
   }, [plannedRoute, mapEpoch]);
 
+  useEffect(() => {
+    const source = mapRef.current?.getSource('regional-transit') as GeoJSONSource | undefined;
+    source?.setData(transitGeoJSON);
+  }, [transitGeoJSON, mapEpoch]);
+
   const handleMyLocation = () => {
     if (locationControlRef.current) {
       try {
@@ -997,7 +1028,7 @@ export default function CommandCenterPage() {
         if (map) map.flyTo({ center: [place.lon, place.lat], zoom: Math.max(15, map.getZoom()) });
       }} />
 
-      <OfflineKnowledge packageId={search.pdfId ? null : getSelectedOfflineMapId()} onStation={(lon, lat) => {
+      <OfflineKnowledge packageId={search.pdfId ? null : getSelectedOfflineMapId()} onTransit={setTransitNetwork} onStation={(lon, lat) => {
         const map = mapRef.current;
         if (map) map.flyTo({ center: [lon, lat], zoom: Math.max(15, map.getZoom()) });
       }} />
