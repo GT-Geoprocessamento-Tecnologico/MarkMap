@@ -62,3 +62,17 @@ Fechar lacunas offline da M4/M5 e oferecer uma fatia útil de M6 sem mudar React
 Nova implementação deve partir do HEAD, consultar Notion e checar trabalho paralelo. Sem CI GitHub, deploy Vercel, `main`, tag/release, publicação nas lojas, reset/force-push, alterações remotas destrutivas ou mudança de secrets sem autorização. Se o branch-base se mover, reavaliar diff antes de integrar. Registrar comandos e resultados reais; não converter código escrito em feature concluída sem teste.
 
 **Relatório final esperado:** RESULTADO, STATUS por item, commits, arquivos, provas de QA, testes não executados, licenças, riscos e próximo ID livre. Handoff/Checklist Notion devem permanecer sincronizados.
+
+## Incremento M7 — correções auditadas do motor de roteamento (ainda PARCIAL)
+
+**Arquivos:** `packages/maps/src/routing/router.ts` e `packages/maps/tests/routing/offline-routing-regression.test.ts`.
+
+- Corrigida a direção de arestas `oneway` (percurso no sentido permitido para carro/bicicleta, sentido reverso para pedestre quando `access.foot` não bloqueia).
+- Dijkstra passa a somar tempo em **segundos**, sem divisor incorreto de 1.000, respeitando `speedKph` no perfil carro e velocidades configuradas para caminhada/bicicleta.
+- Geometria agora inclui início e fim na sequência real de traversal, inclusive quando a aresta é percorrida em sentido reverso.
+- Curvas esquerda/direita são calculadas pelas coordenadas do grafo, não pelo comprimento da aresta. `arrive` usa coordenada do último nó.
+- `findRoute` falha sem inventar rota quando grafo está vazio/desconectado. Superfície de cascalho deixa de bloquear bicicletas indevidamente por padrão; restrições explícitas `access.bicycle` são respeitadas.
+
+**QA isolada:** TypeScript `--strict` com tipagem mínima espelhada de contratos e testes Node no módulo compilado cobrindo mão única, caminhada reversa, duração, geometria, curva e grafo vazio. Testes Vitest formais foram incluídos para execução no checkout completo.
+
+**Continua pendente:** distribuição/validação dos `graph.json` como ativos regionais versionados no contrato, Worker para roteamento, restrições de conversão (`turnRestrictions`), ajuste de snapping/matching GPS, manobras reais em vias complexas, recálculo local, voz PWA com TTS e teste de navegação real. **Nenhum desses itens está aprovado.**
