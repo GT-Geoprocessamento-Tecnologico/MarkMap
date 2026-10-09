@@ -1,4 +1,4 @@
-import { useEffect, useState, useSyncExternalStore, type InputHTMLAttributes } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type InputHTMLAttributes } from "react";
 import { useToast, Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger, Button, Checkbox } from "@geonexo/ui";
 import {
   offlineMapPackageManifestSchema,
@@ -13,6 +13,8 @@ import { offlineDB } from "../../lib/storage/offline-db";
 import { ensureLocationPermission } from "../../lib/device-location-permission";
 import { getStorageBreakdown, cleanStorageCategories, type CategoryBreakdown, type StorageCategory } from "../../lib/storage/storage-management";
 import { getPwaInstallSnapshot, requestPwaInstall, subscribePwaInstall } from "../../lib/pwa-install";
+import { ResumableInstaller } from "../../lib/storage/resumable-installer";
+import { fetchRemoteRegionManifest } from "../../lib/storage/remote-region-manifest.mjs";
 
 type GpsState = "prompt" | "granted" | "denied";
 const directoryPickerAttributes = {
@@ -53,6 +55,9 @@ export default function SettingsPage() {
   const [offlinePackages, setOfflinePackages] = useState<OfflineMapPackageManifest[]>([]);
   const [selectedOfflineMapId, setSelectedOfflineMapIdState] = useState<string | null>(getSelectedOfflineMapId);
   const [packageBusy, setPackageBusy] = useState(false);
+  const [regionalManifestUrl, setRegionalManifestUrl] = useState('');
+  const [regionalPercent, setRegionalPercent] = useState<number | null>(null);
+  const activeRegionalInstaller = useRef<ResumableInstaller | null>(null);
   const [storageBreakdown, setStorageBreakdown] = useState<CategoryBreakdown[]>([]);
   const [cleanupDialogOpen, setCleanupDialogOpen] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState<Set<StorageCategory>>(new Set());
@@ -295,6 +300,39 @@ export default function SettingsPage() {
       setPackageBusy(false);
     }
   };
+  const installRegionFromUrl = async () => {
+    if (packageBusy) return;
+    setPackageBusy(true);
+    setRegionalPercent(0);
+    setError(null);
+    try {
+      const remote = await fetchRemoteRegionManifest(regionalManifestUrl.trim());
+      const manifest = offlineMapPackageManifestSchema.parse(remote.manifest);
+      const installer = new ResumableInstaller();
+      activeRegionalInstaller.current = installer;
+      const result = await installer.startInstall({
+        packageId: manifest.id,
+        manifest: { ...manifest, archivePath: 'package.pmtiles' },
+        baseUrl: remote.baseUrl,
+        forceValidate: false,
+        onProgress: (progress) => setRegionalPercent(progress.percent),
+      });
+      if (!result.success) throw new Error(result.error.message);
+      setSelectedOfflineMapId(manifest.id);
+      setSelectedOfflineMapIdState(manifest.id);
+      await refreshOfflinePackages();
+      await refreshStorage();
+      toast({ title: 'Mapa offline instalado', description: `${manifest.label} está pronto para uso local.`, variant: 'success' });
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : 'Não foi possível instalar a região.';
+      setError(message);
+      toast({ title: 'Instalação não concluída', description: message, variant: 'error' });
+    } finally {
+      activeRegionalInstaller.current = null;
+      setRegionalPercent(null);
+      setPackageBusy(false);
+    }
+  };
   const selectOfflinePackage = (manifest: OfflineMapPackageManifest) => {
     try {
       setSelectedOfflineMapId(manifest.id);
@@ -476,6 +514,42 @@ export default function SettingsPage() {
             aria-label="Selecionar pasta do pacote de mapa offline"
           />
         </label>
+        <div className="mt-4 space-y-2 border-t border-outline-variant pt-4">
+          <label htmlFor="markmap-remote-region-url" className="block text-sm font-semibold">
+            Instalar por URL HTTPS de pacote regional
+          </label>
+          <p className="text-xs text-on-surface-variant">
+            Informe o manifest.json da região. O download é retomável, verifica SHA-256 e mantém o mapa atual se falhar. Limite inicial: 64 MiB.
+          </p>
+          <input
+            id="markmap-remote-region-url"
+            type="url"
+            value={regionalManifestUrl}
+            onChange={(event) => setRegionalManifestUrl(event.target.value)}
+            placeholder="https://servidor.example/regiao/manifest.json"
+            disabled={packageBusy}
+            className="w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-sm"
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void installRegionFromUrl()}
+              disabled={packageBusy || !regionalManifestUrl.trim()}
+              className="rounded-lg bg-gradient-to-r from-brand-blue to-brand-cyan px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            >
+              {packageBusy && regionalPercent !== null ? 'Baixando mapa…' : 'Baixar região'}
+            </button>
+            {packageBusy && regionalPercent !== null && (
+              <button type="button" className="rounded-lg border border-outline-variant px-3 py-2 text-sm"
+                onClick={() => activeRegionalInstaller.current?.abortInstall()}>
+                Cancelar download
+              </button>
+            )}
+            {packageBusy && regionalPercent !== null && (
+              <span role="status" aria-live="polite" className="text-xs">{regionalPercent}%</span>
+            )}
+          </div>
+        </div>
         <ul className="mt-4 space-y-2">
           {offlinePackages.length === 0 ? (
             <li className="text-sm text-on-surface-variant">Nenhum pacote offline instalado.</li>

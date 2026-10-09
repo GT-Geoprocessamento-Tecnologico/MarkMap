@@ -1,9 +1,10 @@
 import { createHash } from 'node:crypto';
 import { readdir, readFile, writeFile } from 'node:fs/promises';
-import { join, relative, sep } from 'node:path';
+import { join, relative, sep, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const HASHED_FILE = /(?:[-.])[a-z0-9_-]{8,}\.(?:js|mjs|css|woff2?|ttf|otf|png|jpg|jpeg|webp|svg)$/i;
-const ALWAYS_SHELL = new Set(['index.html', 'manifest.json', 'icons/icon-192x192.png', 'icons/icon-512x512.png']);
+const ALWAYS_SHELL = new Set(['index.html', 'manifest.json', 'version.json', 'icons/icon-192x192.png', 'icons/icon-512x512.png']);
 const EXCLUDED_PREFIXES = ['map/', 'maps/', 'api/'];
 
 async function filesUnder(root, directory = root) {
@@ -32,6 +33,20 @@ export async function collectShellAssets(distDirectory) {
 }
 
 export async function generateShellManifest(distDirectory) {
+  const configFile = join(dirname(fileURLToPath(import.meta.url)), '..', 'package.json');
+  let appVersion = 'unknown';
+  try { appVersion = JSON.parse(await readFile(configFile, 'utf8')).version ?? 'unknown'; }
+  catch { /* Standalone fixture can still build a shell, but has no release identity. */ }
+  const buildSha = process.env.VERCEL_GIT_COMMIT_SHA || process.env.GITHUB_SHA || 'unavailable';
+  const epoch = process.env.SOURCE_DATE_EPOCH;
+  const buildTime = epoch && Number.isFinite(Number(epoch))
+    ? new Date(Number(epoch) * 1000).toISOString() : new Date().toISOString();
+  await writeFile(join(distDirectory, 'version.json'), JSON.stringify({
+    appVersion, buildSha, buildTime, shellProtocolVersion: 1,
+    localSchemaVersion: 1, regionPackageSchemaVersion: 2,
+    minimumCompatibleVersion: '0.2.0-dev.0',
+    releaseNotes: 'Melhorias de mapas offline e instalacao PWA.',
+  }, null, 2) + '\n');
   const assets = await collectShellAssets(distDirectory);
   if (!assets.includes('/index.html')) throw new Error('shell manifest requires index.html');
   // Hash real content, including non-fingerprinted index.html and manifest.json.

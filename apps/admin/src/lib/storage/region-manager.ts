@@ -8,10 +8,10 @@
  * Gate M2: pacote regional continua funcionando após force-stop/reload e sem rede.
  */
 
-import { IndexedDBBlobStore, type LargeBlobStore } from "./large-blob-store";
 import { offlineMapStore } from "./offline-map-store";
 import { offlineMapPackageManifestSchema, type OfflineMapPackageManifest } from "@geonexo/contracts";
-import { ResumableInstaller } from "./resumable-installer";
+import { getSelectedOfflineMapId } from "./offline-map-selection";
+import { validateOfflinePackage } from "@geonexo/maps/offline/package";
 
 /** Tipo de operação de região */
 export type RegionOperation = "list" | "remove" | "repair" | "details";
@@ -69,14 +69,6 @@ export interface RepairResult {
 
 /** Gerenciador de regiões */
 export class RegionManager {
-  private blobStore: LargeBlobStore;
-  private installer: ResumableInstaller;
-
-  constructor() {
-    this.blobStore = new IndexedDBBlobStore();
-    this.installer = new ResumableInstaller(this.blobStore, false);
-  }
-
   /** Listar todas as regiões instaladas */
   async listRegions(filter?: RegionFilter): Promise<RegionList> {
     try {
@@ -88,7 +80,7 @@ export class RegionManager {
       for (const pkg of packages) {
         try {
           const manifest = pkg.manifest;
-          const status = this.determineStatus(manifest);
+          const status: RegionStatus = getSelectedOfflineMapId() === manifest.id ? 'active' : 'installed';
 
           regions.push({
             id: manifest.id,
@@ -100,8 +92,8 @@ export class RegionManager {
             manifest: manifest,
             manifestPath: `/offline/${manifest.id}/manifest.json`,
             lastActivated: pkg.installedAt,
-            lastUsed: new Date().toISOString(),
-            removable: this.isRemovable(),
+            lastUsed: pkg.installedAt,
+            removable: status !== 'active',
             repairRequired: this.requiresRepair(manifest),
             licenses: this.extractLicenses(manifest),
           });
@@ -157,22 +149,6 @@ export class RegionManager {
     return result;
   }
 
-  /** Determinar status da região */
-  private determineStatus(manifest: OfflineMapPackageManifest): RegionStatus {
-    // Lógica simplificada para determinar status
-    if (!manifest) return "error";
-    // Se tem ativo e data recente, está active
-    if (manifest.packageVersion && manifest.label) return "active";
-    // Se tem manifest mas sem activation recente, está installed
-    return "installed";
-  }
-
-  /** Verificar se região é removível */
-  private isRemovable(): boolean {
-    // Não permitir remoção se for o único pacote ou se estiver ativo
-    return true; // Simplificado
-  }
-
   /** Verificar se região precisa de reparo */
   private requiresRepair(manifest: OfflineMapPackageManifest): boolean {
     // Verificar integridade do manifest
@@ -203,11 +179,10 @@ export class RegionManager {
         return { success: false, regionId, freedBytes: 0, message: "Região não encontrada" };
       }
 
-      // Remover pacote do armazenamento
+      if (!region.removable) {
+        return { success: false, regionId, freedBytes: 0, message: "A regiao ativa nao pode ser removida. Selecione outra primeiro." };
+      }
       await offlineMapStore.remove(regionId);
-
-      // Remover metadados e arquivos associados
-      // ... (implementação simplificada)
 
       return {
         success: true,
@@ -235,23 +210,24 @@ export class RegionManager {
         return { success: false, regionId, message: "Região não encontrada", repairedFiles: 0 };
       }
 
-      // Verificar integridade do manifest; não alegar reparo que não aconteceu.
       const manifestValidate = offlineMapPackageManifestSchema.safeParse(region.manifest);
       if (!manifestValidate.success) {
-        return {
-          success: false,
-          regionId,
-          message: "Pacote inválido. Reparo automático ainda indisponível; reinstale a região.",
-          repairedFiles: 0,
-        };
+        return { success: false, regionId,
+          message: "Manifest invalido. Reinstale a regiao a partir de fonte confiavel.", repairedFiles: 0 };
       }
-
-      return {
-        success: true,
-        regionId,
-        message: "Manifest válido; nenhuma correção foi necessária",
-        repairedFiles: 0,
-      };
+      const manifest = manifestValidate.data;
+      const assets = new Map<string, Blob>();
+      for (const path of ['package.pmtiles', manifest.style.path,
+        ...manifest.glyphs.map((r) => r.path), ...manifest.sprites.map((r) => r.path)]) {
+        const blob = await offlineMapStore.asset(regionId, path);
+        if (!blob) return { success: false, regionId, message: `Arquivo ausente no pacote: ${path}`, repairedFiles: 0 };
+        assets.set(path, blob);
+      }
+      const verified = await validateOfflinePackage(manifest, assets);
+      if (!verified.ok) return { success: false, regionId,
+        message: `Falha de integridade: ${verified.code}. Reinstale a regiao.`, repairedFiles: 0 };
+      return { success: true, regionId,
+        message: "Integridade do pacote verificada; nenhum reparo necessario", repairedFiles: 0 };
     } catch (error) {
       return {
         success: false,
