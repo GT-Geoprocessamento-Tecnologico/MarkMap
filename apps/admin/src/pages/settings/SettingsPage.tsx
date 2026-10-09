@@ -276,7 +276,12 @@ export default function SettingsPage() {
       const archives = [...filesByPath.entries()].filter(([path]) => /\.pmtiles$/i.test(path));
       if (archives.length !== 1) throw new Error("A pasta precisa conter exatamente um arquivo PMTiles.");
       const assets = new Map<string, Blob>([["package.pmtiles", archives[0]![1]]]);
-      for (const ref of [manifest.style, ...manifest.glyphs, ...manifest.sprites, ...(manifest.searchShards ?? []), ...(manifest.routingGraph ? [manifest.routingGraph] : []), ...(manifest.contourLines ? [manifest.contourLines] : [])]) {
+      for (const ref of [manifest.style, ...manifest.glyphs, ...manifest.sprites,
+        ...(manifest.searchShards ?? []),
+        ...(manifest.routingGraph ? [manifest.routingGraph] : []),
+        ...(manifest.contourLines ? [manifest.contourLines] : []),
+        ...(manifest.wikipediaPack ? [manifest.wikipediaPack] : []),
+        ...(manifest.transitPack ? [manifest.transitPack] : [])]) {
         const file = filesByPath.get(ref.path);
         if (!file) throw new Error(`O pacote não contém o arquivo ${ref.path}.`);
         assets.set(ref.path, file);

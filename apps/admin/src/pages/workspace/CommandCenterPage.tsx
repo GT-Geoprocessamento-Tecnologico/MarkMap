@@ -46,6 +46,7 @@ import { adaptOfflineStyle } from "@geonexo/maps/offline/style";
 import { AppIcon, type AppIconName } from "../../components/AppIcon";
 import { OfflineSearch } from "../../components/map/OfflineSearch";
 import { OfflineRouting, type RoutePointSelection } from "../../components/map/OfflineRouting";
+import { OfflineKnowledge } from "../../components/map/OfflineKnowledge";
 import { MAX_CONTOUR_BYTES, validateRegionalContours, contoursToGeoJSON } from "@geonexo/maps/elevation/contour-package.mjs";
 import { loadRegionalPackageSearch } from '../../lib/search/regional-package-search';
 import type { LocalSearchRecord } from '../../lib/search/local-map-search';
@@ -971,6 +972,11 @@ export default function CommandCenterPage() {
       <OfflineSearch records={combinedSearchRecords} regionalCount={regionalSearchRecords.length} warning={regionalSearchError} onChoose={(place) => {
         const map = mapRef.current;
         if (map) map.flyTo({ center: [place.lon, place.lat], zoom: Math.max(15, map.getZoom()) });
+      }} />
+
+      <OfflineKnowledge packageId={search.pdfId ? null : getSelectedOfflineMapId()} onStation={(lon, lat) => {
+        const map = mapRef.current;
+        if (map) map.flyTo({ center: [lon, lat], zoom: Math.max(15, map.getZoom()) });
       }} />
 
       <OfflineRouting packageId={search.pdfId ? null : getSelectedOfflineMapId()}
