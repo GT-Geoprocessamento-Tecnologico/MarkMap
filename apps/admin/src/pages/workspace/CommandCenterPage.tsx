@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { featureBounds, loadProjectFeatures, matchesFeature } from "./map-data";
 import { useParams, useSearch } from "@tanstack/react-router";
 import { useToast } from "@geonexo/ui";
-import type { GeoReference } from "@geonexo/contracts";
+import type { GeoReference, Route } from "@geonexo/contracts";
 import {
   addDrawingVertex,
   createDrawingSession,
@@ -45,6 +45,8 @@ import {
 import { adaptOfflineStyle } from "@geonexo/maps/offline/style";
 import { AppIcon, type AppIconName } from "../../components/AppIcon";
 import { OfflineSearch } from "../../components/map/OfflineSearch";
+import { OfflineRouting, type RoutePointSelection } from "../../components/map/OfflineRouting";
+import { MAX_CONTOUR_BYTES, validateRegionalContours, contoursToGeoJSON } from "@geonexo/maps/elevation/contour-package.mjs";
 import { loadRegionalPackageSearch } from '../../lib/search/regional-package-search';
 import type { LocalSearchRecord } from '../../lib/search/local-map-search';
 import { buildLocalMapSearchRecords } from "../../lib/search/local-map-search";
@@ -80,6 +82,13 @@ function formatDistance(m: number) {
 
 type SidePanel = "none" | "ferramentas" | "filtros" | "camadas" | "telemetria";
 type MapControls = Awaited<ReturnType<typeof createMapLibreMap>>;
+
+function routeAsGeoJSON(route: Route | null): GeoJSON.FeatureCollection {
+  if (!route || route.geometry.length < 2) return { type: 'FeatureCollection', features: [] };
+  return { type: 'FeatureCollection', features: [{ type: 'Feature', properties: {},
+    geometry: { type: 'LineString', coordinates: route.geometry },
+  }] };
+}
 
 export default function CommandCenterPage() {
   const { toast } = useToast();
@@ -117,6 +126,13 @@ export default function CommandCenterPage() {
   const [mapError, setMapError] = useState<string | null>(null);
   const [mapEpoch, setMapEpoch] = useState(0);
   const [mapReady, setMapReady] = useState(false);
+  const [routingPickMode, setRoutingPickMode] = useState<RoutePointSelection['kind'] | null>(null);
+  const routingPickRef = useRef<RoutePointSelection['kind'] | null>(null);
+  routingPickRef.current = routingPickMode;
+  const [routingPoint, setRoutingPoint] = useState<RoutePointSelection | null>(null);
+  const [plannedRoute, setPlannedRoute] = useState<Route | null>(null);
+  const plannedRouteRef = useRef<Route | null>(null);
+  plannedRouteRef.current = plannedRoute;
   const [appliedCount, setAppliedCount] = useState(0);
   const [geoPdfMessage, setGeoPdfMessage] = useState<string | null>(null);
   const [geoPdfReady, setGeoPdfReady] = useState(false);
@@ -442,6 +458,7 @@ export default function CommandCenterPage() {
     let fallbackActive = !navigator.onLine;
     let protocolsRegistered = false;
     let geoPdfOverlay: GeoPdfOverlay | null = null;
+    let regionalContours: GeoJSON.FeatureCollection | null = null;
     const releaseProtocols = () => {
       if (!protocolsRegistered) return;
       removeProtocol("pmtiles");
@@ -510,6 +527,18 @@ export default function CommandCenterPage() {
           throw new Error("O estilo do pacote offline não é um JSON válido.");
         }
         const adaptedStyle = adaptOfflineStyle(sourceStyle, installed.manifest);
+        if (installed.manifest.contourLines) {
+          const contourRef = installed.manifest.contourLines;
+          const contourBlob = await offlineMapStore.asset(selectedPackageId, contourRef.path);
+          if (!contourBlob || contourBlob.size !== contourRef.blob.bytes || contourBlob.size > MAX_CONTOUR_BYTES)
+            throw new Error('Curvas de nível incompletas; reinstale o pacote regional.');
+          const digest = await crypto.subtle.digest('SHA-256', await contourBlob.arrayBuffer());
+          const digestHex = [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+          if (digestHex !== contourRef.blob.sha256)
+            throw new Error('Falha de integridade nas curvas de nível regionais.');
+          const parsedContours = validateRegionalContours(JSON.parse(await contourBlob.text()), installed.manifest.bounds);
+          regionalContours = contoursToGeoJSON(parsedContours);
+        }
         const file = new File([archive], "package.pmtiles", { type: "application/vnd.pmtiles" });
         const tileProtocol = createOfflineProtocol(installed.manifest, file);
         addProtocol("pmtiles", (params, controller) => tileProtocol.tile(params, controller));
@@ -678,6 +707,19 @@ export default function CommandCenterPage() {
               },
             });
           }
+          if (regionalContours && !map.getSource('regional-contours')) {
+            map.addSource('regional-contours', { type: 'geojson', data: regionalContours });
+            map.addLayer({ id: 'regional-contours-line', type: 'line', source: 'regional-contours',
+              paint: { 'line-color': '#9a754e', 'line-width': ['case', ['get', 'major'], 1.6, 0.8], 'line-opacity': 0.75 },
+            });
+          }
+          if (!map.getSource('offline-route')) {
+            map.addSource('offline-route', { type: 'geojson', data: routeAsGeoJSON(plannedRouteRef.current) });
+            map.addLayer({ id: 'offline-route-line', type: 'line', source: 'offline-route',
+              paint: { 'line-color': '#dc2626', 'line-width': 5, 'line-opacity': 0.9 },
+              layout: { 'line-join': 'round', 'line-cap': 'round' },
+            });
+          }
           fitSelection(map);
           setMapEpoch((value) => value + 1);
         };
@@ -745,6 +787,12 @@ export default function CommandCenterPage() {
             setDrawingSession(next);
             if (next.type === "Point")
               void persistDrawingRef.current(next);
+            return;
+          }
+          const picking = routingPickRef.current;
+          if (picking) {
+            setRoutingPoint({ kind: picking, location: [e.lngLat.lng, e.lngLat.lat] });
+            setRoutingPickMode(null);
             return;
           }
           if (!measuringRef.current) return;
@@ -815,6 +863,15 @@ export default function CommandCenterPage() {
       GeoJSONSource | undefined;
     source?.setData(drawingPreview);
   }, [drawingPreview, mapEpoch]);
+
+  useEffect(() => {
+    const source = mapRef.current?.getSource('offline-route') as GeoJSONSource | undefined;
+    source?.setData(routeAsGeoJSON(plannedRoute));
+    if (plannedRoute?.geometry.length && mapRef.current) {
+      const bounds = featureBounds(routeAsGeoJSON(plannedRoute).features);
+      if (bounds) mapRef.current.fitBounds(bounds, { padding: 72, duration: 0, maxZoom: 16 });
+    }
+  }, [plannedRoute, mapEpoch]);
 
   const handleMyLocation = () => {
     if (locationControlRef.current) {
@@ -915,6 +972,23 @@ export default function CommandCenterPage() {
         const map = mapRef.current;
         if (map) map.flyTo({ center: [place.lon, place.lat], zoom: Math.max(15, map.getZoom()) });
       }} />
+
+      <OfflineRouting packageId={search.pdfId ? null : getSelectedOfflineMapId()}
+        pickedPoint={routingPoint}
+        onRequestPick={(kind) => {
+          if (drawingSessionRef.current) {
+            toast({ title: 'Conclua ou cancele o desenho antes de escolher a rota.', variant: 'error' });
+            return;
+          }
+          if (measuringRef.current) toggleMeasure();
+          setRoutingPickMode(kind);
+        }}
+        onRoute={setPlannedRoute}
+      />
+      {routingPickMode && <div role="status" className="absolute left-1/2 top-20 z-30 -translate-x-1/2 rounded-lg bg-surface-container p-3 text-sm shadow-lg">
+        Toque no mapa para escolher {routingPickMode === 'origin' ? 'a origem' : 'o destino'} da rota.
+        <button type="button" className="ml-2 underline" onClick={() => setRoutingPickMode(null)}>Cancelar</button>
+      </div>}
 
       {/* ── Barra de ferramentas flutuante ── */}
       <div className="absolute bottom-[calc(4rem+env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 lg:bottom-auto lg:top-6 lg:left-4 lg:translate-x-0 markmap-map-tools bg-surface-container/90 backdrop-blur-xl border border-outline-variant rounded-2xl p-2 flex lg:flex-col gap-1.5 shadow-2xl z-10 w-max max-w-[92vw] overflow-x-auto">
