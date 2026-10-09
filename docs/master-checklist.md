@@ -1,5 +1,15 @@
 # MarkMap — Checklist Mestre de Execução
 
+## Incremento M3/M5/M7 - extratos OSM para busca e rotas basicas - 2026-10-09
+
+- [x] **Em codigo, NAO VALIDADO:** gerador pequeno `osm.pbf` -> POIs nomeados e grafo basico walk/bicycle com limites estritos; sem grafo de carro, sem relations/turn restrictions condicionais.
+- [x] Entradas de publicador `places.json`/`graph.json` continuam prioritarias; fallback da derivacao opcional nao quebra o basemap nem anuncia capacidade ausente.
+- [ ] **QA deliberadamente adiada** ate concluir desenvolvimento: grafo real, PBF real, PMTiles independente, lint/typecheck/test/build e E2E PWA offline/IndexedDB no gate final.
+- [ ] Pipeline para regioes grandes, acesso legal complexo e DEM com licencas permanecem pendentes.
+
+**Handoff:** `docs/MM-MAP-200-610-small-osm-builder.md`. **Branch:** `dev/markmap-pwa-v2`. Sem GitHub CI, deploy, main, tag ou migration.
+
+
 ## Incremento de desenvolvimento MM-MAP-630/640 e hardening M8 - 2026-10-09
 
 **Branch ativa:** `dev/markmap-pwa-v2`; baseline antes deste incremento: `9919758`; versao `0.2.0-dev.0` sem release. O gate final permanece bloqueado.
