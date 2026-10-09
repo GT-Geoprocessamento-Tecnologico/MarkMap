@@ -16,6 +16,7 @@ import { fetchRemoteRegionManifest } from './remote-region-manifest.mjs';
 import { ResumableInstaller } from './resumable-installer';
 import { getRegionSourceUrl } from './region-source-registry';
 import { compareRegionVersions } from './region-version';
+import { version as appVersion } from '../../../package.json';
 
 /** Tipo de operação de região */
 export type RegionOperation = "list" | "remove" | "repair" | "details";
@@ -284,7 +285,7 @@ export class RegionManager {
         status: order < 0 ? 'older' : 'current', installedVersion: current.packageVersion,
         availableVersion: next.packageVersion,
       } };
-      const compatibility = compareRegionVersions(next.minimumCompatibleVersion, current.minimumCompatibleVersion);
+      const compatibility = compareRegionVersions(next.minimumCompatibleVersion, appVersion);
       if (compatibility === null || compatibility > 0)
         return unavailable('Este mapa exige um protocolo de aplicativo mais recente. Atualize o MarkMap primeiro.');
       return { hasUpdate: true, updateInfo: {
@@ -308,7 +309,7 @@ export class RegionManager {
       const installed = await offlineMapStore.get(regionId);
       if (!installed || manifest.id !== regionId ||
           compareRegionVersions(manifest.packageVersion, installed.manifest.packageVersion) !== 1 ||
-          (compareRegionVersions(manifest.minimumCompatibleVersion, installed.manifest.minimumCompatibleVersion) ?? 1) > 0)
+          (compareRegionVersions(manifest.minimumCompatibleVersion, appVersion) ?? 1) > 0)
         return { success: false, message: 'Versão ou compatibilidade mudou. Consulte novamente antes de instalar.' };
       const installer = new ResumableInstaller();
       const result = await installer.startInstall({ packageId: regionId,
