@@ -1,5 +1,18 @@
 # Handoff de continuidade
 
+## Continuidade — GTFS Schedule estático regional + hardening (2026-10-09)
+
+**Branch/HEAD confirmado antes do commit docs:** `dev/markmap-pwa-v2@98785e5`; `main@156d4e8`. Sem CI, Vercel, release/tag, migrations e sem QA nesta etapa. `0.2.0-dev.0` não é release.
+
+- M8 PARCIAL EM CÓDIGO: `scripts/gtfs-static.mjs` + `region-pipeline.mjs` aceitam GTFS extraído em `gtfs/`, exigem `gtfs-source.json` com attribution/license/sourceUrl HTTPS, geram pacote estático limitado a 2 MiB; `transit.json` explícito tem precedência.
+- M8 segurança: CSV delimitado/aspas com limites de tamanho/linhas, referências de stop/route/trip, bounds e ID; shapefiles/horários em tempo real NÃO existem nem são simulados.
+- M3/M2/M1/M7 correções: OSM atribuição sempre visível, importação manual invalida fonte remota velha, porta do SW fechada ao concluir compatibilidade, a pé não desaparece se bicicleta indefinida.
+- PENDENTE: feeds GTFS licitamente redistribuíveis, validação no browser, mapa real, outbox, offline PWA, DEM real, carro/restrições; limpeza dos 5 branches antigos com acesso apropriado.
+- QA adiada expressamente até M10/MM-MAP-900/940. Não marcar concluído, não mergear main nem fazer deploy.
+
+---
+
+
 ## Novo incremento M8 — 2026-10-09
 
 **`e905ebc`** no ramo `dev/markmap-pwa-v2`: camada de estações com dados regionais comprovadamente instalados/verificados, círculos por linha e popup sem HTML remoto. Sem geometria real de linhas, dados de horários ou validação E2E; fica **PARCIAL EM CÓDIGO**. Nenhum teste executado por pedido do responsável. `main` e Vercel intactos.

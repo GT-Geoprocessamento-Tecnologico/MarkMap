@@ -1,5 +1,21 @@
 # MarkMap — Checklist Mestre de Execução
 
+## Próxima fase M8/M1/M3 — GTFS local e hardening (2026-10-09; PREVALECE)
+
+**Branch** `dev/markmap-pwa-v2@98785e5`; `main@156d4e8` preservada, sem CI do GitHub, deploy ou tag. Todas as marcas abaixo significam **código enviado, ainda sem execução da suíte de testes**.
+
+- [x] M8: fonte GTFS Schedule extraída localmente + metadados obrigatórios de licença/HTTPS gera `transit.json` (estações/linhas) sem rede, com orçamento e validações do contrato; `transit.json` original prioritário.
+- [x] M3: atribuição OSM permanente ao combinar GTFS, DEM e mapa.
+- [x] M2: limpar fonte de atualização HTTP antiga ao importar nova região por pasta, para não atualizar contra servidor obsoleto.
+- [x] M1: encerrar portas MessageChannel no popup de atualização PWA.
+- [x] M7: preservar segmentos a pé se direção de bicicleta for desconhecida e não anunciar `car`.
+- [ ] Próximos pacotes/dados reais com licença, geometrias de transporte somente com shapes oficiais, ampliação de área OSM e compatibilidade/storage.
+- [ ] **TESTES AO FINAL**: `pnpm lint/typecheck/test/build`, navegador/E2E, dados GTFS/OSM/DEM reais, GPS, offline, outbox e PWA install/upgrade; nada desta rodada foi testado.
+- [ ] Cinco branches legadas continuam pendentes de exclusão por ferramenta, sem perder histórico. Sem main/deploy.
+
+---
+
+
 ## M8 estação no mapa — incremento adicional (2026-10-09)
 
 - [x] `MM-MAP-710` **CÓDIGO:** sobrepor estações verificadas de transporte público ao MapLibre com cores de linha e popup, sem internet (commit `e905ebc`).

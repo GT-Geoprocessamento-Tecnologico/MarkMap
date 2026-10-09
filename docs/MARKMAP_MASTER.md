@@ -1,5 +1,19 @@
 # MarkMap — Documento Mestre Único
 
+## M8 — GTFS estático regional e ajustes de segurança (2026-10-09; PREVALECE)
+
+**Branch:** `dev/markmap-pwa-v2`, código `98785e5`, versão de desenvolvimento `0.2.0-dev.0`. **IMPLEMENTADO EM CÓDIGO, NÃO VALIDADO**. `main` e Vercel intocados; testes integrais somente depois de concluídas as implementações.
+
+- [x] `scripts/gtfs-static.mjs` converte **GTFS Schedule extraído localmente**, de operador autorizado, para `content/transit.json`, sem serviços externos. Entradas `gtfs/stops.txt`, `routes.txt`, `trips.txt`, `stop_times.txt`, `agency.txt` opcional e `gtfs-source.json` obrigatório com `attribution`, `license`, `sourceUrl` HTTPS e `version?`. GTFS deve ser previamente extraído com segurança pelo publicador; não ler ZIP arbitrário nem distribuir base sem licença.
+- [x] Contratos regionais existentes validam limite de 2 MiB, 12 mil estações, mil linhas, referências, coordenadas/bounds e atribuição. Reaproveita fluxo de hash, manifest, instalação, IndexedDB e painel/overlay existentes. `transit.json` original do publicador **sempre tem prioridade**; não sobrepor.
+- [x] Apenas pontos/linhas lógicas de estação: os IDs de linhas não são geometria de trilhos, nem horários, frequências, tarifas ou navegação de transporte público. Modos GTFS suportados: 0–4 (bonde, metrô, trem, ônibus e ferry); tipos avançados fora do escopo parcial.
+- [x] OSM sempre recebe crédito `OpenStreetMap contributors` no manifesto, mesmo ao combinar DEM/GTFS. Atualização por importação de pasta remove URL HTTPS antiga do mesmo ID. Popup de atualização do shell encerra canais de mensagem; o gerador OSM não abandona caminho a pé quando apenas regra de bicicleta é ambígua.
+- [ ] **Gate final pendente:** alimentar GTFS/DEM/OSM reais licenciados; validar CSV contra GTFS oficial, CSV malformado, cobertura, conflitos, duplicatas, SHA, caches, workbox/SW e outbox em cenário offline. Sem testes/lint/typecheck/build/Playwright nesta rodada por pedido do responsável.
+- [ ] Próximos: regiões grandes, pacote de distribuição real, horários/shape GTFS opcionais COM dado fornecido, gráficos de elevação oficiais, cálculo automotivo/restrições legais (não anunciar). `MM-MAP-900/940` e QA de navegador somente no fim.
+
+---
+
+
 ## M8 incremental — camada visual de estações regionais (2026-10-09)
 
 **Código:** `e905ebc` em `dev/markmap-pwa-v2`. `OfflineKnowledge.tsx` reaproveita a validação local e SHA-256 já existentes, comunica as estações verificadas à página do mapa, que exibe círculos coloridos conforme a linha (`regional-transit`) e popups seguros no MapLibre sem chamadas de rede. A limpeza de seleção remove os marcadores. **Não desenhar vias de metrô inventadas:** o contrato transit atual fornece IDs de estação, nomes/cores e coordenadas de estações, mas não a geometria real dos trilhos.
