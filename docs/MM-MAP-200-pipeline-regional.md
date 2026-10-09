@@ -23,6 +23,25 @@ input/
 
 **Pendente para concluir MM-MAP-200:** gerar \`basemap.pmtiles\` a partir de OSM PBF, empacotar glyphs/sprites, validar schema Zod/PMTiles no instalador, ativar componentes auxiliares e rodar testes em aparelhos reais.
 
+## Incremento real PBF → PMTiles (2026-10-09) — PARCIAL
+
+O builder `scripts/osm-pbf-pmtiles.mjs` implementa conversão local **real** de um extrato OSM PBF pequeno para MVT/PMTiles v3 (nós/dense nodes/vias simples), com style MapLibre e sprites locais mínimos. Não baixa dados ou tiles de nenhum servidor. **Limites:** entrada PBF <=32 MiB, até 250 mil nós/40 mil vias, até 5 mil tiles, zoom máximo 14 e ausência de relações/multipolígonos complexos. Estilo gerado sem labels para dispensar glyphs ainda não distribuídos. Para regiões grandes ou tipografia, manter builder externo auditado.
+
+Entradas alternativas:
+
+```text
+input/
+  region.json     # id, label, bounds, osmDataDate, minZoom, maxZoom
+  osm.pbf         # extrato de pequena região
+  style.json      # opcional, deve referenciar camadas produzidas
+```
+
+Saída utilizável pelo instalador local existente: `package.pmtiles`, `style.json`, `sprites/*`, `manifest.json`. O manifest declara apenas a capability `basemap` e inclui os checksums reais de arquivos ativáveis. Arquivos de busca/roteamento/elevação continuam auxiliares e **ainda não são ativados automaticamente**.
+
+Testes Node executados: fixture sintética PBF→tiles/MVT+PMTiles, deterministicidade, entrada truncada, local-only style e pipeline→manifest/sprites; **4/4 verdes**. Pendente: fixture OSM pública real, leitor externo e renderização no MapLibre em navegador; portanto MM-MAP-200 permanece **PARCIAL**.
+
+---
+
 ## Objetivo
 Criar pipeline reproduzível de entrada OSM PBF → dados consumíveis pelo MarkMap. Este é o primeiro item da fase M3 — Mapa OSM moderno.
 

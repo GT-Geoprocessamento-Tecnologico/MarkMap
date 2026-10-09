@@ -1,5 +1,17 @@
 # MM-MAP-940 — Gate para PR contra main
 
+## Incremento 2026-10-09 — M1/M2/M3 PWA-first, ainda PARCIAL
+
+- **Branch de trabalho:** `agent/MM-MAP-200-pwa-regions`, derivada de `feat/maps-engine-v2-offline@eb8f436` (HEAD de integração não modificado).
+- **MM-MAP-200 PARCIAL:** conversor limitado de OSM PBF para MVT/PMTiles v3 sem internet, `region.json` + `manifest.json`, estilo MapLibre básico e sprites PNG/JSON locais. Não processa relações, rótulos/fontes nem regiões grandes; faltam extrato real e leitura PMTiles independente.
+- **MM-MAP-130 PARCIAL:** retomada de download HTTP Range com checksum SHA-256 e staging persistente separado via IndexedDB. UI de URL HTTPS em Configurações permite apontar `manifest.json`; só ativa após validar todos os arquivos, mantendo mapa anterior em falhas. Faltam E2E/IndexedDB em navegador e hospedagem/CORS real.
+- **MM-MAP-140 PARCIAL:** integridade real do mapa via revalidação de blobs no gerenciador; reparo automático permanece indisponível (sem sucesso falso).
+- **MM-UPD-010 PARCIAL:** `version.json` gerado e pré-cacheado no shell com versão, SHA opcional, horário e protocolos. Exibição na interface e protocolo de compatibilidade completo não validados.
+- **QA direcionada:** `node --test` = 12/12 aprovados (PBF sintético, PMTiles diretório, HTTP Range, URL, SHA, shell); `node --check` verde. `tsc` isolado com mocks anteriores NÃO é typecheck do monorepo. **NÃO executados:** lint/typecheck/build/Vitest/E2E completos, distribuição real OSM e PWA offline em dispositivo/navegador.
+- **Gate:** testes físicos Android/iOS não bloqueiam desenvolvimento PWA, mas a integração em `main` ainda é proibida enquanto o gate Web, revisão de segurança e controle de deploy não estiverem verdes. Nenhum deploy, migration, release ou produção autorizados/executados.
+- **Próximo:** validar pacote com extrato PBF real e leitor PMTiles, validar IndexedDB/Playwright, corrigir o pipeline conforme evidência, completar catálogo/update e testes de integração. M4→M8 permanecem parciais/históricos e M9 nativo fora do escopo PWA.
+
+
 **Status**: BLOQUEADO — MM-MAP-940 não aprovado (auditoria de 2026-10-09)
 **Task ID**: MM-MAP-940
 **Predecessor**: MM-MAP-930 (Documentação/legal)
@@ -22,13 +34,6 @@
 
 Os itens anteriores marcados como concluídos permanecem como **evidência histórica de desenvolvimento**, não como liberação atual para merge/release.
 
-## Atualização PWA-first — 2026-10-09
-**Decisão vigente:** MarkMap é PWA instalável como experiência primária em Android, iOS e desktop; React/Vite/TypeScript, MapLibre, Terra Draw e IndexedDB/outbox permanecem. Capacitor é empacotamento opcional e Android Auto/CarPlay nativos saem do gate de PWA.
-**Gate substituído:** testes em aparelhos físicos **não bloqueiam desenvolvimento nem integração PWA**; continuam recomendados para riscos específicos. O merge ainda depende de lint, typecheck, unit, build, E2E WebKit/Chromium/Firefox e simulações offline, com evidência no HEAD atual.
-**Correções registradas:** `3f7852e` corrige cache de shell gerado a partir de conteúdo SHA-256 (antes só nomes) e estado falso de instalação em `beforeinstallprompt.userChoice` (instalado apenas com `appinstalled` ou standalone). Teste Node direcionado passou (1/1); Vitest completo pendente pois workspace Git não está montado localmente.
-**Deploy:** nenhum deploy intencional, preview deployments desativados em `markmap-app` e `markmap-site` na Vercel. Push em `main` continua potencialmente ativando deploy de produção e permanece condicionado a bloqueio comprovado antes do merge.
-**Próximo funcional:** integrar distribuição de regiões offline reais (OSM→PMTiles + glyphs/sprites), instalador resumível, checksum e rollback. Sem afirmar que mapa offline distribuído esteja concluído.
-
 ## Objetivo
 Não abrir PR para `main` até que a checklist completa abaixo esteja verde.
 
@@ -49,14 +54,14 @@ Não abrir PR para `main` até que a checklist completa abaixo esteja verde.
 - [x] E2E aplicável verde (Playwright — 5 projetos: chromium, firefox, webkit, pixel-7, iphone-13)
 - [x] Testes offline aplicáveis verdes (parsers, manifest, search, routing, elevation, security)
 - [x] Android APK aplicável verde (evidência de dispositivo: `app-debug.apk` 6.5 MB instalado e executando no emulador Android_17; captura em `docs/quality/screenshots/android-emulator-launch.png`)
-- [ ] Teste iOS físico / build nativo (recomendado, fora do gate PWA-first)
+- [ ] iOS build aplicável verde (evidência de dispositivo — exige macOS/Xcode)
 
 ### Revisão
 - [ ] Diff revisado
 - [x] Licenças revisadas (nenhum código GPL copiado; nenhum .mwm/.bin redistribuído)
 - [x] Documentação sincronizada (`THIRD_PARTY_NOTICES.md`, `docs/architecture.md`, `docs/user-guide.md`, `docs/testing.md`, `docs/privacy.md`, ADR-0004/0005/0006, handoff — MM-MAP-930)
 - [x] Nenhuma ação irreversível pendente
-- [ ] Evidência física para recursos específicos (recomendada, não bloqueia merge PWA; Android Auto/CarPlay nativos fora do escopo)
+- [ ] Evidência física registrada para recursos que exigem aparelho (offline Android/iOS, GPS/nav, Android Auto/CarPlay, baseline perf MM-MAP-900)
 
 ### Gate explícito do PRD
 - [x] Nenhum código GPL do openstreetmap-website
