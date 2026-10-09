@@ -21,6 +21,7 @@
  */
 
 import { createHash } from "node:crypto";
+import { validateRegionalWikipedia, validateRegionalTransit, MAX_WIKIPEDIA_BYTES, MAX_TRANSIT_BYTES } from '../packages/maps/src/content/region-content.mjs';
 import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -218,8 +219,11 @@ export function buildManifest({
   const searchArtifacts = artifacts.filter((a) => /^search\/(?:[a-z][0-3]|0-9|other)\.json$/.test(a.path));
   const routingArtifact = artifacts.find((a) => a.path === 'routing/graph.json');
   const contoursArtifact = artifacts.find((a) => a.path === 'elevation/contours.json');
+  const wikipediaArtifact = artifacts.find((a) => a.path === 'content/wikipedia.json');
+  const transitArtifact = artifacts.find((a) => a.path === 'content/transit.json');
   const activeArtifacts = [basemap, style, ...spriteArtifacts, ...glyphArtifacts, ...searchArtifacts,
-    ...(routingArtifact ? [routingArtifact] : []), ...(contoursArtifact ? [contoursArtifact] : [])];
+    ...(routingArtifact ? [routingArtifact] : []), ...(contoursArtifact ? [contoursArtifact] : []),
+    ...(wikipediaArtifact ? [wikipediaArtifact] : []), ...(transitArtifact ? [transitArtifact] : [])];
   let totalBytes = 0;
   for (const a of artifacts) {
     if (!/^[a-f0-9]{64}$/.test(a.sha256) || !Number.isSafeInteger(a.bytes) || a.bytes <= 0)
@@ -263,11 +267,13 @@ export function buildManifest({
     ...(searchArtifacts.length ? { searchShards: searchArtifacts.map((a) => ({ path: a.path, blob: blobRef(a, 'application/json') })) } : {}),
     ...(routingArtifact ? { routingGraph: { path: routingArtifact.path, blob: blobRef(routingArtifact, 'application/json') } } : {}),
     ...(contoursArtifact ? { contourLines: { path: contoursArtifact.path, blob: blobRef(contoursArtifact, 'application/json') } } : {}),
+    ...(wikipediaArtifact ? { wikipediaPack: { path: wikipediaArtifact.path, blob: blobRef(wikipediaArtifact, 'application/json') } } : {}),
+    ...(transitArtifact ? { transitPack: { path: transitArtifact.path, blob: blobRef(transitArtifact, 'application/json') } } : {}),
     attribution: attributions.map((a) => a.name).join(" · "),
     createdAt: now.toISOString(), packageVersion, osmDataDate,
     capabilities: ['basemap', ...(searchArtifacts.length ? ['search'] : []),
       ...(routingArtifact ? graphProfiles.map((profile) => `routing.${profile}`) : []),
-      ...(contoursArtifact ? ['contours'] : [])],
+      ...(contoursArtifact ? ['contours'] : []), ...(wikipediaArtifact ? ['wikipedia'] : []), ...(transitArtifact ? ['transit'] : [])],
     checksums: { archive: basemap.sha256, style: style.sha256,
       glyphs: glyphArtifacts.map((a) => a.sha256), sprites: spriteArtifacts.map((a) => a.sha256) },
     totalBytes, sources: { osm: sources.osm, attributions },
@@ -424,6 +430,25 @@ export async function runPipeline({ input, output, dryRun = false, now = new Dat
     catch (error) { throw new PipelineError(error instanceof Error ? error.message : 'Curvas inválidas', 'INVALID_CONTOURS'); }
     artifacts.push(await writeArtifact(outputDir, "elevation/contours.json", JSON.stringify(contours)));
   } else warnings.push("contours.json ausente: curvas de nível não foram empacotadas");
+
+  // M8: only publisher-supplied, licensed region data. No live Wikipedia or transit queries.
+  for (const [inputName, outputName, maxBytes, validator] of [
+    ['wikipedia.json', 'content/wikipedia.json', MAX_WIKIPEDIA_BYTES,
+      (value) => validateRegionalWikipedia(value, metadata.id)],
+    ['transit.json', 'content/transit.json', MAX_TRANSIT_BYTES,
+      (value) => validateRegionalTransit(value, metadata.id, metadata.bounds)],
+  ]) {
+    const file = join(inputDir, inputName);
+    if (!(await exists(file))) continue;
+    if ((await stat(file)).size > maxBytes)
+      throw new PipelineError(inputName + ' excede limite de 2 MiB', 'CONTENT_TOO_LARGE');
+    let parsed;
+    try { parsed = JSON.parse(await readFile(file, 'utf8')); validator(parsed); }
+    catch (error) {
+      throw new PipelineError(error instanceof Error ? error.message : 'Conteúdo inválido', 'INVALID_CONTENT');
+    }
+    artifacts.push(await writeArtifact(outputDir, outputName, JSON.stringify(parsed)));
+  }
 
   if (hasOsm && !hasBasemap) warnings.push("Limite do builder integrado: ate 32 MiB de extrato PBF; use um gerador regional especializado para areas maiores");
   warnings.push('Grafos e curvas regionais são dados opcionais: DEM e navegação GPS assistida continuam pendentes');

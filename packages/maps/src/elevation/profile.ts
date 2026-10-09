@@ -22,7 +22,10 @@ export function computeElevationProfile(
     if (!pt) continue;
     const lon = pt[0];
     const lat = pt[1];
-    const elevation = sampleDemBilinear(dem, metadata, lon, lat) ?? 0;
+    const elevation = sampleDemBilinear(dem, metadata, lon, lat);
+    if (elevation === null || !Number.isFinite(elevation)) {
+      throw new Error('Sem dados de elevação para todo o trajeto; não é possível calcular o perfil.');
+    }
 
     if (i > 0) {
       const prev = path[i - 1];

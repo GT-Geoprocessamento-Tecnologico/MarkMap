@@ -66,6 +66,8 @@ export interface PipelineManifest {
   osmDataDate: string;
   capabilities: string[];
   checksums: { archive: string; style: string; glyphs: string[]; sprites: string[] };
+  wikipediaPack?: { path: string; blob: PipelineBlobRef };
+  transitPack?: { path: string; blob: PipelineBlobRef };
   totalBytes: number;
   sources: PipelineSources;
   minimumCompatibleVersion: string;

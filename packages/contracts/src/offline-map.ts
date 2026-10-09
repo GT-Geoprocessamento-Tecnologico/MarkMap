@@ -116,6 +116,15 @@ export const offlineMapPackageManifestSchema = z
       (asset) => asset.path === 'elevation/contours.json' && asset.blob.mediaType === 'application/json',
       'contour lines must be elevation/contours.json',
     ).optional(),
+    /** Licensed regional excerpts only. No remote fetching is required after installation. */
+    wikipediaPack: assetRefSchema.refine(
+      (asset) => asset.path === 'content/wikipedia.json' && asset.blob.mediaType === 'application/json',
+      'wikipedia content must be content/wikipedia.json',
+    ).optional(),
+    transitPack: assetRefSchema.refine(
+      (asset) => asset.path === 'content/transit.json' && asset.blob.mediaType === 'application/json',
+      'transit content must be content/transit.json',
+    ).optional(),
     attribution: z.string().trim().min(1).max(2_000),
     createdAt: z.string().datetime(),
     /** Versionamento do pacote */
@@ -195,6 +204,15 @@ export const offlineMapPackageManifestSchema = z
     }
     if (manifest.capabilities.includes('contours') !== Boolean(manifest.contourLines)) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['capabilities'], message: 'contours capability inconsistent with data' });
+    }
+    if (manifest.capabilities.includes('wikipedia') !== Boolean(manifest.wikipediaPack)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['capabilities'], message: 'wikipedia capability must match package' });
+    }
+    if (manifest.capabilities.includes('transit') !== Boolean(manifest.transitPack)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['capabilities'], message: 'transit capability must match package' });
+    }
+    if ((manifest.wikipediaPack || manifest.transitPack) && manifest.totalBytes !== bytes) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['totalBytes'], message: 'totalBytes must equal referenced assets' });
     }
     if (bytes > 250 * 1024 * 1024)
       ctx.addIssue({

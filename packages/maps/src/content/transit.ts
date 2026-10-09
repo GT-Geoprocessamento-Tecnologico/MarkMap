@@ -6,6 +6,9 @@ export class TransitStore {
   private stationsByName = new Map<string, string[]>();
 
   load(network: TransitNetwork): void {
+    this.stations.clear();
+    this.lines.clear();
+    this.stationsByName.clear();
     for (const station of network.stations) {
       this.stations.set(station.id, station);
       const key = station.name.toLowerCase();
@@ -27,7 +30,9 @@ export class TransitStore {
   }
 
   searchStations(query: string, limit = 10): TransitStation[] {
-    const q = query.toLowerCase();
+    const q = query.trim().toLocaleLowerCase('pt-BR');
+    if (q.length < 2 || !Number.isSafeInteger(limit) || limit < 1) return [];
+    limit = Math.min(50, limit);
     const results: TransitStation[] = [];
     for (const station of this.stations.values()) {
       if (station.name.toLowerCase().includes(q)) {
@@ -48,6 +53,7 @@ export class TransitStore {
 
   getStationsNearby(lon: number, lat: number, radiusKm: number): TransitStation[] {
     const results: TransitStation[] = [];
+    if (![lon, lat, radiusKm].every(Number.isFinite) || lon < -180 || lon > 180 || lat < -90 || lat > 90 || radiusKm <= 0) return [];
     for (const station of this.stations.values()) {
       const dist = haversineKm(lat, lon, station.lat, station.lon);
       if (dist <= radiusKm) results.push(station);

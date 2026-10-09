@@ -1,3 +1,4 @@
+import { validateRegionalWikipedia, validateRegionalTransit, MAX_WIKIPEDIA_BYTES, MAX_TRANSIT_BYTES } from '../content/region-content.mjs';
 import { MAX_GRAPH_BYTES, validateRegionalGraph } from '../routing/graph-format.mjs';
 import { MAX_CONTOUR_BYTES, validateRegionalContours } from '../elevation/contour-package.mjs';
 import { MAX_REGIONAL_SEARCH_BYTES, MAX_REGIONAL_SHARD_BYTES, MAX_REGIONAL_SEARCH_RECORDS, parseRegionalShard } from "../search/regional-shards.js";
@@ -44,7 +45,8 @@ export async function validateOfflinePackage(manifestInput: unknown, assets: Pac
   const parsed = offlineMapPackageManifestSchema.safeParse(manifestInput);
   if (!parsed.success) return { ok: false, code: "invalid-manifest", detail: "manifest does not match the canonical contract" };
   const manifest = parsed.data;
-  const refs = [manifest.style, ...manifest.glyphs, ...manifest.sprites, ...(manifest.searchShards ?? []), ...(manifest.routingGraph ? [manifest.routingGraph] : []), ...(manifest.contourLines ? [manifest.contourLines] : [])];
+  const refs = [manifest.style, ...manifest.glyphs, ...manifest.sprites, ...(manifest.searchShards ?? []), ...(manifest.routingGraph ? [manifest.routingGraph] : []), ...(manifest.contourLines ? [manifest.contourLines] : []),
+    ...(manifest.wikipediaPack ? [manifest.wikipediaPack] : []), ...(manifest.transitPack ? [manifest.transitPack] : [])];
   let indexedRecords = 0;
   let searchBytes = 0;
   const paths = refs.map((r) => r.path);
@@ -100,6 +102,15 @@ export async function validateOfflinePackage(manifestInput: unknown, assets: Pac
       } catch {
         return { ok: false, code: 'invalid-search-shard', detail: `invalid OSM search shard: ${ref.path}` };
       }
+    }
+    if (ref.path === 'content/wikipedia.json' || ref.path === 'content/transit.json') {
+      const limit = ref.path === 'content/wikipedia.json' ? MAX_WIKIPEDIA_BYTES : MAX_TRANSIT_BYTES;
+      if (bytes.byteLength > limit) return { ok: false, code: 'content-too-large', detail: 'regional content exceeds local budget' };
+      try {
+        const data = JSON.parse(new TextDecoder().decode(bytes));
+        if (ref.path === 'content/wikipedia.json') validateRegionalWikipedia(data, manifest.id);
+        else validateRegionalTransit(data, manifest.id, manifest.bounds);
+      } catch { return { ok: false, code: 'invalid-content', detail: `invalid licensed regional data: ${ref.path}` }; }
     }
     if (ref.path === manifest.style.path) {
       let style: { glyphs?: unknown; sprite?: unknown; sources?: Record<string, { url?: unknown; tiles?: unknown[] }> };
