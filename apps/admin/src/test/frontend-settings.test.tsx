@@ -4,7 +4,10 @@ import SettingsPage from '../pages/settings/SettingsPage';
 import CoordinateSystemsPage from '../pages/dashboard/CoordinateSystemsPage';
 
 const { toast } = vi.hoisted(() => ({ toast: vi.fn() }));
-vi.mock('@geonexo/ui', () => ({ useToast: () => ({ toast }) }));
+vi.mock('@geonexo/ui', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@geonexo/ui')>()),
+  useToast: () => ({ toast }),
+}));
 
 beforeEach(() => {
   localStorage.clear(); toast.mockClear(); document.documentElement.classList.remove('dark');
@@ -16,7 +19,7 @@ describe('functional device settings', () => {
     render(<SettingsPage />);
     expect(screen.queryByText('URL da API')).not.toBeInTheDocument();
     expect(screen.queryByText('Limite de Importação')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Proteger dados locais' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Proteger dados' })).toBeEnabled();
   });
 
   it('changes and persists the actual theme', () => {

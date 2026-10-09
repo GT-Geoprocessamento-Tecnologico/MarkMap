@@ -1,89 +1,114 @@
-import { expect, test, describe } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 const DB_NAME = 'MarkMapDB';
 
-describe('PWA Update Prompt E2E', () => {
+/** WebKit pode emitir onsuccess do upgrade antes do registro estar legível;
+ *  aguardar a leitura confirmar antes de recarregar a página. */
+async function waitForUserData(page: Page): Promise<void> {
+  await expect
+    .poll(
+      async () =>
+        page.evaluate(async ({ dbName }) => {
+          const databases = (await indexedDB.databases?.()) ?? [];
+          if (!databases.some((entry) => entry.name === dbName)) return false;
+          return await new Promise<boolean>((resolve) => {
+            const request = indexedDB.open(dbName);
+            request.onerror = () => resolve(false);
+            request.onsuccess = () => {
+              const db = request.result;
+              const finish = (found: boolean) => {
+                db.close();
+                resolve(found);
+              };
+              if (!db.objectStoreNames.contains('entities')) return finish(false);
+              const tx = db.transaction('entities', 'readonly');
+              const get = tx.objectStore('entities').get('user-1');
+              get.onsuccess = () => finish(get.result !== undefined);
+              get.onerror = () => finish(false);
+            };
+          });
+        }, { dbName: DB_NAME }),
+      { timeout: 15_000 },
+    )
+    .toBe(true);
+}
+
+test.describe('PWA Update Prompt E2E', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByLabel('MarkMap — Planejamento Inteligente')).toBeVisible();
+    // A sidebar fica oculta abaixo de lg e a topbar acima de sm: escolher a
+    // marca visível no viewport em uso em vez do primeiro match do DOM.
+    await expect(
+      page.locator('[aria-label="MarkMap — Planejamento Inteligente"]:visible').first(),
+    ).toBeVisible();
   });
 
-  describe('worker waiting → confirmation → controllerchange', () => {
-    test('user clicks Atualizar and second context verifies controllerchange fired', async ({
+  test.describe('worker waiting → confirmation → controllerchange', () => {
+    test('user clicks Atualizar and controllerchange fires with a new controller', async ({
       page,
-      browser,
     }) => {
-      // Set up a service worker with a waiting worker in context 1
-      const context1 = await browser.newContext();
-      const page1 = await context1.newPage();
-
-      await page1.evaluate(() => {
-        const waiting = { postMessage: () => {} };
-        const ready = {
-          waiting,
+      await page.addInitScript(() => {
+        const containerListeners = new Map<string, Array<() => void>>();
+        const registration = {
+          waiting: {
+            postMessage: (message: unknown) => {
+              if ((message as { type?: string })?.type !== 'SKIP_WAITING') return;
+              (navigator.serviceWorker as unknown as { controller: unknown }).controller = {
+                state: 'activated',
+              };
+              for (const listener of containerListeners.get('controllerchange') ?? []) listener();
+              (window as { __mmControllerChange?: boolean }).__mmControllerChange = true;
+            },
+          },
+          installing: { state: 'installed', addEventListener: () => {} },
           addEventListener: () => {},
           removeEventListener: () => {},
-        } as ServiceWorkerRegistration;
+        };
+        const container = {
+          ready: Promise.resolve(registration),
+          controller: null,
+          addEventListener: (type: string, listener: () => void) => {
+            const list = containerListeners.get(type) ?? [];
+            list.push(listener);
+            containerListeners.set(type, list);
+          },
+          removeEventListener: (type: string, listener: () => void) => {
+            const list = containerListeners.get(type) ?? [];
+            const index = list.indexOf(listener);
+            if (index >= 0) list.splice(index, 1);
+          },
+        };
         Object.defineProperty(navigator, 'serviceWorker', {
           configurable: true,
-          value: {
-            ready: Promise.resolve(ready),
-            controller: null,
-            addEventListener: () => {},
-            removeEventListener: () => {},
-          },
+          value: container,
         });
-        // Simulate an installed worker waiting for skipWaiting
-        ;(ready as any).installing = {
-          state: 'installed',
-          addEventListener: () => {},
-        };
       });
 
-      await page1.goto('/');
-      await expect(page1.getByRole('status', { name: 'Nova versão' })).toBeVisible();
+      await page.goto('/');
+      await expect(page.getByRole('status', { name: /Nova versão/ })).toBeVisible();
 
-      // User clicks "Atualizar agora"
-      await page1.getByRole('button', { name: 'Atualizar agora' }).click();
+      // User clicks "Atualizar agora" → SKIP_WAITING → controllerchange
+      await page.getByRole('button', { name: 'Atualizar agora' }).click();
 
-      // Wait for the update to be processed
-      await page1.waitForTimeout(500);
+      await expect
+        .poll(() =>
+          page.evaluate(() => (window as { __mmControllerChange?: boolean }).__mmControllerChange)
+        )
+        .toBe(true);
 
-      // Second context: verify controllerchange fired and new version is active
-      const context2 = await browser.newContext();
-      const page2 = await context2.newPage();
-
-      // Wait for controllerchange event to fire
-      await new Promise<void>((resolve) => {
-        const handler = () => {
-          resolve();
-          page2.removeEventListener('controllerchange', handler);
-        };
-        page2.addEventListener('controllerchange', handler, { once: true });
-      });
-
-      // Verify new version is active
-      const isControlled = await page2.evaluate(() => navigator.serviceWorker.controller !== null);
+      const isControlled = await page.evaluate(
+        () => (navigator.serviceWorker as unknown as { controller: unknown }).controller !== null
+      );
       expect(isControlled).toBe(true);
-
-      // Verify the app is controlled by the new SW
-      const version = await page2.evaluate(() => {
-        // @ts-ignore
-        return (self as any).MarkMapVersion || 'unknown';
-      });
-      expect(version).toBeDefined();
-
-      await context1.close();
-      await context2.close();
     });
   });
 
-  describe('teste de Depois', () => {
+  test.describe('teste de Depois', () => {
     test('prompt re-appears after offline→online or visibility change trigger', async ({
       page,
     }) => {
       // First, ensure we have a waiting SW so the prompt appears
-      await page.evaluate(() => {
+      await page.addInitScript(() => {
         const waiting = { postMessage: () => {} };
         const ready = {
           waiting,
@@ -99,63 +124,62 @@ describe('PWA Update Prompt E2E', () => {
             removeEventListener: () => {},
           },
         });
-        ;(ready as any).installing = {
+        ;(ready as ServiceWorkerRegistration & { installing: object }).installing = {
           state: 'installed',
           addEventListener: () => {},
         };
       });
 
       await page.goto('/');
-      await expect(page.getByRole('status', { name: 'Nova versão' })).toBeVisible();
+      await expect(page.getByRole('status', { name: /Nova versão/ })).toBeVisible();
 
       // User clicks "Depois"
       await page.getByRole('button', { name: 'Depois' }).click();
 
       // Prompt should be dismissed
-      await expect(page.getByRole('status', { name: 'Nova versão' })).not.toBeVisible();
+      await expect(page.getByRole('status', { name: /Nova versão/ })).not.toBeVisible();
 
-      // Go offline then online - prompt should re-appear after trigger
+      // Go offline then online; reload only once back online so the update is
+      // re-discovered on a fresh document. Offline shell reload is covered by
+      // pwa-upgrade.spec.ts with a real service worker.
       await page.context().setOffline(true);
-      await page.reload({ waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(300);
       await page.context().setOffline(false);
-
-      // Wait for update check after coming back online
-      await page.waitForTimeout(2000);
+      await page.reload({ waitUntil: 'domcontentloaded' });
 
       // Prompt should re-appear after the offline→online trigger
-      const promptVisible = await page.getByRole('status', { name: 'Nova versão' }).isVisible();
-      expect(promptVisible).toBe(true);
+      await expect(page.getByRole('status', { name: /Nova versão/ })).toBeVisible();
 
       // Click "Depois" again
       await page.getByRole('button', { name: 'Depois' }).click();
 
-      // Go offline→online again
+      // Go offline→online again, then reload once back online
       await page.context().setOffline(true);
-      await page.reload({ waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(300);
       await page.context().setOffline(false);
-      await page.waitForTimeout(2000);
+      await page.reload({ waitUntil: 'domcontentloaded' });
 
       // Prompt should re-appear after second trigger
-      const promptVisible2 = await page.getByRole('status', { name: 'Nova versão' }).isVisible();
-      expect(promptVisible2).toBe(true);
+      await expect(page.getByRole('status', { name: /Nova versão/ })).toBeVisible();
     });
   });
 
-  describe('teste com outbox pendente', () => {
+  test.describe('teste com outbox pendente', () => {
     test('update blocked when durableWritesReady returns false', async ({
       page,
     }) => {
       // Mock durableWritesReady to return false
       await page.evaluate(() => {
-        // @ts-ignore
-        (self as any).durableWritesReady = () => false;
-        // Also mock compatibilityReady to return true
-        // @ts-ignore
-        (self as any).compatibilityReady = () => true;
+        const scope = self as unknown as {
+          durableWritesReady?: () => boolean;
+          compatibilityReady?: () => boolean;
+        };
+        scope.durableWritesReady = () => false;
+        scope.compatibilityReady = () => true;
       });
 
       // Check if update prompt is visible
-      const prompt = page.getByRole('status', { name: 'Nova versão' });
+      const prompt = page.getByRole('status', { name: /Nova versão/ });
       const isVisible = await prompt.isVisible();
 
       if (isVisible) {
@@ -171,12 +195,12 @@ describe('PWA Update Prompt E2E', () => {
     });
   });
 
-  describe('teste offline após versão já descoberta', () => {
+  test.describe('teste offline após versão já descoberta', () => {
     test('app functional offline; prompt does not crash; version info preserved', async ({
       page,
     }) => {
       // First, set up a waiting SW so the update is "discovered"
-      await page.evaluate(() => {
+      await page.addInitScript(() => {
         const waiting = { postMessage: () => {} };
         const ready = {
           waiting,
@@ -192,7 +216,7 @@ describe('PWA Update Prompt E2E', () => {
             removeEventListener: () => {},
           },
         });
-        ;(ready as any).installing = {
+        ;(ready as ServiceWorkerRegistration & { installing: object }).installing = {
           state: 'installed',
           addEventListener: () => {},
         };
@@ -200,30 +224,35 @@ describe('PWA Update Prompt E2E', () => {
 
       await page.goto('/');
       // Wait for the prompt to appear (update discovered)
-      await expect(page.getByRole('status', { name: 'Nova versão' })).toBeVisible();
+      await expect(page.getByRole('status', { name: /Nova versão/ })).toBeVisible();
 
-      // Now go fully offline
+      // Now go fully offline. The offline shell reload is covered by
+      // pwa-upgrade.spec.ts with a real service worker; here the SW is stubbed
+      // to simulate a waiting update, so we verify the loaded session survives.
       await page.context().setOffline(true);
-      await page.reload({ waitUntil: 'domcontentloaded' });
+      await page.waitForLoadState('networkidle').catch(() => undefined);
 
       // App should still be functional offline
       await expect(page).toHaveTitle(/MarkMap/i);
-      await expect(page.getByLabel('MarkMap — Planejamento Inteligente')).toBeVisible();
+    await expect(
+      page.locator('[aria-label="MarkMap — Planejamento Inteligente"]:visible').first(),
+    ).toBeVisible();
 
       // Update prompt should not crash (no error)
-      const prompt = page.getByRole('status', { name: 'Nova versão' });
-      await expect(() => prompt.isVisible()).not.toThrow();
+      const prompt = page.getByRole('status', { name: /Nova versão/ });
+      await expect(prompt).toBeVisible();
 
       // Version info should be preserved
       const version = await page.evaluate(() => {
-        // @ts-ignore
-        return (self as any).MarkMapVersion || 'unknown';
+        return (self as { MarkMapVersion?: string }).MarkMapVersion || 'unknown';
       });
       expect(version).toBeDefined();
+
+      await page.context().setOffline(false);
     });
   });
 
-  describe('sem perda de IndexedDB/outbox', () => {
+  test.describe('sem perda de IndexedDB/outbox', () => {
     test('all user data preserved after update flow', async ({
       page,
     }) => {
@@ -262,6 +291,8 @@ describe('PWA Update Prompt E2E', () => {
         { dbName: DB_NAME }
       );
 
+      await waitForUserData(page);
+
       // Reload to trigger service worker check
       await page.reload({ waitUntil: 'domcontentloaded' });
 
@@ -269,7 +300,7 @@ describe('PWA Update Prompt E2E', () => {
       await page.waitForTimeout(1000);
 
       // If update prompt is visible, click "Atualizar agora"
-      const prompt = page.getByRole('status', { name: 'Nova versão' });
+      const prompt = page.getByRole('status', { name: /Nova versão/ });
       const isVisible = await prompt.isVisible();
 
       if (isVisible) {
@@ -280,29 +311,59 @@ describe('PWA Update Prompt E2E', () => {
       // Reload app - data should be preserved
       await page.reload({ waitUntil: 'domcontentloaded' });
 
-      // Verify data preserved in IndexedDB
+      // Verify data preserved in IndexedDB. Cada caminho resolve: um callback
+      // que lança dentro de onsuccess deixaria a Promise pendurada para sempre.
       const dataPreserved = await page.evaluate(
         async ({ dbName }) => {
-          return new Promise<{ exists: boolean; payload: unknown }>((resolve, reject) => {
+          return await new Promise<{
+            exists: boolean;
+            payload: unknown;
+            stores: string;
+            note?: string;
+          }>((resolve, reject) => {
+            const timer = setTimeout(() => {
+              resolve({ exists: false, payload: undefined, stores: '', note: 'open timeout' });
+            }, 8000);
             const request = indexedDB.open(dbName);
-            request.onerror = () => reject(request.error);
+            request.onblocked = () => {
+              clearTimeout(timer);
+              resolve({ exists: false, payload: undefined, stores: '', note: 'open blocked' });
+            };
+            request.onerror = () => {
+              clearTimeout(timer);
+              reject(request.error);
+            };
             request.onsuccess = () => {
               const db = request.result;
-              const tx = db.transaction('entities', 'readonly');
-              const entity = tx.objectStore('entities').get('user-1');
-              entity.onsuccess = () => {
-                const result = entity.result;
-                const exists = result !== undefined && result.payload?.name === 'Dados do usuário';
-                resolve({ exists, payload: result?.payload });
-              };
-              tx.onerror = () => reject(tx.error);
+              const stores = Array.from(db.objectStoreNames).join(',');
+              try {
+                const tx = db.transaction('entities', 'readonly');
+                const entity = tx.objectStore('entities').get('user-1');
+                entity.onsuccess = () => {
+                  clearTimeout(timer);
+                  const result = entity.result;
+                  const exists =
+                    result !== undefined && result.payload?.name === 'Dados do usuário';
+                  resolve({ exists, payload: result?.payload, stores });
+                };
+                tx.onerror = () => {
+                  clearTimeout(timer);
+                  resolve({ exists: false, payload: undefined, stores, note: 'tx error' });
+                };
+              } catch (error) {
+                clearTimeout(timer);
+                resolve({ exists: false, payload: undefined, stores, note: String(error) });
+              }
             };
           });
         },
         { dbName: DB_NAME }
       );
 
-      expect(dataPreserved.exists).toBe(true);
+      expect(
+        dataPreserved,
+        `stores=[${dataPreserved.stores}] ${dataPreserved.note ?? ''}`,
+      ).toMatchObject({ exists: true });
       expect(dataPreserved.payload).toBeDefined();
     });
   });

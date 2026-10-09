@@ -6,13 +6,14 @@
  * Capacitor, adaptando-se à disponibilidade de APIs.
  *
  * Este módulo é o MM-MAP-100 da sequência Maps Engine v2 offline.
+ *
+ * Observação sobre Capacitor: a Storage Manager API (`navigator.storage`) está
+ * disponível dentro do WebView do Capacitor, portanto o caminho nativo usa as
+ * mesmas APIs web. A persistência (`navigator.storage.persist()`) é concedida
+ * pelo sistema operacional em Android/iOS quando o app é usado com frequência.
  */
 
-import { persistence } from "@capacitor/storage";
-import { requestPermissions, requestPermission } from "@capacitor/geolocation";
-
-import { getStorageBreakdown, CategoryBreakdown, StorageBreakdown } from "./storage-management";
-import { offlineMapStore } from "./offline-map-store";
+import { getStorageBreakdown, StorageBreakdown } from "./storage-management";
 
 /**
  * Tipos do perfil de storage do dispositivo
@@ -57,53 +58,40 @@ const categoryMap: Record<string, StorageCategory> = {
 /**
  * Obtém o perfil completo de storage do dispositivo.
  *
- * - Em Web/PWA: usa navigator.storage.estimate() e IndexedDB
- * - Em Capacitor: usa plugin de storage + IndexedDB
+ * Usa `navigator.storage.estimate()` e a Storage Manager API, disponíveis
+ * tanto em Web/PWA quanto dentro do WebView do Capacitor.
  *
- * @returns DeviceStorageProfile preenchado com dados reais
+ * @returns DeviceStorageProfile preenchido com dados reais
  */
 export async function getDeviceStorageProfile(): Promise<DeviceStorageProfile> {
-  const isCapacitor = typeof window !== "undefined" && (window as any)?.Capacitor;
-  const isNativePlatform = isCapacitor?.isNativePlatform === true;
-
-  let quota = 0;
   let maxLimit = 0;
   let persistentGranted = false;
-  let backend: StorageBackend = "indexeddb";
-  let usageMap = new Map<StorageCategory, number>();
-  let categoriesWithUsage: StorageCategory[] = [];
+  const backend: StorageBackend = "indexeddb";
+  const usageMap = new Map<StorageCategory, number>();
+  const categoriesWithUsage: StorageCategory[] = [];
 
-  // Tentar obter quota do navigator.storage (Web)
+  // Tentar obter quota do navigator.storage (Web + Capacitor WebView)
   try {
     if (typeof navigator !== "undefined" && navigator.storage?.estimate) {
       const estimate = await navigator.storage.estimate();
-      maxLimit = estimate.quota;
-      quota = Math.floor(estimate.quota * 0.85); // 85% safe limit
-      persistentGranted = await navigator.storage.persist?.();
+      maxLimit = estimate.quota ?? 0;
+      persistentGranted = await isPersistentStorageGranted();
     }
   } catch {
     // Fallback - Web sem estimate
   }
 
-  // Em Capacitor, tentar obter info do plugin
-  if (isNativePlatform) {
+  // Em Capacitor nativo, tentar ler a quota persistida em localStorage
+  if (isNativePlatform()) {
     try {
-      const { value } = await persistence.get({ key: "storage_quota" });
-      // O plugin pode armazenar a quota previamente calculada
-      if (value && typeof value === "number") {
-        maxLimit = value;
-        quota = Math.floor(value * 0.85);
+      const raw = localStorage.getItem("storage_quota");
+      const value = raw === null ? Number.NaN : Number(raw);
+      if (Number.isFinite(value) && value > 0) {
+        maxLimit = Math.max(maxLimit, value);
       }
+      persistentGranted = persistentGranted || (await isPersistentStorageGranted());
     } catch {
-      // Ignorar erros de persistence plugin
-    }
-
-    // Verificar permissões de persistência
-    try {
-      const permStatus = await requestPermissions({ permissions: ["storage"] });
-      persistentGranted = permStatus.storage === "granted";
-    } catch {
-      // Ignorar
+      // Ignorar erros de leitura em ambiente nativo
     }
   }
 
@@ -120,25 +108,34 @@ export async function getDeviceStorageProfile(): Promise<DeviceStorageProfile> {
     // Fallback se breakdown falhar
   }
 
+  const quota = Math.floor(maxLimit * 0.85); // 85% safe limit
+
   // Calcular space livre
   const totalUsed = Array.from(usageMap.values()).reduce((sum, bytes) => sum + bytes, 0);
-  const freeSpace = maxLimit > 0 ? maxLimit - totalUsed : 0;
+  const freeSpace = maxLimit > 0 ? Math.max(maxLimit - totalUsed, 0) : 0;
 
   // Ajustar quota se freeSpace for menor
-  if (maxLimit > 0 && freeSpace < quota) {
-    quota = Math.floor(freeSpace * 0.95); // 95% do espaço livre restante
-  }
+  const adjustedQuota = maxLimit > 0 && freeSpace < quota
+    ? Math.floor(freeSpace * 0.95) // 95% do espaço livre restante
+    : quota;
 
   return {
-    quota,
+    quota: adjustedQuota,
     usage: usageMap,
     categoriesWithUsage,
     persistentGranted,
     backend,
-    safeLimit: quota,
+    safeLimit: adjustedQuota,
     maxLimit,
     freeSpace,
   };
+}
+
+/** Detecta execução dentro do runtime nativo do Capacitor */
+function isNativePlatform(): boolean {
+  if (typeof window === "undefined") return false;
+  const capacitor = (window as { Capacitor?: { isNativePlatform?: boolean } })?.Capacitor;
+  return capacitor?.isNativePlatform === true;
 }
 
 /**
@@ -148,12 +145,17 @@ export async function getDeviceStorageProfile(): Promise<DeviceStorageProfile> {
  * @returns True se houver espaço suficiente considerando o safe limit
  */
 export function hasSpaceForPackage(packageBytes: number): boolean {
-  return packageBytes <= 0 ? false : hasSpaceForPackage._profile?.safeLimit >= packageBytes;
+  if (packageBytes <= 0) return false;
+  return (cachedProfile?.safeLimit ?? 0) >= packageBytes;
 }
 
 /** Cache estático do perfil (atualizado a cada 300s) */
-hasSpaceForPackage._profile: DeviceStorageProfile | null = null;
-hasSpaceForProfile._timer: NodeJS.Timeout | null = null;
+let cachedProfile: DeviceStorageProfile | null = null;
+let cachedProfileTimestamp = 0;
+let cacheExpiryTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** TTL do cache em ms (5 minutos) */
+const PROFILE_CACHE_TTL_MS = 300_000;
 
 /**
  * Atualiza o perfil cached a cada intervalo.
@@ -164,23 +166,22 @@ export async function refreshStorageProfile(refreshForcado: boolean = false): Pr
   const now = Date.now();
 
   // Se temos cache recente e não for refresh forçado, retorna cache
-  if (!refreshForcado && hasSpaceForPackage._profile && hasSpaceForProfile._timer) {
-    const age = now - (hasSpaceForProfile._timer as number);
-    if (age < 300_000) {
-      // 5 minutos de cache
-      return hasSpaceForPackage._profile;
-    }
+  if (!refreshForcado && cachedProfile !== null && now - cachedProfileTimestamp < PROFILE_CACHE_TTL_MS) {
+    return cachedProfile;
   }
 
   const profile = await getDeviceStorageProfile();
 
-  // Atualizar timer
-  clearTimeout(hasSpaceForProfile._timer as NodeJS.Timeout);
-  hasSpaceForProfile._timer = setTimeout(() => {
-    hasSpaceForPackage._profile = null;
-  }, 300_000);
+  // Reiniciar timer de expiração do cache
+  if (cacheExpiryTimer !== null) clearTimeout(cacheExpiryTimer);
+  cacheExpiryTimer = setTimeout(() => {
+    cachedProfile = null;
+    cachedProfileTimestamp = 0;
+    cacheExpiryTimer = null;
+  }, PROFILE_CACHE_TTL_MS);
 
-  hasSpaceForPackage._profile = profile;
+  cachedProfile = profile;
+  cachedProfileTimestamp = now;
   return profile;
 }
 
@@ -199,18 +200,31 @@ export function formatBytes(bytes: number): string {
 
 /**
  * Verifica se o usuário tem permission persistente para storage.
- * Em Web, chama navigator.storage.persist(). Em Capacitor, verifica permissões.
+ *
+ * Usa a Storage Manager API (`navigator.storage.persisted()`), que funciona
+ * em Web/PWA e dentro do WebView do Capacitor.
  */
 export async function isPersistentStorageGranted(): Promise<boolean> {
-  if (typeof navigator !== "undefined" && navigator.storage?.persist) {
-    return await navigator.storage.persist();
+  if (typeof navigator !== "undefined" && navigator.storage?.persisted) {
+    try {
+      return await navigator.storage.persisted();
+    } catch {
+      return false;
+    }
   }
 
-  // Capacitor
-  if (typeof window !== "undefined" && (window as any)?.Capacitor?.isNativePlatform === true) {
+  return false;
+}
+
+/**
+ * Solicita persistência de storage ao navegador/SO.
+ *
+ * @returns True se a persistência foi concedida
+ */
+export async function requestPersistentStorage(): Promise<boolean> {
+  if (typeof navigator !== "undefined" && navigator.storage?.persist) {
     try {
-      const permStatus = await requestPermissions({ permissions: ["storage"] });
-      return permStatus.storage === "granted";
+      return await navigator.storage.persist();
     } catch {
       return false;
     }

@@ -76,6 +76,9 @@ test("PWA mantém projeto editável após cold reload totalmente offline", async
     "true",
   );
   await page.getByRole("button", { name: "Adicionar ponto" }).click();
+  // startDrawing é assíncrono: aguardar o modo ativo antes de clicar no mapa,
+  // senão o clique é engolido quando a máquina está sob carga.
+  await expect(page.getByText("Toque no mapa para salvar o ponto")).toBeVisible();
   const mapSurface = page.getByTestId("map-canvas");
   const box = await mapSurface.boundingBox();
   expect(box).not.toBeNull();

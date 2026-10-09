@@ -62,7 +62,7 @@ export async function getStorageBreakdown(): Promise<StorageBreakdown> {
   // 2. Telemetry/Logs
   try {
     const telemetry = (await offlineDB.getAll("telemetry")) as unknown[];
-    const bytes = telemetry.reduce(
+    const bytes = telemetry.reduce<number>(
       (sum, record) => sum + JSON.stringify(record).length * 2,
       0
     );
@@ -87,7 +87,7 @@ export async function getStorageBreakdown(): Promise<StorageBreakdown> {
   // 3. Offline map packages
   try {
     const packages = await offlineMapStore.list();
-    const bytes = packages.reduce((sum, p) => sum + (p.bytes ?? 0), 0);
+    const bytes = packages.reduce<number>((sum, p) => sum + (p.manifest.archive.bytes ?? 0), 0);
 
     categories.push({
       category: "offline-maps",
@@ -255,7 +255,7 @@ async function cleanTelemetry(): Promise<void> {
 async function cleanOfflineMaps(): Promise<void> {
   const packages = await offlineMapStore.list();
   for (const pkg of packages) {
-    await offlineMapStore.remove(pkg.id);
+    await offlineMapStore.remove(pkg.manifest.id);
   }
 }
 

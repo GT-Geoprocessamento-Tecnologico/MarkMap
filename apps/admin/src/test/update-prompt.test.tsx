@@ -24,15 +24,15 @@ describe('PWA update handshake', () => {
   it('fails closed when readiness callbacks are absent', async () => {
     const waiting = installServiceWorkerStub();
     render(<UpdatePrompt />);
-    expect(await screen.findByRole('button', { name: 'Atualizar' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Atualizar' }));
+    expect(await screen.findByRole('button', { name: 'Atualizar agora' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Atualizar agora' }));
     await waitFor(() => expect(waiting.postMessage).not.toHaveBeenCalled());
   });
 
   it('waits for both callbacks before accepting the update', async () => {
     const waiting = installServiceWorkerStub();
     render(<UpdatePrompt durableWritesReady={() => true} compatibilityReady={() => true} />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Atualizar' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Atualizar agora' }));
     await waitFor(() => expect(waiting.postMessage).toHaveBeenCalledWith({
       type: 'SKIP_WAITING', durableWritesReady: true, compatibilityVersion: 1,
     }));
@@ -41,7 +41,7 @@ describe('PWA update handshake', () => {
   it('does not accept while either callback reports unsafe state', async () => {
     const waiting = installServiceWorkerStub();
     render(<UpdatePrompt durableWritesReady={() => true} compatibilityReady={() => false} />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Atualizar' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Atualizar agora' }));
     await waitFor(() => expect(waiting.postMessage).not.toHaveBeenCalled());
   });
 });

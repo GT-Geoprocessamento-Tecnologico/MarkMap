@@ -8,11 +8,9 @@
  * Gate M2: pacote regional continua funcionando após force-stop/reload e sem rede.
  */
 
-import { getStorageBreakdown, CategoryBreakdown, StorageBreakdown } from "./storage-management";
-import { DeviceStorageProfile } from "./device-storage-profile";
-import { LargeBlobStore } from "./large-blob-store";
+import { IndexedDBBlobStore, type LargeBlobStore } from "./large-blob-store";
 import { offlineMapStore } from "./offline-map-store";
-import { offlineMapPackageManifestSchema } from "../contracts/src/offline-map";
+import { offlineMapPackageManifestSchema, type OfflineMapPackageManifest } from "@geonexo/contracts";
 import { ResumableInstaller } from "./resumable-installer";
 
 /** Tipo de operação de região */
@@ -28,7 +26,7 @@ export interface RegionInfo {
   size: number; // bytes
   date: string; // data da fonte OSM
   status: RegionStatus;
-  manifest: any; // Manifest v2
+  manifest: OfflineMapPackageManifest; // Manifest v2
   manifestPath: string;
   lastActivated: string;
   lastUsed: string;
@@ -75,8 +73,8 @@ export class RegionManager {
   private installer: ResumableInstaller;
 
   constructor() {
-    this.blobStore = new (require("@/lib/storage/large-blob-store").IndexedDBBlobStore)();
-    this.installer = new (require("@/lib/storage/resumable-installer").ResumableInstaller)(undefined, false);
+    this.blobStore = new IndexedDBBlobStore();
+    this.installer = new ResumableInstaller(this.blobStore, false);
   }
 
   /** Listar todas as regiões instaladas */
@@ -89,26 +87,22 @@ export class RegionManager {
 
       for (const pkg of packages) {
         try {
-          // Ler manifest do pacote
-          const manifestResult = await this.readPackageManifest(pkg.id);
-          if (!manifestResult.success) continue;
-
-          const manifest = manifestResult.data;
-          const status = this.determineStatus(pkg, manifest);
+          const manifest = pkg.manifest;
+          const status = this.determineStatus(manifest);
 
           regions.push({
-            id: pkg.id,
-            version: manifest.packageVersion || "unknown",
-            label: manifest.label || pkg.id,
-            size: pkg.bytes || 0,
-            date: manifest.osmDataDate || new Date().toISOString(),
+            id: manifest.id,
+            version: manifest.packageVersion || manifest.version,
+            label: manifest.label || manifest.id,
+            size: manifest.archive.bytes || 0,
+            date: manifest.osmDataDate || pkg.installedAt,
             status,
             manifest: manifest,
-            manifestPath: `/offline/${pkg.id}/manifest.json`,
-            lastActivated: pkg.lastModified || new Date().toISOString(),
+            manifestPath: `/offline/${manifest.id}/manifest.json`,
+            lastActivated: pkg.installedAt,
             lastUsed: new Date().toISOString(),
-            removable: this.isRemovable(pkg),
-            repairRequired: this.requiresRepair(pkg, manifest),
+            removable: this.isRemovable(),
+            repairRequired: this.requiresRepair(manifest),
             licenses: this.extractLicenses(manifest),
           });
         } catch {
@@ -119,9 +113,11 @@ export class RegionManager {
       // Ordenar por data (mais recente primeiro)
       regions.sort((a, b) => b.lastActivated.localeCompare(a.lastActivated));
 
+      const filtered = this.applyFilter(regions, filter);
+
       return {
-        regions,
-        total: regions.length,
+        regions: filtered,
+        total: filtered.length,
         cacheDate: now,
       };
     } catch (error) {
@@ -129,8 +125,40 @@ export class RegionManager {
     }
   }
 
+  /** Aplicar filtros de listagem sobre o conjunto completo de regiões */
+  private applyFilter(regions: RegionInfo[], filter?: RegionFilter): RegionInfo[] {
+    if (!filter) return regions;
+
+    let result = regions;
+
+    if (filter.status !== undefined) {
+      result = result.filter((region) => region.status === filter.status);
+    }
+
+    if (filter.search) {
+      const query = filter.search.trim().toLowerCase();
+      if (query) {
+        result = result.filter(
+          (region) =>
+            region.label.toLowerCase().includes(query) ||
+            region.id.toLowerCase().includes(query),
+        );
+      }
+    }
+
+    if (filter.minSize !== undefined) {
+      result = result.filter((region) => region.size >= (filter.minSize ?? 0));
+    }
+
+    if (filter.maxSize !== undefined) {
+      result = result.filter((region) => region.size <= (filter.maxSize ?? Number.MAX_SAFE_INTEGER));
+    }
+
+    return result;
+  }
+
   /** Determinar status da região */
-  private determineStatus(pkg: any, manifest: any): RegionStatus {
+  private determineStatus(manifest: OfflineMapPackageManifest): RegionStatus {
     // Lógica simplificada para determinar status
     if (!manifest) return "error";
     // Se tem ativo e data recente, está active
@@ -140,25 +168,20 @@ export class RegionManager {
   }
 
   /** Verificar se região é removível */
-  private isRemovable(pkg: any): boolean {
+  private isRemovable(): boolean {
     // Não permitir remoção se for o único pacote ou se estiver ativo
     return true; // Simplificado
   }
 
   /** Verificar se região precisa de reparo */
-  private requiresRepair(pkg: any, manifest: any): boolean {
+  private requiresRepair(manifest: OfflineMapPackageManifest): boolean {
     // Verificar integridade do manifest
     if (!manifest) return true;
-    try {
-      offlineMapPackageManifestSchema.safeParse(manifest);
-      return false;
-    } catch {
-      return true;
-    }
+    return !offlineMapPackageManifestSchema.safeParse(manifest).success;
   }
 
   /** Extrair licenças do manifest */
-  private extractLicenses(manifest: any): Array<{ name: string; url: string }> {
+  private extractLicenses(manifest: OfflineMapPackageManifest): Array<{ name: string; url: string }> {
     const licenses: Array<{ name: string; url: string }> = [];
 
     // Extrair de attribution
@@ -166,19 +189,7 @@ export class RegionManager {
       licenses.push({ name: "OpenStreetMap", url: "https://www.openstreetmap.org" });
     }
 
-    // Extrair de sources
-    if (manifest.sources?.osm) {
-      licenses.push({ name: "OpenStreetMap Data", url: manifest.sources.osm });
-    }
-
     return licenses;
-  }
-
-  /** Ler manifest de um pacote */
-  private readPackageManifest(packageId: string): Promise<{ success: boolean; data: any }> {
-    // Em um cenário real, isso leria o manifest do armazenamento
-    // Para este modelo, retornar null
-    return Promise.resolve({ success: false, data: null });
   }
 
   /** Remover uma região instalada */
@@ -220,7 +231,7 @@ export class RegionManager {
       const list = await this.listRegions();
       const region = list.regions.find((r) => r.id === regionId);
       if (!region) {
-        return { success: false, regionId, message: "Região não encontrada" };
+        return { success: false, regionId, message: "Região não encontrada", repairedFiles: 0 };
       }
 
       // Verificar integridade do manifest
@@ -241,6 +252,7 @@ export class RegionManager {
         success: false,
         regionId,
         message: error instanceof Error ? error.message : "Erro ao reparar região",
+        repairedFiles: 0,
       };
     }
   }
@@ -260,14 +272,14 @@ export class RegionManager {
   }
 
   /** Verificar se há atualização disponível para uma região */
-  async checkUpdateAvailable(regionId: string): Promise<{ hasUpdate: boolean; updateInfo: any }> {
+  async checkUpdateAvailable(_regionId: string): Promise<{ hasUpdate: boolean; updateInfo: Record<string, unknown> }> {
     // Verificar se há novo manifest disponível
     // ... (implementação simplificada)
     return { hasUpdate: false, updateInfo: {} };
   }
 
   /** Aplicar atualização de região */
-  async applyUpdate(regionId: string): Promise<{ success: boolean; message: string }> {
+  async applyUpdate(_regionId: string): Promise<{ success: boolean; message: string }> {
     // Aplicar update usando o ResumableInstaller
     // ... (implementação simplificada)
     return { success: false, message: "Não implementado ainda" };

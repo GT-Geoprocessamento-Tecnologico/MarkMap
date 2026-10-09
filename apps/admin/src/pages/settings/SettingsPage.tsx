@@ -11,7 +11,7 @@ import {
 } from "../../lib/storage/offline-map-selection";
 import { offlineDB } from "../../lib/storage/offline-db";
 import { ensureLocationPermission } from "../../lib/device-location-permission";
-import { getStorageBreakdown, cleanStorageCategories, type StorageBreakdownItem, type StorageCategory } from "../../lib/storage/storage-management";
+import { getStorageBreakdown, cleanStorageCategories, type CategoryBreakdown, type StorageCategory } from "../../lib/storage/storage-management";
 
 type InstallPrompt = Event & {
   prompt(): Promise<void>;
@@ -55,9 +55,9 @@ export default function SettingsPage() {
   const [offlinePackages, setOfflinePackages] = useState<OfflineMapPackageManifest[]>([]);
   const [selectedOfflineMapId, setSelectedOfflineMapIdState] = useState<string | null>(getSelectedOfflineMapId);
   const [packageBusy, setPackageBusy] = useState(false);
-  const [storageBreakdown, setStorageBreakdown] = useState<StorageBreakdownItem[]>([]);
+  const [storageBreakdown, setStorageBreakdown] = useState<CategoryBreakdown[]>([]);
   const [cleanupDialogOpen, setCleanupDialogOpen] = useState(false);
-  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
+  const [selectedCategories, setSelectedCategories] = useState<Set<StorageCategory>>(new Set());
   const [cleanupBusy, setCleanupBusy] = useState(false);
   const refreshStorage = async () => {
     try {

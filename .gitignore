@@ -56,6 +56,7 @@ coverage/
 # Playwright
 apps/admin/playwright-report/
 apps/admin/test-results/
+docs/quality/
 
 # Turbo
 .turbo

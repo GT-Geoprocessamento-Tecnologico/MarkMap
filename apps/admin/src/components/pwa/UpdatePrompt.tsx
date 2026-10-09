@@ -14,7 +14,7 @@ export function UpdatePrompt({
 }: UpdatePromptProps) {
   const [registration, setRegistration] = useState<ServiceWorkerRegistration | null>(null);
   const [busy, setBusy] = useState(false);
-  const [dismissedVersion, setDismissedVersion] = useState<string | number | null>(null);
+  const [dismissedVersion, setDismissedVersion] = useState<ServiceWorker | null>(null);
 
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return undefined;
@@ -68,7 +68,7 @@ export function UpdatePrompt({
     navigator.serviceWorker.addEventListener("controllerchange", onControllerChange);
     void navigator.serviceWorker.ready.then((ready) => {
       if (disposed) return;
-      if (ready.waiting) setRegistration(ready);
+      if (ready.waiting && ready.waiting !== dismissedVersion) setRegistration(ready);
       ready.addEventListener("updatefound", () => {
         const worker = ready.installing;
         if (!worker) return;
@@ -121,6 +121,7 @@ export function UpdatePrompt({
     <aside
       role="status"
       aria-live="polite"
+      aria-label="Nova versão do MarkMap disponível."
       className="pwa-update-prompt"
     >
       <span>Nova versão do MarkMap disponível.</span>

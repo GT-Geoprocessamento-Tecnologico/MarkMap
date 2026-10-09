@@ -159,7 +159,8 @@ npx turbo run lint build test --filter='./packages/*' --force   → 15/15 succes
 ### Pendências conhecidas
 
 1. `docs/handoff.md` — atualizado com M3→M10 nesta revisão ✅
-2. E2E (Playwright) do fluxo offline — quando aplicável
+2. ~~E2E (Playwright) do fluxo offline~~ — **concluído**: `pnpm test:e2e` em `apps/admin`
+   → 95 passed / 20 skipped / 0 failed nos projetos chromium, firefox, webkit, pixel-7 e iphone-13.
 3. Evidência física: Android/iOS offline, GPS/navigation, Android Auto/CarPlay
 4. Baseline de performance em aparelho (MM-MAP-900)
 5. ~~`THIRD_PARTY_NOTICES.md` + ADRs + guides (MM-MAP-930)~~ — **concluído**:
@@ -178,5 +179,5 @@ npx turbo run lint build test --filter='./packages/*' --force   → 15/15 succes
   - proteção de outbox (não descartar transações pendentes ao adiar);
   - compatibilidade com o fluxo de sync existente.
 - builds Capacitor devem ter aviso próprio (sem depender do fluxo PWA principal).
-- **Status (2026-10-08):** fases M0→M10 com docs entregues; código real de M3→M10 implementado em `packages/contracts`, `packages/maps`, `packages/geo`; suítes de teste novas verdes (lint/build/test 15/15). Sequência commitada em `5368bb8e`. MM-MAP-930 fechado (THIRD_PARTY + ADR-0004/0005/0006 + guides). Pendências restantes: E2E, evidência de dispositivo, baseline de performance, gate MM-MAP-940 antes de PR para `main`.
+- **Status (2026-10-08):** fases M0→M10 com docs entregues; código real de M3→M10 implementado em `packages/contracts`, `packages/maps`, `packages/geo`; suítes de teste novas verdes (lint/build/test 15/15). Sequência commitada em `5368bb8e`. MM-MAP-930 fechado (THIRD_PARTY + ADR-0004/0005/0006 + guides). `apps/admin` verde: lint 0, typecheck 0, build, 91 testes unitários e E2E Playwright 95 passed / 0 failed em 5 projetos. Pendências restantes: evidência de dispositivo, baseline de performance, revisão de diff, gate MM-MAP-940 antes de PR para `main`.
 - Atualizado em 2026-10-08.

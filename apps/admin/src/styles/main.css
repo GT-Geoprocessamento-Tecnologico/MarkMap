@@ -245,3 +245,19 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   color: currentColor;
   vertical-align: middle;
 }
+
+
+/* PWA update prompt: fixed overlay so sticky headers/menus never cover it. */
+.pwa-update-prompt {
+  position: fixed;
+  top: 4.5rem;
+  right: 1rem;
+  z-index: 60;
+  max-width: min(24rem, calc(100vw - 2rem));
+  padding: 0.875rem 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--outline-variant);
+  background: var(--surface-container);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-md);
+}

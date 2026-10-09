@@ -13,11 +13,10 @@
  * - Nunca apagar pacote ativo antes da validação do novo
  */
 
-import { getStorageBreakdown, CategoryBreakdown, StorageBreakdown } from "./storage-management";
-import { DeviceStorageProfile } from "./device-storage-profile";
-import { LargeBlobStore, StoreResult } from "./large-blob-store";
-import { offlineMapPackageManifestSchema } from "../contracts/src/offline-map";
-import { validateOfflinePackage } from "./offline-package";
+import { getDeviceStorageProfile } from "./device-storage-profile";
+import { type LargeBlobStore, type StoreResult, IndexedDBBlobStore, createBlobStoreError } from "./large-blob-store";
+import { offlineMapPackageManifestSchema, type OfflineMapPackageManifest } from "@geonexo/contracts";
+import { validateOfflinePackage } from "@geonexo/maps/offline/package";
 
 /** Status do instalador */
 export type InstallerStatus = "idle" | "downloading" | "validating" | "activating" | "active" | "rollback" | "error";
@@ -49,10 +48,21 @@ export type InstallerResult<T> = {
 
 };
 
+/**
+ * Manifest usado pelo instalador: manifest do pacote regional mais os dados de
+ * download que só existem em tempo de instalação (`archivePath` e `totalBytes`).
+ */
+export type InstallManifest = OfflineMapPackageManifest & {
+  /** Caminho do arquivo de archiver dentro do pacote (usado na validação) */
+  archivePath: string;
+  /** Tamanho total do download em bytes */
+  totalBytes: number;
+};
+
 /** Parâmetros de instalação */
 export interface InstallParams {
   packageId: string;
-  manifest: any; // UpdateManifest
+  manifest: InstallManifest;
   onProgress?: (progress: InstallerProgress) => void;
   /** Se verdadeiro, força validação mesmo com checkpoint existente */
   forceValidate: boolean;
@@ -88,17 +98,14 @@ export class ResumableInstaller {
   }
 
   private createDefaultStore(): LargeBlobStore {
-    if (this.isCapacitor) {
-      return new (require("@/lib/storage/large-blob-store").CapacitorFilesystemBlobStore)();
-    }
-    return new (require("@/lib/storage/large-blob-store").IndexedDBBlobStore)();
+    return new IndexedDBBlobStore();
   }
 
   /** Inicializar o instalador */
   async init(): Promise<{ success: boolean; error?: string }> {
     try {
       // Ensure storage is available
-      const profile = await DeviceStorageProfile.getDeviceProfile();
+      await getDeviceStorageProfile();
       return { success: true };
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
@@ -116,16 +123,18 @@ export class ResumableInstaller {
       if (this.blobStore && this.blobStore.constructor.name === "IndexedDBBlobStore") {
         // Conceptual - would check DB for checkpoint
         const record = await this.blobStore.enumerate();
-        const stagingEntry = record.data.find((r: any) => r.key === packageId);
-        if (stagingEntry && stagingEntry.size > 0) {
-          checkpoint = {
-            id: checkpointKey,
-            timestamp: new Date().toISOString(),
-            downloadedBytes: stagingEntry.size,
-            totalBytes: stagingEntry.size,
-            speed: 0,
-            eta: 0,
-          };
+        if (record.success) {
+          const stagingEntry = record.data.find((r) => r.id === packageId);
+          if (stagingEntry && stagingEntry.size > 0) {
+            checkpoint = {
+              id: checkpointKey,
+              timestamp: new Date().toISOString(),
+              downloadedBytes: stagingEntry.size,
+              totalBytes: stagingEntry.size,
+              speed: 0,
+              eta: 0,
+            };
+          }
         }
       }
       // Em Capacitor
@@ -147,24 +156,16 @@ export class ResumableInstaller {
       if (!manifestValidation.success) {
         return {
           success: false,
-          error: {
-            code: "invalid-manifest",
-            message: "Manifest inválido",
-            retryable: false,
-          },
+          error: createBlobStoreError("invalid-manifest", "Manifest inválido", false),
         };
       }
 
       // 2. Verificar espaço disponível
-      const profile = await DeviceStorageProfile.getDeviceProfile();
+      const profile = await getDeviceStorageProfile();
       if (params.manifest.totalBytes > profile.safeLimit) {
         return {
           success: false,
-          error: {
-            code: "insufficient-space",
-            message: "Espaço insuficiente para o pacote",
-            retryable: false,
-          },
+          error: createBlobStoreError("insufficient-space", "Espaço insuficiente para o pacote", false),
         };
       }
 
@@ -173,16 +174,12 @@ export class ResumableInstaller {
       if (!stagingResult.success) {
         return {
           success: false,
-          error: {
-            code: "staging-failed",
-            message: stagingResult.error?.message || "Falha no staging",
-            retryable: true,
-          },
+          error: createBlobStoreError("staging-failed", stagingResult.error.message || "Falha no staging", true),
         };
       }
 
       // 4. Download em chunks com checkpoint
-      const installId = `install-${packageId}-${Date.now()}`;
+      const installId = `install-${params.packageId}-${Date.now()}`;
       const chunkSize = 1024 * 1024; // 1MB chunks
       let downloadedBytes = 0;
       const totalBytes = params.manifest.totalBytes;
@@ -274,17 +271,13 @@ export class ResumableInstaller {
 
           const validateResult = await validateOfflinePackage(
             params.manifest,
-            new Map([[params.manifest.archive.path, new Uint8Array()]])
+            new Map([[params.manifest.archivePath, new Uint8Array()]])
           );
 
           if (!validateResult.ok) {
             return {
               success: false,
-              error: {
-                code: "validation-failed",
-                message: validateResult.detail || "Falha na validação do pacote",
-                retryable: true,
-              },
+              error: createBlobStoreError("validation-failed", validateResult.detail || "Falha na validação do pacote", true),
             };
           }
         }
@@ -305,17 +298,13 @@ export class ResumableInstaller {
 
         const validateResult = await validateOfflinePackage(
           params.manifest,
-          new Map([[params.manifest.archive.path, new Uint8Array()]])
+          new Map([[params.manifest.archivePath, new Uint8Array()]])
         );
 
         if (!validateResult.ok) {
           return {
             success: false,
-            error: {
-              code: "validation-failed",
-              message: validateResult.detail || "Falha na validação do pacote",
-              retryable: true,
-            },
+            error: createBlobStoreError("validation-failed", validateResult.detail || "Falha na validação do pacote", true),
           };
         }
       }
@@ -334,16 +323,12 @@ export class ResumableInstaller {
         abort: abortController.abort,
       });
 
-      const activateResult = await this.blobStore.activate(params.packageId);
+      const activateResult = await this.blobStore.activate(stagingResult.data.stagingKey);
       if (!activateResult.success) {
         // Rollback: manter pacote antigo ativo
         return {
           success: false,
-          error: {
-            code: "activation-failed",
-            message: activateResult.error?.message || "Falha ao ativar pacote",
-            retryable: true,
-          },
+          error: createBlobStoreError("activation-failed", activateResult.error.message || "Falha ao ativar pacote", true),
         };
       }
 
@@ -368,11 +353,11 @@ export class ResumableInstaller {
     } catch (error) {
       return {
         success: false,
-        error: {
-          code: "install-failed",
-          message: error instanceof Error ? error.message : "Unknown error",
-          retryable: true,
-        },
+        error: createBlobStoreError(
+          "install-failed",
+          error instanceof Error ? error.message : "Unknown error",
+          true,
+        ),
       };
     }
   }
@@ -384,7 +369,7 @@ export class ResumableInstaller {
     totalBytes: number | null,
     speed: number,
     eta: number
-  ): Promise<void> {
+  ): Promise<Checkpoint> {
     const checkpointKey = `${installId}-checkpoint`;
     const checkpoint: Checkpoint = {
       id: checkpointKey,
@@ -403,6 +388,8 @@ export class ResumableInstaller {
     else if (this.isCapacitor) {
       // Conceptual - would save to filesystem
     }
+
+    return checkpoint;
   }
 
   /** Cancelar instalação em andamento */
