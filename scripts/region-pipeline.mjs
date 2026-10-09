@@ -27,6 +27,8 @@ import { basename, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { validateRegionalGraph, MAX_GRAPH_BYTES } from '../packages/maps/src/routing/graph-format.mjs';
 import { validateRegionalContours, MAX_CONTOUR_BYTES } from '../packages/maps/src/elevation/contour-package.mjs';
+import { validateRegionalDem, MAX_REGIONAL_DEM_BYTES } from '../packages/maps/src/elevation/regional-dem.mjs';
+import { buildRegionalDemFromHgt } from './srtm-hgt.mjs';
 import { buildPmtilesFromOsmFile, defaultOfflineStyle, OsmTileError } from "./osm-pbf-pmtiles.mjs";
 import { buildSmallOsmAddons } from "./osm-graph-search.mjs";
 
@@ -220,11 +222,13 @@ export function buildManifest({
   const searchArtifacts = artifacts.filter((a) => /^search\/(?:[a-z][0-3]|0-9|other)\.json$/.test(a.path));
   const routingArtifact = artifacts.find((a) => a.path === 'routing/graph.json');
   const contoursArtifact = artifacts.find((a) => a.path === 'elevation/contours.json');
+  const demArtifact = artifacts.find((a) => a.path === 'elevation/dem.json');
   const wikipediaArtifact = artifacts.find((a) => a.path === 'content/wikipedia.json');
   const transitArtifact = artifacts.find((a) => a.path === 'content/transit.json');
   const activeArtifacts = [basemap, style, ...spriteArtifacts, ...glyphArtifacts, ...searchArtifacts,
     ...(routingArtifact ? [routingArtifact] : []), ...(contoursArtifact ? [contoursArtifact] : []),
-    ...(wikipediaArtifact ? [wikipediaArtifact] : []), ...(transitArtifact ? [transitArtifact] : [])];
+    ...(wikipediaArtifact ? [wikipediaArtifact] : []), ...(transitArtifact ? [transitArtifact] : []),
+    ...(demArtifact ? [demArtifact] : [])];
   let totalBytes = 0;
   for (const a of artifacts) {
     if (!/^[a-f0-9]{64}$/.test(a.sha256) || !Number.isSafeInteger(a.bytes) || a.bytes <= 0)
@@ -258,6 +262,8 @@ export function buildManifest({
     throw new PipelineError('grafo regional excede limite', 'INVALID_GRAPH');
   if (contoursArtifact && (contoursArtifact.bytes > MAX_CONTOUR_BYTES || contoursArtifact.mediaType !== 'application/json'))
     throw new PipelineError('curvas de nível excedem limite', 'INVALID_CONTOURS');
+  if (demArtifact && (demArtifact.bytes > MAX_REGIONAL_DEM_BYTES || demArtifact.mediaType !== 'application/json'))
+    throw new PipelineError('DEM regional excede limite', 'INVALID_DEM');
   const archiveRef = blobRef(basemap, "application/vnd.pmtiles");
   const styleRef = blobRef(style, "application/json");
   return {
@@ -268,13 +274,15 @@ export function buildManifest({
     ...(searchArtifacts.length ? { searchShards: searchArtifacts.map((a) => ({ path: a.path, blob: blobRef(a, 'application/json') })) } : {}),
     ...(routingArtifact ? { routingGraph: { path: routingArtifact.path, blob: blobRef(routingArtifact, 'application/json') } } : {}),
     ...(contoursArtifact ? { contourLines: { path: contoursArtifact.path, blob: blobRef(contoursArtifact, 'application/json') } } : {}),
+    ...(demArtifact ? { demGrid: { path: demArtifact.path, blob: blobRef(demArtifact, 'application/json') } } : {}),
     ...(wikipediaArtifact ? { wikipediaPack: { path: wikipediaArtifact.path, blob: blobRef(wikipediaArtifact, 'application/json') } } : {}),
     ...(transitArtifact ? { transitPack: { path: transitArtifact.path, blob: blobRef(transitArtifact, 'application/json') } } : {}),
     attribution: attributions.map((a) => a.name).join(" · "),
     createdAt: now.toISOString(), packageVersion, osmDataDate,
     capabilities: ['basemap', ...(searchArtifacts.length ? ['search'] : []),
       ...(routingArtifact ? graphProfiles.map((profile) => `routing.${profile}`) : []),
-      ...(contoursArtifact ? ['contours'] : []), ...(wikipediaArtifact ? ['wikipedia'] : []), ...(transitArtifact ? ['transit'] : [])],
+      ...(contoursArtifact ? ['contours'] : []), ...(demArtifact ? ['elevation'] : []),
+      ...(wikipediaArtifact ? ['wikipedia'] : []), ...(transitArtifact ? ['transit'] : [])],
     checksums: { archive: basemap.sha256, style: style.sha256,
       glyphs: glyphArtifacts.map((a) => a.sha256), sprites: spriteArtifacts.map((a) => a.sha256) },
     totalBytes, sources: { osm: sources.osm, attributions },
@@ -282,7 +290,7 @@ export function buildManifest({
       walk: Boolean(routingArtifact && graphProfiles.includes('walk')),
       bicycle: Boolean(routingArtifact && graphProfiles.includes('bicycle')),
       car: Boolean(routingArtifact && graphProfiles.includes('car')),
-    }, elevation: false, contours: Boolean(contoursArtifact) },
+    }, elevation: Boolean(demArtifact), contours: Boolean(contoursArtifact) },
     minimumCompatibleVersion,
   };
 }
@@ -450,6 +458,35 @@ export async function runPipeline({ input, output, dryRun = false, now = new Dat
     artifacts.push(await writeArtifact(outputDir, "elevation/contours.json", JSON.stringify(contours)));
   } else warnings.push("contours.json ausente: curvas de nível não foram empacotadas");
 
+  // M6: real regional heights only. No synthetic 0m values and no remote access.
+  const demPath = join(inputDir, 'dem.json');
+  const srtmDir = join(inputDir, 'srtm');
+  let localDem = null;
+  if (await exists(demPath)) {
+    if ((await stat(demPath)).size > MAX_REGIONAL_DEM_BYTES)
+      throw new PipelineError('dem.json excede limite de 2 MiB', 'INVALID_DEM');
+    try { localDem = validateRegionalDem(JSON.parse(await readFile(demPath, 'utf8')), metadata.id, metadata.bounds); }
+    catch (error) { throw new PipelineError(error instanceof Error ? error.message : 'DEM inválido', 'INVALID_DEM'); }
+  } else if (await exists(srtmDir)) {
+    const srtmMetaPath = join(inputDir, 'srtm.json');
+    if (!(await exists(srtmMetaPath)) ) throw new PipelineError('srtm.json com licença e fonte é obrigatório para tiles SRTM', 'MISSING_DEM_LICENSE');
+    let srtmMeta;
+    try { srtmMeta = JSON.parse(await readFile(srtmMetaPath, 'utf8')); }
+    catch { throw new PipelineError('srtm.json inválido', 'INVALID_DEM'); }
+    try {
+      localDem = await buildRegionalDemFromHgt({ directory: srtmDir, regionId: metadata.id, bounds: metadata.bounds,
+        attribution: srtmMeta.attribution, license: srtmMeta.license, sourceUrl: srtmMeta.sourceUrl,
+        width: srtmMeta.width ?? 192, height: srtmMeta.height ?? 192 });
+    } catch (error) { throw new PipelineError(error instanceof Error ? error.message : 'SRTM inválido', 'INVALID_DEM'); }
+  }
+  if (localDem) {
+    const json = JSON.stringify(localDem);
+    if (Buffer.byteLength(json) > MAX_REGIONAL_DEM_BYTES)
+      throw new PipelineError('DEM regional excede limite de 2 MiB', 'INVALID_DEM');
+    artifacts.push(await writeArtifact(outputDir, 'elevation/dem.json', json));
+    warnings.push('DEM regional amostrado com resolução declarada; verifique cobertura e licença antes de distribuir');
+  } else warnings.push('Elevação indisponível: forneça dem.json licenciado ou srtm/*.hgt + srtm.json');
+
   // M8: only publisher-supplied, licensed region data. No live Wikipedia or transit queries.
   for (const [inputName, outputName, maxBytes, validator] of [
     ['wikipedia.json', 'content/wikipedia.json', MAX_WIKIPEDIA_BYTES,
@@ -470,12 +507,19 @@ export async function runPipeline({ input, output, dryRun = false, now = new Dat
   }
 
   if (hasOsm && !hasBasemap) warnings.push("Limite do builder integrado: ate 32 MiB de extrato PBF; use um gerador regional especializado para areas maiores");
-  warnings.push('DEM real e validacao GPS em campo continuam pendentes; nao distribuir rotas sem gate final');
+  warnings.push('Validacao GPS, fontes de dados e licença em campo continuam pendentes; nao distribuir rotas sem gate final');
 
   const manifest = buildManifest({
     ...metadata,
     artifacts,
-    sources: metadata.sources ?? { osm: "OpenStreetMap", attributions: [] },
+    sources: (() => {
+      const baseSources = metadata.sources ?? { osm: 'OpenStreetMap', attributions: [] };
+      if (!localDem) return baseSources;
+      const osmCredits = baseSources.attributions?.length ? baseSources.attributions :
+        [{ name: 'OpenStreetMap contributors', url: 'https://www.openstreetmap.org/copyright' }];
+      const credit = { name: localDem.metadata.attribution, url: localDem.metadata.sourceUrl };
+      return { ...baseSources, attributions: [...osmCredits, credit] };
+    })(),
     osmDataDate: metadata.osmDataDate,
     graphProfiles,
     now,

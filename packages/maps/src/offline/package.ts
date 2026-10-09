@@ -1,6 +1,7 @@
 import { validateRegionalWikipedia, validateRegionalTransit, MAX_WIKIPEDIA_BYTES, MAX_TRANSIT_BYTES } from '../content/region-content.mjs';
 import { MAX_GRAPH_BYTES, validateRegionalGraph } from '../routing/graph-format.mjs';
 import { MAX_CONTOUR_BYTES, validateRegionalContours } from '../elevation/contour-package.mjs';
+import { MAX_REGIONAL_DEM_BYTES, validateRegionalDem } from '../elevation/regional-dem.mjs';
 import { MAX_REGIONAL_SEARCH_BYTES, MAX_REGIONAL_SHARD_BYTES, MAX_REGIONAL_SEARCH_RECORDS, parseRegionalShard } from "../search/regional-shards.js";
 // @ts-expect-error contracts emits runtime JS without declarations in this workspace
 import { offlineMapPackageManifestSchema, type OfflineMapPackageManifest } from "../../../contracts/dist/src/offline-map.js";
@@ -46,7 +47,8 @@ export async function validateOfflinePackage(manifestInput: unknown, assets: Pac
   if (!parsed.success) return { ok: false, code: "invalid-manifest", detail: "manifest does not match the canonical contract" };
   const manifest = parsed.data;
   const refs = [manifest.style, ...manifest.glyphs, ...manifest.sprites, ...(manifest.searchShards ?? []), ...(manifest.routingGraph ? [manifest.routingGraph] : []), ...(manifest.contourLines ? [manifest.contourLines] : []),
-    ...(manifest.wikipediaPack ? [manifest.wikipediaPack] : []), ...(manifest.transitPack ? [manifest.transitPack] : [])];
+    ...(manifest.wikipediaPack ? [manifest.wikipediaPack] : []), ...(manifest.transitPack ? [manifest.transitPack] : []),
+    ...(manifest.demGrid ? [manifest.demGrid] : [])];
   let indexedRecords = 0;
   let searchBytes = 0;
   const paths = refs.map((r) => r.path);
@@ -89,6 +91,12 @@ export async function validateOfflinePackage(manifestInput: unknown, assets: Pac
       if (bytes.byteLength > MAX_CONTOUR_BYTES) return { ok: false, code: 'contours-too-large', detail: 'regional contours exceed local budget' };
       try { validateRegionalContours(JSON.parse(new TextDecoder().decode(bytes)), manifest.bounds); }
       catch { return { ok: false, code: 'invalid-contours', detail: 'regional contour data failed validation' }; }
+    }
+    if (ref.path === 'elevation/dem.json') {
+      if (bytes.byteLength > MAX_REGIONAL_DEM_BYTES)
+        return { ok: false, code: 'dem-too-large', detail: 'regional elevation grid exceeds device budget' };
+      try { validateRegionalDem(JSON.parse(new TextDecoder().decode(bytes)), manifest.id, manifest.bounds); }
+      catch { return { ok: false, code: 'invalid-dem', detail: 'DEM is missing valid measured heights or license metadata' }; }
     }
     if (ref.path.startsWith('search/')) {
       searchBytes += bytes.byteLength;

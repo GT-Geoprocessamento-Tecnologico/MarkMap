@@ -60,6 +60,7 @@ export interface PipelineManifest {
   searchShards?: Array<{ path: string; blob: PipelineBlobRef }>;
   routingGraph?: { path: string; blob: PipelineBlobRef };
   contourLines?: { path: string; blob: PipelineBlobRef };
+  demGrid?: { path: string; blob: PipelineBlobRef };
   attribution: string;
   createdAt: string;
   packageVersion: string;

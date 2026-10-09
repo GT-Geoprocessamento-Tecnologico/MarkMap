@@ -102,7 +102,8 @@ export class ResumableInstaller {
       { path: archivePath, target: 'package.pmtiles', size: manifest.archive.bytes, sha256: manifest.archive.sha256 },
       ...[manifest.style, ...manifest.glyphs, ...manifest.sprites, ...(manifest.searchShards ?? []), ...(manifest.routingGraph ? [manifest.routingGraph] : []), ...(manifest.contourLines ? [manifest.contourLines] : []),
         ...(manifest.wikipediaPack ? [manifest.wikipediaPack] : []),
-        ...(manifest.transitPack ? [manifest.transitPack] : [])].map((ref) => ({ path: ref.path, target: ref.path, size: ref.blob.bytes, sha256: ref.blob.sha256 })),
+        ...(manifest.transitPack ? [manifest.transitPack] : []),
+        ...(manifest.demGrid ? [manifest.demGrid] : [])].map((ref) => ({ path: ref.path, target: ref.path, size: ref.blob.bytes, sha256: ref.blob.sha256 })),
     ];
     if (files.some((f) => !safePath(f.path) || !safePath(f.target)))
       return fail('invalid-path', 'O manifest inclui caminho inseguro');
