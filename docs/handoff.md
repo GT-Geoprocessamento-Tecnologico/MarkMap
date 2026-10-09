@@ -1,5 +1,7 @@
 # Handoff de continuidade
 
+- `MM-UPD-030` PARCIAL EM CÓDIGO: `region-manager.ts` passou a confrontar pacote com a versão canônica `apps/admin/package.json`; `SettingsPage.tsx` exibe essa versão; commit `c8e48b4`, não testado. Sem main/deploy/CI.
+
 ## Continuidade — GTFS Schedule estático regional + hardening (2026-10-09)
 
 **Branch/HEAD confirmado antes do commit docs:** `dev/markmap-pwa-v2@98785e5`; `main@156d4e8`. Sem CI, Vercel, release/tag, migrations e sem QA nesta etapa. `0.2.0-dev.0` não é release.

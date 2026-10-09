@@ -1,5 +1,7 @@
 # MarkMap — Checklist Mestre de Execução
 
+- [x] `MM-UPD-030` **CÓDIGO NÃO VALIDADO:** bloquear pacote regional que requer app mais recente comparando com `apps/admin/package.json`; exibir versão do PWA em Configurações (`c8e48b4`). Testar no gate final.
+
 ## Próxima fase M8/M1/M3 — GTFS local e hardening (2026-10-09; PREVALECE)
 
 **Branch** `dev/markmap-pwa-v2@98785e5`; `main@156d4e8` preservada, sem CI do GitHub, deploy ou tag. Todas as marcas abaixo significam **código enviado, ainda sem execução da suíte de testes**.

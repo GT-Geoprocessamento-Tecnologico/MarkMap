@@ -1,5 +1,7 @@
 # MarkMap — Documento Mestre Único
 
+**MM-UPD-030 (código, não validado):** comparação de `minimumCompatibleVersion` dos pacotes regionais é feita com a versão REAL declarada em `apps/admin/package.json` (atualmente `0.2.0-dev.0`), e não contra a versão mínima de um pacote anterior. Configurações exibe a versão instalada. Commit `c8e48b4`; sem teste até gate final.
+
 ## M8 — GTFS estático regional e ajustes de segurança (2026-10-09; PREVALECE)
 
 **Branch:** `dev/markmap-pwa-v2`, código `98785e5`, versão de desenvolvimento `0.2.0-dev.0`. **IMPLEMENTADO EM CÓDIGO, NÃO VALIDADO**. `main` e Vercel intocados; testes integrais somente depois de concluídas as implementações.
