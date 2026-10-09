@@ -2,8 +2,9 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useToast } from "@geonexo/ui";
 import {
   exportDataset,
+  exportDatasetGeoJSON,
   listDatasets,
-  parseGeoJSON,
+  parseDatasetFile,
   removeDataset,
   saveDataset,
   type DatasetRecord,
@@ -65,7 +66,7 @@ export default function ImportsPage() {
       } else if (/\.glb$/i.test(file.name)) {
         await saveMesh({ file });
       } else {
-        await saveDataset(await parseGeoJSON(file));
+        await saveDataset(await parseDatasetFile(file));
       }
       await refresh();
       toast({
@@ -114,24 +115,24 @@ export default function ImportsPage() {
           Conjuntos de dados
         </h1>
         <p className="mt-1 text-sm text-on-surface-variant">
-          Importe GeoJSON validado e disponível offline neste dispositivo.
+          Importe GeoJSON, GPX e KML para trabalhar offline neste dispositivo.
         </p>
       </header>
       <div className="relative mb-6 flex min-h-40 flex-col items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-outline-variant bg-surface-container p-6 text-center">
         <input
           type="file"
-          accept=".geojson,.json,.pdf,.glb,application/pdf"
+          accept=".geojson,.json,.gpx,.kml,.pdf,.glb,application/pdf"
           onChange={handleUpload}
           disabled={isUploading}
           className="absolute inset-0 z-10 cursor-pointer opacity-0"
-          aria-label="Selecionar GeoJSON, PDF ou GLB"
+          aria-label="Selecionar GeoJSON, GPX, KML, PDF ou GLB"
         />
         <AppIcon name="upload" size="lg" className="mb-3" />
         <h2 className="font-bold">
-          {isUploading ? "Validando arquivo…" : "Selecione GeoJSON, PDF ou GLB"}
+          {isUploading ? "Validando arquivo…" : "Selecione GeoJSON, GPX, KML, PDF ou GLB"}
         </h2>
         <p className="mt-1 text-xs text-on-surface-variant">
-          GeoJSON e PDF até 25 MiB. PDFs são visualizados localmente; o
+          GeoJSON, GPX, KML e PDF até 25 MiB. Trilhas e pontos são convertidos em GeoJSON local. PDFs são visualizados localmente; o
           posicionamento geográfico só é informado quando os metadados passam
           pelas validações. GLB é validado e salvo localmente.
         </p>
@@ -229,7 +230,7 @@ export default function ImportsPage() {
                       </a>
                       <button
                         type="button"
-                        onClick={() => void exportDataset(dataset.id)}
+                        onClick={() => void exportDatasetGeoJSON(dataset.id)}
                         title="Exportar GeoJSON"
                         aria-label="Exportar GeoJSON"
                         className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-outline-variant px-3 py-2 text-xs font-medium text-on-surface-variant lg:px-2"
@@ -237,6 +238,13 @@ export default function ImportsPage() {
                         <AppIcon name="download" size="md" />
                         <span className="lg:hidden">Exportar GeoJSON</span>
                       </button>
+                      {dataset.format !== "GeoJSON" && (
+                        <button type="button" onClick={() => void exportDataset(dataset.id)}
+                          title="Exportar arquivo original" aria-label="Exportar arquivo original"
+                          className="inline-flex min-h-[44px] items-center rounded-lg border border-outline-variant px-3 py-2 text-xs text-on-surface-variant">
+                          Original
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => void handleDelete(dataset)}

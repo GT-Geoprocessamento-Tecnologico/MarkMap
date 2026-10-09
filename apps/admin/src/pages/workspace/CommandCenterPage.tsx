@@ -22,7 +22,7 @@ import { addProtocol, Popup, Marker, removeProtocol } from "maplibre-gl";
 import type { GeoJSONSource, Map as MapLibreMap } from "maplibre-gl";
 import { createPropertyPopupContent } from "./property-popup";
 import {
-  exportDataset,
+  exportDatasetGeoJSON,
   listDatasets,
   type DatasetRecord,
 } from "../../lib/datasets/dataset-store";
@@ -44,6 +44,8 @@ import {
 } from "@geonexo/maps/offline/protocol";
 import { adaptOfflineStyle } from "@geonexo/maps/offline/style";
 import { AppIcon, type AppIconName } from "../../components/AppIcon";
+import { OfflineSearch } from "../../components/map/OfflineSearch";
+import { buildLocalMapSearchRecords } from "../../lib/search/local-map-search";
 
 // ---------------------------------------------------------------------------
 // Tipos
@@ -158,6 +160,7 @@ export default function CommandCenterPage() {
     ],
     [activeDataset, projectFeatures],
   );
+  const localSearchRecords = useMemo(() => buildLocalMapSearchRecords(fullFeatures), [fullFeatures]);
   const activeGeoJson = useMemo(
     () => ({
       type: "FeatureCollection" as const,
@@ -891,6 +894,11 @@ export default function CommandCenterPage() {
         data-testid="map-canvas"
       />
 
+      <OfflineSearch records={localSearchRecords} onChoose={(place) => {
+        const map = mapRef.current;
+        if (map) map.flyTo({ center: [place.lon, place.lat], zoom: Math.max(15, map.getZoom()) });
+      }} />
+
       {/* ── Barra de ferramentas flutuante ── */}
       <div className="absolute bottom-[calc(4rem+env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 lg:bottom-auto lg:top-6 lg:left-4 lg:translate-x-0 markmap-map-tools bg-surface-container/90 backdrop-blur-xl border border-outline-variant rounded-2xl p-2 flex lg:flex-col gap-1.5 shadow-2xl z-10 w-max max-w-[92vw] overflow-x-auto">
         {/* Telemetria */}
@@ -1352,7 +1360,7 @@ export default function CommandCenterPage() {
                   desc: "Exportar o dataset selecionado em GeoJSON.",
                   action: () => {
                     if (activeDataset)
-                      void exportDataset(activeDataset.id).catch((cause) =>
+                      void exportDatasetGeoJSON(activeDataset.id).catch((cause) =>
                         toast({
                           title: "Exportação não concluída",
                           description:
