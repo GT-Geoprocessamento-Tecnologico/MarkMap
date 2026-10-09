@@ -3,6 +3,7 @@ import { Footer } from "../components/Footer";
 import { Header } from "../components/Header";
 import { HeroVisual } from "../components/HeroVisual";
 import { Reveal } from "../components/Reveal";
+import { InstallAppButton } from "../components/InstallAppButton";
 
 type IconName = "map" | "cloud" | "shield" | "team" | "pin" | "layers" | "note" | "sync" | "wifi" | "target" | "phone";
 
@@ -56,10 +57,10 @@ export function HomePage() {
                 O MarkMap mantém o trabalho no dispositivo e sincroniza quando a rede voltar.
               </p>
               <div className="landing-hero__actions hero-enter hero-enter--4">
-                <a className="button button--primary landing-download" href="/baixar">
+                <InstallAppButton className="button button--primary landing-download">
                   <span className="download-icon" aria-hidden="true">↓</span>
                   Baixar app
-                </a>
+                </InstallAppButton>
               </div>
               <p className="landing-hero__compat hero-enter hero-enter--5">Compatível com Android e iOS</p>
             </div>
@@ -173,10 +174,10 @@ export function HomePage() {
                 <p className="landing-kicker landing-kicker--inverse">Baixar app</p>
                 <h2>Leve o MarkMap para o campo.</h2>
                 <p>Um único app, preparado para acompanhar o trabalho em qualquer lugar. Compatível com Android e iOS.</p>
-                <a className="button button--primary landing-download" href="/baixar">
+                <InstallAppButton className="button button--primary landing-download">
                   <span className="download-icon" aria-hidden="true">↓</span>
                   Baixar app
-                </a>
+                </InstallAppButton>
               </div>
             </Reveal>
 

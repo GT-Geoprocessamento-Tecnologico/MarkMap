@@ -136,6 +136,10 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET' || !isSameOrigin(request)) return;
 
   const url = new URL(request.url);
+  if (isNavigation(request) && url.pathname === '/install') {
+    event.respondWith(Promise.resolve(Response.redirect(new URL('/', self.location.origin).href, 302)));
+    return;
+  }
   if (isNavigation(request)) {
     if (isReservedApiPath(url.pathname) && !isAppNavigationPath(url.pathname)) return;
     event.respondWith(caches.open(CACHE_NAME).then((cache) => handleNavigation(request, event, cache)));

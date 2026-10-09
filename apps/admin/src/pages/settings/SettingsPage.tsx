@@ -1,4 +1,4 @@
-import { useEffect, useState, type InputHTMLAttributes } from "react";
+import { useEffect, useState, useSyncExternalStore, type InputHTMLAttributes } from "react";
 import { useToast, Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger, Button, Checkbox } from "@geonexo/ui";
 import {
   offlineMapPackageManifestSchema,
@@ -12,11 +12,8 @@ import {
 import { offlineDB } from "../../lib/storage/offline-db";
 import { ensureLocationPermission } from "../../lib/device-location-permission";
 import { getStorageBreakdown, cleanStorageCategories, type CategoryBreakdown, type StorageCategory } from "../../lib/storage/storage-management";
+import { getPwaInstallSnapshot, requestPwaInstall, subscribePwaInstall } from "../../lib/pwa-install";
 
-type InstallPrompt = Event & {
-  prompt(): Promise<void>;
-  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
-};
 type GpsState = "prompt" | "granted" | "denied";
 const directoryPickerAttributes = {
   webkitdirectory: "",
@@ -33,9 +30,10 @@ function packageRelativePath(file: File): string {
 
 export default function SettingsPage() {
   const { toast } = useToast();
-  const [prompt, setPrompt] = useState<InstallPrompt | null>(null);
-  const [installed, setInstalled] = useState(
-    () => window.matchMedia("(display-mode: standalone)").matches,
+  const installState = useSyncExternalStore(
+    subscribePwaInstall,
+    getPwaInstallSnapshot,
+    getPwaInstallSnapshot,
   );
   const [gps, setGps] = useState<GpsState>("prompt");
   const [gpsBusy, setGpsBusy] = useState(false);
@@ -118,20 +116,8 @@ export default function SettingsPage() {
   useEffect(() => {
     let disposed = false;
     let permission: PermissionStatus | undefined;
-    const capturePrompt = (event: Event) => {
-      if ("prompt" in event && "userChoice" in event) {
-        event.preventDefault();
-        setPrompt(event as InstallPrompt);
-      }
-    };
-    const appInstalled = () => {
-      setInstalled(true);
-      setPrompt(null);
-    };
     const themeChanged = () =>
       setDark(document.documentElement.classList.contains("dark"));
-    window.addEventListener("beforeinstallprompt", capturePrompt);
-    window.addEventListener("appinstalled", appInstalled);
     window.addEventListener("geonexo-theme-change", themeChanged);
     const permissionChanged = () => {
       if (!disposed && permission) setGps(permission.state);
@@ -152,29 +138,36 @@ export default function SettingsPage() {
     return () => {
       disposed = true;
       permission?.removeEventListener("change", permissionChanged);
-      window.removeEventListener("beforeinstallprompt", capturePrompt);
-      window.removeEventListener("appinstalled", appInstalled);
       window.removeEventListener("geonexo-theme-change", themeChanged);
     };
   }, []);
   const install = async () => {
-    if (!prompt) {
+    if (installState.installed) return;
+
+    if (!installState.available) {
       toast({
         title: "Adicionar à tela inicial",
-        description:
-          "Use a opção de instalação ou Adicionar à Tela Inicial no menu do navegador.",
+        description: installState.iosSafari
+          ? "No Safari, toque em Compartilhar e depois em Adicionar à Tela de Início."
+          : "Use a opção Instalar aplicativo no menu do navegador. Se ela não aparecer, recarregue a página após atualizar o app.",
       });
       return;
     }
+
     try {
-      await prompt.prompt();
-      const choice = await prompt.userChoice;
-      setPrompt(null);
-      if (choice.outcome === "accepted")
+      const outcome = await requestPwaInstall();
+      if (outcome === "accepted") {
         toast({
           title: "Instalação solicitada",
           description: "Aguarde o dispositivo concluir a instalação.",
+          variant: "success",
         });
+      } else if (outcome === "dismissed") {
+        toast({
+          title: "Instalação cancelada",
+          description: "Você pode tentar novamente pelo menu do navegador.",
+        });
+      }
     } catch {
       setError(
         "Não foi possível abrir a instalação. Tente pelo menu do navegador.",
@@ -349,16 +342,18 @@ export default function SettingsPage() {
       <div className="rounded-2xl border border-outline-variant bg-surface-container p-5">
         <h2 className="text-lg font-semibold">Aplicativo no dispositivo</h2>
         <p className="my-3 text-sm text-on-surface-variant">
-          {installed
+          {installState.installed
             ? "Aberto como aplicativo instalado."
-            : "Adicione à tela inicial para abrir em uma janela própria."}
+            : installState.available
+              ? "Pronto para instalar neste dispositivo."
+              : "Adicione à tela inicial para abrir em uma janela própria."}
         </p>
         <button
-          disabled={installed}
+          disabled={installState.installed}
           onClick={() => void install()}
           className="rounded-lg bg-gradient-to-r from-brand-blue to-brand-cyan px-4 py-2 font-semibold text-white hover:brightness-110 disabled:opacity-50"
         >
-          {installed ? "Instalado" : "Instalar aplicativo"}
+          {installState.installed ? "Instalado" : "Instalar aplicativo"}
         </button>
       </div>
       <div className="rounded-2xl border border-outline-variant bg-surface-container p-5">

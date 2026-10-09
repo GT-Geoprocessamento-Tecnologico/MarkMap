@@ -41,9 +41,9 @@ describe("PWA installability contract", () => {
   it("declares a standalone manifest linked from the application shell", () => {
     expect(manifest.name.length).toBeGreaterThan(0);
     expect(manifest.short_name).toBe("MarkMap");
-    expect(manifest.id).toBe("./");
-    expect(manifest.start_url).toBe("./");
-    expect(manifest.scope).toBe("./");
+    expect(manifest.id).toBe("/");
+    expect(manifest.start_url).toBe("/");
+    expect(manifest.scope).toBe("/");
     expect(manifest.display).toBe("standalone");
     expect(manifest.theme_color).toMatch(/^#[0-9a-f]{6}$/i);
     expect(manifest.background_color).toMatch(/^#[0-9a-f]{6}$/i);

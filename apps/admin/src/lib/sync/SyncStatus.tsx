@@ -76,7 +76,9 @@ const reserveShellLane = (pill: HTMLElement): (() => void) | null => {
     (Number.isFinite(offset) ? offset : LANE_FALLBACK_OFFSET_PX) +
     LANE_GAP_PX;
   const previous = shell.style.paddingBottom;
-  shell.style.paddingBottom = `${lane}px`;
+  const computedPadding = Number.parseFloat(getComputedStyle(shell).paddingBottom);
+  const basePadding = Number.isFinite(computedPadding) ? computedPadding : 0;
+  shell.style.paddingBottom = `${basePadding + lane}px`;
   return () => {
     shell.style.paddingBottom = previous;
   };
@@ -219,9 +221,8 @@ export function SyncStatus() {
           ref={pillRef}
           role="status"
           aria-live="polite"
-          className="pointer-events-none fixed z-50 flex min-h-[44px] max-w-[calc(100vw-1.5rem)] items-center gap-2 rounded-full border border-outline-variant bg-surface-container/95 px-3 py-2 text-xs text-on-surface shadow-lg backdrop-blur"
+          className="markmap-sync-status pointer-events-none fixed z-50 flex min-h-[44px] max-w-[calc(100vw-1.5rem)] items-center gap-2 rounded-full border border-outline-variant bg-surface-container/95 px-3 py-2 text-xs text-on-surface shadow-lg backdrop-blur"
           style={{
-            bottom: "max(0.75rem, env(safe-area-inset-bottom))",
             left: "max(0.75rem, env(safe-area-inset-left))",
           }}
         >

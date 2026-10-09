@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { useProjectPages } from "../../lib/hooks/projects";
 import { AppIcon } from "../AppIcon";
 
-export function MobileDashboard({ desktop = false }: { desktop?: boolean }) {
+export function MobileDashboard() {
   const projectsQuery = useProjectPages();
   const [search, setSearch] = useState("");
   const [sortNewest, setSortNewest] = useState(true);
@@ -24,7 +24,7 @@ export function MobileDashboard({ desktop = false }: { desktop?: boolean }) {
   const loadedCount = projectsQuery.data?.items.length ?? 0;
 
   return (
-    <section className={`markmap-dashboard min-w-0 bg-background px-4 py-6 md:px-8 md:py-8 ${desktop ? "" : "pb-[calc(7rem+env(safe-area-inset-bottom))]"}`}>
+    <section className="markmap-dashboard min-w-0 bg-background px-4 py-6 md:px-8 md:py-8">
       <div className="mx-auto flex w-full max-w-[1500px] min-w-0 flex-col">
         <header className="border-b border-outline-variant pb-7">
           <div className="flex flex-wrap items-end justify-between gap-5">
@@ -104,15 +104,6 @@ export function MobileDashboard({ desktop = false }: { desktop?: boolean }) {
           <Link to="/imports" className="inline-flex min-h-[48px] items-center gap-2 rounded-xl bg-gradient-to-r from-brand-blue to-brand-cyan px-5 text-sm font-bold text-white"><AppIcon name="upload" size="md" />Importar conjunto de dados</Link>
         </div>
       </div>
-
-      {!desktop && (
-        <nav className="fixed bottom-0 left-0 right-0 z-30 grid min-h-16 grid-cols-4 border-t border-outline-variant bg-surface-container/95 px-2 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl" aria-label="Navegação móvel">
-          <Link to="/workspace" className="flex min-h-[56px] flex-col items-center justify-center gap-1 text-[11px] text-on-surface-variant"><AppIcon name="map" size="md" />Mapa</Link>
-          <Link to="/" className="flex min-h-[56px] flex-col items-center justify-center gap-1 text-[11px] font-bold text-primary"><AppIcon name="projects" size="md" />Projetos</Link>
-          <Link to="/imports" className="flex min-h-[56px] flex-col items-center justify-center gap-1 text-[11px] text-on-surface-variant"><AppIcon name="data" size="md" />Dados</Link>
-          <Link to="/settings" className="flex min-h-[56px] flex-col items-center justify-center gap-1 text-[11px] text-on-surface-variant"><AppIcon name="settings" size="md" />Ajustes</Link>
-        </nav>
-      )}
     </section>
   );
 }

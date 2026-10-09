@@ -9,7 +9,6 @@ import ImportsPage from './pages/imports/ImportsPage';
 import SettingsPage from './pages/settings/SettingsPage';
 import AnalyticsPage from './pages/dashboard/AnalyticsPage';
 import CoordinateSystemsPage from './pages/dashboard/CoordinateSystemsPage';
-
 import { RootLayout } from './components/layout/RootLayout';
 import { AppIcon } from './components/AppIcon';
 
@@ -149,8 +148,14 @@ const routeTree = rootRoute.addChildren([
   telemetryRoute,
 ]);
 
+const appBasepath =
+  window.location.pathname === '/app' || window.location.pathname.startsWith('/app/')
+    ? '/app'
+    : '/';
+
 export const router = createRouter({
   routeTree,
+  basepath: appBasepath,
   defaultPreload: 'intent',
   scrollRestoration: true,
 });

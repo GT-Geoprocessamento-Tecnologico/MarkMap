@@ -2,19 +2,19 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./styles/main.css";
+import { initializePwaInstall } from "./lib/pwa-install";
 
-// Registra o Service Worker para PWA Offline-First & Auto-Atualizações em Background
+initializePwaInstall();
+
+// Registra o Service Worker cedo para que a instalação PWA possa ficar elegível
+// na primeira navegação de produção.
 if ("serviceWorker" in navigator && import.meta.env.PROD) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js").then(
-      (registration) => {
-        void registration;
-      },
-      (err) => {
-        console.warn("Falha no registro do PWA ServiceWorker:", err);
-      },
-    );
-  });
+  void navigator.serviceWorker.register("/sw.js").then(
+    (registration) => registration.update(),
+    (err) => {
+      console.warn("Falha no registro do PWA ServiceWorker:", err);
+    },
+  );
 }
 
 const container = document.getElementById("root");

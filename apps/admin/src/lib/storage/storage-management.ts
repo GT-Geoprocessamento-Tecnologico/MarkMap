@@ -26,6 +26,20 @@ export interface StorageBreakdown {
   totalBytes: number;
 }
 
+// Backward-compatible name used by the settings UI.
+export type StorageBreakdownItem = CategoryBreakdown;
+
+const storageCategories: readonly StorageCategory[] = [
+  "soft-deleted-datasets",
+  "telemetry",
+  "offline-maps",
+  "original-pdfs",
+];
+
+function isStorageCategory(value: string): value is StorageCategory {
+  return storageCategories.includes(value as StorageCategory);
+}
+
 /**
  * Get itemized storage breakdown across all categories.
  */
@@ -87,7 +101,21 @@ export async function getStorageBreakdown(): Promise<StorageBreakdown> {
   // 3. Offline map packages
   try {
     const packages = await offlineMapStore.list();
-    const bytes = packages.reduce<number>((sum, p) => sum + (p.manifest.archive.bytes ?? 0), 0);
+    const bytes = packages.reduce<number>(
+      (sum, p) =>
+        sum +
+        p.manifest.archive.bytes +
+        p.manifest.style.blob.bytes +
+        p.manifest.glyphs.reduce(
+          (glyphTotal: number, glyph: { blob: { bytes: number } }) => glyphTotal + glyph.blob.bytes,
+          0,
+        ) +
+        p.manifest.sprites.reduce(
+          (spriteTotal: number, sprite: { blob: { bytes: number } }) => spriteTotal + sprite.blob.bytes,
+          0,
+        ),
+      0
+    );
 
     categories.push({
       category: "offline-maps",
@@ -144,12 +172,14 @@ export async function getStorageBreakdown(): Promise<StorageBreakdown> {
  * NEVER deletes without explicit call from user-confirmed action.
  */
 export async function cleanStorageCategories(
-  categoriesToClean: StorageCategory[]
+  categoriesToClean: string[]
 ): Promise<{ cleaned: StorageCategory[]; errors: Array<{ category: StorageCategory; error: string }> }> {
   const cleaned: StorageCategory[] = [];
   const errors: Array<{ category: StorageCategory; error: string }> = [];
 
-  for (const category of categoriesToClean) {
+  for (const value of categoriesToClean) {
+    if (!isStorageCategory(value)) continue;
+    const category = value;
     try {
       switch (category) {
         case "soft-deleted-datasets":

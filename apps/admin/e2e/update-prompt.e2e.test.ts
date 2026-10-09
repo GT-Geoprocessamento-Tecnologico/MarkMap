@@ -67,6 +67,7 @@ test.describe('PWA Update Prompt E2E', () => {
         const container = {
           ready: Promise.resolve(registration),
           controller: null,
+          register: () => Promise.resolve({ update: () => {} }),
           addEventListener: (type: string, listener: () => void) => {
             const list = containerListeners.get(type) ?? [];
             list.push(listener);
@@ -120,6 +121,7 @@ test.describe('PWA Update Prompt E2E', () => {
           value: {
             ready: Promise.resolve(ready),
             controller: null,
+            register: () => Promise.resolve({ update: () => {} }),
             addEventListener: () => {},
             removeEventListener: () => {},
           },
@@ -212,6 +214,7 @@ test.describe('PWA Update Prompt E2E', () => {
           value: {
             ready: Promise.resolve(ready),
             controller: null,
+            register: () => Promise.resolve({ update: () => {} }),
             addEventListener: () => {},
             removeEventListener: () => {},
           },

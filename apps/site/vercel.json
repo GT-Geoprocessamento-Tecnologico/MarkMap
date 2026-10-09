@@ -1,0 +1,35 @@
+{
+  "redirects": [
+    {
+      "source": "/app",
+      "destination": "/app/",
+      "permanent": false
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/app/:path*",
+      "destination": "https://appmarkmap.mtsferreira.dev/:path*"
+    },
+    {
+      "source": "/assets/:path*",
+      "destination": "https://appmarkmap.mtsferreira.dev/assets/:path*"
+    },
+    {
+      "source": "/icons/:path*",
+      "destination": "https://appmarkmap.mtsferreira.dev/icons/:path*"
+    },
+    {
+      "source": "/fonts/:path*",
+      "destination": "https://appmarkmap.mtsferreira.dev/fonts/:path*"
+    },
+    {
+      "source": "/shell-manifest.json",
+      "destination": "https://appmarkmap.mtsferreira.dev/shell-manifest.json"
+    },
+    {
+      "source": "/((?!site-assets/|manifest.json|sw.js|favicon.ico|robots.txt|app(?:/|$)|assets/|icons/|fonts/|shell-manifest.json).*)",
+      "destination": "/index.html"
+    }
+  ]
+}

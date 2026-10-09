@@ -1,0 +1,1790 @@
+# MarkMap — Documento Mestre Único
+
+> **Fonte operacional única para a iniciativa Maps Engine v2.** Este arquivo consolida PRD, roadmap/checklist, handoff e política de versões. O Checklist Mestre do Notion continua sendo a visão colaborativa obrigatória e deve permanecer sincronizado.
+
+## Controle de versão do produto
+
+**Versão estável de referência observada em `main`:** `0.1.0`  
+**Linha de desenvolvimento ativa:** `0.2.0-dev.0`  
+**Branch:** `feat/maps-engine-v2-offline`  
+**Base da branch:** `main@156d4e819d6d876c6150969057f2fc3b9afdad45`  
+**Status:** planejamento consolidado; implementação funcional do Maps Engine v2 ainda não iniciada.  
+**Próximo Task ID:** `MM-MAP-000`
+
+### Regra de versionamento
+
+Usar Semantic Versioning no formato `MAJOR.MINOR.PATCH[-PRERELEASE]`.
+
+- `0.1.0`: baseline atual do app antes da iniciativa Maps Engine v2.
+- `0.2.0-dev.0`: início formal da linha Maps Engine v2.
+- após concluir M0: `0.2.0-dev.1`;
+- após concluir M1: `0.2.0-dev.2`;
+- após concluir M2: `0.2.0-dev.3`;
+- continuar incrementando `dev.N` a cada gate de milestone concluído com evidência;
+- após M10/MM-MAP-940 verde: candidato `0.2.0-rc.1`;
+- `0.2.0` somente após autorização explícita de release.
+
+**Não criar tag/release Git automaticamente.** Tags oficiais continuam exigindo autorização explícita.
+
+### Fontes de versão que precisam ser normalizadas
+
+- `apps/admin/package.json` atualmente declara `0.1.0` e é a evidência mais próxima de versão do app Web/PWA.
+- o projeto iOS ainda possui `MARKETING_VERSION = 1.0` e `CURRENT_PROJECT_VERSION = 1`; isso é legado e não deve ser tratado como versão canônica do produto.
+- `MM-UPD-010` deve criar uma fonte única de versão/build e sincronizar Web/PWA/Capacitor sem depender de valores divergentes.
+
+### Versões independentes
+
+Além da versão do aplicativo, manter:
+
+- `shellProtocolVersion`: inteiro para compatibilidade do service worker/app shell;
+- `localSchemaVersion`: inteiro para schema IndexedDB;
+- `regionPackageSchemaVersion`: inteiro; atual legado = v1, alvo Maps Engine = v2;
+- `regionDataVersion`: versão/data de cada snapshot regional OSM;
+- `buildSha`: commit Git exato do build.
+
+### Ledger de versões
+
+| Versão | Estado | Referência | Observação |
+|---|---|---|---|
+| `0.1.0` | baseline atual | `main@156d4e8` | aplicação anterior ao Maps Engine v2 |
+| `0.2.0-dev.0` | desenvolvimento ativo | `feat/maps-engine-v2-offline` | roadmap/PRD consolidados; começar em MM-MAP-000 |
+| `0.2.0-rc.1` | futuro | após MM-MAP-940 | somente com todos os gates verdes |
+| `0.2.0` | futuro | release autorizado | não criar sem autorização explícita |
+
+---
+
+# Parte A — PRD / Roadmap / Manual de implementação
+
+# MarkMap — PRD/Handoff: Maps Engine v2 Offline
+
+**Status:** aprovado para implementação em ramo isolado  
+**Branch de integração:** `feat/maps-engine-v2-offline`  
+**Base auditada:** `main@156d4e819d6d876c6150969057f2fc3b9afdad45`  
+**Data da auditoria:** 2026-10-07  
+**Objetivo do documento:** ser o manual executável para agentes que vão evoluir mapa, dados offline, busca, importação/exportação, elevação, roteamento, conteúdo de lugares e atualização do MarkMap sem reescrever a arquitetura vigente.
+
+---
+
+## 1. Objetivo
+
+Transformar o MarkMap em uma aplicação de campo com experiência cartográfica moderna e realmente offline, inspirada nas capacidades do Organic Maps, preservando a arquitetura atual:
+
+- React + Vite + TypeScript;
+- MapLibre GL como renderer;
+- Terra Draw como edição vetorial;
+- IndexedDB/outbox como fonte operacional local;
+- Hono + Neon/PostgreSQL/PostGIS para sync/backup/consultas remotas;
+- Capacitor para Android/iOS;
+- PMTiles para mapas regionais offline.
+
+A aplicação deve continuar útil sem internet depois que o usuário baixar os pacotes necessários.
+
+---
+
+## 2. Resultado esperado
+
+Ao final desta iniciativa, o MarkMap deve oferecer, conforme a região baixada:
+
+- mapa vetorial detalhado baseado em OpenStreetMap;
+- ruas, estradas, estradas rurais, ciclovias, trilhas e caminhos de pedestres;
+- POIs e lugares;
+- tema claro, escuro e outdoor;
+- download de regiões para uso totalmente offline;
+- atualização segura e resumível dos mapas regionais;
+- busca offline por lugares, endereço, categoria, referência e coordenadas;
+- importação/exportação GPX, KML/KMZ e GeoJSON;
+- curvas de nível, relevo, altitude e perfil de elevação;
+- roteamento offline a pé, bicicleta e carro;
+- instruções de manobra e orientação por voz;
+- conteúdo offline de Wikipedia/Wikidata quando licenciado e disponível;
+- transporte/linhas de metrô onde houver dados;
+- integração posterior com Android Auto e CarPlay;
+- popup de atualização do aplicativo e dos pacotes de mapas;
+- operação principal independente da conectividade.
+
+---
+
+## 3. Estado atual auditado
+
+### 3.1 FUNCIONA
+
+- MapLibre GL.
+- Terra Draw.
+- GPS/geolocalização.
+- IndexedDB/outbox local-first.
+- PMTiles v3.
+- protocolo local para PMTiles.
+- estilo offline com glyphs/sprites locais.
+- checksum SHA-256 e ativação validada de pacote offline.
+- GeoJSON.
+- GeoPDF/PDF local e reprojeção.
+- armazenamento e limpeza de mapas offline.
+- service worker e PWA instalável.
+- UpdatePrompt com ativação controlada.
+- navegação geométrica básica: distância, bearing, heading e detecção de chegada.
+
+### 3.2 PARCIAL
+
+- atualização PWA: existe worker waiting + botão Atualizar, mas não há política completa de checagem periódica, versão legível, adiar/relembrar, release notes nem canal equivalente para builds Capacitor;
+- mapas offline: pacote atual concentra PMTiles + style/glyphs/sprites e possui teto fixo de 250 MiB;
+- navegação: não existe grafo viário/roteamento passo a passo;
+- gestão de storage: mede categorias internas, mas precisa evoluir para orçamento adaptativo por dispositivo e storage de arquivos grandes.
+
+### 3.3 NÃO IMPLEMENTADO
+
+- GPX;
+- KML/KMZ;
+- índice de busca offline de OSM;
+- roteamento offline carro/bicicleta/pedestre;
+- recálculo de rota;
+- instruções de manobra;
+- TTS de navegação;
+- DEM/SRTM;
+- curvas de nível;
+- perfil de elevação;
+- hillshade/relevo;
+- artigos Wikipedia offline;
+- pacote de transporte/metro;
+- Android Auto;
+- CarPlay;
+- atualização independente de pacote regional de mapa.
+
+---
+
+## 4. Repositórios-modelo auditados
+
+### 4.1 organicmaps/organicmaps
+
+Repo: https://github.com/organicmaps/organicmaps
+
+Uso: referência principal de arquitetura e algoritmos offline.
+
+Áreas relevantes:
+
+- `libs/search/`: busca offline, categorias, ranking e approximate string matching;
+- `libs/routing/`: roteamento, manobras e navegação;
+- `libs/routing/turns_tts_text.cpp`: geração de instruções para TTS;
+- `libs/kml/serdes_gpx.cpp`: GPX;
+- `libs/kml/`: KML/GeoJSON e modelos de tracks/bookmarks;
+- `generator/isolines_generator.cpp`: curvas de nível;
+- `generator/srtm_parser.cpp`: dados de elevação;
+- `libs/map/elevation_info.cpp`: perfil/informação de elevação;
+- `generator/descriptions_section_builder.cpp` e `generator/wiki_url_dumper.cpp`: descrições/Wikipedia;
+- `libs/transit/`: grafo e serialização de transporte;
+- `android/app/src/main/java/app/organicmaps/car/`: Android Auto;
+- `iphone/Maps/Core/CarPlay/`: CarPlay;
+- `generator/`: pipeline de construção de dados offline.
+
+Decisão: reutilizar conceitos e, quando compatível/licenciado, portar trechos isolados. Não portar o app inteiro nem substituir MapLibre/Terra Draw.
+
+### 4.2 organicmaps/api-android
+
+Repo: https://github.com/organicmaps/api-android
+
+É um wrapper Java fino para deep links `om://`, pontos e retorno de coordenadas. Não é o engine offline do Organic Maps.
+
+Uso no MarkMap:
+
+- referência de Intent/Activity Result;
+- referência para interop opcional com Organic Maps;
+- não usar como base do engine cartográfico.
+
+Licença observada no README: BSD 2-Clause.
+
+### 4.3 organicmaps/api-ios
+
+Repo: https://github.com/organicmaps/api-ios
+
+É uma API por URL scheme/deep link para abrir o Organic Maps, mostrar pins e retornar resultados.
+
+Uso no MarkMap:
+
+- referência para URL schemes/deep links iOS;
+- referência para integração externa opcional;
+- não usar como engine offline.
+
+Licença observada no README: BSD 2-Clause.
+
+### 4.4 openstreetmap/openstreetmap-website
+
+Repo: https://github.com/openstreetmap/openstreetmap-website
+
+É a aplicação Ruby on Rails que alimenta o site e a API de edição do OpenStreetMap. O próprio README deixa claro que tile servers e geocoding dependem de outros serviços.
+
+Uso no MarkMap:
+
+- referência de comportamento da API OSM e GPX;
+- eventual referência para contribuição/edição OSM;
+- não usar como servidor de tiles;
+- não copiar código para o MarkMap.
+
+Licença: GPL-2.0. Copiar código desse repo para o MarkMap é proibido nesta iniciativa sem uma revisão jurídica/licenciamento específica.
+
+---
+
+## 5. Política obrigatória de licença e proveniência
+
+### 5.1 Código Organic Maps
+
+O repositório principal aponta para Apache-2.0 no root, porém o projeto usa inventário/licenças por arquivo e terceiros. Antes de copiar qualquer trecho:
+
+1. conferir SPDX/cabeçalho do arquivo;
+2. conferir `LICENSES/`, `NOTICE` e dependências;
+3. registrar origem, commit e arquivo em `THIRD_PARTY_NOTICES.md`;
+4. preservar avisos exigidos;
+5. preferir reimplementação limpa quando a integração direta for acoplada a MWM/C++.
+
+### 5.2 Dados Organic Maps
+
+Não redistribuir `.mwm`, `packed_polygons.bin` ou outros Data Files do Organic Maps no MarkMap.
+
+A licença de dados é separada e exige atribuição Organic Maps + OpenStreetMap e possui condição específica para white-label/rebranding.
+
+### 5.3 OpenStreetMap
+
+Usar dados OpenStreetMap como fonte primária dos pacotes MarkMap, respeitando ODbL e atribuição visível.
+
+Nunca fazer bulk download/prefetch em `tile.openstreetmap.org`.
+
+### 5.4 openstreetmap-website
+
+Não copiar código GPL-2.0 para os pacotes TypeScript/Hono do MarkMap.
+
+### 5.5 Wikipedia/Wikidata/elevação
+
+Antes de distribuir conteúdo:
+
+- registrar fonte;
+- registrar versão/data;
+- registrar licença;
+- incluir atribuição no app;
+- permitir consulta das atribuições por pacote regional.
+
+---
+
+## 6. Arquitetura-alvo
+
+```text
+                    PIPELINE DE DADOS (fora do dispositivo)
+OpenStreetMap PBF ────────────────────────────────┐
+DEM/SRTM/ASTER ──────────────────────────────────┤
+Wikipedia/Wikidata ──────────────────────────────┤
+GTFS/transit opcional ───────────────────────────┘
+                         │
+                         ▼
+                MarkMap Region Builder
+                         │
+                         ▼
+                 Region Package v2
+       ┌─────────────────┼──────────────────┐
+       │                 │                  │
+       ▼                 ▼                  ▼
+ basemap.pmtiles     search shards     routing graph
+ contours/DEM        place content     transit metadata
+       │                 │                  │
+       └─────────────────┼──────────────────┘
+                         ▼
+              MarkMap Web/PWA/Capacitor
+                         │
+            ┌────────────┼─────────────┐
+            ▼            ▼             ▼
+         MapLibre     Web Workers   IndexedDB/outbox
+                         │
+                 large-file storage
+              OPFS / native filesystem
+```
+
+### Regra de arquitetura
+
+- IndexedDB continua sendo fonte operacional para entidades, outbox, metadados e estado de instalação.
+- arquivos grandes e imutáveis devem usar um `LargeBlobStore` abstrato;
+- Web/PWA: OPFS quando disponível, fallback seguro para IndexedDB;
+- Capacitor: filesystem nativo quando o uso real justificar plugin nativo;
+- Neon nunca vira requisito para trabalho de campo;
+- MapLibre e Terra Draw não são substituídos.
+
+---
+
+## 7. Region Package v2
+
+O pacote regional deixa de ser somente um PMTiles.
+
+Estrutura lógica:
+
+```text
+region/
+  manifest.json
+  basemap.pmtiles
+  styles/
+    light.json
+    dark.json
+    outdoor.json
+  glyphs/
+  sprites/
+  search/
+    metadata.json
+    *.idx
+  routing/
+    graph.bin
+    names.bin
+    restrictions.bin
+  terrain/
+    contours.pmtiles
+    dem.pmtiles
+  content/
+    places.idx
+    wikipedia/*.json.br
+  transit/
+    network.bin
+  licenses/
+    ATTRIBUTION.md
+    sources.json
+```
+
+Nem todos os módulos são obrigatórios. O manifest deve declarar capabilities:
+
+```text
+basemap
+search
+routing.walk
+routing.bicycle
+routing.car
+elevation
+contours
+wikipedia
+transit
+```
+
+### Requisitos de instalação
+
+- manifest versionado;
+- tamanho de cada componente;
+- SHA-256 por arquivo;
+- ID e versão do pacote;
+- data da fonte OSM;
+- bounds;
+- min/max zoom;
+- atribuições;
+- compatibilidade mínima do app;
+- staging antes de ativar;
+- ativação atômica;
+- rollback para pacote anterior se a ativação falhar;
+- download resumível;
+- nunca apagar o pacote ativo antes da validação do novo.
+
+### Remover teto fixo de 250 MiB
+
+O limite atual de 250 MiB deve ser substituído por:
+
+- hard limits defensivos por arquivo/componente;
+- orçamento calculado por dispositivo;
+- reserva de espaço livre;
+- consentimento do usuário antes de downloads grandes;
+- regiões particionadas para evitar pacotes gigantes.
+
+Não permitir uso ilimitado de storage.
+
+---
+
+## 8. Uso máximo e seguro dos recursos do dispositivo
+
+### 8.1 Storage
+
+Web/PWA:
+
+- chamar `navigator.storage.persist()` em contexto apropriado;
+- usar `navigator.storage.estimate()`;
+- manter pelo menos uma reserva de segurança;
+- preferir OPFS para grandes arquivos regionais;
+- IndexedDB mantém metadados, índice de pacotes e domínio local.
+
+Capacitor:
+
+- avaliar e, se necessário, adicionar `@capacitor/filesystem`;
+- armazenar pacotes grandes no filesystem privado do app;
+- não expor arquivos internos publicamente;
+- manter metadados e outbox em IndexedDB.
+
+### 8.2 CPU
+
+Criar workers dedicados:
+
+- `search.worker.ts`;
+- `routing.worker.ts`;
+- `elevation.worker.ts`;
+- worker de parsing/importação quando arquivo for grande.
+
+Política:
+
+- reservar a thread principal para UI/MapLibre;
+- usar `navigator.hardwareConcurrency` como sinal, nunca como obrigação de saturar CPU;
+- limitar paralelismo em mobile;
+- cancelar tarefas antigas por AbortSignal;
+- priorizar navegação ativa sobre indexação/background.
+
+### 8.3 Memória
+
+- nunca carregar região inteira na RAM;
+- range reads para PMTiles/arquivos binários;
+- índices sharded;
+- LRU com orçamento adaptativo;
+- streaming/chunking de importação;
+- liberar buffers após uso;
+- medir heap quando API estiver disponível, sem depender dela.
+
+### 8.4 Energia
+
+- não recalcular rota continuamente sem deslocamento significativo;
+- pausar tarefas secundárias quando app está background;
+- evitar polling agressivo;
+- atualizações de mapas são iniciadas/confirmadas pelo usuário.
+
+---
+
+## 9. Sistema de atualização do aplicativo
+
+O MarkMap já possui `UpdatePrompt`; ele deve ser evoluído, não reescrito do zero.
+
+### MM-UPD-010 — Build/version manifest
+
+Criar metadata pública de versão contendo:
+
+- appVersion;
+- buildSha;
+- buildTime;
+- shellProtocolVersion;
+- localSchemaVersion;
+- minimumCompatibleVersion;
+- releaseNotes curtas.
+
+### MM-UPD-020 — Checagem PWA
+
+O app deve chamar `registration.update()`:
+
+- após `serviceWorker.ready`;
+- quando voltar a ficar online;
+- quando a janela voltar ao foreground/focus;
+- periodicamente enquanto online, com intervalo conservador.
+
+Quando houver worker `waiting`, mostrar popup/modal:
+
+**Nova versão do MarkMap disponível**
+
+Ações:
+
+- `Atualizar agora`;
+- `Depois`.
+
+Antes de atualizar:
+
+- confirmar que transações locais terminaram;
+- confirmar outbox durável;
+- confirmar compatibilidade de schema/protocolo;
+- não interromper edição em andamento;
+- ativar waiting worker;
+- recarregar somente depois de `controllerchange`.
+
+Se o usuário escolher `Depois`, relembrar no próximo lançamento/foco ou depois de um intervalo; cada nova versão deve gerar novo aviso.
+
+### MM-UPD-030 — Capacitor Android/iOS
+
+Service worker não substitui atualização de binário nativo.
+
+Quando online:
+
+- consultar version manifest;
+- comparar com versão do bundle nativo;
+- exibir o mesmo padrão visual de popup;
+- botão deve abrir o canal oficial de atualização/distribuição definido para a plataforma;
+- não implementar auto-update nativo fora das políticas de distribuição sem autorização específica.
+
+### MM-UPD-040 — Atualização de pacotes de mapa
+
+Separar update do app e update de dados.
+
+Exemplo:
+
+> Mapa Tocantins: atualização disponível — dados OSM de 2026-10-07.
+
+Ações:
+
+- `Atualizar mapa`;
+- `Depois`;
+- detalhes/tamanho.
+
+Fluxo:
+
+1. baixar em staging;
+2. resumir após interrupção;
+3. validar checksum;
+4. validar manifest/compatibilidade;
+5. ativar atomicamente;
+6. manter pacote antigo até sucesso;
+7. remover antigo somente depois da ativação e confirmação.
+
+---
+
+## 10. Roadmap executável
+
+Os IDs abaixo definem a ordem. Um agente não deve iniciar um item bloqueado por predecessor.
+
+# M0 — Governança, baseline e benchmark
+
+### MM-MAP-000 — Baseline da branch
+
+**Predecessor:** nenhum.
+
+- confirmar HEAD da integração;
+- confirmar ausência de trabalho paralelo duplicado;
+- rodar lint/typecheck/test/build aplicáveis antes de alterar;
+- registrar métricas de bundle, storage e mapa;
+- auditar tests existentes de offline maps/PWA;
+- criar relatório FUNCIONA/PARCIAL/QUEBRADO/NÃO IMPLEMENTADO.
+
+**Aceite:** baseline registrada no PRD/handoff sem afirmar teste não executado.
+
+### MM-MAP-010 — Proveniência/licenças
+
+- inventariar todo código efetivamente copiado/adaptado;
+- proibir código do `openstreetmap-website`;
+- registrar Organic Maps por arquivo/commit;
+- atualizar THIRD_PARTY_NOTICES quando houver incorporação real.
+
+---
+
+# M1 — Atualizações do app
+
+### MM-UPD-010
+Implementar build/version manifest.
+
+### MM-UPD-020
+Evoluir UpdatePrompt PWA.
+
+### MM-UPD-030
+Adicionar detecção de nova versão em Capacitor.
+
+### MM-UPD-040
+Criar modelo de atualização de Region Package.
+
+**Gate M1:**
+
+- teste unitário de state machine do prompt;
+- E2E de worker waiting → confirmação → controllerchange;
+- teste de `Depois`;
+- teste com outbox pendente;
+- teste offline após versão já descoberta;
+- sem perda de IndexedDB/outbox.
+
+---
+
+# M2 — Storage e Region Package v2
+
+### MM-MAP-100 — DeviceStorageProfile
+
+Criar módulo que informa:
+
+- quota;
+- usage;
+- persistent granted;
+- backend disponível;
+- limite seguro calculado.
+
+### MM-MAP-110 — LargeBlobStore
+
+Interface comum para:
+
+- IndexedDB fallback;
+- OPFS;
+- filesystem Capacitor quando adotado.
+
+Operações mínimas:
+
+- create staging;
+- append/write range;
+- read range;
+- checksum;
+- commit/activate;
+- rollback;
+- delete explícito;
+- enumerate.
+
+### MM-MAP-120 — Manifest v2
+
+Evoluir `packages/contracts/src/offline-map.ts` com:
+
+- componentes opcionais;
+- capabilities;
+- fontes/licenças;
+- versionamento;
+- compatibilidade;
+- checksums individuais;
+- tamanho total;
+- data OSM.
+
+Compatibilidade: packages v1 existentes não podem quebrar silenciosamente.
+
+### MM-MAP-130 — Instalador resumível
+
+- download com Range quando servidor suportar;
+- checkpoint;
+- retry idempotente;
+- staging;
+- validação;
+- atomic activate.
+
+### MM-MAP-140 — Gerenciador de regiões
+
+UI:
+
+- regiões instaladas;
+- espaço usado;
+- tamanho;
+- versão;
+- data do mapa;
+- update disponível;
+- remover;
+- reparar;
+- detalhes/licenças.
+
+**Gate M2:** pacote regional continua funcionando após force-stop/reload e sem rede.
+
+---
+
+# M3 — Mapa OSM moderno
+
+### MM-MAP-200 — Pipeline regional
+
+Criar pipeline reproduzível de entrada OSM PBF → dados consumíveis pelo MarkMap.
+
+Requisitos:
+
+- build determinístico;
+- metadata de origem/data;
+- logs;
+- checksum;
+- processamento fora do dispositivo;
+- artefatos regionais;
+- sem dependência em `tile.openstreetmap.org`.
+
+A escolha do gerador de vector tiles deve ser fechada apenas após benchmark/licença no início deste item.
+
+### MM-MAP-210 — Estilos MarkMap
+
+Criar estilos:
+
+- light;
+- dark;
+- outdoor.
+
+Renderizar com prioridade adequada:
+
+- estradas;
+- vias locais/rurais;
+- `highway=path`;
+- `footway`;
+- `cycleway`;
+- `track`;
+- trilhas;
+- rios/lagos;
+- parques;
+- limites;
+- buildings quando justificável;
+- POIs;
+- picos;
+- estações;
+- nomes locais/ref.
+
+### MM-MAP-220 — Atualização de dados
+
+Pipeline deve gerar versão nova por região e catálogo de versões.
+
+Não fazer delta no MVP se ele aumentar risco; download resumível + troca atômica é obrigatório. Delta pode entrar depois que houver benchmark real.
+
+---
+
+# M4 — GPX/KML/KMZ/GeoJSON
+
+### MM-MAP-300 — GPX
+
+Importar:
+
+- waypoints;
+- tracks;
+- routes;
+- elevação;
+- timestamps quando presentes;
+- nomes/descrições.
+
+Exportar dados compatíveis sem inventar campos ausentes.
+
+### MM-MAP-310 — KML/KMZ
+
+Importar/exportar:
+
+- Point;
+- LineString;
+- Polygon;
+- MultiGeometry relevante;
+- estilos básicos;
+- ExtendedData segura;
+- KMZ com validação contra zip bomb/path traversal.
+
+### MM-MAP-320 — Round-trip
+
+Testes fixture → import → persist local → export → reimport.
+
+**Gate M4:** GeoJSON existente não regride.
+
+---
+
+# M5 — Busca offline
+
+### MM-MAP-400 — Search index builder
+
+Inspirar-se no desenho do `libs/search/` do Organic Maps, sem acoplar a MWM.
+
+Indexar por região:
+
+- name;
+- alt_name;
+- official_name;
+- short_name;
+- ref;
+- addr:housenumber;
+- addr:street;
+- addr:place;
+- postcode quando disponível;
+- place/admin;
+- categorias POI;
+- coordenadas.
+
+Suportar:
+
+- normalização Unicode;
+- case folding;
+- prefix;
+- tokens;
+- aliases;
+- ranking por classe/importância/proximidade;
+- fuzzy conservador.
+
+### MM-MAP-410 — Search worker
+
+- busca totalmente offline;
+- resposta progressiva;
+- cancelamento de query anterior;
+- não bloquear UI;
+- filtro por categoria;
+- `perto de mim`;
+- coordenadas digitadas.
+
+### MM-MAP-420 — UX
+
+- search box no mapa;
+- histórico local;
+- recentes/favoritos;
+- ação centralizar;
+- ação navegar;
+- exibir fonte/atribuição quando aplicável.
+
+**Gate M5:** busca por POI/endereço conhecido funciona com modo avião.
+
+---
+
+# M6 — Elevação e outdoor
+
+### MM-MAP-500 — Pipeline DEM/contours
+
+Inspirar-se em:
+
+- `generator/srtm_parser.cpp`;
+- `generator/isolines_generator.cpp`.
+
+Gerar por região:
+
+- DEM adequado ao runtime;
+- curvas de nível vetoriais;
+- metadata de resolução/fonte/licença.
+
+### MM-MAP-510 — Consulta de altitude
+
+- altitude no cursor/local;
+- altitude em ponto capturado;
+- altitude em waypoint;
+- cache local.
+
+### MM-MAP-520 — Perfil de elevação
+
+Inspirar-se em `libs/map/elevation_info.cpp`.
+
+Exibir:
+
+- distância;
+- altitude;
+- ganho;
+- perda;
+- mínimo;
+- máximo;
+- gráfico do perfil.
+
+### MM-MAP-530 — Relevo
+
+- contours;
+- hillshade quando suportado pelo pacote/MapLibre;
+- picos;
+- outdoor style.
+
+**Gate M6:** toda consulta funciona sem rede com pacote compatível.
+
+---
+
+# M7 — Roteamento offline e navegação
+
+### MM-MAP-600 — Routing graph builder
+
+Gerar grafo regional a partir de OSM.
+
+Deve considerar:
+
+- one-way;
+- access;
+- turn restrictions;
+- surface;
+- tracktype;
+- bicycle/foot access;
+- ferry quando suportado;
+- velocidade/perfil;
+- bridges/tunnels relevantes.
+
+### MM-MAP-610 — Runtime router
+
+Executar em Web Worker.
+
+Perfis:
+
+- walk;
+- bicycle;
+- car.
+
+Requisitos:
+
+- snap origem/destino à rede;
+- rota;
+- alternativas somente depois do MVP;
+- cancelamento;
+- limites de memória;
+- resultado com geometria + segmentos + metadata.
+
+### MM-MAP-620 — Maneuvers
+
+Inspirar-se em `libs/routing/`.
+
+Gerar:
+
+- vire esquerda/direita;
+- mantenha;
+- rotatória;
+- saída;
+- continue;
+- chegada.
+
+### MM-MAP-630 — Navegação
+
+- GPS tracking;
+- route progress;
+- off-route;
+- recálculo local;
+- distância para próxima manobra;
+- ETA estimada;
+- chegada;
+- wake behavior somente quando necessário.
+
+### MM-MAP-640 — Voz
+
+Inspirar-se em `libs/routing/turns_tts_text.cpp`.
+
+- gerar texto local;
+- usar TTS do SO/browser;
+- não depender de serviço cloud;
+- controle de volume/ativação;
+- pt-BR primeiro, arquitetura preparada para i18n.
+
+**Gate M7:** rota completa a pé/bike/carro em aparelho sem internet.
+
+---
+
+# M8 — Conteúdo de lugares e transporte
+
+### MM-MAP-700 — Wikipedia/Wikidata offline
+
+Inspirar-se em:
+
+- `generator/descriptions_section_builder.cpp`;
+- `generator/wiki_url_dumper.cpp`.
+
+Processar no pipeline:
+
+- tags OSM `wikipedia`/`wikidata`;
+- extratos permitidos;
+- idioma;
+- atribuição;
+- conteúdo compactado/sharded.
+
+Runtime:
+
+- place sheet;
+- título;
+- resumo;
+- link para abrir artigo completo quando online;
+- conteúdo offline quando baixado.
+
+### MM-MAP-710 — Transporte/metro
+
+Inspirar-se em `libs/transit/`.
+
+MVP:
+
+- estações;
+- linhas;
+- cor/nome;
+- overlay no mapa;
+- busca por estação.
+
+Roteamento multimodal somente depois de evidência de necessidade e dados suficientes.
+
+---
+
+# M9 — Android Auto e CarPlay
+
+Executar somente depois de M7 estável.
+
+### MM-MAP-800 — Android Auto
+
+Referências:
+
+- `android/app/src/main/java/app/organicmaps/car/`;
+- `organicmaps/api-android` apenas para padrões de Intent/deep link.
+
+Implementar integração nativa Capacitor somente com escopo aprovado.
+
+### MM-MAP-810 — CarPlay
+
+Referências:
+
+- `iphone/Maps/Core/CarPlay/`;
+- `organicmaps/api-ios` apenas para padrões de URL scheme/deep link.
+
+Respeitar templates/restrições de segurança da Apple.
+
+---
+
+# M10 — Hardening e merge readiness
+
+### MM-MAP-900 — Performance
+
+Medir em aparelhos de referência:
+
+- startup;
+- mapa first-render;
+- pan/zoom FPS;
+- memória;
+- busca p50/p95;
+- rota curta/longa;
+- tamanho de região;
+- instalação/atualização;
+- bateria em navegação prolongada.
+
+Sem número-alvo inventado: registrar baseline e fechar budgets com evidência.
+
+### MM-MAP-910 — Segurança
+
+Testar:
+
+- path traversal;
+- zip bomb KMZ;
+- manifest adulterado;
+- checksum;
+- pacote truncado;
+- download interrompido;
+- resource exhaustion;
+- arquivos gigantes;
+- XSS em properties/descrições;
+- URLs externas;
+- corrupção IndexedDB/storage.
+
+### MM-MAP-920 — Compatibilidade
+
+- migration package v1 → v2 ou convivência;
+- app antigo não deve ativar package incompatível;
+- app novo não deve apagar package antigo antes de confirmar novo;
+- schema local preserva workspace/outbox;
+- rollback documentado.
+
+### MM-MAP-930 — Documentação/legal
+
+Atualizar:
+
+- `docs/architecture.md`;
+- `docs/gis-geopdf.md` ou novo doc de maps engine;
+- `docs/user-guide.md`;
+- `docs/testing.md`;
+- `docs/privacy.md` quando houver novos dados;
+- `THIRD_PARTY_NOTICES.md`;
+- ADR de package v2/storage/routing;
+- checklist/handoff.
+
+### MM-MAP-940 — Gate para PR contra main
+
+Não abrir PR para `main` até:
+
+- integração branch atualizada com main sem apagar trabalho;
+- lint verde;
+- typecheck verde;
+- unit/integration verdes;
+- build verde;
+- E2E aplicável verde;
+- testes offline aplicáveis verdes;
+- Android APK aplicável verde;
+- iOS build aplicável verde;
+- diff revisado;
+- licenças revisadas;
+- documentação sincronizada;
+- nenhuma ação irreversível pendente;
+- evidência física registrada para recursos que exigem aparelho.
+
+---
+
+## 11. Arquivos/áreas esperados
+
+Existentes:
+
+- `packages/contracts/src/offline-map.ts`;
+- `packages/maps/src/offline/*`;
+- `packages/maps/src/providers.ts`;
+- `packages/maps/src/maplibre.ts`;
+- `packages/geo/src/*`;
+- `apps/admin/src/lib/storage/*`;
+- `apps/admin/src/lib/datasets/*`;
+- `apps/admin/src/pages/imports/ImportsPage.tsx`;
+- `apps/admin/src/pages/workspace/CommandCenterPage.tsx`;
+- `apps/admin/src/components/pwa/UpdatePrompt.tsx`;
+- `apps/admin/public/sw.js`;
+- `apps/admin/package.json`;
+- mobile Capacitor somente quando necessário.
+
+Novas áreas sugeridas:
+
+- `packages/maps/src/search/`;
+- `packages/maps/src/routing/`;
+- `packages/maps/src/elevation/`;
+- `packages/maps/src/offline-v2/` somente se não for possível evoluir `offline/` compatibilmente;
+- `packages/geo/src/gpx.ts`;
+- `packages/geo/src/kml.ts`;
+- `apps/admin/src/workers/`;
+- `tools/maps-pipeline/`;
+- fixtures em `packages/*/fixtures/` e testes próximos aos módulos.
+
+Não criar arquitetura paralela sem necessidade comprovada.
+
+---
+
+## 12. Segurança
+
+Obrigatório:
+
+- arquivos importados são não confiáveis;
+- nenhum XML com resolução de entidade externa;
+- nenhum unzip sem limites;
+- nenhum caminho vindo do pacote pode escapar do diretório lógico;
+- checksum antes de ativação;
+- limites de tamanho por componente;
+- abort/cancel em tarefas pesadas;
+- URLs de conteúdo sanitizadas;
+- conteúdo Wikipedia renderizado como texto seguro/HTML sanitizado conforme implementação;
+- nenhuma credencial de banco no cliente;
+- nenhum secret no pacote regional;
+- telemetria não pode ser requisito para offline.
+
+---
+
+## 13. Critérios de aceite globais
+
+1. O MarkMap abre e permite trabalhar em região previamente baixada com modo avião.
+2. Dados de usuário continuam persistidos em IndexedDB/outbox.
+3. Pacotes regionais grandes não bloqueiam a thread principal.
+4. Atualização de app não perde edição/outbox.
+5. Atualização de mapa é atômica e recuperável.
+6. Busca offline não chama API remota.
+7. Roteamento offline não chama API remota.
+8. Elevação/contours offline não chamam API remota.
+9. Licenças/atribuições são visíveis e rastreáveis.
+10. Nenhum código GPL do openstreetmap-website é incorporado.
+11. Nenhum Data File `.mwm/.bin` do Organic Maps é redistribuído.
+12. Recursos existentes de GeoPDF, desenho, sync e PWA não regridem.
+
+---
+
+## 14. Testes obrigatórios
+
+### Unit
+
+- parsers;
+- manifest;
+- path safety;
+- checksum;
+- search normalization/ranking;
+- graph restrictions;
+- maneuver generation;
+- elevation calculations;
+- update state machines.
+
+### Integration
+
+- package staging → validation → activation;
+- interrupted/resumed download;
+- package v1 compatibility;
+- import/export round-trip;
+- search against real fixture;
+- routing against real OSM fixture;
+- terrain fixture.
+
+### E2E
+
+- instalar região;
+- fechar/reabrir offline;
+- buscar POI offline;
+- visualizar trilha;
+- importar GPX;
+- gerar rota offline;
+- receber popup de atualização;
+- atualizar app preservando IndexedDB;
+- atualizar região preservando dados de usuário.
+
+### Physical
+
+- Android offline;
+- iOS offline;
+- GPS/navigation;
+- storage pressure;
+- arquivo grande;
+- update PWA instalada;
+- native update notice quando canal mobile existir;
+- Android Auto/CarPlay somente quando implementados.
+
+---
+
+## 15. QA por fase
+
+Cada agente deve reportar:
+
+```text
+RESULTADO
+ALTERAÇÕES
+ARQUIVOS
+VALIDAÇÃO EXECUTADA
+VALIDAÇÃO NÃO EXECUTADA
+LICENÇAS/ORIGEM DE CÓDIGO
+RISCOS/PENDÊNCIAS
+PRÓXIMO TASK ID LIVRE
+```
+
+Nunca usar “concluído” sem evidência.
+
+---
+
+## 16. Regras de Git e agentes paralelos
+
+Branch de integração desta iniciativa:
+
+```text
+feat/maps-engine-v2-offline
+```
+
+Regras:
+
+1. nunca implementar esta iniciativa diretamente em `main`;
+2. antes de iniciar, verificar HEAD/PRs/checklist;
+3. cada agente deve pegar somente o primeiro Task ID livre que não esteja bloqueado;
+4. para trabalho paralelo, criar branch curta a partir da integração, por exemplo:
+   `agent/MM-MAP-300-gpx`;
+5. PR desses agentes deve apontar para `feat/maps-engine-v2-offline`, não para `main`;
+6. não force-push;
+7. não resetar/apagar mudanças alheias;
+8. revisar diff antes de merge;
+9. se a integração avançar, atualizar branch com método não destrutivo;
+10. PR para `main` somente após MM-MAP-940.
+
+---
+
+## 17. Ações proibidas sem autorização explícita
+
+- deploy público;
+- publicação em loja;
+- release/tag;
+- migration destrutiva;
+- DROP/TRUNCATE/DELETE production;
+- rotação de secrets;
+- custo recorrente relevante;
+- force push;
+- apagar branch/trabalho de agente;
+- distribuir Data Files do Organic Maps;
+- copiar código GPL do openstreetmap-website;
+- alterar arquitetura central React/Vite/MapLibre/Terra Draw/IndexedDB/Hono/Neon sem ADR e evidência.
+
+---
+
+## 18. Riscos principais
+
+### Storage
+
+Regiões detalhadas podem ser grandes. Mitigação: particionamento, orçamento adaptativo, resumable download e escolha explícita do usuário.
+
+### CPU/bateria
+
+Roteamento e busca podem consumir recursos. Mitigação: workers, cancelamento, caches, perfis e medição física.
+
+### Licença
+
+Misturar código/dados de fontes diferentes pode gerar obrigação incompatível. Mitigação: proveniência por arquivo e gate legal antes de merge.
+
+### Complexidade MWM
+
+O core Organic Maps é fortemente integrado ao formato e ao C++ próprio. Mitigação: copiar conceitos/algoritmos isolados, não adotar MWM como formato do MarkMap.
+
+### Mobile/PWA
+
+APIs de storage variam entre browser e WebView. Mitigação: adapter de storage e testes físicos.
+
+### Atualização
+
+Ativação errada de novo shell/pacote pode quebrar operação offline. Mitigação: compat version, staging, atomic swap e rollback.
+
+---
+
+## 19. Fora do escopo desta primeira iniciativa
+
+Até haver evidência específica:
+
+- substituir MapLibre;
+- substituir Terra Draw;
+- migrar toda a aplicação para C++/Kotlin/Swift;
+- usar `.mwm` como formato principal;
+- hospedar clone do openstreetmap.org;
+- edição colaborativa direta do OSM;
+- tráfego em tempo real;
+- roteamento cloud obrigatório;
+- IA necessária para recursos básicos;
+- publicação em loja;
+- deploy production.
+
+---
+
+## 20. Handoff para o primeiro agente executor
+
+### Tarefa inicial
+
+Começar por **MM-MAP-000**, depois **MM-MAP-010**, e só então **M1**.
+
+Não iniciar routing/search/terrain antes da fundação de storage/package v2 estar definida e testada.
+
+### Prompt pronto
+
+```text
+Você está trabalhando no MarkMap.
+
+Leia primeiro GEONEXO_FONTE_CHATGPT.md das Fontes do Projeto.
+Depois consulte o Checklist Mestre do Notion e confira o HEAD/PRs atuais.
+
+Esta iniciativa deve ser desenvolvida na branch de integração:
+feat/maps-engine-v2-offline
+
+Leia integralmente:
+docs/markmap-maps-engine-v2-prd-handoff.md
+docs/master-checklist.md
+docs/handoff.md
+
+Pegue somente o primeiro Task ID livre e não bloqueado.
+Antes de editar, audite a área e classifique FUNCIONA, PARCIAL, QUEBRADO ou NÃO IMPLEMENTADO.
+Não reescreva algo que funciona.
+
+Preserve:
+React + Vite + TypeScript
+MapLibre
+Terra Draw
+IndexedDB/outbox
+Hono
+Neon/PostGIS
+Capacitor
+
+Operação principal deve continuar offline-first.
+
+Não copie código de openstreetmap/openstreetmap-website.
+Não redistribua .mwm/.bin do Organic Maps.
+Todo trecho copiado/adaptado precisa de origem/licença registrada.
+
+Antes de concluir, execute os gates aplicáveis e entregue:
+RESULTADO
+ALTERAÇÕES
+ARQUIVOS
+VALIDAÇÃO EXECUTADA
+VALIDAÇÃO NÃO EXECUTADA
+LICENÇAS/ORIGEM DE CÓDIGO
+RISCOS/PENDÊNCIAS
+PRÓXIMO TASK ID LIVRE
+
+Não abra PR para main. PRs intermediários apontam para feat/maps-engine-v2-offline.
+```
+
+---
+
+## 21. Definition of Done da iniciativa
+
+A iniciativa só pode ser considerada pronta para request contra `main` quando:
+
+- MM-MAP-940 estiver satisfeito;
+- checklist do Notion e Git estiverem sincronizados;
+- handoff estiver atualizado;
+- documentação de uso offline estiver pronta;
+- atribuições e THIRD_PARTY_NOTICES estiverem corretos;
+- não houver gate vermelho conhecido;
+- testes físicos necessários tiverem evidência;
+- rollback/compatibilidade estiverem documentados;
+- o responsável autorizar a abertura do PR para `main`.
+
+---
+
+# Parte B — Checklist Mestre versionado
+
+# MarkMap — Checklist Mestre de Execução
+
+> Espelho versionado do **Checklist Mestre do Notion**.
+>
+> Notion: https://app.notion.com/p/3ed8e0bd0f4d81b6832bcf848c0ab504?pvs=204
+>
+> **Regra de sincronização:** qualquer mudança relevante de fase, arquitetura, bloqueio, evidência ou próximo passo deve atualizar, na mesma execução, este arquivo, o Checklist Mestre no Notion e `docs/handoff.md`. Não marcar item como concluído sem evidência.
+
+**Snapshot:** 2026-10-07  
+**Repositório:** `mmatteuus/MarkMap`  
+**HEAD main auditado para esta iniciativa:** `156d4e8`
+
+**Branch de integração Maps Engine v2:** `feat/maps-engine-v2-offline`
+
+## Estado operacional
+
+**Objetivo:** manter uma única visão executável da MarkMap. O produto é offline-first; Neon/PostGIS é sincronização/backup, não requisito para o trabalho de campo.
+
+**Auditoria:** fluxo de instalação pelo site foi redesenhado para mesma origem: `markmap.mtsferreira.dev` agora possui manifest/service worker próprios, captura `beforeinstallprompt` antes do render, CTAs chamam `prompt()` no clique e o app operacional é montado em `/app/` por rewrite para o projeto `markmap-app`. O código está em `main`, mas a publicação do HEAD atual está bloqueada temporariamente pelo limite diário da Vercel Free (`api-deployments-free-per-day`, >100); produção ainda não é evidência desta versão.
+
+**Fase atual:** frontends Web/PWA publicados na Vercel com domínios customizados configurados. Release continua condicionado à API/sync remoto de produção, testes físicos, política pública de privacidade, smoke de produção e signing/publicação mobile autorizados.
+
+## Legenda
+
+- ✅ **CONCLUÍDO** — há evidência técnica.
+- 🟡 **EM ANDAMENTO** — implementação existe, mas falta fechar validação atual.
+- ⏸ **BLOQUEADO** — depende de fator externo.
+- ⬜ **PENDENTE** — ainda precisa ser executado.
+
+# FASE 0 — Governança e continuidade
+
+- [x] **P0** Criar Instruções-Mestre do projeto.
+- [x] **P0** Criar Handoff de Continuidade.
+- [x] **P0** Criar política de mudanças estruturais.
+- [x] **P0** Criar baseline de ADRs.
+- [x] **P0** Criar política/inventário de terceiros.
+- [x] **P0** Criar Checklist Mestre no Notion.
+- [x] **P0** Publicar Instruções-Mestre, Handoff, políticas, ADRs e personalização no repositório. Evidência histórica: commits `0326018` até `3fd2979`.
+- [x] **P1** Checklist revalidado em 2026-10-02 contra main, PR #2 e Neon production.
+- [x] **P1** Auditoria/limpeza documental concluída em 2026-10-03. Evidência: commits `b0d2a3c` e `8ddf3ef`.
+- [x] **P1** Espelho versionado do Checklist Mestre criado no repositório em `docs/master-checklist.md`; sincronização Notion ↔ GitHub ↔ Handoff passa a ser obrigatória para mudanças relevantes.
+
+# FASE 1 — Qualidade do HEAD atual
+
+- [x] **P0** Baseline anterior com `lint + typecheck + test + build` verde e Playwright `68 passed / 12 skipped / 0 failed`. Evidência: commit `101d678`.
+- [x] **P0** Testes de reconnect/retry/conflict do sync adicionados. Evidência: commit `08073ad`.
+- [x] **P0** Baseline verde anterior em `8ddf3ef` registrada.
+- [x] **P0** HEAD final `cc2331d` revalidado: Lint, Typecheck, Unit, Build, E2E desktop/Android, E2E iOS/WebKit, E2E duas instalações e PostGIS Integration verdes; Quality and Security verde com dependency audit, secret scan e Lighthouse/a11y.
+- [x] **P0** Pacotes mobile revalidados: Android APK verde em `c1f86eb`; iOS App verde em `b52ca6f`.
+- [ ] **P1** Revalidar CI completa em um runner que efetivamente execute os steps do HEAD atual; execuções recentes encerraram antes dos steps.
+
+# FASE 2 — Offline-first
+
+- [x] **P0** Escrita local-first via IndexedDB/outbox.
+- [x] **P0** React Query configurado para não bloquear mutações locais por estado de rede. Evidência: `fd8875`.
+- [x] **P0** Reload/persistência local cobertos por testes e validação de app empacotado.
+- [x] **P0** Service worker com limites explícitos de API/navegação/assets.
+- [x] **P0** Bootstrap PWA corrigido de `process.env.NODE_ENV` para `import.meta.env.PROD`.
+- [ ] **P0** Teste físico Android: criar/editar dados, force-stop e reabrir totalmente offline.
+- [ ] **P1** Teste físico iPhone/iPad equivalente.
+
+# FASE 3 — Sync e Neon/PostGIS
+
+- [x] **P0** `/sync/push` e `/sync/pull`.
+- [x] **P0** Capability de workspace, idempotência, predecessor, cursor incremental, tombstones e conflitos.
+- [x] **P0** Materialização de project/map/layer/feature/import nas tabelas reais.
+- [x] **P0** PostGIS e pgcrypto presentes em production.
+- [x] **P0** Production possui tabelas de domínio/sync necessárias.
+- [x] **P1** Bucket privado `geonexo-assets` criado.
+- [ ] **P1** 🟡 Limpeza de drift preparada e validada em branch temporária Neon: remover FK SET NULL obsoleta e quatro índices redundantes. Production permanece inalterada até autorização explícita.
+- [ ] **P0** Publicar/configurar a API Hono de production e ativar no app `VITE_API_MODE=live` + `VITE_API_URL`; revisar CORS/env.
+- [ ] **P0** Executar smoke de sincronização real contra production com fixture descartável e limpar a fixture depois, somente com autorização explícita.
+- [x] **P1** E2E automatizado com dois contextos/instalações isolados cobre capability/recovery, reconexão offline→online, retry, idempotência, pull e conflito. Evidência final: `e0bab0b` + baseline `cc2331d`.
+- [ ] **P1** Confirmar fluxo entre dois dispositivos/instalações reais.
+
+# FASE 4 — PWA
+
+- [x] **P0** Manifest standalone e ícones normal/maskable.
+- [x] **P0** Cold offline/app shell corrigidos. Evidência: `fd8875`.
+- [x] **P0** UpdatePrompt com ativação controlada.
+- [x] **P0** Validação automatizada de PWA: manifest/ícones/installability, service worker, app shell offline e migração IndexedDB preservando workspace, entidade e outbox. Evidência: `ad83ff2` e `8aed47d`.
+- [x] **P1** Regressões PWA recentes corrigidas: bloqueio de zoom removido e `@vitejs/plugin-basic-ssl` restaurado no desenvolvimento.
+- [ ] **P0** 🟡 Instalação do app pelo site implementada em mesma origem: manifest/service worker no site, CTAs chamam `beforeinstallprompt.prompt()` e o app inicia em `/app/`; falta publicar o HEAD atual após liberação do limite diário da Vercel e validar prompt real em Android/Chromium.
+- [ ] **P1** 🟡 UX iOS preparada com safe areas, `apple-mobile-web-app-capable`, status bar e fluxo Add to Home Screen; falta validação física no Safari iOS.
+- [ ] **P1** Registrar evidência de atualização de versão preservando IndexedDB/outbox em aparelho real.
+
+# FASE 5 — GIS e GeoPDF
+
+- [x] **P0** MapLibre + Terra Draw preservados como núcleo cartográfico.
+- [x] **P0** GeoPDF oficial de Araguaína testado com georreferenciamento real. Evidência: `101d678`.
+- [x] **P0** Importação de CRS projetado com reprojeção para WGS84 e suporte SIRGAS 2000 / UTM Brasil.
+- [x] **P0** Auto-calibração offline de PDF/GeoPDF sem georreferenciamento válido implementada com confidence gate e fallback manual. Evidência: `7603e4b`, `ce2478e`, `02930a1`.
+- [ ] **P1** Confirmar fluxo de calibração manual para PDF sem georreferenciamento válido.
+- [ ] **P1** Teste de GeoPDF grande em aparelho físico com memória limitada.
+- [ ] **P1** Validar exportação/round-trip dos formatos legados prioritários.
+
+# FASE 6 — Android e iOS empacotados
+
+- [x] **P0** Capacitor adotado sem reescrever React/Vite.
+- [x] **P0** PWA definida como experiência instalável principal; Capacitor permanece como empacotamento Android/iOS.
+- [x] **P0** Workflow Android gera debug APK e valida permissões de GPS.
+- [x] **P0** Blank screen em WebView antigo corrigido. Evidência: `0c1839`.
+- [x] **P0** GPS Android empacotado e permissões verificadas. Evidência: `d90e341`.
+- [x] **P0** Android APK revalidado em `c1f86eb`.
+- [x] **P1** Estrutura Capacitor iOS e workflow macOS revalidados.
+- [x] **P1** iOS App verde em `b52ca6f`.
+- [ ] **P1** Teste físico iOS.
+
+# FASE 7 — Segurança, privacidade e distribuição
+
+- [x] **P0** Banco não é acessado diretamente pelo navegador; fluxo permanece app → API → Neon.
+- [x] **P0** Bucket remoto privado.
+- [ ] **P0** ⏸ Política pública de privacidade: requisitos técnicos estão em `docs/privacy.md`, mas publicação depende de identidade/contato do controlador, finalidades/bases legais, retenção/exclusão, provedores/regiões, canal do titular e revisão jurídica.
+- [x] **P0** Rate limit/abuse protection corrigido em `workspace/provision|recover` com limiter distribuído e controle concorrente.
+- [x] **P0** Storage remoto corrigido: capability, prefixo por `workspaceId`, proteção contra path traversal e fail-closed sem S3.
+- [x] **P0** Rotas diretas `projects/layers/features` permanecem desabilitadas em production, preservando o caminho por sync.
+- [x] **P0** `PATCH /features/:id` com schema, optimistic concurrency e tratamento tipado fora de production.
+- [ ] **P1** Definir assinatura/release Android para distribuição.
+- [ ] **P1** Definir signing/provisioning iOS para distribuição.
+- [ ] **P1** 🟡 Deploy web:
+  - [ ] 🟡 site `markmap.mtsferreira.dev`: implementação de instalação em mesma origem pronta em `main` (`/app/` + manifest/service worker + CTA de instalação); publicação do HEAD atual pendente por limite diário da Vercel Free. Produção anterior continua disponível;
+  - [x] app `appmarkmap.mtsferreira.dev` associado/verificado na Vercel; Cloudflare DNS-only atualizado para o alvo recomendado pela Vercel `b1fa89794ccd409d.vercel-dns-017.com`; HTTPS validado externamente;
+  - [x] confirmado que `appmarkmap.mtferreira.dev` (sem `s`) não é o domínio configurado e não pertence à zona Cloudflare ativa; usar sempre `appmarkmap.mtsferreira.dev`;
+  - [x] app fallback `markmap-app.vercel.app` validado;
+  - [ ] API/sync remoto de production ainda não publicado/configurado.
+- [ ] **P1** Release notes e versão candidata.
+- [ ] **P2** Processo operacional pós-distribuição depende do ambiente real; runbook em `docs/release-runbook.md`.
+
+
+# FASE 8 — Maps Engine v2 offline
+
+> PRD/Handoff executor: `docs/markmap-maps-engine-v2-prd-handoff.md`. Toda implementação desta iniciativa deve ocorrer na branch `feat/maps-engine-v2-offline` ou em branches curtas derivadas dela. PRs intermediários apontam para a branch de integração, nunca diretamente para `main`.
+
+## M0 — Governança e baseline
+
+- [ ] **MM-MAP-000 P0** Revalidar baseline da branch: HEAD, trabalho paralelo, lint, typecheck, testes e build aplicáveis; registrar FUNCIONA/PARCIAL/QUEBRADO/NÃO IMPLEMENTADO.
+- [ ] **MM-MAP-010 P0** Fechar inventário de proveniência/licenças dos repositórios-modelo; não incorporar código GPL do `openstreetmap-website`; não redistribuir `.mwm/.bin` do Organic Maps.
+
+## M1 — Atualizações do aplicativo
+
+- [ ] **MM-UPD-010 P0** Criar version/build manifest público com versão, SHA, protocolo de shell, schema local e release notes curtas.
+- [ ] **MM-UPD-020 P0** Evoluir `UpdatePrompt` para checagem periódica/conservadora, `Atualizar agora` + `Depois`, compatibilidade, outbox durável e reload após `controllerchange`.
+- [ ] **MM-UPD-030 P1** Criar aviso equivalente de nova versão em builds Capacitor, abrindo o canal oficial de atualização da plataforma.
+- [ ] **MM-UPD-040 P0** Criar atualização independente de pacotes de mapas com staging, checksum, resume, swap atômico e rollback.
+
+## M2 — Storage e Region Package v2
+
+- [ ] **MM-MAP-100 P0** Criar `DeviceStorageProfile` com quota/usage/persistência/backend e orçamento seguro por dispositivo.
+- [ ] **MM-MAP-110 P0** Criar `LargeBlobStore` com fallback IndexedDB, OPFS na Web/PWA e filesystem Capacitor somente quando justificado.
+- [ ] **MM-MAP-120 P0** Evoluir contrato de pacote offline para v2 com capabilities, componentes opcionais, compatibilidade, fontes/licenças e checksums por arquivo.
+- [ ] **MM-MAP-130 P0** Implementar instalador resumível com staging, retry idempotente, validação e ativação atômica.
+- [ ] **MM-MAP-140 P1** Criar gerenciador de regiões: versão, tamanho, data OSM, atualizar, reparar, remover e atribuições.
+
+## M3 — Mapa OSM moderno
+
+- [ ] **MM-MAP-200 P0** Criar pipeline regional reproduzível OSM PBF → artefatos MarkMap, sem depender de `tile.openstreetmap.org`.
+- [ ] **MM-MAP-210 P0** Criar estilos MarkMap light/dark/outdoor com estradas, vias rurais, ciclovias, trilhas, footways, rios, áreas, POIs, picos e estações.
+- [ ] **MM-MAP-220 P1** Criar catálogo/versionamento e atualização de regiões.
+
+## M4 — GPX/KML/KMZ/GeoJSON
+
+- [ ] **MM-MAP-300 P0** Implementar GPX import/export com waypoints, tracks, routes, elevação e timestamps quando presentes.
+- [ ] **MM-MAP-310 P0** Implementar KML/KMZ import/export com validação contra path traversal/zip bomb.
+- [ ] **MM-MAP-320 P0** Criar round-trip fixtures e garantir não regressão do GeoJSON existente.
+
+## M5 — Busca offline
+
+- [ ] **MM-MAP-400 P0** Criar builder de índice regional de nomes, endereços, refs, categorias POI, aliases e coordenadas.
+- [ ] **MM-MAP-410 P0** Executar busca em Web Worker com normalização, prefix, fuzzy conservador, ranking, filtros e cancelamento.
+- [ ] **MM-MAP-420 P1** Integrar UX de busca no mapa, histórico local, `perto de mim`, centralizar e navegar.
+
+## M6 — Elevação e outdoor
+
+- [ ] **MM-MAP-500 P0** Criar pipeline DEM/contours baseado em fontes licenciadas e metadata de resolução/licença.
+- [ ] **MM-MAP-510 P1** Implementar altitude de ponto/cursor/waypoint offline.
+- [ ] **MM-MAP-520 P0** Implementar perfil de elevação: distância, ganho, perda, mínimo, máximo e gráfico.
+- [ ] **MM-MAP-530 P1** Adicionar contours/hillshade/picos ao estilo outdoor.
+
+## M7 — Roteamento e navegação offline
+
+- [ ] **MM-MAP-600 P0** Criar routing graph builder a partir do OSM com one-way, access, restrictions, surface, bicycle/foot/car.
+- [ ] **MM-MAP-610 P0** Implementar router offline em worker para walk/bicycle/car.
+- [ ] **MM-MAP-620 P0** Implementar manobras e instruções passo a passo.
+- [ ] **MM-MAP-630 P0** Implementar progresso GPS, off-route, recálculo local, ETA e chegada.
+- [ ] **MM-MAP-640 P1** Implementar orientação por voz/TTS local, pt-BR primeiro, sem serviço cloud obrigatório.
+
+## M8 — Conteúdo e transporte
+
+- [ ] **MM-MAP-700 P1** Adicionar conteúdo Wikipedia/Wikidata offline com pipeline, compactação, idioma e atribuição.
+- [ ] **MM-MAP-710 P2** Adicionar estações/linhas de transporte/metro e busca; multimodal fica para fase posterior.
+
+## M9 — Android Auto e CarPlay
+
+- [ ] **MM-MAP-800 P2** Integrar Android Auto somente após M7 estável e validação das restrições da plataforma.
+- [ ] **MM-MAP-810 P2** Integrar CarPlay somente após M7 estável e validação das restrições da plataforma.
+
+## M10 — Hardening e gate de merge
+
+- [ ] **MM-MAP-900 P0** Medir performance/storage/memória/bateria em aparelhos reais; definir budgets por evidência.
+- [ ] **MM-MAP-910 P0** Testar corrupção, checksum, path traversal, zip bomb, resource exhaustion, pacote truncado e XSS/URLs externas.
+- [ ] **MM-MAP-920 P0** Garantir convivência/migração v1→v2, compatibilidade e rollback.
+- [ ] **MM-MAP-930 P0** Atualizar ADRs, arquitetura, guia, testes, privacidade, `THIRD_PARTY_NOTICES.md`, checklist e handoff.
+- [ ] **MM-MAP-940 P0** Só então liberar PR da branch `feat/maps-engine-v2-offline` para `main`, com lint/typecheck/tests/build/E2E/mobile/licenças/documentação e evidências físicas aplicáveis verdes.
+
+# Backlog transversal
+
+- [x] Cliente HTTP legado auditado; operação principal é IndexedDB + `/sync/*`.
+- [x] Textos/documentação obsoletos de backend/sync/GIS revisados em `cc2331d`.
+- [x] Lighthouse/a11y, dependency audit e secret scan adicionados e verdes na baseline final.
+- [x] `docs/release-checklist.md`, Handoff, status, GIS, segurança, privacidade e deployment sincronizados na consolidação anterior.
+- [x] Runbook de release/rollback preparado em `docs/release-runbook.md`.
+- [x] Checklist Mestre versionado no repositório em `docs/master-checklist.md`.
+- [ ] Atualizar ADR quando decisão arquitetural vigente for substituída.
+- [ ] Atualizar `THIRD_PARTY_NOTICES.md` e inventário ao incorporar código/biblioteca.
+- [ ] Não adicionar dependência sem necessidade comprovada.
+- [ ] Não executar migration destrutiva, publicação, release/tag, rotação de secrets ou force push sem autorização explícita.
+
+# Próximo item livre
+
+**Iniciativa Maps Engine v2 aberta em branch isolada.** O primeiro item livre para agentes desta trilha é **MM-MAP-000**.
+
+Sequência obrigatória da trilha Maps Engine v2:
+
+1. MM-MAP-000;
+2. MM-MAP-010;
+3. M1 — atualização do app;
+4. M2 — storage + Region Package v2;
+5. M3/M4 — mapa OSM + formatos;
+6. M5/M6 — busca + elevação;
+7. M7 — routing/navegação;
+8. M8/M9 — conteúdo/transporte/automotive;
+9. M10 — hardening e gate de PR para `main`.
+
+A preparação da API Hono de production e os gates de release atuais continuam pendentes em paralelo, sem misturar implementação com a branch do Maps Engine v2.
+
+# Regra para novas conversas/agentes
+
+1. Ler a Fonte Principal do projeto.
+2. Ler `docs/master-checklist.md`, `docs/handoff.md` e `docs/README.md` no HEAD atual.
+3. Consultar o Checklist Mestre no Notion.
+4. Verificar HEAD, PRs e tarefas/agentes em andamento.
+5. Não duplicar trabalho.
+6. Continuar pelo próximo item livre.
+7. Ao mudar estado relevante, atualizar **Notion + `docs/master-checklist.md` + `docs/handoff.md`**.
+
+---
+
+# Parte C — Handoff de continuidade
+
+# Handoff de continuidade
+
+Atualizado em 2026-10-07.
+
+## Estado atual
+
+- Baseline funcional anterior validado: `cc2331d`.
+- HEAD funcional publicado do PWA: `038deb9f` (instalação PWA corrigida e publicada); frontends atuais seguem READY na Vercel.
+- Branches relevantes: `main` e branch isolada de integração `feat/maps-engine-v2-offline` para a iniciativa Maps Engine v2.
+- Arquitetura preservada: React/Vite/TypeScript + Hono + Neon/PostgreSQL/PostGIS + MapLibre + Terra Draw + IndexedDB/outbox.
+- Experiência principal instalável: PWA.
+- Capacitor permanece somente como empacotamento opcional.
+- Deploy Web/Vercel autorizado e executado em 2026-10-06; nenhum release/tag, migration de production, publicação em loja ou rotação de secrets foi executado.
+- Checklist Mestre agora também é versionado em `docs/master-checklist.md`.
+
+## Sincronização de continuidade
+
+Para qualquer mudança relevante de fase, arquitetura, bloqueio, evidência ou próximo passo, atualizar na mesma execução:
+
+1. Checklist Mestre no Notion;
+2. `docs/master-checklist.md`;
+3. este `docs/handoff.md`.
+
+O Notion é a visão operacional colaborativa; o arquivo no repositório é o espelho auditável/versionado. Em caso de divergência, confirmar primeiro o HEAD real e a evidência mais recente antes de reconciliar os dois.
+
+## Concluído com evidência
+
+- local-first IndexedDB/outbox;
+- PWA installability, service worker, cold offline e upgrade de IndexedDB;
+- sync push/pull + dois contextos isolados com reconexão real, retry, idempotência e conflito explícito;
+- PostGIS/SRID 4674;
+- rate limit distribuído;
+- storage workspace-scoped;
+- GeoPDF válido + auto-calibração de grade geográfica/UTM com confidence gate e fallback manual;
+- lint/typecheck/unit/build/E2E/PostGIS;
+- dependency audit, secret scan e Lighthouse/a11y;
+- builds debug Android/iOS;
+- site `markmap.mtsferreira.dev` publicado/validado;
+- app `appmarkmap.mtsferreira.dev` publicado/configurado e validado por HTTPS.
+
+## Maps Engine v2 offline — iniciativa isolada
+
+- branch criada a partir de `main@156d4e8`: `feat/maps-engine-v2-offline`;
+- PRD/Handoff executor: `docs/markmap-maps-engine-v2-prd-handoff.md`;
+- não implementar esta iniciativa diretamente em `main`;
+- PRs de agentes paralelos devem apontar para a branch de integração;
+- primeiro Task ID livre: `MM-MAP-000`;
+- sequência macro: baseline/licenças → atualização do app → storage/package v2 → OSM/formatos → busca/elevação → roteamento/voz → conteúdo/transporte → Android Auto/CarPlay → hardening/PR;
+- MapLibre, Terra Draw, IndexedDB/outbox, Hono, Neon/PostGIS e Capacitor permanecem preservados;
+- objetivo: maximizar uso offline seguro do dispositivo com storage adaptativo, workers, pacotes regionais, busca, routing, elevação e conteúdo local;
+- Data Files `.mwm/.bin` do Organic Maps não devem ser redistribuídos;
+- código GPL do `openstreetmap-website` não deve ser incorporado;
+- `UpdatePrompt` existente será evoluído para popup explícito de nova versão com `Atualizar agora`/`Depois`, proteção de outbox e compatibilidade; builds Capacitor terão aviso próprio para abrir canal oficial de atualização;
+- nenhuma implementação funcional desta trilha está marcada como concluída ainda; somente planejamento/branch/PRD foram criados.
+
+## Bloqueios externos/release
+
+- política pública de privacidade precisa de identidade/contato/retenção/provedores reais e revisão jurídica;
+- API Hono/sync remoto de production ainda precisa ser publicada/configurada; o app continua operacional local-first sem depender disso;
+- smoke production exige autorização;
+- testes físicos/PWA instalada;
+- signing/publicação mobile.
+
+## Próximo item executável
+
+Preparar/publicar o ambiente da API Hono de production e configurar `VITE_API_MODE=live`, `VITE_API_URL` e CORS, sem migration destrutiva. Smoke de sync real continua exigindo autorização explícita.
+
+## Próximo passo de release
+
+Obter os dados/autorizações externos acima e executar o preflight de `docs/release-runbook.md`.
+
+## Rebranding MarkMap — 2026-10-05
+
+- marca pública alterada de GeoNexo para **MarkMap — Planejamento Inteligente**;
+- `apps/site` criado como site público React/Vite independente do app operacional;
+- `apps/admin` recebeu identidade visual MarkMap preservando offline-first, GIS, sync e contratos existentes;
+- PWA e Capacitor passam a exibir MarkMap;
+- nome visível mobile passa a MarkMap; identificadores nativos existentes permanecem estáveis para preservar continuidade de instalação e dados locais;
+- namespaces internos `@geonexo/*` e identificadores históricos de infraestrutura permanecem por compatibilidade até uma migração específica e validada;
+- repositório GitHub renomeado para `mmatteuus/MarkMap`;
+- PR #3 e PR #4 integrados em `main`.
+
+## Refinamento frontend — 2026-10-05
+
+- site: overlap footer/crédito MtsFerreira corrigido e tema protegido quando `localStorage` estiver indisponível;
+- app: iconografia centralizada em `AppIcon`, consistência visual refinada e arquitetura offline-first/GIS/sync preservada;
+- GitHub Actions do HEAD refinado encerraram antes dos steps; a baseline anterior permanece como evidência automatizada.
+
+## Console/browser hardening — 2026-10-05
+
+- `mobile-web-app-capable=yes`;
+- conflito `aria-hidden` em elemento focável removido;
+- filtros numéricos nullable do OpenFreeMap protegidos;
+- fallback de sprites ausentes via `styleimagemissing`;
+- nenhum prompt PWA forçado foi introduzido.
+
+## Correção de menus — 2026-10-05
+
+- ícones emoji substituídos por SVG inline autocontido em `AppIcon`;
+- cobertura para sidebar, navegação móvel, header e ferramentas do mapa;
+- teste de regressão em `apps/admin/src/test/app-icon.test.tsx`.
+
+## Deploy Web/Vercel — 2026-10-06
+
+- Vercel configurada com `markmap-site` (`apps/site`) e `markmap-app` (`apps/admin`);
+- site: `markmap.mtsferreira.dev` via CNAME DNS-only para `markmap-site.vercel.app`, HTTPS validado;
+- app: erros TypeScript de `storage-management.ts` corrigidos nos commits `4a22770` e `1332350c`;
+- app: `appmarkmap.mtsferreira.dev` associado/verificado na Vercel; Cloudflare DNS-only atualizado para o alvo recomendado pela Vercel `b1fa89794ccd409d.vercel-dns-017.com`; HTTPS validado externamente;
+- diagnóstico de acesso: `appmarkmap.mtferreira.dev` (sem `s`) não é o domínio configurado e não pertence à zona Cloudflare ativa; o domínio correto é `appmarkmap.mtsferreira.dev`;
+- sync remoto de production permanece desativado até publicação/configuração da API Hono;
+- nenhuma migration destrutiva, rotação de secret, release/tag ou publicação mobile foi executada.
+
+
+## Correção de instalação PWA — 2026-10-06
+
+- causa principal identificada: o `beforeinstallprompt` era capturado apenas dentro de Configurações, tarde demais em navegações onde o navegador disparava o evento antes da página montar;
+- captura agora acontece globalmente antes do render do app e o mesmo estado é reutilizado pela UI de instalação e pela página de Configurações;
+- service worker passa a registrar imediatamente em production, sem aguardar `window.load`;
+- manifesto normalizado com `id: "/"`, `start_url: "/"`, `scope: "/"`, `display: "standalone"` e `prefer_related_applications: false`;
+- produção validada: `https://appmarkmap.mtsferreira.dev/`, `/manifest.json` e `/sw.js` respondem HTTP 200;
+- deploy Vercel do HEAD funcional `038deb9f` está READY;
+- confirmação física de instalação em Android/iOS segue pendente.
+
+## Correção do fluxo “Baixar app” no site — 2026-10-06
+
+- causa confirmada: o site público é SPA, mas o deploy Vercel não tinha rewrite para `index.html`; acessos diretos a `/baixar`, `/produto` e `/offline` retornavam 404;
+- causa secundária: `siteConfig.appDownloadUrl` estava `null`, deixando a página de download sem destino real;
+- CTAs “Baixar app” do header e landing agora apontam diretamente para `https://appmarkmap.mtsferreira.dev/`;
+- `apps/site/vercel.json` adiciona rewrite SPA para preservar rotas públicas;
+- produção validada após deploy READY do HEAD funcional `17afdb5`: `/baixar`, `/produto` e `/offline` respondem HTTP 200.
+
+## Instalador PWA dedicado — 2026-10-06
+
+- o CTA “Baixar app” do site não abre mais diretamente o dashboard operacional;
+- os CTAs agora apontam para `https://appmarkmap.mtsferreira.dev/install`;
+- `/install` é uma página dedicada, fora do shell do sistema, que usa `beforeinstallprompt` para solicitar instalação do PWA;
+- Android/Chromium recebe botão “Instalar MarkMap” quando o navegador declara o PWA elegível;
+- Safari iOS recebe a instrução nativa de Compartilhar → Adicionar à Tela de Início;
+- navegadores exigem confirmação do usuário para instalar PWA; instalação silenciosa/cross-origin não é permitida;
+- `apps/admin/vercel.json` adiciona fallback SPA para o instalador e demais rotas diretas.
+
+## Refinamento PWA nativo — 2026-10-07
+
+- experiência móvel refinada sem alterar IndexedDB/outbox, sync, GIS ou regras de negócio;
+- adicionada navegação inferior global estilo app para telas <1024px: Mapa, Projetos, Dados e Ajustes;
+- safe areas aplicadas a header, tab bar, overlays, instalador e prompts;
+- status de sync foi deslocado acima da tab bar em mobile para evitar sobreposição;
+- feedback curto de conectividade: offline continua salvando localmente e online informa reconexão;
+- `navigator.storage.persist()` solicitado em best-effort após instalação do PWA;
+- `launch_handler.client_mode = navigate-existing` adicionado ao manifest para reutilizar janela instalada em browsers compatíveis;
+- `theme-color` acompanha tema claro/escuro para integrar chrome/status bar do sistema;
+- preload/estilos antigos de Material Symbols removidos; ícones permanecem SVG inline;
+- build de produção Vercel do HEAD funcional `e80097c` concluído READY, com `tsc --noEmit && vite build` verde;
+- TinyFish validou o fluxo público site → `/install` sem links quebrados e o fluxo do app em produção sem falhas críticas; ambiente do teste final era desktop, então bottom tab bar e comportamento físico iOS/Android continuam pendentes de validação em aparelho/viewport real.
+
+## Abertura do app instalado — 2026-10-06
+
+- problema: instalações criadas a partir de `/install` podiam reabrir nessa rota em vez do início;
+- manifest já mantém `start_url: "/"`; a correção adiciona uma guarda em modo instalado/standalone que substitui `/install` por `/` antes do render;
+- a própria tela `/install` também aplica a mesma guarda caso seja alcançada por navegação dentro do app instalado;
+- teste unitário cobre: app instalado em `/install` redireciona; app instalado em `/` não redireciona; navegador não instalado em `/install` continua no instalador;
+- validação física Android/iOS continua pendente.
+
+## Remoção da rota `/install` — 2026-10-07
+
+- a página dedicada `/install` foi removida do código e do roteador;
+- os CTAs “Baixar app” do site agora apontam diretamente para `https://appmarkmap.mtsferreira.dev/`;
+- acessos legados a `/install` redirecionam para `/` no bootstrap, na Vercel e no service worker, cobrindo também abertura offline;
+- o manifest mantém `start_url: "/"`, portanto o app instalado inicia no dashboard;
+- build de produção do commit funcional `9ee5733` ficou READY na Vercel com `tsc --noEmit && vite build` verde;
+- validação em navegador confirmou que abrir `/install` termina em `https://appmarkmap.mtsferreira.dev/` e exibe o dashboard, sem página intermediária.
+
+## Instalação do app diretamente pelo site — 2026-10-07
+
+- auditado: o CTA anterior apenas navegava para outro domínio; por isso não podia abrir o prompt nativo no mesmo clique;
+- `apps/site` agora possui manifest e service worker próprios na origem `markmap.mtsferreira.dev`;
+- todos os CTAs “Baixar app” do site foram convertidos para ação de instalação que retém `beforeinstallprompt` e chama `prompt()` no clique do usuário;
+- Safari iOS usa fallback de instrução Compartilhar → Adicionar à Tela de Início, pois não expõe `beforeinstallprompt`;
+- o app operacional é servido em `markmap.mtsferreira.dev/app/` por rewrite para `appmarkmap.mtsferreira.dev`, preservando o projeto/app atual;
+- o router operacional detecta `/app` como basepath para manter navegação interna correta;
+- assets do site foram isolados em `site-assets/`; `/assets`, `/icons` e `/fonts` ficam disponíveis para o bundle operacional proxied;
+- o service worker do site pré-cacheia o shell operacional a partir de `shell-manifest.json`, preservando cold offline após instalação;
+- teste de contrato foi adicionado para manifest `id/start_url = /app/` e rewrite de mesma origem;
+- bloqueio atual: tentativa de deployment explícito recebeu HTTP 402 da Vercel por limite diário Free `api-deployments-free-per-day` (>100). Os commits estão em `main`, mas essa versão ainda não foi validada em produção.

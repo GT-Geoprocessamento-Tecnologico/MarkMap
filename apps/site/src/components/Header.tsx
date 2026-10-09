@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Brand } from "./Brand";
 import { ThemeToggle } from "./ThemeToggle";
+import { InstallAppButton } from "./InstallAppButton";
 
 const nav = [
   ["/produto", "Produto"],
@@ -55,10 +56,10 @@ export function Header() {
 
         <div className="site-header__actions">
           <ThemeToggle />
-          <a href="/baixar" className="button button--primary button--small">
+          <InstallAppButton className="button button--primary button--small">
             <span className="download-icon" aria-hidden="true">↓</span>
             Baixar app
-          </a>
+          </InstallAppButton>
           <button
             className="menu-button"
             type="button"
@@ -80,10 +81,13 @@ export function Header() {
             {nav.map(([href, label]) => (
               <a key={href} href={href} onClick={() => setOpen(false)}>{label}</a>
             ))}
-            <a href="/baixar" className="button button--primary" onClick={() => setOpen(false)}>
+            <InstallAppButton
+              className="button button--primary"
+              onRequest={() => setOpen(false)}
+            >
               <span className="download-icon" aria-hidden="true">↓</span>
               Baixar app
-            </a>
+            </InstallAppButton>
           </div>
         </nav>
       )}

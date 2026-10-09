@@ -76,6 +76,7 @@ function NewProjectModal({ onClose }: { onClose: () => void }) {
         tabIndex={-1}
         className="relative bg-surface-container w-full sm:max-w-md max-h-[100dvh] sm:max-h-[calc(100dvh-2rem)] rounded-t-3xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden"
       >
+        <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-on-surface/20 sm:hidden" aria-hidden="true" />
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-outline-variant">
           <div>
@@ -130,7 +131,7 @@ function NewProjectModal({ onClose }: { onClose: () => void }) {
         </div>
 
         {/* Footer */}
-        <div className="flex gap-3 px-6 py-4 border-t border-outline-variant bg-surface-container-high/50">
+        <div className="flex gap-3 px-6 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-outline-variant bg-surface-container-high/50">
           <button
             onClick={onClose}
             className="flex-1 py-3 rounded-xl border border-outline-variant bg-surface-container text-on-surface-variant font-semibold text-sm hover:bg-surface-variant transition-colors"
@@ -227,8 +228,10 @@ export function TopNavBar() {
   }, []);
 
   useEffect(() => {
+    const themeColor = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
     if (isDark) {
       document.documentElement.classList.add("dark");
+      themeColor?.setAttribute("content", "#06131a");
       try {
         localStorage.setItem("theme", "dark");
       } catch {
@@ -236,6 +239,7 @@ export function TopNavBar() {
       }
     } else {
       document.documentElement.classList.remove("dark");
+      themeColor?.setAttribute("content", "#f4f8fb");
       try {
         localStorage.setItem("theme", "light");
       } catch {
@@ -378,7 +382,8 @@ export function TopNavBar() {
             <button
               onClick={() => setIsDark(!isDark)}
               className="markmap-theme-button p-2 rounded-xl text-on-surface-variant hover:text-brand-cyan hover:bg-white/5 transition-colors"
-              title="Alternar Tema"
+              title="Alternar tema"
+              aria-label={isDark ? "Ativar tema claro" : "Ativar tema escuro"}
             >
               <AppIcon name={isDark ? "sun" : "moon"} size="md" />
             </button>
@@ -406,7 +411,7 @@ export function TopNavBar() {
 
       {/* Mobile search bar */}
       {showMobileSearch && (
-        <div className="sm:hidden fixed top-[52px] left-0 right-0 z-40 p-3 bg-header border-b border-outline-variant/10">
+        <div className="sm:hidden fixed top-[calc(64px+env(safe-area-inset-top))] left-0 right-0 z-40 p-3 bg-header border-b border-outline-variant/10">
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <AppIcon name="search" size="sm" className="text-on-surface-variant" />
@@ -472,7 +477,7 @@ export function TopNavBar() {
 
       {/* Notifications panel */}
       {showNotifications && (
-        <div className="fixed top-[52px] right-4 z-40 w-72 rounded-xl border border-outline-variant bg-header shadow-2xl overflow-hidden">
+        <div className="fixed top-[calc(64px+env(safe-area-inset-top))] right-4 z-40 w-72 rounded-xl border border-outline-variant bg-header shadow-2xl overflow-hidden">
           <div className="px-4 py-3 border-b border-outline-variant/10">
             <h3 className="text-sm font-semibold text-on-surface">
               Notificações

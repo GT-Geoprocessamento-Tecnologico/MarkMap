@@ -4,6 +4,7 @@ import { useLayoutStore } from "../../lib/store/layout";
 import { TopNavBar } from "../TopNavBar";
 import { MarkMapBrand } from "../MarkMapBrand";
 import { AppIcon, type AppIconName } from "../AppIcon";
+import { MobileTabBar } from "./MobileTabBar";
 
 const baseLink = "group flex min-h-[44px] items-center gap-3 rounded-xl border px-3 py-2.5 text-xs font-semibold transition-all duration-200";
 const activeLink = "border-brand-cyan/25 bg-brand-cyan/10 text-brand-cyan shadow-[inset_3px_0_0_#00D6DB]";
@@ -88,6 +89,7 @@ export function RootLayout() {
         <TopNavBar />
         <Outlet />
       </main>
+      <MobileTabBar />
     </div>
   );
 }
