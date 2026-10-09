@@ -112,7 +112,9 @@ export class ResumableInstaller {
    * O contrato InstallParams ainda não contém URL/fonte de dados verificável.
    */
   async startInstall(params: InstallParams): Promise<StoreResult<{ installId: string; status: InstallerStatus }>> {
-    const parsed = offlineMapPackageManifestSchema.safeParse(params.manifest);
+    // archivePath existe só durante a instalação; o contrato persistido é strict.
+    const { archivePath: _downloadArchivePath, ...persistedManifest } = params.manifest;
+    const parsed = offlineMapPackageManifestSchema.safeParse(persistedManifest);
     if (!parsed.success) {
       return {
         success: false,
