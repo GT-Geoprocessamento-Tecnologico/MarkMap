@@ -1,5 +1,12 @@
 # Handoff de continuidade
 
+## Novo incremento M8 — 2026-10-09
+
+**`e905ebc`** no ramo `dev/markmap-pwa-v2`: camada de estações com dados regionais comprovadamente instalados/verificados, círculos por linha e popup sem HTML remoto. Sem geometria real de linhas, dados de horários ou validação E2E; fica **PARCIAL EM CÓDIGO**. Nenhum teste executado por pedido do responsável. `main` e Vercel intactos.
+
+---
+
+
 ## Estado operacional 2026-10-09 — M6/M2/M1/M7 contínuos (PREVALECE)
 
 **HEAD de desenvolvimento auditado no início:** `0c827b3`; **commits novos:** `6384c62` (SRTM DEM + contrato/pacote), `409a777` (UI perfil + atualização opt-in de regiões), `ae767f2` (popup SW seguro), `2a91716` (filtros OSM). **Branch:** `dev/markmap-pwa-v2`. **Main:** `156d4e8` sem mudança. **Versão:** `0.2.0-dev.0` sem release.

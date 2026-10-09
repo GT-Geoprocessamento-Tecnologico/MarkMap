@@ -1,5 +1,14 @@
 # MarkMap — Checklist Mestre de Execução
 
+## M8 estação no mapa — incremento adicional (2026-10-09)
+
+- [x] `MM-MAP-710` **CÓDIGO:** sobrepor estações verificadas de transporte público ao MapLibre com cores de linha e popup, sem internet (commit `e905ebc`).
+- [ ] Validação real e geometria de trilhos/linhas não incluídas; não exibir conexões artificiais como rotas reais.
+- [ ] Testes e QA integral continuam reservados ao `MM-MAP-940` final.
+
+---
+
+
 ## Atualização prioritária — 2026-10-09 — após M6/M2/M1/M7 (PREVALECE)
 
 **Branch única:** `dev/markmap-pwa-v2@2a91716`; `main@156d4e8` intocada; `0.2.0-dev.0` em desenvolvimento. **Notion:** https://app.notion.com/p/3ed8e0bd0f4d81b6832bcf848c0ab504?pvs=204

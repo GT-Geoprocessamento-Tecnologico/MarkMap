@@ -1,5 +1,16 @@
 # MarkMap — Documento Mestre Único
 
+## M8 incremental — camada visual de estações regionais (2026-10-09)
+
+**Código:** `e905ebc` em `dev/markmap-pwa-v2`. `OfflineKnowledge.tsx` reaproveita a validação local e SHA-256 já existentes, comunica as estações verificadas à página do mapa, que exibe círculos coloridos conforme a linha (`regional-transit`) e popups seguros no MapLibre sem chamadas de rede. A limpeza de seleção remove os marcadores. **Não desenhar vias de metrô inventadas:** o contrato transit atual fornece IDs de estação, nomes/cores e coordenadas de estações, mas não a geometria real dos trilhos.
+
+- [x] M8 — marcadores de estações locais em MapLibre após leitura de pack verificado (**código**).
+- [ ] M8 — geometria oficial de vias/linhas e fontes GTFS reais licenciadas, com dados de movimento/horários apropriados.
+- [ ] M8 — QA final de overlay, mudança de região e popup (adiada por decisão do responsável).
+
+---
+
+
 ## Continuidade ativa — 2026-10-09: M6 DEM, M2 pacotes, M1 atualização PWA e M7 OSM (PREVALECE)
 
 **Produto:** MarkMap PWA-first, `0.2.0-dev.0` (sem tag). **Branch única:** `dev/markmap-pwa-v2`.
