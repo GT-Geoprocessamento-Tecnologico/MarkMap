@@ -133,13 +133,14 @@ describe("region-pipeline (MM-MAP-200)", () => {
     expect(manifest.style.blob.sha256).toBe("b".repeat(64));
     expect(manifest.checksums.archive).toBe("a".repeat(64));
     expect(manifest.checksums.style).toBe("b".repeat(64));
-    expect(manifest.capabilities).toEqual(["basemap"]);
+    expect(manifest.capabilities).toEqual(["basemap", "search"]);
     expect(manifest.sources.attributions).toEqual([
       { name: "OpenStreetMap contributors", url: "https://www.openstreetmap.org/copyright" },
     ]);
     expect(manifest.createdAt).toBe("2026-10-09T12:00:00.000Z");
     expect(manifest.minimumCompatibleVersion).toBe("0.2.0-dev.0");
-    expect(manifest.totalBytes).toBe(169);
+    expect(manifest.totalBytes).toBe(179);
+    expect(manifest.searchShards?.[0]?.path).toBe("search/a0.json");
   });
 
   it("fails closed instead of turning a search shard into a basemap", () => {
@@ -183,7 +184,8 @@ describe("region-pipeline (MM-MAP-200)", () => {
     const manifestOnDisk = JSON.parse(await readFile(join(outputDir, "manifest.json"), "utf8"));
     expect(manifestOnDisk.packageVersion).toBe("1.0.0");
     expect(manifestOnDisk.checksums.archive).toMatch(/^[a-f0-9]{64}$/);
-    expect(manifestOnDisk.capabilities).toEqual(["basemap"]);
+    expect(manifestOnDisk.capabilities).toEqual(["basemap", "search"]);
+    expect(manifestOnDisk.searchShards?.length).toBeGreaterThan(0);
 
     const shardFiles = result.artifacts.filter((a: { path: string }) => a.path.startsWith("search/"));
     expect(shardFiles.length).toBeGreaterThan(0);

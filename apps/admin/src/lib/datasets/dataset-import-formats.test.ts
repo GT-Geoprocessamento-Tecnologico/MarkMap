@@ -20,7 +20,7 @@ describe('dataset imports from GPX and KML', () => {
   it('rejects DTD, fake KML and unsupported archives', async () => {
     await expect(parseDatasetFile(fakeFile('<!DOCTYPE foo><gpx><wpt lat="0" lon="0"/></gpx>','a.gpx'))).rejects.toThrow('DTD/ENTITY');
     await expect(parseDatasetFile(fakeFile('<gpx/>','a.kml'))).rejects.toThrow('incompatível');
-    await expect(parseDatasetFile(fakeFile('zip','a.kmz'))).rejects.toThrow('não suportado');
+    await expect(parseDatasetFile(fakeFile('zip','a.kmz'))).rejects.toThrow('KMZ');
   });
   it('accepts KML waypoint as mapped GeoJSON point', async () => {
     const kml='<kml><Document><Placemark><name>Estação</name><Point><coordinates>-48.2,-7.2</coordinates></Point></Placemark></Document></kml>';
