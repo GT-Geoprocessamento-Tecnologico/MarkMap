@@ -192,7 +192,8 @@ export const offlineMapPackageManifestSchema = z
       manifest.glyphs.reduce((sum, asset) => sum + asset.blob.bytes, 0) +
       manifest.sprites.reduce((sum, asset) => sum + asset.blob.bytes, 0) +
       (manifest.searchShards ?? []).reduce((sum, asset) => sum + asset.blob.bytes, 0) +
-      (manifest.routingGraph?.blob.bytes ?? 0) + (manifest.contourLines?.blob.bytes ?? 0);
+      (manifest.routingGraph?.blob.bytes ?? 0) + (manifest.contourLines?.blob.bytes ?? 0) +
+      (manifest.wikipediaPack?.blob.bytes ?? 0) + (manifest.transitPack?.blob.bytes ?? 0);
     if (manifest.capabilities.includes('search') !== Boolean(manifest.searchShards?.length)) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['capabilities'],
         message: 'search capability must match installed search shards' });

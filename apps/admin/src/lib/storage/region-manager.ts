@@ -217,8 +217,13 @@ export class RegionManager {
       }
       const manifest = manifestValidate.data;
       const assets = new Map<string, Blob>();
-      for (const path of ['package.pmtiles', manifest.style.path,
-        ...manifest.glyphs.map((r) => r.path), ...manifest.sprites.map((r) => r.path)]) {
+      const refs = [manifest.style, ...manifest.glyphs, ...manifest.sprites,
+        ...(manifest.searchShards ?? []),
+        ...(manifest.routingGraph ? [manifest.routingGraph] : []),
+        ...(manifest.contourLines ? [manifest.contourLines] : []),
+        ...(manifest.wikipediaPack ? [manifest.wikipediaPack] : []),
+        ...(manifest.transitPack ? [manifest.transitPack] : [])];
+      for (const path of ['package.pmtiles', ...refs.map((ref) => ref.path)]) {
         const blob = await offlineMapStore.asset(regionId, path);
         if (!blob) return { success: false, regionId, message: `Arquivo ausente no pacote: ${path}`, repairedFiles: 0 };
         assets.set(path, blob);
