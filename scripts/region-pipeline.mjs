@@ -10,11 +10,12 @@
  *   node scripts/region-pipeline.mjs --input <dir> --output <dir> [--dry-run]
  *
  * Entradas obrigatórias em <dir>:
- *   basemap.pmtiles  PMTiles v3 já gerado externamente a partir de OSM
- *   style.json       estilo MapLibre com sources locais
- *   region.json      id,label,bounds,osmDataDate,versão
- * Entradas opcionais: places.json, graph.json, contours.json e osm.pbf.
- * O arquivo osm.pbf NÃO é convertido automaticamente pelo script.
+ *   region.json      id,label,bounds,osmDataDate,versao
+ *   osm.pbf          extrato OSM PBF regional (builder limitado a pequenos extratos)
+ *                   OU basemap.pmtiles pregerado (prioridade se ambos existirem)
+ *   style.json       opcional com osm.pbf; gerado automaticamente sem dependencia remota
+ * Entradas opcionais: places.json, graph.json, contours.json.
+ * Relations e nomes tipograficos exigem processamento posterior.
  *
  * Nenhum serviço de rede é usado: tudo é local.
  */
@@ -23,6 +24,7 @@ import { createHash } from "node:crypto";
 import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { buildPmtilesFromOsmFile, defaultOfflineStyle, OsmTileError } from "./osm-pbf-pmtiles.mjs";
 
 export const PIPELINE_VERSION = "1.0.0";
 
@@ -203,12 +205,16 @@ export function buildManifest({
     throw new PipelineError("PMTiles v3 ausente: índice/OSM PBF não é basemap", "MISSING_BASEMAP");
   if (!style || style.mediaType !== "application/json")
     throw new PipelineError("style.json ausente", "MISSING_STYLE");
+  const spriteArtifacts = artifacts.filter((a) => a.path.startsWith('sprites/'));
+  const glyphArtifacts = artifacts.filter((a) => a.path.startsWith('glyphs/'));
+  const activeArtifacts = [basemap, style, ...spriteArtifacts, ...glyphArtifacts];
   let totalBytes = 0;
   for (const a of artifacts) {
     if (!/^[a-f0-9]{64}$/.test(a.sha256) || !Number.isSafeInteger(a.bytes) || a.bytes <= 0)
       throw new PipelineError("artefato inválido: " + a.path, "INVALID_ARTIFACT");
-    totalBytes += a.bytes;
   }
+  totalBytes = activeArtifacts.reduce((sum, a) => sum + a.bytes, 0);
+  if (spriteArtifacts.length > 256 || glyphArtifacts.length > 256) throw new PipelineError("glyphs/sprites excedem 256 arquivos", "TOO_MANY_ASSETS");
   if (basemap.bytes > 250 * 1024 * 1024 || style.bytes > 25 * 1024 * 1024 ||
       totalBytes > 250 * 1024 * 1024)
     throw new PipelineError("pacote excede o contrato v2 atual de 250 MiB", "PACKAGE_TOO_LARGE");
@@ -228,12 +234,14 @@ export function buildManifest({
   return {
     id, version: packageVersion, label, bounds, minZoom, maxZoom,
     archive: archiveRef, style: { path: style.path, blob: styleRef },
-    glyphs: [], sprites: [],
+    glyphs: glyphArtifacts.map((a) => ({ path: a.path, blob: blobRef(a, a.mediaType) })),
+    sprites: spriteArtifacts.map((a) => ({ path: a.path, blob: blobRef(a, a.mediaType) })),
     attribution: attributions.map((a) => a.name).join(" · "),
     createdAt: now.toISOString(), packageVersion, osmDataDate,
     // Auxiliary JSON files are not activated by the current offline store.
     capabilities: ["basemap"],
-    checksums: { archive: basemap.sha256, style: style.sha256, glyphs: [], sprites: [] },
+    checksums: { archive: basemap.sha256, style: style.sha256,
+      glyphs: glyphArtifacts.map((a) => a.sha256), sprites: spriteArtifacts.map((a) => a.sha256) },
     totalBytes, sources: { osm: sources.osm, attributions },
     optionalComponents: { search: {}, routing: { walk: false, bicycle: false, car: false }, elevation: false, contours: false },
     minimumCompatibleVersion,
@@ -262,16 +270,14 @@ async function writeArtifact(outputDir, relPath, data) {
 
 function mediaTypeFor(path) {
   if (path.endsWith(".json")) return "application/json";
+  if (path.endsWith(".png")) return "image/png";
   if (path.endsWith(".pmtiles")) return "application/vnd.pmtiles";
   if (path.endsWith(".pbf")) return "application/x-protobuf";
   if (path.endsWith(".geojson")) return "application/geo+json";
   return "application/octet-stream";
 }
 
-/**
- * Packages pre-generated PMTiles and auxiliary offline data. Conversion of
- * raw OSM PBF into vector tiles still requires an external, audited builder.
- */
+/** Packages validated PMTiles or builds small-area vector PMTiles from OSM PBF. */
 export async function runPipeline({ input, output, dryRun = false, now = new Date() }) {
   if (typeof input !== "string" || typeof output !== "string")
     throw new PipelineError("--input e --output são obrigatórios", "MISSING_ARGS");
@@ -292,24 +298,43 @@ export async function runPipeline({ input, output, dryRun = false, now = new Dat
   const basemapPath = join(inputDir, "basemap.pmtiles");
   const stylePath = join(inputDir, "style.json");
   const metadataPath = join(inputDir, "region.json");
-  if (!(await exists(basemapPath)))
-    throw new PipelineError("basemap.pmtiles é obrigatório; osm.pbf não é convertido automaticamente", "MISSING_BASEMAP");
-  if (!(await exists(stylePath)))
-    throw new PipelineError("style.json é obrigatório", "MISSING_STYLE");
+  const hasBasemap = await exists(basemapPath);
+  const hasOsm = await exists(join(inputDir, "osm.pbf"));
+  if (!hasBasemap && !hasOsm)
+    throw new PipelineError("basemap.pmtiles ou osm.pbf e obrigatorio", "MISSING_BASEMAP");
   if (!(await exists(metadataPath)))
-    throw new PipelineError("region.json com bounds/data/versão é obrigatório", "MISSING_REGION_METADATA");
+    throw new PipelineError("region.json com bounds/data/versao e obrigatorio", "MISSING_REGION_METADATA");
 
   let metadata;
   let styleData;
   try {
     metadata = JSON.parse(await readFile(metadataPath, "utf8"));
-    styleData = JSON.parse(await readFile(stylePath, "utf8"));
+    styleData = await exists(stylePath) ? JSON.parse(await readFile(stylePath, "utf8")) : defaultOfflineStyle();
   } catch {
-    throw new PipelineError("region.json ou style.json inválido", "INVALID_JSON");
+    throw new PipelineError("region.json ou style.json invalido", "INVALID_JSON");
   }
+  if (!hasBasemap && await exists(stylePath))
+    warnings.push("style.json fornecido: certifique-se de que os source-layer coincidam com o builder regional");
+  if (hasBasemap && !(await exists(stylePath)))
+    throw new PipelineError("style.json e obrigatorio ao fornecer basemap.pmtiles", "MISSING_STYLE");
   if (!styleData || !styleData.sources || typeof styleData.sources !== "object")
     throw new PipelineError("style.json sem fontes", "INVALID_STYLE");
-  const basemap = await readFile(basemapPath);
+  let basemap;
+  if (hasBasemap) {
+    basemap = await readFile(basemapPath);
+    if (hasOsm) warnings.push("basemap.pmtiles pregerado prevalece sobre osm.pbf");
+  } else {
+    try {
+      const built = await buildPmtilesFromOsmFile(join(inputDir, "osm.pbf"), {
+        bounds: metadata.bounds, minZoom: metadata.minZoom ?? 0, maxZoom: metadata.maxZoom ?? 12,
+      });
+      basemap = built.bytes;
+      warnings.push("OSM PBF convertido para " + built.tileCount + " tiles / " + built.featureCount + " geometrias; relations, labels e fontes vetoriais completas ainda nao sao cobertos");
+    } catch (error) {
+      if (error instanceof OsmTileError) throw new PipelineError(error.message, error.code);
+      throw error;
+    }
+  }
   if (basemap.byteLength < 127 ||
       basemap.toString("ascii", 0, 7) !== "PMTiles" || basemap[7] !== 3)
     throw new PipelineError("basemap não tem header PMTiles v3 válido", "INVALID_PMTILES");
@@ -323,6 +348,15 @@ export async function runPipeline({ input, output, dryRun = false, now = new Dat
   await mkdir(outputDir, { recursive: true });
   artifacts.push(await writeArtifact(outputDir, "package.pmtiles", basemap));
   artifacts.push(await writeArtifact(outputDir, "style.json", JSON.stringify(styleData)));
+  // MapLibre automatically requests sprite metadata from style.sprite. The
+  // generated symbol-free basemap ships a valid empty sprite instead of 404s.
+  if (!hasBasemap && !(await exists(stylePath))) {
+    const transparentPng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZ0AAAAASUVORK5CYII=', 'base64');
+    for (const suffix of ['', '@2x']) {
+      artifacts.push(await writeArtifact(outputDir, 'sprites/sprite' + suffix + '.json', '{}'));
+      artifacts.push(await writeArtifact(outputDir, 'sprites/sprite' + suffix + '.png', transparentPng));
+    }
+  }
 
   const placesPath = join(inputDir, "places.json");
   if (await exists(placesPath)) {
@@ -351,8 +385,7 @@ export async function runPipeline({ input, output, dryRun = false, now = new Dat
     artifacts.push(await writeArtifact(outputDir, "elevation/contours.json", JSON.stringify(contours)));
   } else warnings.push("contours.json ausente: curvas de nível não foram empacotadas");
 
-  if (await exists(join(inputDir, "osm.pbf")))
-    warnings.push("osm.pbf não convertido: usar gerador vetorial externo antes de executar o pipeline");
+  if (hasOsm && !hasBasemap) warnings.push("Limite do builder integrado: ate 32 MiB de extrato PBF; use um gerador regional especializado para areas maiores");
   warnings.push("glyphs/sprites e ativação de componentes auxiliares exigem integração posterior ao contrato v2");
 
   const manifest = buildManifest({

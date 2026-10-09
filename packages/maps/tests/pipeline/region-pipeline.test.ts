@@ -139,7 +139,7 @@ describe("region-pipeline (MM-MAP-200)", () => {
     ]);
     expect(manifest.createdAt).toBe("2026-10-09T12:00:00.000Z");
     expect(manifest.minimumCompatibleVersion).toBe("0.2.0-dev.0");
-    expect(manifest.totalBytes).toBe(179);
+    expect(manifest.totalBytes).toBe(169);
   });
 
   it("fails closed instead of turning a search shard into a basemap", () => {
