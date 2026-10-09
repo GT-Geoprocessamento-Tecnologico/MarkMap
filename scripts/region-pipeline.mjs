@@ -9,11 +9,12 @@
  * Uso:
  *   node scripts/region-pipeline.mjs --input <dir> --output <dir> [--dry-run]
  *
- * Entradas esperadas em <dir> (todas opcionais exceto places.json):
- *   places.json      [{"id","name","type","category","lon","lat","description"?}]
- *   graph.json       {"nodes":[{"id","lon","lat"}],"edges":[...]}
- *   contours.json    {"interval","majorInterval","minElevation","maxElevation","contours":[...]}
- *   osm.pbf          binário bruto (copiado como artefato quando presente)
+ * Entradas obrigatórias em <dir>:
+ *   basemap.pmtiles  PMTiles v3 já gerado externamente a partir de OSM
+ *   style.json       estilo MapLibre com sources locais
+ *   region.json      id,label,bounds,osmDataDate,versão
+ * Entradas opcionais: places.json, graph.json, contours.json e osm.pbf.
+ * O arquivo osm.pbf NÃO é convertido automaticamente pelo script.
  *
  * Nenhum serviço de rede é usado: tudo é local.
  */
@@ -267,10 +268,6 @@ function mediaTypeFor(path) {
   return "application/octet-stream";
 }
 
-/**
- * Executa o pipeline. Retorna { artifacts, manifest, warnings }.
- * Não lança em ferramenta externa ausente: apenas registra warning.
- */
 /**
  * Packages pre-generated PMTiles and auxiliary offline data. Conversion of
  * raw OSM PBF into vector tiles still requires an external, audited builder.

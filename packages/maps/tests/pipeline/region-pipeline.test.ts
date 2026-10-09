@@ -234,6 +234,7 @@ describe("region-pipeline (MM-MAP-200)", () => {
   });
 
   it("rejects invalid places.json payload", async () => {
+    await writeRequiredRegionFiles();
     await writeFile(join(inputDir, "places.json"), "{ not json");
     await expect(runPipeline({ input: inputDir, output: outputDir })).rejects.toMatchObject({
       code: "INVALID_JSON",
