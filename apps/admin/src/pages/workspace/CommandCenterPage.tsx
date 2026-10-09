@@ -141,6 +141,26 @@ export default function CommandCenterPage() {
   const mapRef = useRef<MapLibreMap | null>(null);
   const locationControlRef = useRef<MapControls["geolocate"] | null>(null);
   const markersRef = useRef<Marker[]>([]);
+  const gpsMarkerRef = useRef<Marker | null>(null);
+  const navigationActiveRef = useRef(false);
+  const updateNavigationPosition = useCallback((position: { lon: number; lat: number; accuracyM: number } | null, follow: boolean) => {
+    if (!position) {
+      gpsMarkerRef.current?.remove();
+      gpsMarkerRef.current = null;
+      return;
+    }
+    const map = mapRef.current;
+    if (!map) return;
+    if (!gpsMarkerRef.current) {
+      gpsMarkerRef.current = new Marker({ color: '#0075D6', scale: 0.8 })
+        .setLngLat([position.lon, position.lat]).addTo(map);
+    } else {
+      gpsMarkerRef.current.setLngLat([position.lon, position.lat]);
+    }
+    if (follow && navigationActiveRef.current) {
+      map.easeTo({ center: [position.lon, position.lat], zoom: Math.max(15, map.getZoom()), duration: 350 });
+    }
+  }, []);
 
   const [sidePanel, setSidePanel] = useState<SidePanel>("none");
   const [telemetry, setTelemetry] = useState<TelemetryData>({
@@ -832,6 +852,8 @@ export default function CommandCenterPage() {
 
     return () => {
       cancelled = true;
+      gpsMarkerRef.current?.remove();
+      gpsMarkerRef.current = null;
       markersRef.current.forEach((marker) => marker.remove());
       markersRef.current = [];
       locationControlRef.current = null;
@@ -868,7 +890,7 @@ export default function CommandCenterPage() {
   useEffect(() => {
     const source = mapRef.current?.getSource('offline-route') as GeoJSONSource | undefined;
     source?.setData(routeAsGeoJSON(plannedRoute));
-    if (plannedRoute?.geometry.length && mapRef.current) {
+    if (plannedRoute?.geometry.length && mapRef.current && !navigationActiveRef.current) {
       const bounds = featureBounds(routeAsGeoJSON(plannedRoute).features);
       if (bounds) mapRef.current.fitBounds(bounds, { padding: 72, duration: 0, maxZoom: 16 });
     }
@@ -990,6 +1012,8 @@ export default function CommandCenterPage() {
           setRoutingPickMode(kind);
         }}
         onRoute={setPlannedRoute}
+        onPosition={updateNavigationPosition}
+        onTrackingChange={(active) => { navigationActiveRef.current = active; }}
       />
       {routingPickMode && <div role="status" className="absolute left-1/2 top-20 z-30 -translate-x-1/2 rounded-lg bg-surface-container p-3 text-sm shadow-lg">
         Toque no mapa para escolher {routingPickMode === 'origin' ? 'a origem' : 'o destino'} da rota.
