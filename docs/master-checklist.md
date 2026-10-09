@@ -1,5 +1,20 @@
 # MarkMap — Checklist Mestre de Execução
 
+## Atualização vigente — M6/M7 offline routing + contours (2026-10-09)
+
+**Base auditada:** `agent/MM-MAP-310-420-offline-packages@7d97d40`; **trabalho:** `agent/MM-MAP-600-640-offline-routing`; **versão dev:** `0.2.0-dev.0` (sem release/tag). **Documento:** `docs/MM-MAP-500-640-routing-contours-handoff.md`. **Estado:** **PARCIAL**, sem gate Web completo.
+
+- [x] **MM-MAP-600/610 (parcial):** pacote regional agora inclui `routing/graph.json` opcional com SHA-256, limites/contrato e ativação atômica no IndexedDB; importação por pasta e instalador URL incluem o arquivo.
+- [x] **MM-MAP-620 (parcial):** roteamento em Worker offline, escolha a pé/bicicleta/carro conforme grafo, origem pelo GPS/mapa e destino no mapa, rota desenhada em MapLibre, ETA e restrições `no_*`/`only_*` para carro.
+- [x] **MM-MAP-530 (parcial):** `elevation/contours.json` precomputado validado/hash e representado com linhas vetoriais offline; **não** gera DEM nem elevação ausente.
+- [x] **Prévia TTS (parcial):** primeira instrução falada sob clique; voz offline não garantida. Não confundir com navegação guiada contínua.
+- [x] **QA direcionado:** 18/18 testes Node em fixtures locais, `node --check` dos módulos, 12 arquivos TS/TSX sem erros de parse e `tsc --strict` isolado do roteador.
+- [ ] **Gate bloqueado:** não rodados monorepo `pnpm lint/typecheck/test/build`, Playwright/IndexedDB navegador, mapa/grafo/contornos OSM reais, navegador móvel e E2E offline. Não liberar PR/merge em `main` nem afirmar conclusão M6/M7.
+- [ ] **Próximo:** MM-MAP-900/940 QA local em checkout completo; então MM-MAP-200/600 com dados OSM reais, M7 GPS/rerouting/voz contínua, M6 DEM, M8 conteúdo licenciado. Testes físicos Android/iOS são recomendados, mas não bloqueiam o desenvolvimento PWA.
+
+**Regras:** sem GitHub CI, deploy Vercel, release, migrações, force push ou merge para main. Baseline `main@156d4e8` preservado. Este bloco prevalece sobre os registros históricos abaixo.
+
+
 ### Incremento M7 — algoritmo de rotas corrigido, ainda PARCIAL (2026-10-09)
 
 - [x] Corrigidos sentido permitido de `oneway`, unidades de ETA em segundos, geometria da rota (inclusive arestas reversas) e cálculo de curvas via coordenadas; regressões em algoritmo puro passaram no Node e `tsc --strict` isolado.
