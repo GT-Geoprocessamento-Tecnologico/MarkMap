@@ -28,6 +28,7 @@ import { pathToFileURL } from "node:url";
 import { validateRegionalGraph, MAX_GRAPH_BYTES } from '../packages/maps/src/routing/graph-format.mjs';
 import { validateRegionalContours, MAX_CONTOUR_BYTES } from '../packages/maps/src/elevation/contour-package.mjs';
 import { buildPmtilesFromOsmFile, defaultOfflineStyle, OsmTileError } from "./osm-pbf-pmtiles.mjs";
+import { buildSmallOsmAddons } from "./osm-graph-search.mjs";
 
 export const PIPELINE_VERSION = "1.0.0";
 
@@ -397,16 +398,30 @@ export async function runPipeline({ input, output, dryRun = false, now = new Dat
   }
 
   const placesPath = join(inputDir, "places.json");
+  const graphPath = join(inputDir, "graph.json");
+  let addons = null;
+  if (hasOsm && (!(await exists(placesPath)) || !(await exists(graphPath)))) {
+    try {
+      addons = await buildSmallOsmAddons(join(inputDir, 'osm.pbf'), metadata);
+      if (!addons) warnings.push('Extrato OSM nao atende os limites do gerador automatico de busca/rotas');
+    } catch (error) {
+      warnings.push('Derivacao OSM de busca/rotas indisponivel: ' +
+        (error instanceof Error ? error.message : 'erro de leitura'));
+    }
+  }
   if (await exists(placesPath)) {
     let places;
     try { places = JSON.parse(await readFile(placesPath, "utf8")); }
     catch { throw new PipelineError("places.json inválido", "INVALID_JSON"); }
     for (const shard of buildSearchShards(places))
       artifacts.push(await writeArtifact(outputDir, "search/" + shard.id + ".json", JSON.stringify(shard)));
-  } else warnings.push("places.json ausente: busca regional não foi empacotada");
+  } else if (addons?.places.length) {
+    for (const shard of buildSearchShards(addons.places))
+      artifacts.push(await writeArtifact(outputDir, "search/" + shard.id + ".json", JSON.stringify(shard)));
+    warnings.push('Indice OSM gerado automaticamente a partir de POIs nomeados do pequeno extrato');
+  } else warnings.push('Busca offline regional ausente: forneca places.json ou extrato OSM com POIs nomeados');
 
   let graphProfiles = [];
-  const graphPath = join(inputDir, "graph.json");
   if (await exists(graphPath)) {
     if ((await stat(graphPath)).size > MAX_GRAPH_BYTES) throw new PipelineError('graph.json acima do limite regional', 'INVALID_GRAPH');
     let graph;
@@ -417,7 +432,11 @@ export async function runPipeline({ input, output, dryRun = false, now = new Dat
     catch (error) { throw new PipelineError(error instanceof Error ? error.message : 'Grafo inválido', 'INVALID_GRAPH'); }
     graphProfiles = graph.profiles;
     artifacts.push(await writeArtifact(outputDir, "routing/graph.json", JSON.stringify(graph)));
-  } else warnings.push("graph.json ausente: roteamento não foi empacotado");
+  } else if (addons?.graph) {
+    graphProfiles = addons.graph.profiles;
+    artifacts.push(await writeArtifact(outputDir, 'routing/graph.json', JSON.stringify(addons.graph)));
+    warnings.push('Grafo OSM basico para a pe/bicicleta: sem relacoes, restricoes condicionais ou roteamento de carro; validacao em campo obrigatoria');
+  } else warnings.push('Sem grafo de rotas valido: forneca graph.json ou OSM PBF regional pequeno');
 
   const contoursPath = join(inputDir, "contours.json");
   if (await exists(contoursPath)) {
@@ -451,7 +470,7 @@ export async function runPipeline({ input, output, dryRun = false, now = new Dat
   }
 
   if (hasOsm && !hasBasemap) warnings.push("Limite do builder integrado: ate 32 MiB de extrato PBF; use um gerador regional especializado para areas maiores");
-  warnings.push('Grafos e curvas regionais são dados opcionais: DEM e navegação GPS assistida continuam pendentes');
+  warnings.push('DEM real e validacao GPS em campo continuam pendentes; nao distribuir rotas sem gate final');
 
   const manifest = buildManifest({
     ...metadata,
