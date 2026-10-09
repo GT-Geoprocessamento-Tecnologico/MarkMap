@@ -94,7 +94,7 @@ export class RegionManager {
             id: manifest.id,
             version: manifest.packageVersion || manifest.version,
             label: manifest.label || manifest.id,
-            size: manifest.archive.bytes || 0,
+            size: manifest.totalBytes || (manifest.archive.bytes + manifest.style.blob.bytes + manifest.glyphs.reduce((n, a) => n + a.blob.bytes, 0) + manifest.sprites.reduce((n, a) => n + a.blob.bytes, 0)),
             date: manifest.osmDataDate || pkg.installedAt,
             status,
             manifest: manifest,
@@ -184,11 +184,12 @@ export class RegionManager {
   private extractLicenses(manifest: OfflineMapPackageManifest): Array<{ name: string; url: string }> {
     const licenses: Array<{ name: string; url: string }> = [];
 
-    // Extrair de attribution
-    if (manifest.attribution) {
-      licenses.push({ name: "OpenStreetMap", url: "https://www.openstreetmap.org" });
+    // Mostrar as atribuições reais do pacote, não atribuir OSM a qualquer origem.
+    for (const attribution of manifest.sources?.attributions ?? []) {
+      if (attribution.name && attribution.url) {
+        licenses.push({ name: attribution.name, url: attribution.url });
+      }
     }
-
     return licenses;
   }
 
@@ -234,17 +235,21 @@ export class RegionManager {
         return { success: false, regionId, message: "Região não encontrada", repairedFiles: 0 };
       }
 
-      // Verificar integridade do manifest
+      // Verificar integridade do manifest; não alegar reparo que não aconteceu.
       const manifestValidate = offlineMapPackageManifestSchema.safeParse(region.manifest);
       if (!manifestValidate.success) {
-        // Tentar reparar dados faltantes
-        // ... (implementação simplificada)
+        return {
+          success: false,
+          regionId,
+          message: "Pacote inválido. Reparo automático ainda indisponível; reinstale a região.",
+          repairedFiles: 0,
+        };
       }
 
       return {
         success: true,
         regionId,
-        message: "Região reparada com sucesso",
+        message: "Manifest válido; nenhuma correção foi necessária",
         repairedFiles: 0,
       };
     } catch (error) {
@@ -275,7 +280,7 @@ export class RegionManager {
   async checkUpdateAvailable(_regionId: string): Promise<{ hasUpdate: boolean; updateInfo: Record<string, unknown> }> {
     // Verificar se há novo manifest disponível
     // ... (implementação simplificada)
-    return { hasUpdate: false, updateInfo: {} };
+    return { hasUpdate: false, updateInfo: { status: "unavailable", reason: "Catálogo de atualizações ainda não integrado" } };
   }
 
   /** Aplicar atualização de região */
