@@ -76,10 +76,12 @@ export function UpdatePrompt({
         const worker = ready.installing;
         if (!worker) return;
         worker.addEventListener("statechange", () => {
-          if (!disposed && worker.state === "installed" && navigator.serviceWorker.controller) setRegistration(ready);
-          void checkForUpdate();
-    });
+          if (!disposed && worker.state === "installed" && navigator.serviceWorker.controller) {
+            setRegistration(ready);
+          }
+        });
       });
+      void checkForUpdate();
     });
 
     window.addEventListener("online", goOnline);
