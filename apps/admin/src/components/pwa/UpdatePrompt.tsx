@@ -35,6 +35,9 @@ export function UpdatePrompt({
       try {
         const registration = await sw.ready;
         if (disposed) return;
+        if (navigator.onLine && typeof registration.update === "function") {
+          await registration.update();
+        }
 
         if (registration.waiting && registration.waiting !== dismissedVersion) {
           setRegistration(registration);
@@ -74,7 +77,8 @@ export function UpdatePrompt({
         if (!worker) return;
         worker.addEventListener("statechange", () => {
           if (!disposed && worker.state === "installed" && navigator.serviceWorker.controller) setRegistration(ready);
-        });
+          void checkForUpdate();
+    });
       });
     });
 
