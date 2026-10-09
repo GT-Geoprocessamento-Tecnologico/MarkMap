@@ -52,3 +52,28 @@ O CI usa projeto versionado + `cap sync ios`; não apague `apps/admin/ios` antes
 ## Android build
 
 Android é regenerado no CI. Para problemas, reproduza a mesma sequência do workflow `android-apk.yml`.
+
+Sequência local (`apps/admin/android` é regenerável e gitignorado):
+
+```bash
+cd apps/admin
+npx cap add android     # só na primeira vez
+npx cap sync android
+cd android && ./gradlew assembleDebug
+```
+
+O APK sai em `android/app/build/outputs/apk/debug/app-debug.apk`.
+
+**Toolchain:** o Capacitor 8 compila com `source 21`, então a JVM do Gradle precisa ser JDK 21 — com `JAVA_HOME` em JDK 17 o build falha com `invalid source release: 21`. No projeto gerado, habilite o resolvedor automático em `android/settings.gradle`:
+
+```gradle
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
+}
+```
+
+e aponte o Gradle para o JDK baixado em `android/gradle.properties`:
+
+```properties
+org.gradle.java.home=C:/Users/<user>/.gradle/jdks/eclipse_adoptium-21-amd64-windows.2
+```

@@ -24,8 +24,8 @@ Não abrir PR para `main` até que a checklist completa abaixo esteja verde.
 - [x] Build verde (`npx turbo run build --filter='./packages/*'` → 5/5)
 - [x] E2E aplicável verde (Playwright — 5 projetos: chromium, firefox, webkit, pixel-7, iphone-13)
 - [x] Testes offline aplicáveis verdes (parsers, manifest, search, routing, elevation, security)
-- [ ] Android APK aplicável verde (evidência de dispositivo)
-- [ ] iOS build aplicável verde (evidência de dispositivo)
+- [x] Android APK aplicável verde (evidência de dispositivo: `app-debug.apk` 6.5 MB instalado e executando no emulador Android_17; captura em `docs/quality/screenshots/android-emulator-launch.png`)
+- [ ] iOS build aplicável verde (evidência de dispositivo — exige macOS/Xcode)
 
 ### Revisão
 - [ ] Diff revisado
@@ -48,6 +48,9 @@ cd apps/admin && pnpm typecheck (tsc --noEmit)                   → 0 errors
 cd apps/admin && pnpm test (vitest)                              → 21 files, 91/91 passed
 cd apps/admin && pnpm build (tsc --noEmit && vite build)         → built, manifest 15 assets
 cd apps/admin && pnpm test:e2e (Playwright, 5 projetos)          → 95 passed / 20 skipped / 0 failed
+cd apps/admin && npx cap add android && ./gradlew assembleDebug  → BUILD SUCCESSFUL (app-debug.apk 6.5 MB)
+adb install -r app-debug.apk (emulador Android_17)               → Success; MainActivity resumed,
+                                                                   UpdatePrompt visível com Atualizar agora / Depois
 ```
 
 Commit da sequência: `5368bb8e` (`feat(maps): implement Maps Engine v2 offline phases M3-M10`, 75 arquivos).
@@ -64,7 +67,11 @@ Commit da sequência: `5368bb8e` (`feat(maps): implement Maps Engine v2 offline 
    → 95 passed / 20 skipped / 0 failed (chromium, firefox, webkit, pixel-7, iphone-13).
    Correções incluídas: prompt `aria-label` + CSS fixo, "Depois" persistente por sessão,
    waits de modo de desenho e de durabilidade do IndexedDB no WebKit.
-2. Evidência física: Android/iOS offline, GPS/navigation, Android Auto/CarPlay
+2. Evidência física: ~~Android build + instalação~~ — **concluído** localmente
+   (`apps/admin/android` é regenerável/gitignorado): `cap add android` → `assembleDebug` →
+   `adb install` no emulador `Android_17`, `MainActivity` em foreground e UpdatePrompt visível
+   (captura em `docs/quality/screenshots/android-emulator-launch.png`, fora do versionamento).
+   **Restam**: iOS (exige macOS/Xcode), GPS/navigation em aparelho real, Android Auto/CarPlay
 3. Baseline de performance em aparelho (MM-MAP-900)
 4. ~~`THIRD_PARTY_NOTICES.md` + ADRs + guides (MM-MAP-930)~~ — **concluído**
 5. Revisão de diff e sincronização final com `main`
