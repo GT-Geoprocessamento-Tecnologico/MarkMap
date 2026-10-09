@@ -8,7 +8,7 @@ let records: SearchRecord[] = [];
 self.addEventListener('message', (event: MessageEvent<Incoming>) => {
   const data = event.data;
   if (data.type === 'load') {
-    records = Array.isArray(data.records) ? data.records.slice(0, 10000) : [];
+    records = Array.isArray(data.records) ? data.records.slice(0, 35_000) : [];
   } else if (data.type === 'search') {
     try {
       const response = searchIndex(records, { query: data.query, limit: 12 });

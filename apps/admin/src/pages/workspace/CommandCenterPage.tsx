@@ -45,6 +45,8 @@ import {
 import { adaptOfflineStyle } from "@geonexo/maps/offline/style";
 import { AppIcon, type AppIconName } from "../../components/AppIcon";
 import { OfflineSearch } from "../../components/map/OfflineSearch";
+import { loadRegionalPackageSearch } from '../../lib/search/regional-package-search';
+import type { LocalSearchRecord } from '../../lib/search/local-map-search';
 import { buildLocalMapSearchRecords } from "../../lib/search/local-map-search";
 
 // ---------------------------------------------------------------------------
@@ -161,6 +163,21 @@ export default function CommandCenterPage() {
     [activeDataset, projectFeatures],
   );
   const localSearchRecords = useMemo(() => buildLocalMapSearchRecords(fullFeatures), [fullFeatures]);
+  const [regionalSearchRecords, setRegionalSearchRecords] = useState<LocalSearchRecord[]>([]);
+  const [regionalSearchError, setRegionalSearchError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const packageId = getSelectedOfflineMapId();
+    if (!packageId || search.pdfId) { setRegionalSearchRecords([]); return; }
+    void loadRegionalPackageSearch(offlineMapStore, packageId)
+      .then((records) => { if (!cancelled) { setRegionalSearchRecords(records); setRegionalSearchError(null); } })
+      .catch((cause) => { if (!cancelled) { setRegionalSearchRecords([]); setRegionalSearchError(cause instanceof Error ? cause.message : 'Índice offline indisponível'); } });
+    return () => { cancelled = true; };
+  }, [search.pdfId]);
+  const combinedSearchRecords = useMemo(
+    () => [...regionalSearchRecords, ...localSearchRecords],
+    [regionalSearchRecords, localSearchRecords],
+  );
   const activeGeoJson = useMemo(
     () => ({
       type: "FeatureCollection" as const,
@@ -894,7 +911,7 @@ export default function CommandCenterPage() {
         data-testid="map-canvas"
       />
 
-      <OfflineSearch records={localSearchRecords} onChoose={(place) => {
+      <OfflineSearch records={combinedSearchRecords} regionalCount={regionalSearchRecords.length} warning={regionalSearchError} onChoose={(place) => {
         const map = mapRef.current;
         if (map) map.flyTo({ center: [place.lon, place.lat], zoom: Math.max(15, map.getZoom()) });
       }} />

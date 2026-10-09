@@ -18,6 +18,7 @@ import {
 import { PdfPreview, sha256Blob } from "../../lib/pdf/pdf-preview";
 import { localRepository, type OriginalRecord } from "../../lib/local-repositories";
 import { AppIcon } from "../../components/AppIcon";
+import { TrackElevationProfile } from "../../components/elevation/TrackElevationProfile";
 
 const formatSize = (bytes: number) =>
   `${(bytes / (1024 * 1024)).toFixed(2)} MiB`;
@@ -29,6 +30,7 @@ export default function ImportsPage() {
   const [pdfs, setPdfs] = useState<OriginalRecord[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isUploading, setIsUploading] = useState(false);
+  const [profileDatasetId, setProfileDatasetId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
@@ -45,6 +47,7 @@ export default function ImportsPage() {
       ),
     );
   }, [refresh]);
+  const profileDataset = datasets.find((dataset) => dataset.id === profileDatasetId);
   const filteredDatasets = useMemo(
     () =>
       datasets.filter((dataset) =>
@@ -115,24 +118,24 @@ export default function ImportsPage() {
           Conjuntos de dados
         </h1>
         <p className="mt-1 text-sm text-on-surface-variant">
-          Importe GeoJSON, GPX e KML para trabalhar offline neste dispositivo.
+          Importe GeoJSON, GPX, KML e KMZ para trabalhar offline neste dispositivo.
         </p>
       </header>
       <div className="relative mb-6 flex min-h-40 flex-col items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-outline-variant bg-surface-container p-6 text-center">
         <input
           type="file"
-          accept=".geojson,.json,.gpx,.kml,.pdf,.glb,application/pdf"
+          accept=".geojson,.json,.gpx,.kml,.kmz,.pdf,.glb,application/pdf"
           onChange={handleUpload}
           disabled={isUploading}
           className="absolute inset-0 z-10 cursor-pointer opacity-0"
-          aria-label="Selecionar GeoJSON, GPX, KML, PDF ou GLB"
+          aria-label="Selecionar GeoJSON, GPX, KML, KMZ, PDF ou GLB"
         />
         <AppIcon name="upload" size="lg" className="mb-3" />
         <h2 className="font-bold">
-          {isUploading ? "Validando arquivo…" : "Selecione GeoJSON, GPX, KML, PDF ou GLB"}
+          {isUploading ? "Validando arquivo…" : "Selecione GeoJSON, GPX, KML, KMZ, PDF ou GLB"}
         </h2>
         <p className="mt-1 text-xs text-on-surface-variant">
-          GeoJSON, GPX, KML e PDF até 25 MiB. Trilhas e pontos são convertidos em GeoJSON local. PDFs são visualizados localmente; o
+          GeoJSON, GPX, KML, KMZ e PDF até 25 MiB. Trilhas e pontos são convertidos em GeoJSON local. PDFs são visualizados localmente; o
           posicionamento geográfico só é informado quando os metadados passam
           pelas validações. GLB é validado e salvo localmente.
         </p>
@@ -238,6 +241,11 @@ export default function ImportsPage() {
                         <AppIcon name="download" size="md" />
                         <span className="lg:hidden">Exportar GeoJSON</span>
                       </button>
+                      <button type="button" onClick={() => setProfileDatasetId((id) => id === dataset.id ? null : dataset.id)}
+                        title="Perfil de elevação local" aria-label={`Perfil de elevação de ${dataset.name}`}
+                        className="inline-flex min-h-[44px] items-center rounded-lg border border-outline-variant px-3 py-2 text-xs text-on-surface-variant">
+                        Elevação
+                      </button>
                       {dataset.format !== "GeoJSON" && (
                         <button type="button" onClick={() => void exportDataset(dataset.id)}
                           title="Exportar arquivo original" aria-label="Exportar arquivo original"
@@ -263,6 +271,7 @@ export default function ImportsPage() {
           </tbody>
         </table>
       </div>
+      {profileDataset && <TrackElevationProfile features={profileDataset.geojson.features} />}
       <section className="mt-6 rounded-2xl border border-outline-variant bg-surface-container p-4">
         <h2 className="font-bold">Malhas 3D locais</h2>
         <p className="mt-1 text-xs text-on-surface-variant">
