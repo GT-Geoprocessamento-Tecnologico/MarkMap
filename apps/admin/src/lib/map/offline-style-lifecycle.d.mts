@@ -1,5 +1,7 @@
 export interface OfflineStyleMapEvents {
   loaded(): boolean;
+  getSource?(id: string): unknown;
+  isSourceLoaded?(id: string): boolean;
   once(type: 'render', callback: () => void): unknown;
   off(type: 'render', callback: () => void): unknown;
 }

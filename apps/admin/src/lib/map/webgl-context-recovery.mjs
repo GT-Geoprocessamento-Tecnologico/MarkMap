@@ -34,3 +34,16 @@ export function createWebglContextRecovery({ onLost, onRestore, budget }) {
     },
   };
 }
+
+/** A known transient error is cleared only after the recovered map paints. */
+export const WEBGL_CONTEXT_LOST_MESSAGE =
+  'O contexto gráfico foi perdido. Aguarde a restauração ou tente reabrir o mapa.';
+
+export function clearRecoveredWebglError(currentMessage) {
+  return currentMessage === WEBGL_CONTEXT_LOST_MESSAGE ? null : currentMessage;
+}
+
+/** Resource errors after WebGL restoration may replace the old context warning. */
+export function canReportMapError(currentMessage) {
+  return !currentMessage || currentMessage === WEBGL_CONTEXT_LOST_MESSAGE;
+}

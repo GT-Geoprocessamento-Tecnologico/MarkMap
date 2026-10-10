@@ -8,3 +8,7 @@ export declare function createWebglContextRecovery(options: {
   restored(): boolean;
   dispose(): void;
 };
+
+export declare const WEBGL_CONTEXT_LOST_MESSAGE: string;
+export declare function clearRecoveredWebglError(currentMessage: string | null): string | null;
+export declare function canReportMapError(currentMessage: string | null): boolean;

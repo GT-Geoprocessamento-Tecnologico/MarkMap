@@ -41,7 +41,12 @@ import { getSelectedOfflineMapId, setSelectedOfflineMapId, subscribeSelectedOffl
 import { subscribeRegionCatalogChanges } from "../../lib/storage/region-catalog-events.mjs";
 import { createRegionRevisionReconciler, subscribeRegionForeground } from "../../lib/storage/region-foreground-reconcile.mjs";
 import { createOfflineMapRecovery, resolveOfflineBasemap } from "../../lib/map/offline-map-recovery.mjs";
-import { createWebglContextRecovery } from "../../lib/map/webgl-context-recovery.mjs";
+import {
+  createWebglContextRecovery,
+  WEBGL_CONTEXT_LOST_MESSAGE,
+  clearRecoveredWebglError,
+  canReportMapError,
+} from "../../lib/map/webgl-context-recovery.mjs";
 import { createOfflineStyleLifecycle } from "../../lib/map/offline-style-lifecycle.mjs";
 import { ensureOfflineSourceLayers } from "../../lib/map/offline-style-layers.mjs";
 import { describeOfflineMapFailure } from "../../lib/map/offline-map-diagnostics.mjs";
@@ -596,9 +601,8 @@ export default function CommandCenterPage() {
       onLost: () => {
         if (cancelled) return;
         webglLostRef.current = true;
-        const message = "O contexto gráfico foi perdido. Aguarde a restauração ou tente reabrir o mapa.";
-        mapErrorRef.current = message;
-        setMapError(message);
+        mapErrorRef.current = WEBGL_CONTEXT_LOST_MESSAGE;
+        setMapError(WEBGL_CONTEXT_LOST_MESSAGE);
         setMapReady(false);
       },
       onRestore: () => {
@@ -818,7 +822,7 @@ export default function CommandCenterPage() {
           // Selection changes abort outstanding tiles: cancellation is not corruption.
           const issue = describeOfflineMapFailure(event);
           if (!issue) return;
-          if (!mapErrorRef.current) {
+          if (canReportMapError(mapErrorRef.current)) {
             mapErrorRef.current = issue.message;
             setMapError(issue.message);
           }
@@ -918,12 +922,19 @@ export default function CommandCenterPage() {
           onHydrate: ensureSource,
           onStyleReset: () => { setMapReady(false); setGeoPdfReady(false); },
           onReady: () => {
+            // Dismiss only a recovered WebGL warning, not a genuine asset or
+            // style failure. Restoration alone is insufficient until painted.
+            const remainingError = clearRecoveredWebglError(mapErrorRef.current);
+            if (!webglLostRef.current && remainingError !== mapErrorRef.current) {
+              mapErrorRef.current = remainingError;
+              setMapError(remainingError);
+            }
             setMapReady(true);
             setAppliedCount(activeGeoJsonRef.current.features.length);
           },
           onError: (cause) => {
             const issue = describeOfflineMapFailure(cause);
-            if (!issue || mapErrorRef.current) return;
+            if (!issue || !canReportMapError(mapErrorRef.current)) return;
             mapErrorRef.current = issue.message;
             setMapError(issue.message);
           },

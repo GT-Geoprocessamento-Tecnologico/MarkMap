@@ -1,6 +1,17 @@
 # MarkMap — Checklist Mestre de Execução
 
 
+## A30/A31 — fonte cartográfica pronta e aviso WebGL sincronizados (2026-10-10)
+
+- [x] **A30 CÓDIGO:** consultar existência e estado `Map.isSourceLoaded('local-dataset')` da fonte atual após hidratação; aceitar fonte pronta sem novo `sourcedata`, sem polling nem requisição remota.
+- [x] **A30 CÓDIGO:** recusar evento antigo se fonte atual não carregou e revalidar antes do frame renderizado; fontes ausentes/troca com erro não provocam readiness falso; compatibilidade com adapters legados.
+- [x] **A31 CÓDIGO:** no paint recuperado, limpar somente mensagem temporária de contexto WebGL; preservar falhas reais e deixar recurso inválido substituir aviso antigo; retry e fundo simples mantidos.
+- [x] **QA NODE EXECUTADA:** `node --test scripts/*.test.mjs` **147/147 PASS** no recorte A10–A31 após restaurar downloader exato do HEAD; `node --check`, `tsc --strict --noEmit` isolado e TSX syntax PASS. 14 novos testes versionados.
+- [ ] **HOMOLOGAÇÃO PENDENTE, NÃO BLOQUEANTE PARA CONTINUAR CODANDO:** full pnpm lint/typecheck/test/build/Vitest, E2E/Playwright, MapLibre/PMTiles/IndexedDB reais, WebGL context lost/restored e Android/iOS físico. Nunca declarar gate de release aprovado sem execução.
+- [ ] **PRÓXIMO:** inspecionar HEAD real para novos problemas de eventos de estilo/worker e resolver apenas lacunas reproduzíveis, sem reescrever fluxo funcional.
+- [ ] **SEM PRODUÇÃO:** sem GitHub CI remoto, Vercel deploy, merge main, Neon/migration, tag/release/loja ou exclusões. PRD `docs/MM-MAP-A30-A31-source-readiness.md`.
+
+
 ## A28/A29 — estilo MapLibre e camadas locais recuperáveis (2026-10-10)
 
 - [x] **A28 EM CÓDIGO:** eventos `style.load`/`sourcedata`/`render` coordenados por geração; um callback de paint por estilo, descarta renders atrasados após style swap, cancelamento e perda WebGL; não marca mapa antigo como pronto.

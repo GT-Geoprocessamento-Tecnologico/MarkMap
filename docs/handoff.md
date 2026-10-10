@@ -1,6 +1,17 @@
 # Handoff de continuidade
 
 
+## Continuidade A30/A31 — readiness do GeoJSON e aviso de WebGL recuperado (2026-10-10)
+
+**HEAD-base auditado:** `dev/markmap-pwa-v2@6b8b613`, `main@156d4e8`, sem PRs/issues abertas. **A30 EM CÓDIGO:** a fonte `local-dataset` já carregada pode completar readiness após `style.load` mesmo sem novo evento. `Map.getSource` valida existência antes de `Map.isSourceLoaded` para não gerar `ErrorEvent` por ID ausente; valida novamente o estado do source ao receber `sourcedata` e antes do `render` posterior, evitando resposta antiga/carga reiniciada. Adapters antigos continuam aceitos. **A31 EM CÓDIGO:** mensagem conhecida de contexto WebGL perdido só desaparece com pintura concluída; erro real de recursos após restauração substitui banner antigo com texto seguro. Não mexe em pacotes, worker global, sync, GeoPDF, campo, IndexedDB, outbox ou banco.
+
+**EVIDÊNCIA EXECUTADA:** Node 22.16.0, recorte de testes Node recuperados do HEAD **147/147 PASS** incluindo 14 novos A30/A31. Um falso negativo inicial (142/147) decorreu de downloader A6 anterior copiado para workspace; corrigido somente ambiente de teste para Blob SHA `739fbb8` do HEAD e executada a suíte integral novamente. `node --check`, `tsc --strict --noEmit` isolado .d.mts e `transpileModule` TSX PASS. **NÃO EXECUTADO:** full lint/typecheck/build/CI, Vitest, Playwright, MapLibre/PMTiles/WebGL/IndexedDB reais e dispositivos. Homologação separada, não bloqueia desenvolvimento. PRD: `docs/MM-MAP-A30-A31-source-readiness.md`.
+
+**Próximo foco:** auditar HEAD para eventos de renderização, requisições e workers reais sem presumir falhas e sem duplicar A24–A31; sem CI remoto, merge main, deploy Vercel, Neon, migrations, tag/release, secret, publicação ou ações irreversíveis.
+
+---
+
+
 ## Continuidade A28/A29 — estilos e overlays após restauração WebGL (2026-10-10)
 
 **HEAD-base auditado:** `dev/markmap-pwa-v2@f93d9bb`; `main@156d4e8`; zero PRs/issues abertos na auditoria inicial. **A28 IMPLEMENTADO:** `createOfflineStyleLifecycle` controla eventos `style.load`, `sourcedata` e `render` por geração; impede callbacks atrasados, duplicação de readiness, perda de evento síncrono e operações em mapa removido/sem contexto WebGL. Integrado à `CommandCenterPage`, com reporte de falha seguro A23 e preservação do orçamento de recuperação A27. **A29 IMPLEMENTADO:** `ensureOfflineSourceLayers` repara camadas ausentes mesmo se a fonte existe; integrado a dataset, preview de desenho, GeoPDF, contornos, trânsito e rota sem substituir dados de campo. Modo neutro, GeoPDF e offline-first preservados.

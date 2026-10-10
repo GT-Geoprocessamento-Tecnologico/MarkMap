@@ -1,6 +1,15 @@
 # MarkMap — Documento Mestre Único
 
 
+## A30/A31 — readiness da fonte ativa e recuperação do aviso WebGL (2026-10-10)
+
+**A30 IMPLEMENTADO EM CÓDIGO:** `createOfflineStyleLifecycle` agora consulta `getSource('local-dataset')` antes de `isSourceLoaded('local-dataset')` após hidratar. Fontes já carregadas concluem readiness mesmo sem novo `sourcedata`; eventos atrasados e fontes recarregando não podem validar a geração atual. Em exceção/troca de estilo adota fallback conservador; adapters anteriores sem métodos seguem compatíveis. **A31 IMPLEMENTADO EM CÓDIGO:** alerta temporário de WebGL perdido é removido só após render atual bem-sucedido; falhas reais de PMTiles, glyph, estilo e recursos permanecem visíveis e podem substituir aviso transitório. Retentativa manual, orçamento de remount A27 e dados operacionais offline-first preservados.
+
+**QA LOCAL REAL:** Node v22.16.0 `node --test scripts/*.test.mjs` **147/147 PASS**, incluindo 14 novos testes A30/A31, em recorte histórico reconstruído do HEAD. Primeiro teste do recorte falhou 5 casos A8/A9 por cópia local antiga do downloader; substituída por SHA exata do GitHub (`739fbb8`) e a suíte completa reexecutada 147/147 PASS. `node --check` JS, `tsc --strict --noEmit` isolado das declarations e `typescript.transpileModule` TSX PASS. **NÃO EXECUTADO:** full lint/typecheck/build/Vitest/Playwright do monorepo, IndexedDB/MapLibre/WebGL/PMTiles reais e Android/iOS. QA física não impede novas fases de código mas release/homologação continuam separados. Sem CI remoto, main, Vercel, Neon, migration, release/tag, lojas ou exclusão. PRD: `docs/MM-MAP-A30-A31-source-readiness.md`.
+
+---
+
+
 ## A28/A29 — readiness de estilo MapLibre e reparo de overlays offline (2026-10-10)
 
 **IMPLEMENTADO EM CÓDIGO (QA DIRECIONADA):** a visualização controla uma geração de `style.load` e associa o status `mapReady` ao `sourcedata`/próximo `render` daquela geração. Eventos repetidos não criam callbacks duplicados; render pendente de estilo anterior é removido em nova `style.load`, perda WebGL ou unmount. Fontes GeoJSON que concluem sincronamente durante a hidratação também são consideradas. Em restaurações WebGL consecutivas, esgotado o orçamento automático da A27, tenta reparar o estilo já carregado **sem remount infinito**. **A29:** overlays `local-dataset`, `geopdf-overlay`, `draw-preview`, contornos, trânsito e rota passam a reparar **camadas individualmente**, mesmo se a fonte persistiu; não substituem geometrias, projetos, dados de campo, IndexedDB/outbox ou seleção.

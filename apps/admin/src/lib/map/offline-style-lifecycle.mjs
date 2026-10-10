@@ -25,6 +25,22 @@ export function createOfflineStyleLifecycle({ map, isActive, onHydrate, onReady,
   };
   const reportError = error => { if (active()) onError(error); };
 
+  // A style can preserve an already-loaded local GeoJSON source. In that case
+  // MapLibre does not owe us a new sourcedata event after hydration. Verify
+  // the CURRENT source before reporting readiness: a late sourcedata event
+  // from the previous style must not validate its replacement.
+  const currentLocalSourceReady = () => {
+    if (typeof map.getSource !== 'function' || typeof map.isSourceLoaded !== 'function')
+      return null; // Compatibility with old MapLibre/test adapters.
+    try {
+      if (!map.getSource('local-dataset')) return false;
+      return map.isSourceLoaded('local-dataset') === true;
+    } catch {
+      // MapLibre may throw while a style is being swapped or disposed.
+      return false;
+    }
+  };
+
   function styleLoad() {
     if (!active()) return false;
     generation++;
@@ -38,7 +54,8 @@ export function createOfflineStyleLifecycle({ map, isActive, onHydrate, onReady,
       hydrated = true;
       hydrating = false;
       // Offline GeoJSON can complete synchronously while being added.
-      if (loadedDuringHydration) sourceData({ sourceId: 'local-dataset', isSourceLoaded: true });
+      if (loadedDuringHydration || currentLocalSourceReady() === true)
+        sourceData({ sourceId: 'local-dataset', isSourceLoaded: true });
       return true;
     } catch (error) {
       hydrating = false;
@@ -48,14 +65,15 @@ export function createOfflineStyleLifecycle({ map, isActive, onHydrate, onReady,
   }
 
   function sourceData(event) {
-    if (!active() || event?.sourceId !== 'local-dataset' || event.isSourceLoaded !== true) return false;
+    if (!active() || event?.sourceId !== 'local-dataset' || event.isSourceLoaded !== true ||
+        currentLocalSourceReady() === false) return false;
     if (hydrating) { loadedDuringHydration = true; return false; }
     if (!hydrated || readyGeneration === generation || pendingPaint) return false;
     const paintGeneration = generation;
     const finish = () => {
       pendingPaint = null;
       if (!active() || !hydrated || readyGeneration === paintGeneration ||
-          paintGeneration !== generation) return;
+          paintGeneration !== generation || currentLocalSourceReady() === false) return;
       try {
         onReady();
         readyGeneration = paintGeneration;
