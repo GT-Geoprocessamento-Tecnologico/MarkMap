@@ -1,6 +1,15 @@
 # Handoff de continuidade
 
 
+## Continuidade A16/A17 — seleção única e refresh regional (2026-10-10)
+
+**HEAD-base:** `dev/markmap-pwa-v2@7e1339a`, `main@156d4e8`, PRs/issues abertos: 0 na auditoria. **A16 EM CÓDIGO:** `selected-offline-map.mjs` usa chave histórica `geonexo:selected-offline-map-package`, avisa mesmo documento e observa storage de outra aba; fachada TS preserva imports. `SettingsPage` usa `useSyncExternalStore` sem state espelho; nenhuma migração ou rede. **A17 EM CÓDIGO:** `CommandCenterPage` passa a ler seleção observável e sinal A15 de catálogo (somente região selecionada); reinicializa MapLibre/protocolos ao trocar ID/geração, recarrega índice offline e remonta OfflineKnowledge/OfflineElevation/OfflineRouting/OfflineSearch, limpa rota/trânsito obsoletos e ignora mudanças regionais enquanto GeoPDF domina. Região removida zera seleção obsoleta sem excluir dados.
+
+**QA REAL LOCAL:** 5/5 testes novos Node PASS; `node --check` e `tsc --noEmit --strict` para helper/fachada PASS. Separadamente, regressões A10–A15 17/17 PASS. **NÃO EXECUTADO:** build/lint/typecheck monorepo, React/MapLibre E2E, IndexedDB/WebView multiabas e dispositivos reais; não marcar homologação. Testes físicos não bloqueiam continuidade de implementação. **Próximo foco:** reconciliação segura após aba suspensa ou eventos de catálogo perdidos, sem trocar a arquitetura offline-first. `main`, Neon, Vercel, CI, tag/release e produção intactos. PRD `docs/MM-MAP-A16-A17-reactive-map-selection.md`.
+
+---
+
+
 ## Continuidade A14/A15 — consistência de geração entre abas (2026-10-10)
 
 **Base auditada:** `dev/markmap-pwa-v2@b739b11`, `main@156d4e8`, sem PRs/issues abertas no momento da auditoria. **A14 IMPLEMENTADO:** o preview tem `installedGeneration`; atualização revalida origem, base local, manifest e geração; o instalador verifica sob Web Lock e transfere a condição ao armazenamento. A ativação somente promove staging se a mesma geração ainda estiver ativa na transação IndexedDB; falha `stale-active-generation` pede nova consulta. Se ativação falhar, cleanup best-effort restringe-se à geração staging própria. Mapa ativo, outbox e projeto são preservados. **A15 IMPLEMENTADO:** BroadcastChannel entre abas notifica apenas ID da região após ativação/remoção; Configurações limpa consentimentos antigos e atualiza a lista lendo IndexedDB. Sem BroadcastChannel, a aplicação continua com CAS obrigatório.

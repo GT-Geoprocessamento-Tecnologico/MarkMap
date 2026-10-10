@@ -8,6 +8,7 @@ import { offlineMapStore } from "../../lib/storage/offline-map-store";
 import {
   getSelectedOfflineMapId,
   setSelectedOfflineMapId,
+  subscribeSelectedOfflineMapId,
 } from "../../lib/storage/offline-map-selection";
 import { offlineDB } from "../../lib/storage/offline-db";
 import { ensureLocationPermission } from "../../lib/device-location-permission";
@@ -59,7 +60,9 @@ export default function SettingsPage() {
   }>({});
   const [error, setError] = useState<string | null>(null);
   const [offlinePackages, setOfflinePackages] = useState<OfflineMapPackageManifest[]>([]);
-  const [selectedOfflineMapId, setSelectedOfflineMapIdState] = useState<string | null>(getSelectedOfflineMapId);
+  const selectedOfflineMapId = useSyncExternalStore(
+    subscribeSelectedOfflineMapId, getSelectedOfflineMapId, () => null,
+  );
   const [packageBusy, setPackageBusy] = useState(false);
   const [regionalManifestUrl, setRegionalManifestUrl] = useState(() =>
     getRegionInstallDraftUrl() ?? getRegionSourceUrl(getSelectedOfflineMapId() ?? '') ?? '');
@@ -135,14 +138,12 @@ export default function SettingsPage() {
     setRegionUpdates({});
     const selected = getSelectedOfflineMapId();
     if (selected && manifests.some((manifest) => manifest.id === selected)) {
-      setSelectedOfflineMapIdState(selected);
       return;
     }
     if (selected) setSelectedOfflineMapId(null);
     const latest = [...installed].sort((a, b) => b.installedAt.localeCompare(a.installedAt))[0];
     const next = latest?.manifest.id ?? null;
     if (next) setSelectedOfflineMapId(next);
-    setSelectedOfflineMapIdState(next);
   }, []);
   useEffect(() => {
     return subscribeRegionCatalogChanges(() => {
@@ -325,10 +326,8 @@ export default function SettingsPage() {
       // A folder import has no trusted remote source; discard any old URL for this region ID.
       forgetRegionSource(manifest.id);
       setSelectedOfflineMapId(manifest.id);
-      setSelectedOfflineMapIdState(manifest.id);
       await refreshOfflinePackages();
       setSelectedOfflineMapId(manifest.id);
-      setSelectedOfflineMapIdState(manifest.id);
       toast({
         title: "Mapa offline instalado",
         description: `${manifest.label} ficará disponível neste dispositivo sem conexão.`,
@@ -435,7 +434,6 @@ export default function SettingsPage() {
       setRegionalNewVersion(false);
       setRegionalNotice('Mapa regional instalado e verificado. Pronto para uso sem conexão.');
       setSelectedOfflineMapId(manifest.id);
-      setSelectedOfflineMapIdState(manifest.id);
       await refreshOfflinePackages();
       await refreshStorage();
       rememberRegionSource(manifest.id, regionalManifestUrl.trim());
@@ -461,8 +459,7 @@ export default function SettingsPage() {
   const selectOfflinePackage = (manifest: OfflineMapPackageManifest) => {
     try {
       setSelectedOfflineMapId(manifest.id);
-      setSelectedOfflineMapIdState(manifest.id);
-      toast({ title: "Mapa selecionado", description: `${manifest.label} será usado na próxima abertura do mapa.` });
+      toast({ title: "Mapa selecionado", description: `${manifest.label} será carregado no mapa aberto e nas demais abas.` });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Não foi possível salvar a seleção.");
     }

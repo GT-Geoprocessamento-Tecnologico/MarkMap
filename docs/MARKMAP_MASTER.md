@@ -1,6 +1,15 @@
 # MarkMap — Documento Mestre Único
 
 
+## A16/A17 — Seleção e interface cartográfica reativas (2026-10-10)
+
+**IMPLEMENTADO EM CÓDIGO, QA LOCAL DIRECIONADA:** a seleção offline mantém a chave histórica de localStorage e passa a emitir evento na aba atual e observar `storage` de outras abas. `SettingsPage` deixa de espelhar manualmente o state e usa `useSyncExternalStore`. `CommandCenterPage` usa o mesmo snapshot de seleção para basemap MapLibre, busca, conteúdo, elevação e roteamento; sinais de catálogo A15 da **região selecionada** acionam reconstrução de protocolos/fontes, descartando workers e caches de UI dependentes da geração anterior. Seleção removida é invalidada sem apagar pacotes/projetos/outbox. GeoPDF mantém precedência; operações offline continuam locais.
+
+**EVIDÊNCIA:** Node 22.16.0 **5/5 testes novos PASS** (eventos mesma aba e entre abas simuladas, sanitização, storage indisponível e separação de catálogo); `node --check` e `tsc --strict --noEmit` isolados na declaração/fachada da seleção verdes. Regressões A10–A15 **17/17 PASS** em execução separada; não equivalem à suíte monorepo. **NÃO EXECUTADO:** lint/typecheck/build E2E completos, MapLibre/IndexedDB/browser multiabas e Android/iOS físico, sem travar próximas fases de código por decisão vigente. Fase posterior: reconciliar revisão de geração na volta de aba suspensa quando evento BroadcastChannel não chega. Sem GitHub CI, deploy Vercel, `main`, Neon, migrations, tags ou release. PRD: `docs/MM-MAP-A16-A17-reactive-map-selection.md`.
+
+---
+
+
 ## A14/A15 — CAS de geração e estado multiabas (2026-10-10)
 
 **IMPLEMENTADO EM CÓDIGO / QA DIRECIONADA:** atualizações regionais passam a identificar o ativo por **geração IndexedDB**, além de versão/origem/fingerprint. `RegionManager` usa snapshot local consistente; `ResumableInstaller` reconfirma a geração sob Web Lock antes do download; `OfflineMapStore.stage()` e `activate()` aplicam compare-and-swap dentro das transações readwrite. Se outra aba ativar um mapa entre a consulta e o commit, a atualização antiga é rejeitada sem sobrescrever o novo ativo; staging da tentativa é descartado por geração exata em cleanup best-effort. **A15:** broadcast apenas de ID de região após commit/removal; Configurações invalida aceites anteriores e relê IndexedDB. Sem BroadcastChannel o CAS continua autoritativo. Sem alteração de schema, API, outbox ou banco.

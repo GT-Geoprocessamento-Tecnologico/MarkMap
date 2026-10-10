@@ -1,6 +1,17 @@
 # MarkMap — Checklist Mestre de Execução
 
 
+## A16/A17 — seleção ativa e mapa offline reativos (2026-10-10)
+
+- [x] **A16 CÓDIGO:** eventos de seleção same-tab e cross-tab via storage, chave histórica preservada, IDs validados e subscribe com unsubscribe; Settings passa a usar `useSyncExternalStore` sem estado duplicado.
+- [x] **A17 CÓDIGO:** CommandCenter observa seleção; reinstalação/troca da região selecionada invalida estilo/MapLibre, protocolos, busca, rota, conhecimento, elevação, transporte e workers anteriores. GeoPDF mantém prioridade.
+- [x] **A17 CÓDIGO:** ausência de pacote selecionado pode invalidar somente a chave local; sem remoção de pacotes, IndexedDB/outbox, desenhos ou dados de campo. Mudanças no catálogo de região não selecionada não forçam rebuild.
+- [x] **QA DIRECIONADA:** Node 5/5 PASS para novos eventos de seleção; Node 17/17 PASS para regressões anteriores em execução separada. Checagem JS e TypeScript isolada da fachada/declaração passou.
+- [ ] **HOMOLOGAÇÃO NÃO BLOQUEANTE:** typecheck/lint/build/teste integral, renderização MapLibre/IndexedDB real, multiabas/WebView, Android/iOS, interrupção durante troca rápida.
+- [ ] **PRÓXIMO CÓDIGO:** reconciliar alterações perdidas ao voltar do background/aba suspensa lendo geração ativa, sem polls contínuos ou rede.
+- [ ] **PRODUÇÃO NÃO AUTORIZADA:** não fazer GitHub CI, deploy, merge main, Neon/migration, tag/release ou exclusões. PRD `docs/MM-MAP-A16-A17-reactive-map-selection.md`.
+
+
 ## A14/A15 — geração transacional e aviso entre abas (2026-10-10)
 
 - [x] **A14 CÓDIGO:** snapshot de geração ativa com manifest; preview exige geração local; atualização reconfirma sob Web Lock e passa geração esperada para `OfflineMapStore`.

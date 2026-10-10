@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { featureBounds, loadProjectFeatures, matchesFeature } from "./map-data";
 import { useParams, useSearch } from "@tanstack/react-router";
@@ -36,7 +36,8 @@ import {
   type GeoPdfOverlay,
 } from "../../lib/pdf/geopdf-overlay";
 import { offlineMapStore } from "../../lib/storage/offline-map-store";
-import { getSelectedOfflineMapId } from "../../lib/storage/offline-map-selection";
+import { getSelectedOfflineMapId, setSelectedOfflineMapId, subscribeSelectedOfflineMapId } from "../../lib/storage/offline-map-selection";
+import { subscribeRegionCatalogChanges } from "../../lib/storage/region-catalog-events.mjs";
 import { ensureLocationPermission } from "../../lib/device-location-permission";
 import {
   createOfflineAssetProtocol,
@@ -99,6 +100,19 @@ export default function CommandCenterPage() {
     pdfId?: string;
   };
   const params = useParams({ strict: false }) as { projectId?: string };
+  const selectedOfflineMapId = useSyncExternalStore(
+    subscribeSelectedOfflineMapId, getSelectedOfflineMapId, () => null,
+  );
+  const [catalogRevision, setCatalogRevision] = useState(0);
+  useEffect(() => subscribeRegionCatalogChanges((regionId) => {
+    // Changes in unrelated regions do not tear down the current MapLibre map.
+    if (regionId === getSelectedOfflineMapId()) {
+      setCatalogRevision((value) => value + 1);
+    }
+  }), []);
+  // GeoPDF has precedence and should not be replaced by region changes.
+  const activeRegionPackageId = search.pdfId ? null : selectedOfflineMapId;
+  const regionalRenderRevision = search.pdfId ? 0 : catalogRevision;
   const createLayerMutation = useCreateLayer(params.projectId ?? "");
   const layersQuery = useProjectLayers(params.projectId ?? "", { limit: 100 });
   const projectLayers = useMemo(
@@ -218,14 +232,23 @@ export default function CommandCenterPage() {
   const [regionalSearchRecords, setRegionalSearchRecords] = useState<LocalSearchRecord[]>([]);
   const [regionalSearchError, setRegionalSearchError] = useState<string | null>(null);
   useEffect(() => {
+    // Routes and transit data belong to the previous map generation.
+    navigationActiveRef.current = false;
+    setPlannedRoute(null);
+    setRoutingPoint(null);
+    setRoutingPickMode(null);
+    setTransitNetwork(null);
+  }, [activeRegionPackageId, regionalRenderRevision]);
+  useEffect(() => {
     let cancelled = false;
-    const packageId = getSelectedOfflineMapId();
-    if (!packageId || search.pdfId) { setRegionalSearchRecords([]); return; }
-    void loadRegionalPackageSearch(offlineMapStore, packageId)
+    setRegionalSearchRecords([]);
+    setRegionalSearchError(null);
+    if (!activeRegionPackageId) return;
+    void loadRegionalPackageSearch(offlineMapStore, activeRegionPackageId)
       .then((records) => { if (!cancelled) { setRegionalSearchRecords(records); setRegionalSearchError(null); } })
       .catch((cause) => { if (!cancelled) { setRegionalSearchRecords([]); setRegionalSearchError(cause instanceof Error ? cause.message : 'Índice offline indisponível'); } });
     return () => { cancelled = true; };
-  }, [search.pdfId]);
+  }, [activeRegionPackageId, regionalRenderRevision]);
   const combinedSearchRecords = useMemo(
     () => [...regionalSearchRecords, ...localSearchRecords],
     [regionalSearchRecords, localSearchRecords],
@@ -490,6 +513,10 @@ export default function CommandCenterPage() {
   // Inicializa o mapa
   useEffect(() => {
     if (!mapContainer.current || mapRef.current) return;
+    setMapReady(false);
+    setGeoPdfReady(false);
+    setGeoPdfMessage(null);
+    fittedKeyRef.current = "";
     let cancelled = false;
     let fallbackActive = !navigator.onLine;
     let protocolsRegistered = false;
@@ -507,7 +534,7 @@ export default function CommandCenterPage() {
       let zoom = 14;
       let offlinePackageSelected = false;
       let basemap = getDefaultBasemaps()[0];
-      const selectedPackageId = getSelectedOfflineMapId();
+      const selectedPackageId = activeRegionPackageId;
 
       if (search.pdfId) {
         fallbackActive = true;
@@ -550,11 +577,20 @@ export default function CommandCenterPage() {
         offlinePackageSelected = true;
         fallbackActive = true;
         const installed = await offlineMapStore.get(selectedPackageId);
-        if (!installed) throw new Error("O pacote offline selecionado não está disponível neste dispositivo.");
+        if (cancelled) return;
+        if (!installed) {
+          // Another tab can remove an installed package without changing the
+          // selection key. Clear only if it still points to the missing region.
+          if (getSelectedOfflineMapId() === selectedPackageId) {
+            try { setSelectedOfflineMapId(null); } catch { /* storage may be denied */ }
+          }
+          throw new Error("O mapa selecionado foi removido ou não está disponível. Selecione outro em Configurações.");
+        }
         const [archive, styleBlob] = await Promise.all([
           offlineMapStore.asset(selectedPackageId, "package.pmtiles"),
           offlineMapStore.asset(selectedPackageId, installed.manifest.style.path),
         ]);
+        if (cancelled) return;
         if (!archive || !styleBlob) throw new Error("O pacote offline está incompleto neste dispositivo.");
         let sourceStyle: Record<string, unknown>;
         try {
@@ -575,6 +611,9 @@ export default function CommandCenterPage() {
           const parsedContours = validateRegionalContours(JSON.parse(await contourBlob.text()), installed.manifest.bounds);
           regionalContours = contoursToGeoJSON(parsedContours);
         }
+        // Changes in another tab may have canceled this initialization while
+        // assets were being read. Never register protocols for a stale map.
+        if (cancelled) return;
         const file = new File([archive], "package.pmtiles", { type: "application/vnd.pmtiles" });
         const tileProtocol = createOfflineProtocol(installed.manifest, file);
         addProtocol("pmtiles", (params, controller) => tileProtocol.tile(params, controller));
@@ -892,7 +931,7 @@ export default function CommandCenterPage() {
       geoPdfOverlay?.release();
       releaseProtocols();
     };
-  }, [toast, updateTelemetry, fitSelection, search.pdfId]);
+  }, [toast, updateTelemetry, fitSelection, search.pdfId, activeRegionPackageId, regionalRenderRevision]);
 
   useEffect(() => {
     if (!mapContainer.current) return;
@@ -1024,19 +1063,19 @@ export default function CommandCenterPage() {
         data-testid="map-canvas"
       />
 
-      <OfflineSearch records={combinedSearchRecords} regionalCount={regionalSearchRecords.length} warning={regionalSearchError} onChoose={(place) => {
+      <OfflineSearch key={`${activeRegionPackageId ?? 'none'}:${regionalRenderRevision}`} records={combinedSearchRecords} regionalCount={regionalSearchRecords.length} warning={regionalSearchError} onChoose={(place) => {
         const map = mapRef.current;
         if (map) map.flyTo({ center: [place.lon, place.lat], zoom: Math.max(15, map.getZoom()) });
       }} />
 
-      <OfflineKnowledge packageId={search.pdfId ? null : getSelectedOfflineMapId()} onTransit={setTransitNetwork} onStation={(lon, lat) => {
+      <OfflineKnowledge key={`${activeRegionPackageId ?? 'none'}:${regionalRenderRevision}`} packageId={activeRegionPackageId} onTransit={setTransitNetwork} onStation={(lon, lat) => {
         const map = mapRef.current;
         if (map) map.flyTo({ center: [lon, lat], zoom: Math.max(15, map.getZoom()) });
       }} />
 
-      <OfflineElevation packageId={search.pdfId ? null : getSelectedOfflineMapId()} route={plannedRoute} />
+      <OfflineElevation key={`${activeRegionPackageId ?? 'none'}:${regionalRenderRevision}`} packageId={activeRegionPackageId} route={plannedRoute} />
 
-      <OfflineRouting packageId={search.pdfId ? null : getSelectedOfflineMapId()}
+      <OfflineRouting key={`${activeRegionPackageId ?? 'none'}:${regionalRenderRevision}`} packageId={activeRegionPackageId}
         pickedPoint={routingPoint}
         onRequestPick={(kind) => {
           if (drawingSessionRef.current) {
