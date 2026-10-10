@@ -4,13 +4,14 @@
  * This bounded builder deliberately rejects very large inputs and unsupported
  * compression. It is not a planet-scale OSM renderer or relation processor.
  */
-import { readFile } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import { gzipSync, inflateSync } from 'node:zlib';
 
 const MAX_PBF_BYTES = 32 * 1024 * 1024;
 const MAX_DECOMPRESSED_BLOB = 64 * 1024 * 1024;
 const MAX_NODES = 250_000;
 const MAX_WAYS = 40_000;
+const MAX_REFS_PER_WAY = 4096;
 const MAX_TILE_ASSIGNMENTS = 250_000;
 const MAX_TILES = 5_000;
 const MAX_TILES_PER_FEATURE_ZOOM = 64;
@@ -123,7 +124,9 @@ function parsePrimitiveBlock(data, state) {
     const point = coords(lat, lon);
     if (point[0] < -180 || point[0] > 180 || point[1] < -85.051129 || point[1] > 85.051129) return;
     state.nodes.set(id, point);
-    if (tag.amenity || tag.tourism || tag.shop || tag.place || tag.natural === 'peak')
+    // Address-bearing OSM nodes are searchable even when they have no POI name.
+    if (tag.amenity || tag.tourism || tag.shop || tag.place || tag.natural === 'peak' ||
+        (tag['addr:street'] && tag['addr:housenumber']))
       state.points.push({ id, point, tags: tag });
   };
   for (const group of groups) {
@@ -168,6 +171,8 @@ function parsePrimitiveBlock(data, state) {
           if (t === 3 && w === 2) vals = packed(v);
           if (t === 8 && w === 2) refDeltas = packed(v, true);
         });
+        assertBudget(refDeltas.length <= MAX_REFS_PER_WAY, 'BUDGET_EXCEEDED',
+          'OSM way has too many vertices for the bounded regional builder');
         let prev = 0;
         const refs = refDeltas.map((delta) => (prev += delta));
         const wayTags = tagsFrom(keys, vals, strings);
@@ -318,6 +323,16 @@ function classifyItem(id, tags, points) {
   if (tags.ref) props.ref = tags.ref.slice(0, 80);
   return { layer, id, coordinates: points, props, type: kind };
 }
+function intersectsBounds(points, bounds) {
+  if (!points.length) return false;
+  let west = Infinity, south = Infinity, east = -Infinity, north = -Infinity;
+  for (const [lon, lat] of points) {
+    west = Math.min(west, lon); east = Math.max(east, lon);
+    south = Math.min(south, lat); north = Math.max(north, lat);
+  }
+  return west <= bounds[2] && east >= bounds[0] && south <= bounds[3] && north >= bounds[1];
+}
+
 function makeTiles(features, minZoom, maxZoom) {
   const tiles = new Map(); let assignments = 0;
   for (const feature of features) {
@@ -400,6 +415,12 @@ export function defaultOfflineStyle() {
       { id: 'waterways', type: 'line', source: 'basemap', 'source-layer': 'waterways', paint: { 'line-color': '#82c5e8', 'line-width': 1.8 } },
       { id: 'rail', type: 'line', source: 'basemap', 'source-layer': 'rail', paint: { 'line-color': '#6e7479', 'line-width': 1.2 } },
       { id: 'roads', type: 'line', source: 'basemap', 'source-layer': 'roads', paint: { 'line-color': '#ece0b5', 'line-width': ['interpolate', ['linear'], ['zoom'], 5, 1, 12, 4, 16, 8] } },
+      { id: 'footpaths', type: 'line', source: 'basemap', 'source-layer': 'roads',
+        filter: ['in', ['get', 'class'], ['literal', ['path', 'footway', 'pedestrian', 'steps', 'track']]],
+        paint: { 'line-color': '#97785b', 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 0.8, 14, 2], 'line-dasharray': [2, 2] } },
+      { id: 'cycleways', type: 'line', source: 'basemap', 'source-layer': 'roads',
+        filter: ['==', ['get', 'class'], 'cycleway'],
+        paint: { 'line-color': '#1f997d', 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 1, 14, 3] } },
       { id: 'pois', type: 'circle', source: 'basemap', 'source-layer': 'pois', paint: { 'circle-color': '#0075d6', 'circle-radius': 3 } },
       { id: 'places', type: 'circle', source: 'basemap', 'source-layer': 'places', paint: { 'circle-color': '#00a7a9', 'circle-radius': 4 } },
     ],
@@ -420,11 +441,11 @@ export function makePmtilesFromOsm(buffer, options) {
     const points = way.refs.map((id) => state.nodes.get(id));
     if (points.some((x) => x === undefined)) continue; // incomplete extract
     const item = classifyItem(way.id, way.tags, points);
-    if (item) features.push(item);
+    if (item && intersectsBounds(points, bounds)) features.push(item);
   }
   for (const point of state.points) {
     const item = classifyItem(point.id, point.tags, [point.point]);
-    if (item) features.push(item);
+    if (item && intersectsBounds([point.point], bounds)) features.push(item);
   }
   assertBudget(features.length > 0, 'EMPTY_MAP', 'no supported geometry in the OSM PBF');
   const tiles = makeTiles(features, minZoom, maxZoom);
@@ -433,6 +454,10 @@ export function makePmtilesFromOsm(buffer, options) {
   return { bytes, featureCount: features.length, tileCount: tiles.size, layers: LAYERS };
 }
 export async function buildPmtilesFromOsmFile(path, options) {
+  // Avoid allocating a potentially planet-sized file before the decoder's budget runs.
+  const details = await stat(path);
+  assertBudget(details.isFile() && details.size > 4 && details.size <= MAX_PBF_BYTES,
+    'BUDGET_EXCEEDED', 'integrated OSM PBF builder accepts files up to 32 MiB');
   const buffer = await readFile(path);
   return makePmtilesFromOsm(buffer, options);
 }

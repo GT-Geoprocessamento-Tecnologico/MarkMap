@@ -1,6 +1,15 @@
 # MarkMap — Checklist Mestre de Execução
 
 
+## A3 — MM-MAP-200/210/400/430 (2026-10-10)
+
+- [x] **PARCIAL EM CÓDIGO, NÃO VALIDADO:** cópia em fluxo e checagem básica de PMTiles MVT v3 pré-gerado; limite de 250 MiB no publicador, SHA-256 e saída atômica. PBF direto continua limitado a 32 MiB.
+- [x] **PARCIAL EM CÓDIGO, NÃO VALIDADO:** índice offline do extrato pequeno inclui nomes de vias e endereços reais (`addr:*`); `places.json` explícito prevalece; shard excedente derivado é omitido sem anúncio falso.
+- [x] **PARCIAL EM CÓDIGO, NÃO VALIDADO:** sidecars de sprites/glyphs incluídos com limites/path seguro, fontes de estilo externas bloqueadas, filtro por bounds e trilhas/ciclovias no estilo básico.
+- [ ] **M10 QA FINAL:** fontes e licenças OSM reais; PMTiles leitor independente; lint/typecheck/unit/build/E2E; leitura MapLibre e busca offline no Worker após reinício; IndexedDB/outbox, memória e quota do dispositivo; cobertura de glyphs/sprites; sem GitHub Actions.
+- [ ] **LIMITAÇÃO ATUAL:** distribuição remota limitada a 64 MiB e importação grande em memória; não liberar mapas grandes em produção nem fechar gate MM-MAP-940.
+
+
 ## A2 — MM-UPD-030/040 (2026-10-09)
 
 - [x] **CÓDIGO PARCIAL, NÃO VALIDADO:** reload do update PWA só na aba que autorizou; controllerchange de outra aba não força reload.

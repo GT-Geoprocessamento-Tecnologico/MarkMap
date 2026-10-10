@@ -1,6 +1,20 @@
 # MarkMap — Documento Mestre Único
 
 
+## A3 — PMTiles regional e busca OSM offline (2026-10-10)
+
+**MM-MAP-200/210/400/430: PARCIAL EM CÓDIGO, NÃO VALIDADO.** Branch única `dev/markmap-pwa-v2`, base auditada `7cbfdf8` (A2); `main@156d4e8` intocada. O pipeline passa a tratar PMTiles v3 vetorial **pré-gerado** (até 250 MiB, respeitando o limite do pacote) com cópia temporária, checagem de header/diretório/bounds/zoom, SHA-256 em stream e publicação atômica do arquivo de saída. Não faz conversão direta de `osm.pbf` grande: o builder integrado mantém **32 MiB** e exige pré-gerador externo adequado para áreas maiores.
+
+- **Busca real de atributos OSM, ainda não testada em extrato real:** fallback de PBF pequeno passa a indexar ruas/vias nomeadas e nós com `addr:street` + `addr:housenumber`, além de POIs existentes; posições de vias são vértices realmente presentes no arquivo, não endereços estimados. Até 25 mil registros, com slots preservados para vias. Publicador com `places.json` mantém precedência e IDs duplicados são rejeitados.
+- **Segurança do empacotamento:** shards são dimensionados antes da escrita; excesso em derivação opcional não derruba o basemap; estilos externos são recusados; sprites/glyphs locais fornecidos são empacotados com SHA, extensões/paths/arquivos/bytes limitados, symlinks recusados. Estilo gerado diferencia trilhas e ciclovias sem criar labels sem fonte. Geometrias fora dos bounds são descartadas no builder pequeno e o arquivo PBF é limitado antes de entrar em RAM.
+- **Ainda PENDENTE:** validar o PMTiles gerado/empacotado num leitor independente, inspeção das tiles e vetor de bytes reais; conferir licenças ODbL e redistribuição dos extratos e fontes; E2E de busca e mapa após reinstalação offline; cobertura de glyphs/sprites; quota de instalação no dispositivo, build e performance. Instalar pacote grande por URL continua limitado no instalador a 64 MiB; importação por pasta ainda materializa bytes e precisa de hardening/QA antes de anúncio de suporte a mapas grandes no aparelho.
+- **NÃO EXECUTADO:** lint, typecheck, tests Node/Vitest, build, Playwright, CI e dispositivos (somente gate `MM-MAP-900/940` por decisão vigente). Nunca afirmar capacidade pronta, navegar com rotas não verificadas ou fazer deploy sem gate. Sem mutation Neon/Vercel, release/tag/merge.
+
+**Handoff detalhado:** `docs/MM-MAP-A3-regional-pmtiles-search.md`.
+
+---
+
+
 ## A2 — Atualização segura da PWA (MM-UPD-030/040; 2026-10-09)
 
 **PARCIAL EM CÓDIGO, NÃO VALIDADO:** `UpdatePrompt` deixou de recarregar a página sempre que o navegador muda o controller; o reload agora requer aceite explícito da atualização nesta aba, com leitura prévia da outbox e handshake de compatibilidade. O prompt ignora registration com escopo incompatível e recusa se o worker em espera mudar enquanto a validação está em andamento. O service worker do app só atende `SKIP_WAITING` vindo de cliente da mesma origem que realizou `CHECK_COMPATIBILITY` recentemente. A atualização continua opt-in e não limpa IndexedDB/outbox.

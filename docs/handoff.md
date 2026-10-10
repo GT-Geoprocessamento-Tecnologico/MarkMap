@@ -1,6 +1,17 @@
 # Handoff de continuidade
 
 
+## Continuidade A3 — PMTiles pré-gerado maior + busca offline (2026-10-10)
+
+**MM-MAP-200/210/400/430 PARCIAL EM CÓDIGO, NÃO VALIDADO.** Na branch `dev/markmap-pwa-v2`, base `7cbfdf8`, o pipeline passou a copiar PMTiles regional pré-gerado (até 250 MiB) sem carregá-lo inteiro no Node, checando header/bounds/zoom e SHA-256 em stream; empacota sprites/glyphs locais limitados e exige fontes MapLibre locais. O PBF integrado segue limitado a 32 MiB, agora com filtro espacial, limite de vértices e estilo diferenciado para trilhas/ciclovias. O índice OSM derivado inclui vias nomeadas e endereços de tags reais, valida orçamento antes de escrever e respeita o `places.json` do publicador.
+
+**Bloqueios:** QA final não executada por decisão vigente; PMTiles independente, dados OSM reais licenciados, busca regional IndexedDB/Worker offline, detalhes de fontes, cache e quota grandes pendentes. Limite de download remoto de 64 MiB no dispositivo permanece; não interpretar arquivo de até 250 MiB gerado no computador como instalação de 250 MiB garantida na PWA. **Próxima prioridade:** fontes/dados reais autorizados e gate M10 `MM-MAP-900/940`, sem apagar branches legadas. Docs técnicas: `docs/MM-MAP-A3-regional-pmtiles-search.md`.
+
+**Regras:** não rodar GitHub CI, não mergear `main`, não fazer deploy Vercel, tag, release, migration, exclusão ou force-push; nunca tocar Neon production nesta etapa.
+
+---
+
+
 ## Continuidade A2 — atualização PWA segura (2026-10-09)
 
 **MM-UPD-030/040 PARCIAL EM CÓDIGO, NÃO VALIDADO:** controle `controllerchange` só recarrega a aba que aceitou atualização; antes de `SKIP_WAITING`, verifica persistência, compatibilidade, escopo e identidade do worker em espera. No service worker, ativação exige handshake recente de cliente same-origin. Dados locais, IndexedDB e outbox não são excluídos. Site `apps/site` permanece intacto por ter escopo separado.

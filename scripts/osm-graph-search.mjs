@@ -120,15 +120,77 @@ export function makeSmallOsmGraph(state, { bounds, osmDataDate }) {
 
 export function makeSmallOsmPlaces(state, bounds) {
   const places = [];
-  for (const point of state.points) {
-    const { name, amenity, tourism, shop, place, natural } = point.tags;
-    if (typeof name !== 'string' || !name.trim() || name.length > 200 || !inside(point.point, bounds)) continue;
-    if (places.length >= MAX_AUTO_PLACES) break;
-    const type = amenity ? 'amenity' : tourism ? 'tourism' : shop ? 'shop' : natural === 'peak' ? 'peak' : 'place';
-    const category = amenity || tourism || shop || place || natural || 'other';
-    if (String(category).length > 60 || !Number.isSafeInteger(point.id) || point.id < 0) continue;
+  const namedWays = state.ways.some((way) => {
+    const tags = way.tags;
+    return typeof tags.name === 'string' && tags.name.trim() &&
+      (tags.highway || tags.waterway || tags.railway || tags.building || tags.landuse);
+  });
+  // Reserve some slots for named roads/paths so dense POI areas do not starve
+  // street search. The unused slots return to POIs after processing ways.
+  const firstPointBudget = namedWays ? MAX_AUTO_PLACES - 5_000 : MAX_AUTO_PLACES;
+  let pointCursor = 0;
+
+  function appendPoint(point) {
+    const tags = point.tags;
+    const placeName = typeof tags.name === 'string' ? tags.name.trim() : '';
+    const street = typeof tags['addr:street'] === 'string' ? tags['addr:street'].trim() : '';
+    const number = typeof tags['addr:housenumber'] === 'string' ? tags['addr:housenumber'].trim() : '';
+    // An address label is derived only from actual OSM street + house-number tags.
+    const address = street && street.length <= 160 && number && number.length <= 24
+      ? `${street}, ${number}` : '';
+    const name = placeName || address;
+    if (!name || name.length > 200 || !inside(point.point, bounds) ||
+        !Number.isSafeInteger(point.id) || point.id < 0) return;
+    const type = placeName
+      ? tags.amenity ? 'amenity' : tags.tourism ? 'tourism' : tags.shop ? 'shop' :
+        tags.natural === 'peak' ? 'peak' : 'place'
+      : 'address';
+    const category = placeName
+      ? (tags.amenity || tags.tourism || tags.shop || tags.place || tags.natural || 'other')
+      : 'address';
+    if (typeof category !== 'string' || category.length > 60) return;
     places.push({ id: `osm-node-${point.id}`, name, type, category,
       lon: point.point[0], lat: point.point[1] });
+    if (placeName && address && address !== placeName && address.length <= 200 &&
+        places.length < MAX_AUTO_PLACES) {
+      places.push({ id: `osm-address-node-${point.id}`, name: address,
+        type: 'address', category: 'address', lon: point.point[0], lat: point.point[1] });
+    }
+  }
+
+  while (pointCursor < state.points.length && places.length < firstPointBudget) {
+    appendPoint(state.points[pointCursor++]);
+  }
+
+  for (const way of state.ways) {
+    if (places.length >= MAX_AUTO_PLACES) break;
+    const { tags, refs, id } = way;
+    const name = typeof tags.name === 'string' ? tags.name.trim() : '';
+    if (!name || name.length > 200 || !Number.isSafeInteger(id) || id < 0) continue;
+    const type = tags.highway ? 'street' : tags.waterway ? 'waterway' :
+      tags.railway ? 'railway' : tags.building ? 'building' : tags.landuse ? 'landuse' : '';
+    const category = tags.highway || tags.waterway || tags.railway || tags.building || tags.landuse;
+    if (!type || typeof category !== 'string' || category.length > 60) continue;
+
+    // Use an actual way vertex closest to its midpoint; never synthesize an address
+    // or claim a precise centroid for a possibly curved/fragmented geometry.
+    const middle = (refs.length - 1) / 2;
+    let best = null;
+    let bestDelta = Infinity;
+    for (let i = 0; i < refs.length; i++) {
+      const point = state.nodes.get(refs[i]);
+      if (inside(point, bounds) && Math.abs(i - middle) < bestDelta) {
+        best = point;
+        bestDelta = Math.abs(i - middle);
+      }
+    }
+    if (!best) continue;
+    places.push({ id: `osm-way-${id}`, name, type, category,
+      lon: best[0], lat: best[1] });
+  }
+
+  while (pointCursor < state.points.length && places.length < MAX_AUTO_PLACES) {
+    appendPoint(state.points[pointCursor++]);
   }
   return places;
 }
