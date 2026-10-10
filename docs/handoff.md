@@ -1,6 +1,15 @@
 # Handoff de continuidade
 
 
+## Continuidade A4 — publicação atômica de pacote (2026-10-10)
+
+**Branch:** `dev/markmap-pwa-v2` baseada em `014aeff`; `main@156d4e8` preservada. **PARCIAL EM CÓDIGO, NÃO VALIDADO:** o publicador agora constrói e verifica todos os arquivos (SHA-256 em streaming, tamanho e caminho) em diretório temporário exclusivo antes de mover o conjunto para a pasta final. Saída não vazia gera erro `OUTPUT_NOT_EMPTY` sem alterar arquivos; saída vazia é compatível. Falhas removem somente o staging da execução. `OfflineMapStore.stage` deixa de materializar novamente `Blob` já imutável ao gravar no IndexedDB. Não altera outbox nem contratos ou limite de downloads.
+
+**QA NÃO EXECUTADA** (gate M10 conforme orientação): Node/Vitest, lint, typecheck, build, Playwright e dispositivos. Persistem: fonte PMTiles/OSM real licenciada, revisão independente do pacote, simulação de falha/concorrência, consumo real de memória móvel, teste de reinstalação offline e integridade IndexedDB/outbox. Próximo passo: obter insumos regionais com autorização de redistribuição e iniciar `MM-MAP-900/940` somente quando autorizado o QA final. Sem CI, Vercel, release/tag, migration, main ou Neon. Handoff detalhado: `docs/MM-MAP-A4-publisher-atomic-handoff.md`.
+
+---
+
+
 ## Continuidade A3 — PMTiles pré-gerado maior + busca offline (2026-10-10)
 
 **MM-MAP-200/210/400/430 PARCIAL EM CÓDIGO, NÃO VALIDADO.** Na branch `dev/markmap-pwa-v2`, base `7cbfdf8`, o pipeline passou a copiar PMTiles regional pré-gerado (até 250 MiB) sem carregá-lo inteiro no Node, checando header/bounds/zoom e SHA-256 em stream; empacota sprites/glyphs locais limitados e exige fontes MapLibre locais. O PBF integrado segue limitado a 32 MiB, agora com filtro espacial, limite de vértices e estilo diferenciado para trilhas/ciclovias. O índice OSM derivado inclui vias nomeadas e endereços de tags reais, valida orçamento antes de escrever e respeita o `places.json` do publicador.

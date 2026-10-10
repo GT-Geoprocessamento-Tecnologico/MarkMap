@@ -1,6 +1,14 @@
 # MarkMap — Checklist Mestre de Execução
 
 
+## A4 — Publicador de mapas seguro (2026-10-10)
+
+- [x] **PARCIAL EM CÓDIGO, NÃO VALIDADO:** pipeline monta pacote completo em staging isolado; valida caminhos, tamanho e SHA-256 antes de promover a pasta final; erro não publica pacote incompleto.
+- [x] **PARCIAL EM CÓDIGO, NÃO VALIDADO:** destino com conteúdo é preservado/recusado (`OUTPUT_NOT_EMPTY`), diretório vazio ainda suportado; stage de `Blob` evita materialização duplicada na cópia para IndexedDB.
+- [ ] **M10 / TESTES:** Node testes do pipeline, erro tardio e saída não vazia, conteúdo real PMTiles/OSM, lint/typecheck/build/Playwright, duas abas, IndexedDB/outbox, crash/interrupção, quota e dispositivo.
+- [ ] **BLOQUEIOS:** fontes OSM/PMTiles com permissão de redistribuição, glyphs/sprites licenciados e validação de pacote em leitor independente; download remoto 64 MiB, conversor PBF 32 MiB, SHA browser consome memória.
+
+
 ## A3 — MM-MAP-200/210/400/430 (2026-10-10)
 
 - [x] **PARCIAL EM CÓDIGO, NÃO VALIDADO:** cópia em fluxo e checagem básica de PMTiles MVT v3 pré-gerado; limite de 250 MiB no publicador, SHA-256 e saída atômica. PBF direto continua limitado a 32 MiB.

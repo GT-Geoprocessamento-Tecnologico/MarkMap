@@ -55,7 +55,12 @@ export class OfflineMapStore {
     for (const [path, asset] of [["package.pmtiles", assets.get("package.pmtiles")!], ...[manifest.style, ...manifest.glyphs, ...manifest.sprites, ...(manifest.searchShards ?? []), ...(manifest.routingGraph ? [manifest.routingGraph] : []), ...(manifest.contourLines ? [manifest.contourLines] : []),
       ...(manifest.wikipediaPack ? [manifest.wikipediaPack] : []),
       ...(manifest.transitPack ? [manifest.transitPack] : []),
-      ...(manifest.demGrid ? [manifest.demGrid] : [])].map((ref) => [ref.path, assets.get(ref.path)!] as const)] as const) materialized.set(path, new Blob([await bytesOf(asset) as unknown as ArrayBuffer]));
+      ...(manifest.demGrid ? [manifest.demGrid] : [])].map((ref) => [ref.path, assets.get(ref.path)!] as const)] as const) {
+      // Files and remote downloads are already immutable Blobs. Keep their
+      // handles instead of allocating a second full archive ArrayBuffer.
+      materialized.set(path, asset instanceof Blob
+        ? asset : new Blob([await bytesOf(asset) as unknown as ArrayBuffer]));
+    }
     const db = await this.open();
     const generation = crypto.randomUUID();
     const key = `${manifest.id}:${generation}`;

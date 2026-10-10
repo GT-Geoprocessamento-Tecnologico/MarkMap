@@ -23,8 +23,8 @@
 import { createHash, randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { validateRegionalWikipedia, validateRegionalTransit, MAX_WIKIPEDIA_BYTES, MAX_TRANSIT_BYTES } from '../packages/maps/src/content/region-content.mjs';
-import { copyFile, lstat, mkdir, open, readFile, readdir, rename, stat, unlink, writeFile } from "node:fs/promises";
-import { basename, join, resolve } from "node:path";
+import { copyFile, lstat, mkdir, open, readFile, readdir, rename, rm, rmdir, stat, unlink, writeFile } from "node:fs/promises";
+import { basename, dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { validateRegionalGraph, MAX_GRAPH_BYTES } from '../packages/maps/src/routing/graph-format.mjs';
 import { validateRegionalContours, MAX_CONTOUR_BYTES } from '../packages/maps/src/elevation/contour-package.mjs';
@@ -471,7 +471,7 @@ function mediaTypeFor(path) {
 }
 
 /** Packages validated PMTiles or builds small-area vector PMTiles from OSM PBF. */
-export async function runPipeline({ input, output, dryRun = false, now = new Date() }) {
+async function buildPipelineInto({ input, output, dryRun = false, now = new Date() }) {
   if (typeof input !== "string" || typeof output !== "string")
     throw new PipelineError("--input e --output são obrigatórios", "MISSING_ARGS");
   const inputDir = resolve(input);
@@ -748,6 +748,83 @@ export async function runPipeline({ input, output, dryRun = false, now = new Dat
   });
   artifacts.push(await writeArtifact(outputDir, "manifest.json", JSON.stringify(manifest, null, 2)));
   return { dryRun: false, artifacts, manifest, warnings, inputDir, outputDir };
+}
+
+/**
+ * Publish a whole region, not an in-place series of partially valid files.
+ * Existing populated destinations are immutable: the publisher must choose a
+ * new output path instead of silently overwriting another agent's package.
+ *
+ * Empty output directories remain supported for existing tests/CLI callers.
+ */
+export async function runPipeline({ input, output, dryRun = false, now = new Date() }) {
+  if (typeof input !== "string" || typeof output !== "string")
+    throw new PipelineError("--input e --output são obrigatórios", "MISSING_ARGS");
+  const inputDir = resolve(input), outputDir = resolve(output);
+  if (inputDir === outputDir)
+    throw new PipelineError("entrada e saída devem ser diferentes", "SAME_DIR");
+  if (dryRun) return buildPipelineInto({ input, output, dryRun, now });
+
+  // Prevent clobbering a previous package (including another agent's output).
+  // Even a symlink to a directory must not be treated as a writable destination.
+  const inspectOutput = async () => {
+    let details;
+    try { details = await lstat(outputDir); }
+    catch (error) {
+      if (error?.code === "ENOENT") return false;
+      throw error;
+    }
+    if (!details.isDirectory() || details.isSymbolicLink() ||
+        (await readdir(outputDir)).length !== 0)
+      throw new PipelineError("Saída já contém arquivos; informe uma pasta nova para preservar o pacote anterior", "OUTPUT_NOT_EMPTY");
+    return true;
+  };
+  await inspectOutput();
+  await mkdir(dirname(outputDir), { recursive: true });
+
+  // The staging folder is owned exclusively by this invocation.
+  const stagingDir = join(dirname(outputDir), `.${basename(outputDir)}.staging-${randomUUID()}`);
+  await mkdir(stagingDir);
+  let published = false;
+  let removedEmptyTarget = false;
+  try {
+    const result = await buildPipelineInto({ input, output: stagingDir, now });
+    if (!result.manifest || !result.artifacts.some((a) => a.path === "manifest.json"))
+      throw new PipelineError("Pacote incompleto: manifest ausente", "INCOMPLETE_PACKAGE");
+
+    // Check staged bytes before exposing the package directory to consumers.
+    // A checksum failure must never leave a valid-looking manifest in output.
+    const seen = new Set();
+    for (const artifact of result.artifacts) {
+      if (seen.has(artifact.path) || !/^[A-Za-z0-9._@/-]+$/.test(artifact.path) ||
+          artifact.path.startsWith("/") ||
+          artifact.path.split("/").some((part) => !part || part === "." || part === ".."))
+        throw new PipelineError("Caminho duplicado ou inseguro no pacote publicado", "INVALID_ARTIFACT_PATH");
+      seen.add(artifact.path);
+      const file = join(stagingDir, artifact.path);
+      const details = await lstat(file);
+      if (!details.isFile() || details.isSymbolicLink() || details.size !== artifact.bytes)
+        throw new PipelineError("Arquivo mudou durante o empacotamento: " + artifact.path, "ARTIFACT_CHANGED");
+      const digest = createHash("sha256");
+      for await (const chunk of createReadStream(file, { highWaterMark: 1024 * 1024 })) digest.update(chunk);
+      if (digest.digest("hex") !== artifact.sha256)
+        throw new PipelineError("Checksum alterado durante o empacotamento: " + artifact.path, "ARTIFACT_CHANGED");
+    }
+    // Recheck immediately before promoting: no implicit replace or cleanup.
+    if (await inspectOutput()) {
+      await rmdir(outputDir); // only a confirmed empty directory, never its contents
+      removedEmptyTarget = true;
+    }
+    await rename(stagingDir, outputDir);
+    published = true;
+    return { ...result, outputDir };
+  } catch (error) {
+    // If rename fails after removing an empty caller-provided folder, restore it.
+    if (removedEmptyTarget) await mkdir(outputDir).catch(() => undefined);
+    throw error;
+  } finally {
+    if (!published) await rm(stagingDir, { recursive: true, force: true }).catch(() => undefined);
+  }
 }
 
 function parseArgs(argv) {

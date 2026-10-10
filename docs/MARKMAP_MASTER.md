@@ -1,6 +1,15 @@
 # MarkMap — Documento Mestre Único
 
 
+## A4 — Publicação consistente e importação Blob (2026-10-10)
+
+**PARCIAL EM CÓDIGO, NÃO VALIDADO:** `region-pipeline.mjs` deixa de expor arquivos na pasta final enquanto o pipeline ainda pode falhar. A execução é realizada em pasta temporária única; antes de publicar, confere caminhos, tamanhos e SHA-256 de cada artefato gerado, depois promove a pasta completa por `rename` no mesmo diretório pai. Destino não vazio é recusado com `OUTPUT_NOT_EMPTY`; diretório vazio continua suportado para compatibilidade com fixtures anteriores. Em falha, somente staging desta execução é limpo. `OfflineMapStore.stage` reutiliza fontes `Blob` existentes sem segunda materialização ao montar o objeto persistido; SHA-256 do instalador continua obrigatório.
+
+**LIMITAÇÕES:** hash do `Blob` no navegador ainda consome memória; isso NÃO significa instalação móvel de pacotes de 250 MiB. Pipeline direto PBF continua em 32 MiB, download por URL no app limitado a 64 MiB. Fontes cartográficas reais redistribuíveis e validação independente de PMTiles seguem ausentes. Reinício abrupto pode deixar staging órfão não publicado. Nenhum lint/typecheck/test/build/Playwright/Android/iOS foi executado nesta etapa por decisão vigente; M10 `MM-MAP-900/940` continua pendente. Sem GitHub Actions, deploy Vercel, merge/tag, migration, alteração Neon ou produção. Fonte: `docs/MM-MAP-A4-publisher-atomic-handoff.md`.
+
+---
+
+
 ## A3 — PMTiles regional e busca OSM offline (2026-10-10)
 
 **MM-MAP-200/210/400/430: PARCIAL EM CÓDIGO, NÃO VALIDADO.** Branch única `dev/markmap-pwa-v2`, base auditada `7cbfdf8` (A2); `main@156d4e8` intocada. O pipeline passa a tratar PMTiles v3 vetorial **pré-gerado** (até 250 MiB, respeitando o limite do pacote) com cópia temporária, checagem de header/diretório/bounds/zoom, SHA-256 em stream e publicação atômica do arquivo de saída. Não faz conversão direta de `osm.pbf` grande: o builder integrado mantém **32 MiB** e exige pré-gerador externo adequado para áreas maiores.
