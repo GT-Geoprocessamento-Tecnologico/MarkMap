@@ -1,6 +1,15 @@
 # Handoff de continuidade
 
 
+## Continuidade M10 — testes locais parciais e pacote OSM real (2026-10-10)
+
+**Base verificada:** `dev/markmap-pwa-v2@86180b5`, `main@156d4e8`. **NÃO APROVAR MM-MAP-940.** Execução Node `22.16.0`: inicial 25/29 (4 fixtures antigas inválidas/desatualizadas); após corrigir somente testes e incluir casos A3/A4/SW, **37/37 verdes**, sem skipped. `node --check` sem erro e TypeScript isolado da busca regional sem erros. Testado PBF real externo de ciclismo NL (SHA-256 `bad024f5f883d751365de707aafde722212daf3a275a6d78b566f11e195b8c1e`), gerou 22 artefatos, 21 hashes/bytes verificados, 7 tiles PMTiles, 128 nomes, grafo walk+bicycle. O `osmDataDate` do smoke foi placeholder NÃO verificado; pacote não é distribuível.
+
+**Bloqueios do gate integral:** falta `pnpm` e workspace `node_modules` sem acesso npm (lint/typecheck/Vitest/build não executados). Chromium `localhost` bloqueado por `ERR_BLOCKED_BY_ADMINISTRATOR`; nenhum Playwright browser real, IndexedDB/outbox pós-reload, SW real, Android/iOS ou perf do aparelho foi validado. Testes SW em `node:vm` não são E2E. Biblioteca externa PMTiles/MapLibre também não validada. Relatório reproduzível em `docs/MM-MAP-M10-qa-2026-10-10.md`. Somente QA adicionada, sem edição de módulos de produção; trabalho na mesma branch, `[skip ci]`. Não alterar `main`, Vercel, Neon, ações CI, release/tag ou migrations. **Próximo:** completar QA em workspace com dependências/rede local e dispositivos, com fontes/data reais licenciadas.
+
+---
+
+
 ## Continuidade A4 — publicação atômica de pacote (2026-10-10)
 
 **Branch:** `dev/markmap-pwa-v2` baseada em `014aeff`; `main@156d4e8` preservada. **PARCIAL EM CÓDIGO, NÃO VALIDADO:** o publicador agora constrói e verifica todos os arquivos (SHA-256 em streaming, tamanho e caminho) em diretório temporário exclusivo antes de mover o conjunto para a pasta final. Saída não vazia gera erro `OUTPUT_NOT_EMPTY` sem alterar arquivos; saída vazia é compatível. Falhas removem somente o staging da execução. `OfflineMapStore.stage` deixa de materializar novamente `Blob` já imutável ao gravar no IndexedDB. Não altera outbox nem contratos ou limite de downloads.

@@ -2,48 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { gunzipSync } from 'node:zlib';
 import { makePmtilesFromOsm, defaultOfflineStyle, OsmTileError } from './osm-pbf-pmtiles.mjs';
+import { osmFixture } from './test/osm-fixture.mjs';
 
-function v(n) {
-  let x = BigInt(n); const bytes = [];
-  while (x >= 128n) { bytes.push(Number(x & 127n) | 128); x >>= 7n; }
-  bytes.push(Number(x)); return Buffer.from(bytes);
-}
-function zi(n) { const x = BigInt(n); return x < 0n ? -2n * x - 1n : 2n * x; }
-const field = (n, value) => Buffer.concat([v(n * 8), v(value)]);
-const bytes = (n, data) => { const raw = Buffer.isBuffer(data) ? data : Buffer.from(data); return Buffer.concat([v(n * 8 + 2), v(raw.length), raw]); };
-const parts = (...p) => Buffer.concat(p);
-function osmFixture() {
-  const strings = ['', 'highway', 'residential', 'name', 'Rua de Teste', 'leisure', 'park', 'amenity', 'cafe', 'Café'];
-  const table = parts(...strings.map((x) => bytes(1, x)));
-  const nodes = [
-    [10, -23.5000, -46.6000],
-    [11, -23.5001, -46.5998],
-    [12, -23.5003, -46.6000],
-    [13, -23.4997, -46.5999],
-  ];
-  const deltas = (at) => {
-    let prev = 0;
-    return parts(...nodes.map((node) => { const val = Math.round(node[at] * 1e7); const delta = val - prev; prev = val; return v(zi(delta)); }));
-  };
-  const dense = parts(
-    bytes(1, parts(v(zi(10)), v(zi(1)), v(zi(1)), v(zi(1)))),
-    bytes(8, deltas(1)), bytes(9, deltas(2)),
-    bytes(10, parts(v(0), v(0), v(0), v(7), v(8), v(3), v(9), v(0))),
-  );
-  const road = parts(field(1, 100), bytes(2, parts(v(1), v(3))), bytes(3, parts(v(2), v(4))),
-    bytes(8, parts(v(zi(10)), v(zi(3)))));
-  const park = parts(field(1, 101), bytes(2, v(5)), bytes(3, v(6)),
-    bytes(8, parts(v(zi(10)), v(zi(1)), v(zi(1)), v(zi(-2)))));
-  const group = parts(bytes(2, dense), bytes(3, road), bytes(3, park));
-  const primitive = parts(bytes(1, table), bytes(2, group));
-  const wrap = (type, payload) => {
-    const blob = bytes(1, payload);
-    const header = parts(bytes(1, type), field(3, blob.length));
-    const len = Buffer.alloc(4); len.writeUInt32BE(header.length);
-    return parts(len, header, blob);
-  };
-  return parts(wrap('OSMHeader', Buffer.alloc(0)), wrap('OSMData', primitive));
-}
 function readVar(bytes, at) {
   let val = 0, shift = 0, offset = at;
   while (offset < bytes.length) { const c = bytes[offset++]; val += (c & 127) * 2 ** shift; if (!(c & 128)) return [val, offset]; shift += 7; }
@@ -135,8 +95,54 @@ test('region pipeline creates an installable manifest with local sprite assets a
     assert.equal(result.manifest.sprites.length, 4);
     for (const sprite of result.manifest.sprites) assert.equal((await readFile(join(output, sprite.path))).length, sprite.blob.bytes);
     assert.equal(result.manifest.totalBytes,
-      result.manifest.archive.bytes + result.manifest.style.blob.bytes +
-      result.manifest.sprites.reduce((sum, s) => sum + s.blob.bytes, 0));
+      result.artifacts.filter((a) => a.path !== 'manifest.json')
+        .reduce((sum, a) => sum + a.bytes, 0));
     assert.equal(JSON.parse(await readFile(join(output, 'manifest.json'), 'utf8')).id, 'fixture-region');
   } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+
+test('A4: never overwrites previously published content', async () => {
+  const { mkdtemp, mkdir, writeFile, readFile, readdir, rm } = await import('node:fs/promises');
+  const { join } = await import('node:path');
+  const { tmpdir } = await import('node:os');
+  const { runPipeline } = await import('./region-pipeline.mjs');
+  const root = await mkdtemp(join(tmpdir(), 'mm-publish-preserve-'));
+  const input = join(root, 'in'), output = join(root, 'out');
+  try {
+    await mkdir(input); await mkdir(output);
+    await writeFile(join(input, 'osm.pbf'), osmFixture());
+    await writeFile(join(input, 'region.json'), JSON.stringify({
+      id:'fixture-region', label:'Fixture Region', bounds:[-46.61,-23.51,-46.59,-23.49],
+      minZoom:9, maxZoom:10, osmDataDate:'2026-10-08T00:00:00.000Z',
+    }));
+    await writeFile(join(output, 'previous-manifest.json'), 'keep this');
+    await assert.rejects(runPipeline({input,output}), (error) => error.code === 'OUTPUT_NOT_EMPTY');
+    assert.deepEqual(await readdir(output), ['previous-manifest.json']);
+    assert.equal(await readFile(join(output, 'previous-manifest.json'),'utf8'), 'keep this');
+    assert.deepEqual((await readdir(root)).filter((name)=>name.includes('.staging-')), []);
+  } finally { await rm(root,{recursive:true,force:true}); }
+});
+
+test('A4: late validation failure leaves no partial published package', async () => {
+  const { mkdtemp, mkdir, writeFile, readdir, rm } = await import('node:fs/promises');
+  const { join } = await import('node:path');
+  const { tmpdir } = await import('node:os');
+  const { runPipeline } = await import('./region-pipeline.mjs');
+  const root = await mkdtemp(join(tmpdir(), 'mm-publish-fail-'));
+  const input = join(root,'in'), output = join(root,'out');
+  try {
+    await mkdir(input); await mkdir(output);
+    await writeFile(join(input,'osm.pbf'),osmFixture());
+    await writeFile(join(input,'region.json'),JSON.stringify({
+      id:'fixture-region',label:'Fixture Region',bounds:[-46.61,-23.51,-46.59,-23.49],
+      minZoom:9,maxZoom:10,osmDataDate:'2026-10-08T00:00:00.000Z',
+    }));
+    // This validation runs after PMTiles, sprites and search artifacts are generated.
+    await writeFile(join(input,'wikipedia.json'),JSON.stringify({regionId:'fixture-region',version:'1.0.0',
+      generatedAt:'2026-10-08T00:00:00.000Z',license:'',attribution:'test',articles:[]}));
+    await assert.rejects(runPipeline({input,output}), /licen[aç]/i);
+    assert.deepEqual(await readdir(output), []);
+    assert.deepEqual((await readdir(root)).filter((name)=>name.includes('.staging-')), []);
+  } finally { await rm(root,{recursive:true,force:true}); }
 });

@@ -1,6 +1,17 @@
 # MarkMap — Documento Mestre Único
 
 
+## M10 — QA real parcial após A4 (2026-10-10)
+
+**GATE `MM-MAP-900/940` AINDA BLOQUEADO.** Recuperados pelo GitHub os módulos Node do HEAD `86180b5` em ambiente local Linux/Node `22.16.0`. A primeira suíte real teve **25/29 passando**; 4 falhas eram fixtures antigas de PMTiles de 127 bytes sem tiles MVT reais, estilo inválido e assert `totalBytes` desatualizado após busca/grafo regional. Testes/fixtures corrigidos sem enfraquecer o runtime; acrescentados cenários de publicação anterior preservada, falha tardia sem saída parcial, prebuilt PMTiles válido, raster rejeitado, limite de 250 MiB e handshake de service worker simulado. **Reexecução: 37/37 testes Node passam, 0 skipped.** `node --check` dos módulos recuperados sem erro; typecheck isolado `search/index.ts` e `regional-shards.ts` passou.
+
+**Smoke com OSM real:** fixture externa `bicycle-route.osm.pbf` (Overpass/OSM contributors, ODbL, sem incorporar o binário ao repo), SHA-256 `bad024f5f883d751365de707aafde722212daf3a275a6d78b566f11e195b8c1e`, processada localmente: 22 artefatos, 529.195 bytes no `manifest.totalBytes`, 21 hashes de arquivos conferidos, 7 tiles PMTiles gzip, 128 registros de busca, 1.534 nós/1.592 arestas de grafo walk+bicycle sem car. Busca encontrou vias reais pelos nomes. **Data da extração OSM não confirmada; `osmDataDate` no smoke foi placeholder — proibir distribuição desse pacote.** Detalhes e proveniência em `docs/MM-MAP-M10-qa-2026-10-10.md`.
+
+**BLOQUEIOS:** `pnpm`/node_modules/turbo/vite/eslint indisponíveis; rede npm bloqueada. Portanto NÃO executados lint/typecheck/build/Vitest/Playwright completos. Chromium local negou `localhost` com `ERR_BLOCKED_BY_ADMINISTRATOR`; portanto nenhuma validação browser de IndexedDB/outbox/MapLibre/SW real nem Android/iOS físico. Hash/PMTiles também não verificados por biblioteca PMTiles independente. Não considerar `37/37` aprovação de release. Manter `main`, GitHub CI, Vercel, Neon, tags/releases intactos. Próximo: ambiente completo com dependências, dados com timestamp/licença verificáveis, E2E/dispositivos e gate final.
+
+---
+
+
 ## A4 — Publicação consistente e importação Blob (2026-10-10)
 
 **PARCIAL EM CÓDIGO, NÃO VALIDADO:** `region-pipeline.mjs` deixa de expor arquivos na pasta final enquanto o pipeline ainda pode falhar. A execução é realizada em pasta temporária única; antes de publicar, confere caminhos, tamanhos e SHA-256 de cada artefato gerado, depois promove a pasta completa por `rename` no mesmo diretório pai. Destino não vazio é recusado com `OUTPUT_NOT_EMPTY`; diretório vazio continua suportado para compatibilidade com fixtures anteriores. Em falha, somente staging desta execução é limpo. `OfflineMapStore.stage` reutiliza fontes `Blob` existentes sem segunda materialização ao montar o objeto persistido; SHA-256 do instalador continua obrigatório.

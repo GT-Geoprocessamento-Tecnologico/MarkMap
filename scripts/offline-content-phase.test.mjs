@@ -1,13 +1,16 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
+import { makePmtilesFromOsm, defaultOfflineStyle } from './osm-pbf-pmtiles.mjs';
+import { osmFixture } from './test/osm-fixture.mjs';
+
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { validateRegionalWikipedia, validateRegionalTransit, RegionContentError } from '../packages/maps/src/content/region-content.mjs';
 import { buildManifest, runPipeline } from './region-pipeline.mjs';
 
-const bounds = [-48, -16, -47, -15];
+const bounds = [-46.61, -23.51, -46.59, -23.49];
 const now = '2026-10-09T12:00:00.000Z';
 const wiki = {
   regionId: 'sample-region', version: '1.0.0', generatedAt: now,
@@ -18,7 +21,7 @@ const wiki = {
 const transit = {
   regionId: 'sample-region', version: '1.0.0', generatedAt: now,
   attribution: 'Transport agency', license: 'Data license by agency',
-  stations: [{id:'station-1', name:'Estação Central', lon:-47.5, lat:-15.5, lines:['line-1']}],
+  stations: [{id:'station-1', name:'Estação Central', lon:-46.6, lat:-23.5, lines:['line-1']}],
   lines: [{id:'line-1', name:'Linha Azul', color:'#123ABC', mode:'metro', stationIds:['station-1']}],
 };
 const hash = x => createHash('sha256').update(x).digest('hex');
@@ -60,10 +63,12 @@ test('regional pipeline packages actual licensed data and sha checksums without 
   const input=await mkdtemp(join(tmpdir(),'mm-content-in-'));
   const output=await mkdtemp(join(tmpdir(),'mm-content-out-'));
   try {
-    const archive=Buffer.alloc(127); archive.write('PMTiles',0,'ascii');archive[7]=3;
-    for(let i=8;i<72;i+=16){archive.writeBigUInt64LE(127n,i);archive.writeBigUInt64LE(0n,i+8);}
+    const archive = makePmtilesFromOsm(osmFixture(), {bounds,minZoom:9,maxZoom:10}).bytes;
     await writeFile(join(input,'basemap.pmtiles'),archive);
-    await writeFile(join(input,'style.json'),JSON.stringify({version:8,glyphs:'glyphs/{fontstack}/{range}.pbf',sprite:'sprites/sprite',sources:{base:{type:'vector',url:'pmtiles://package.pmtiles'}},layers:[]}));
+    await writeFile(join(input,'style.json'),JSON.stringify(defaultOfflineStyle()));
+    await mkdir(join(input,'sprites'));
+    await writeFile(join(input,'sprites/sprite.json'),'{}');
+    await writeFile(join(input,'sprites/sprite.png'),Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZ0AAAAASUVORK5CYII=','base64'));
     await writeFile(join(input,'region.json'),JSON.stringify({id:'sample-region',label:'Sample',bounds,osmDataDate:now,minZoom:0,maxZoom:12}));
     await writeFile(join(input,'wikipedia.json'),JSON.stringify(wiki));
     await writeFile(join(input,'transit.json'),JSON.stringify(transit));
@@ -81,10 +86,12 @@ test('pipeline refuses unlicensed content and does not advertise capability', as
   const input=await mkdtemp(join(tmpdir(),'mm-content-bad-'));
   const output=await mkdtemp(join(tmpdir(),'mm-content-out-'));
   try {
-    const archive=Buffer.alloc(127);archive.write('PMTiles',0,'ascii');archive[7]=3;
-    for(let i=8;i<72;i+=16){archive.writeBigUInt64LE(127n,i);archive.writeBigUInt64LE(0n,i+8);}
+    const archive = makePmtilesFromOsm(osmFixture(), {bounds,minZoom:9,maxZoom:10}).bytes;
     await writeFile(join(input,'basemap.pmtiles'),archive);
-    await writeFile(join(input,'style.json'),JSON.stringify({version:8,sources:{base:{type:'vector',url:'pmtiles://package.pmtiles'}}}));
+    await writeFile(join(input,'style.json'),JSON.stringify(defaultOfflineStyle()));
+    await mkdir(join(input,'sprites'));
+    await writeFile(join(input,'sprites/sprite.json'),'{}');
+    await writeFile(join(input,'sprites/sprite.png'),Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZ0AAAAASUVORK5CYII=','base64'));
     await writeFile(join(input,'region.json'),JSON.stringify({id:'sample-region',label:'Sample',bounds,osmDataDate:now,minZoom:0,maxZoom:12}));
     await writeFile(join(input,'wikipedia.json'),JSON.stringify({...wiki,license:''}));
     await assert.rejects(runPipeline({input,output}),/licença/i);

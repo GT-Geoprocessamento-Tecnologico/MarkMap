@@ -1,6 +1,16 @@
 # MarkMap — Checklist Mestre de Execução
 
 
+## M10 — MM-MAP-900/940, execução local parcial (2026-10-10)
+
+- [x] **QA REAL / Node:** `node --check` do recorte de módulos `.mjs`; suíte começou 25/29 e depois de consertar fixtures PMTiles/contagem e adicionar regressões passou **37/37**, 0 falhas/0 skipped.
+- [x] **QA REAL / pesquisa e artefatos:** extrato OSM real externo documentado, 22 artefatos/529.195 bytes publicados localmente em staging, 21 SHA-256/tamanhos conferidos, PMTiles v3/MVT 7 tiles, busca com nomes de ruas e perfis walk/bicycle; `tsc --noEmit` passou somente nos dois módulos TS isolados de busca. SHA/dados em `docs/MM-MAP-M10-qa-2026-10-10.md`.
+- [x] **QA REAL / regressão de segurança:** testes cobrem saída existente preservada, falha tardia sem pacote parcial, header raster negado, limite PMTiles excessivo e 3 cenários `SKIP_WAITING` simulados em `node:vm` (não navegador).
+- [ ] **BLOQUEADO:** lint/typecheck/Vitest/build completos sem `pnpm` ou `node_modules`; npm externo bloqueado. Playwright/Chromium `localhost` negado pela política do ambiente. Nenhum E2E Web/PWA real, MapLibre, IndexedDB/outbox, Android/iOS físico, instalação remota/cold offline, memória e bateria.
+- [ ] **BLOQUEADO:** fonte externa real exige timestamp OSM/data de produção verificado (QA local usou placeholder), assets licenciados e leitor PMTiles independente; nada foi redistribuído ou publicado.
+- [ ] **GATE MM-MAP-940 VERMELHO:** não abrir PR para main, não acionar CI, Vercel, tag/release ou produção sem evidência integral e autorização.
+
+
 ## A4 — Publicador de mapas seguro (2026-10-10)
 
 - [x] **PARCIAL EM CÓDIGO, NÃO VALIDADO:** pipeline monta pacote completo em staging isolado; valida caminhos, tamanho e SHA-256 antes de promover a pasta final; erro não publica pacote incompleto.

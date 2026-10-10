@@ -7,6 +7,9 @@ import { createHash } from 'node:crypto';
 import { validateRegionalGraph } from '../packages/maps/src/routing/graph-format.mjs';
 import { validateRegionalContours } from '../packages/maps/src/elevation/contour-package.mjs';
 import { runPipeline, buildManifest } from './region-pipeline.mjs';
+import { makePmtilesFromOsm, defaultOfflineStyle } from './osm-pbf-pmtiles.mjs';
+import { osmFixture } from './test/osm-fixture.mjs';
+
 const graph = {
   version:'v1',bounds:[-49,-25,-45,-21],osmDataDate:'2026-10-08T00:00:00.000Z',profiles:['walk','car'],turnRestrictions:[],
   nodes:[{id:0,lon:-46.6,lat:-23.5},{id:1,lon:-46.59,lat:-23.5}],
@@ -26,10 +29,12 @@ test('pipeline packs graph and contours with exact digest and profile flags',asy
   const input=join(base,'in'),output=join(base,'out');
   try {
     await mkdir(input);
-    const pm=Buffer.alloc(127);pm.write('PMTiles',0,'ascii');pm[7]=3;
-    for(let i=8;i<72;i+=16){pm.writeBigUInt64LE(127n,i);pm.writeBigUInt64LE(0n,i+8)}
+    const pm = makePmtilesFromOsm(osmFixture(),{bounds:graph.bounds,minZoom:9,maxZoom:10}).bytes;
     await writeFile(join(input,'basemap.pmtiles'),pm);
-    await writeFile(join(input,'style.json'),JSON.stringify({version:8,glyphs:'glyphs/{fontstack}/{range}.pbf',sprite:'sprites/sprite',sources:{base:{type:'vector',url:'pmtiles://package.pmtiles'}},layers:[]}));
+    await writeFile(join(input,'style.json'),JSON.stringify(defaultOfflineStyle()));
+    await mkdir(join(input,'sprites'));
+    await writeFile(join(input,'sprites/sprite.json'),'{}');
+    await writeFile(join(input,'sprites/sprite.png'),Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZ0AAAAASUVORK5CYII=','base64'));
     await writeFile(join(input,'region.json'),JSON.stringify({id:'test',label:'Test',bounds:graph.bounds,osmDataDate:graph.osmDataDate}));
     await writeFile(join(input,'graph.json'),JSON.stringify(graph));
     await writeFile(join(input,'contours.json'),JSON.stringify(contours));
