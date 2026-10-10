@@ -1,6 +1,16 @@
 # MarkMap — Checklist Mestre de Execução
 
 
+## A12/A13 — Recuperação de instalação e confirmação segura de versão (2026-10-10)
+
+- [x] **A12 — IMPLEMENTADO EM CÓDIGO:** ao voltar para Configurações restaura URL pública de manifest na aba ou origem do mapa selecionado, sem rede automática; sessionStorage ignora tokens/credenciais/query/hash e não armazena bytes.
+- [x] **A13 — IMPLEMENTADO EM CÓDIGO:** preview de update inclui SHA-256 canônico do manifest completo, URL de origem e versão instalada; confirmação valida todos e descarta aceite desatualizado. Installer existente ainda verifica cada arquivo antes de ativar.
+- [x] **QA DIRECIONADA REAL:** 14/14 Node PASS, JS `node --check`, registry/types `tsc --strict --noEmit` isolado e TSX sintático.
+- [ ] **QA EXTERNA NÃO BLOQUEANTE PARA DESENVOLVIMENTO:** browser/Capacitor multiabas, IndexedDB persistido, lint/typecheck/build monorepo, E2E e aparelhos. Não marcar homologação.
+- [ ] **PRÓXIMA FASE:** consistência do estado de atualização e integridade entre abas/navegação, usando HEAD real e evitando reimplementação.
+- [ ] **RELEASE/PUBLICAÇÃO:** não autorizado merge main, CI remoto, deploy Vercel, Neon, tag/release e exclusões. Evidência: `docs/MM-MAP-A12-A13-region-continuity.md`.
+
+
 ## A10/A11 — Retomada na interface e quota segura (2026-10-10)
 
 - [x] **A10 CÓDIGO + NODE:** consulta read-only do manifest e contagem de blocos com versão/hash correspondentes; botão retomar e confirmação explícita para staging de outra versão; estados UI checking/downloading/validating/activating/canceling e barra de progresso.

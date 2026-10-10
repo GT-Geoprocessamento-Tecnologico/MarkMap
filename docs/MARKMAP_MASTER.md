@@ -1,6 +1,15 @@
 # MarkMap — Documento Mestre Único
 
 
+## A12/A13 — Recuperação ao navegar e atualização regional fixada (2026-10-10)
+
+**IMPLEMENTADO EM CÓDIGO / QA NODE DIRECIONADA:** Configurações recupera URL pública sanitizada na mesma aba por sessionStorage, ou a URL instalada da região selecionada. Não baixa nem toca checkpoints automaticamente. URLs com credenciais/query/hash e HTTP externo nunca são gravadas. Rascunho é limpo na instalação bem-sucedida. O gerenciador de regiões entrega ao botão de atualização a identidade completa do manifest consultado (SHA-256 canônico), origem HTTPS e versão local; ao confirmar, refaz consulta e recusa se algum desses dados mudou. A UI invalida aceite antigo após erro ou mudança de lista instalada. Sem alterar mapas ativos, IndexedDB/outbox ou contrato.
+
+**EVIDÊNCIAS:** Node 22.16.0, **14/14 testes direcionados aprovados** (6 novos A12/A13 + 8 A10/A11), `node --check` dos helpers e `tsc --strict --noEmit` isolado de registry/declarations; sintaxe TSX verificada via `transpileModule`. **NÃO EXECUTADO:** full lint/typecheck/build/e2e, validação em navegador/Capacitor, mapa grande ou aparelho físico. Não bloqueiam continuidade de desenvolvimento; release/merge/deploy seguem não autorizados. PRD: `docs/MM-MAP-A12-A13-region-continuity.md`. Sem CI, Vercel, Neon, tag/release, alteração da main ou migração.
+
+---
+
+
 ## A10/A11 — UX de retomada e quota (2026-10-10)
 
 **IMPLEMENTADO EM CÓDIGO, QA LOCAL DIRECIONADA:** `SettingsPage` expõe consulta read-only de progresso salvo por URL/manifest, tamanho da região, blocos completos, retomada, estágios com barra acessível e confirmação explícita antes de substituir checkpoints de outra versão. O cancelamento alcança a consulta do manifest (AbortSignal), o pré-download e o fluxo de chunks; a UI não oferece cancelamento quando a ativação transacional já começou. Saída da tela cancela transferência não observada, sem excluir blocos persistidos. `ResumableInstaller.checkResume` compara assinatura de versão + SHA de todos os arquivos; quota real/estimada é categorizada sem limpar dados. Mensagens distinguem cancelamento, rede, quota, checksum, versão e concorrência de abas.

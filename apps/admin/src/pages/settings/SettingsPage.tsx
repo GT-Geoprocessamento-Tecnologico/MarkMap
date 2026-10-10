@@ -16,7 +16,8 @@ import { getPwaInstallSnapshot, requestPwaInstall, subscribePwaInstall } from ".
 import { ResumableInstaller, type InstallerStatus } from "../../lib/storage/resumable-installer";
 import { describeRegionInstallError } from "../../lib/storage/region-install-feedback.mjs";
 import { fetchRemoteRegionManifest } from "../../lib/storage/remote-region-manifest.mjs";
-import { RegionManager } from '../../lib/storage/region-manager';
+import { RegionManager, type RegionUpdatePreview } from '../../lib/storage/region-manager';
+import { getRegionInstallDraftUrl, rememberRegionInstallDraftUrl, clearRegionInstallDraftUrl } from '../../lib/storage/region-install-draft.mjs';
 import { rememberRegionSource, forgetRegionSource, getRegionSourceUrl } from '../../lib/storage/region-source-registry';
 import { version as appVersion } from '../../../package.json';
 
@@ -59,14 +60,16 @@ export default function SettingsPage() {
   const [offlinePackages, setOfflinePackages] = useState<OfflineMapPackageManifest[]>([]);
   const [selectedOfflineMapId, setSelectedOfflineMapIdState] = useState<string | null>(getSelectedOfflineMapId);
   const [packageBusy, setPackageBusy] = useState(false);
-  const [regionalManifestUrl, setRegionalManifestUrl] = useState('');
+  const [regionalManifestUrl, setRegionalManifestUrl] = useState(() =>
+    getRegionInstallDraftUrl() ?? getRegionSourceUrl(getSelectedOfflineMapId() ?? '') ?? '');
   const [regionalPercent, setRegionalPercent] = useState<number | null>(null);
   const [regionalStage, setRegionalStage] = useState<InstallerStatus | 'checking' | 'canceling'>('idle');
   const [regionalResume, setRegionalResume] = useState<{
     regionId: string; label: string; downloadedBytes: number; totalBytes: number;
   } | null>(null);
   const [regionalPreview, setRegionalPreview] = useState<{ label: string; totalBytes: number } | null>(null);
-  const [regionalNotice, setRegionalNotice] = useState<string | null>(null);
+  const [regionalNotice, setRegionalNotice] = useState<string | null>(() =>
+    getRegionInstallDraftUrl() ? 'URL pública recuperada desta aba. Consulte o progresso salvo antes de retomar.' : null);
   const [regionalNewVersion, setRegionalNewVersion] = useState(false);
   const regionalController = useRef<AbortController | null>(null);
   const activeRegionalInstaller = useRef<ResumableInstaller | null>(null);
@@ -77,7 +80,7 @@ export default function SettingsPage() {
     activeRegionalInstaller.current?.abortInstall();
   }, []);
   const [checkingRegion, setCheckingRegion] = useState<string | null>(null);
-  const [regionUpdates, setRegionUpdates] = useState<Record<string, { available: boolean; message: string }>>({});
+  const [regionUpdates, setRegionUpdates] = useState<Record<string, { available: boolean; message: string; preview?: RegionUpdatePreview }>>({});
   const [storageBreakdown, setStorageBreakdown] = useState<CategoryBreakdown[]>([]);
   const [cleanupDialogOpen, setCleanupDialogOpen] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState<Set<StorageCategory>>(new Set());
@@ -127,6 +130,8 @@ export default function SettingsPage() {
     const installed = await offlineMapStore.list();
     const manifests = installed.map((value) => value.manifest);
     setOfflinePackages(manifests);
+    // Installed versions can change in another tab: old update consents are no longer valid.
+    setRegionUpdates({});
     const selected = getSelectedOfflineMapId();
     if (selected && manifests.some((manifest) => manifest.id === selected)) {
       setSelectedOfflineMapIdState(selected);
@@ -425,6 +430,7 @@ export default function SettingsPage() {
       await refreshOfflinePackages();
       await refreshStorage();
       rememberRegionSource(manifest.id, regionalManifestUrl.trim());
+      clearRegionInstallDraftUrl();
       toast({ title: 'Mapa offline instalado', description: `${manifest.label} está pronto para uso local.`, variant: 'success' });
     } catch (cause) {
       if (controller.signal.aborted) {
@@ -469,21 +475,42 @@ export default function SettingsPage() {
   const checkRegionUpdates = async (regionId: string) => {
     if (packageBusy || checkingRegion) return;
     setCheckingRegion(regionId);
+    // A previous approval must not survive a fresh or failed lookup.
+    setRegionUpdates(previous => ({ ...previous, [regionId]: {
+      available: false, message: 'Consultando versão remota…',
+    } }));
     try {
       const result = await regionManager.current.checkUpdateAvailable(regionId);
+      const info = result.updateInfo;
+      const preview: RegionUpdatePreview | undefined = result.hasUpdate &&
+        typeof info.sourceUrl === 'string' && typeof info.installedVersion === 'string' &&
+        typeof info.manifestFingerprint === 'string' && /^[a-f0-9]{64}$/.test(info.manifestFingerprint)
+        ? { sourceUrl: info.sourceUrl, installedVersion: info.installedVersion,
+          manifestFingerprint: info.manifestFingerprint } : undefined;
       setRegionUpdates(previous => ({ ...previous, [regionId]: {
-        available: result.hasUpdate,
-        message: result.hasUpdate ? `Nova versão ${String(result.updateInfo.availableVersion)} disponível.` :
-          String(result.updateInfo.reason ?? (result.updateInfo.status === 'current' ? 'Este mapa está atualizado.' : 'Nenhuma atualização aplicável.')),
+        available: Boolean(preview), preview,
+        message: result.hasUpdate && preview
+          ? `Nova versão ${String(info.availableVersion)} disponível em ${new URL(preview.sourceUrl).host}. Confirme para atualizar.`
+          : String(info.reason ?? (info.status === 'current'
+            ? 'Este mapa está atualizado.' : 'Nenhuma atualização aplicável.')),
+      } }));
+    } catch (cause) {
+      setRegionUpdates(previous => ({ ...previous, [regionId]: {
+        available: false, message: cause instanceof Error ? cause.message : 'Falha ao consultar versão regional.',
       } }));
     } finally { setCheckingRegion(null); }
   };
   const updateRegion = async (regionId: string) => {
     if (packageBusy || checkingRegion) return;
+    const preview = regionUpdates[regionId]?.preview;
+    if (!preview) {
+      setError('Consulte a atualização novamente antes de confirmar.');
+      return;
+    }
     setPackageBusy(true);
     setError(null);
     try {
-      const result = await regionManager.current.applyUpdate(regionId);
+      const result = await regionManager.current.applyUpdate(regionId, preview);
       if (!result.success) throw new Error(result.message);
       await refreshOfflinePackages();
       await refreshStorage();
@@ -491,6 +518,8 @@ export default function SettingsPage() {
       toast({ title: 'Mapa regional atualizado', description: result.message, variant: 'success' });
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : 'Falha na atualização regional.';
+      setRegionUpdates(previous => ({ ...previous, [regionId]: { available: false,
+        message: `${message} Consulte novamente antes de atualizar.` } }));
       setError(message);
       toast({ title: 'Atualização não concluída', description: message, variant: 'error' });
     } finally { setPackageBusy(false); }
@@ -671,6 +700,7 @@ export default function SettingsPage() {
             value={regionalManifestUrl}
             onChange={(event) => {
               setRegionalManifestUrl(event.target.value);
+              rememberRegionInstallDraftUrl(event.target.value);
               setRegionalResume(null);
               setRegionalPreview(null);
               setRegionalNewVersion(false);

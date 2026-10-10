@@ -1,6 +1,15 @@
 # Handoff de continuidade
 
 
+## Continuidade A12/A13 — recuperação de URL e identidade do update (2026-10-10)
+
+**Base auditada:** `dev/markmap-pwa-v2@6cb65ca`, `main@156d4e8` intacta, sem PRs/issues abertos na auditoria. **A12 CÓDIGO:** URL pública do manifest salva somente em `sessionStorage` após sanitização e restaurada ao reentrar em Configurações; caso não exista, carrega origem associada à região selecionada. Nenhum fetch silencioso. Rascunho inválido ou instalação bem-sucedida elimina a URL temporária, sem apagar checkpoints. **A13 CÓDIGO:** confirmação de atualização carrega preview preso à origem, versão local e fingerprint canônico SHA-256 de todos os campos do manifest; mudança entre consulta e confirmação obriga consultar novamente. State stale invalidado ao atualizar lista/erro. Nenhuma mudança de banco/outbox/Neon.
+
+**QA REAL LOCAL:** 14/14 testes Node direcionados (6 novos + 8 históricos de manifest/feedback), checagem JS e TS isolado sem erros, TSX parse sem erros. **QA NÃO EXECUTADA, SEM TRAVAR CÓDIGO:** build/lint/typecheck/testes completos, browser E2E, IndexedDB/WebView e hardware real. PRD `docs/MM-MAP-A12-A13-region-continuity.md`. Próximo foco: verificar fonte/update e consistência entre abas com testes de contrato e usar o próximo item livre, preservando arquitetura offline-first. Nenhum deploy/CI/release/merge/main/migration foi feito.
+
+---
+
+
 ## A10/A11 — Consulta de retomada e recuperação de quota (2026-10-10)
 
 **HEAD-base auditado:** `dev/markmap-pwa-v2@b753278`; `main@156d4e8` preservada, PRs/issues abertos: 0 no início. **A10 EM CÓDIGO:** Settings usa AbortController da leitura do manifest até downloads e preflight; permite consultar progresso salvo sem gravar, exibe retomada e fases, exige clique explícito para trocar versão de checkpoints, e cancela operação ao sair da tela. Cancelar indisponível depois que ativação começa. **A11 EM CÓDIGO:** classificador de quota e mensagens por tipo de falha com instrução de revisar armazenamento, sem apagar mapa, projetos, outbox ou blocos completos. Nenhum novo serviço/backend/DB e a execução offline existente é mantida.
