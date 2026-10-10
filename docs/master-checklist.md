@@ -1,6 +1,15 @@
 # MarkMap — Checklist Mestre de Execução
 
 
+## A7 — instalação offline sem concorrência no mesmo origin (2026-10-10)
+
+- [x] **IMPLEMENTADO + NODE:** Web Locks com `ifAvailable` por ID para impedir instalação simultânea da mesma região em abas do mesmo origin que suportem essa API; guarda por instância definida antes do primeiro `await`.
+- [x] **IMPLEMENTADO + NODE:** falha recuperável `install-busy-other-tab`, lock liberado em erro e fallback transparente quando Web Locks indisponível; estágio/ativação transacional anteriores preservados.
+- [x] **Node direcionado:** `46/46` testes verdes, incluindo 3 cenários simulados da A7. Sintaxe JS/TS dos arquivos alterados sem erro.
+- [ ] **QA opcional/não bloqueante para desenvolvimento:** duas abas reais, Safari/WebView, quota em pressão, npm lint/typecheck/build/Playwright, Android/iOS. Não afirmar homologação.
+- [ ] **PRÓXIMA FASE DE CÓDIGO:** reduzir pico de RAM do Blob final e tratar continuidade de checkpoint; sem deploy/tag/main/CI/Neon nesta etapa.
+
+
 ## Continuidade após M10 — A5/A6 (2026-10-10)
 
 **REGRA NOVA:** avaliação física, dispositivo real e testes de campo **não bloqueiam desenvolvimento**. Evidências ausentes são registradas em dívida de QA/homologação; nunca recebem marcação de teste aprovado. Deploy/release/merge ainda são ações separadas, exigindo autorização explícita.

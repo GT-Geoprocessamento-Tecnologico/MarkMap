@@ -1,6 +1,15 @@
 # Handoff de continuidade
 
 
+## A7 — Continuidade entre abas (2026-10-10)
+
+**Branch única `dev/markmap-pwa-v2`, base A5/A6 `459ef22`.** Código implementado: `withRegionInstallLock` usa Web Locks por ID de região para evitar concorrência em abas do mesmo origin, `ResumableInstaller.startInstall` tem guarda `installing` síncrona e retorna `install-busy-other-tab` quando lock indisponível. Sem suporte Web Locks o sistema mantém o fluxo anterior, com a proteção de geração no IndexedDB e sem promessa de exclusividade. **QA dirigida real Node 46/46 verdes** (43 anteriores + 3 novos), sintaxe de helper/wrapper verificada. **Browser multiabas, performance, device, build e typecheck completos NÃO EXECUTADOS**, seguem dívida de homologação sem bloquear implementação. `main`, Neon, Vercel, release/CI/deploy intocados. PRD: `docs/MM-MAP-A7-concurrent-installs.md`.
+
+**Próxima ação de código:** reduzir pico de RAM na montagem do Blob final ou ampliar recuperação segura dos checkpoints; continuar a partir de HEAD real, sem apagar trabalho de agentes. Testes físicos não são condição para novas fases por decisão do usuário.
+
+---
+
+
 ## Continuidade A5/A6 — desenvolvimento sem gate físico (2026-10-10)
 
 **Decisão do responsável:** não travar próximas fases por avaliações físicas ou testes reais. Continuar implementação em `dev/markmap-pwa-v2` com checks locais quando disponíveis; resultados não executados permanecem explicitamente pendentes. Isso NÃO é aprovação de release, nem autorização para alterar `main`, Vercel, Neon ou publicar em loja.

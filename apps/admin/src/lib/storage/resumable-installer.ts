@@ -9,6 +9,7 @@ import { offlineMapPackageManifestSchema, type OfflineMapPackageManifest } from 
 import { validateOfflinePackage, OFFLINE_PACKAGE_QUOTA } from '@geonexo/maps/offline/package';
 import { offlineMapStore } from './offline-map-store';
 import { RegionDownloadCheckpoints } from './region-download-checkpoints';
+import { withRegionInstallLock } from './region-install-lock.mjs';
 import { downloadVerifiedAsset, DownloadIntegrityError } from './verified-range-download.mjs';
 
 export type InstallerStatus = 'idle' | 'downloading' | 'validating' | 'activating' | 'active' | 'rollback' | 'error';
@@ -65,6 +66,7 @@ function fail(code: string, message: string, retryable = false): StoreResult<nev
 export class ResumableInstaller {
   private readonly chunks = new RegionDownloadCheckpoints();
   private active: AbortController | null = null;
+  private installing = false;
   // Constructor kept for compatibility with RegionManager; all durable data
   // lives in OfflineMapStore and RegionDownloadCheckpoints, not LargeBlobStore.
   constructor(_blobStore: LargeBlobStore | null = null, _isCapacitor?: boolean) {}
@@ -87,6 +89,28 @@ export class ResumableInstaller {
     } catch (e) { return { canResume: false, checkpoint: null, reason: e instanceof Error ? e.message : 'Falha no checkpoint' }; }
   }
   async startInstall(params: InstallParams): Promise<StoreResult<{ installId: string; status: InstallerStatus }>> {
+    if (this.installing || this.active) return fail('install-busy', 'Já existe uma instalação em andamento');
+    if (!params || typeof params.packageId !== 'string' ||
+        !/^[a-z0-9][a-z0-9._-]{0,127}$/.test(params.packageId))
+      return fail('invalid-manifest', 'ID da região inválido');
+
+    // Web Locks are per-origin across tabs. If unavailable, retain the
+    // existing generation-ID transactional guard and single-instance lock.
+    this.installing = true;
+    try {
+      const lock = await withRegionInstallLock(params.packageId, () => this.installWithLock(params));
+      if (!lock.acquired)
+        return fail('install-busy-other-tab', 'Outra aba está instalando esta região', true);
+      return lock.result;
+    } catch (error) {
+      return fail('install-lock-failed',
+        error instanceof Error ? error.message : 'Não foi possível coordenar a instalação', true);
+    } finally {
+      this.installing = false;
+    }
+  }
+
+  private async installWithLock(params: InstallParams): Promise<StoreResult<{ installId: string; status: InstallerStatus }>> {
     if (this.active) return fail('install-busy', 'Já existe uma instalação em andamento');
     if (!params?.manifest || typeof params.manifest !== 'object') return fail('invalid-manifest', 'Manifest ausente');
     const { archivePath, ...persistedManifest } = params.manifest;

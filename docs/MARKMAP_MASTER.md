@@ -1,6 +1,13 @@
 # MarkMap — Documento Mestre Único
 
 
+## A7 — Instalação regional coordenada entre abas (2026-10-10)
+
+**IMPLEMENTADO EM CÓDIGO, NÃO HOMOLOGADO NO BROWSER:** instalador agora tem guard local síncrono `installing` e coordena operações para a mesma região com Web Locks API (`ifAvailable`, modo exclusivo). Quando a região já está ocupada em outra aba, retorna `install-busy-other-tab` com retry; em browsers sem Web Locks, preserva o caminho anterior com identificação de geração ao ativar, sem alegar exclusividade. Nenhum IndexedDB schema, SW, outbox, banco ou API alterados. **QA LOCAL:** 3 novos testes com Web Locks simulado (concorrência, erro/liberação, fallback) e regressão A5/A6/M10: **46/46 Node aprovados**. `node --check` e sintaxe TypeScript do wrapper sem erros. Testes de navegador/dispositivo, lint/typecheck/build completos continuam pendentes e **não bloqueiam próxima fase de desenvolvimento**, pela decisão vigente do responsável. Não foi feito deploy/CI/merge/tag/Neon. Handoff `docs/MM-MAP-A7-concurrent-installs.md`.
+
+---
+
+
 ## A5/A6 — Integridade incremental e downloads maiores (2026-10-10)
 
 **DECISÃO VIGENTE DO RESPONSÁVEL:** testes físicos, dados regionais externos e ambientes de homologação NÃO bloqueiam a continuidade do DESENVOLVIMENTO. Registrar validações faltantes com honestidade, sem assumir que passaram. Produção, release, `main` e deploy público continuam fora do escopo sem autorização específica.
