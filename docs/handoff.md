@@ -1,6 +1,15 @@
 # Handoff de continuidade
 
 
+## Continuidade A14/A15 — consistência de geração entre abas (2026-10-10)
+
+**Base auditada:** `dev/markmap-pwa-v2@b739b11`, `main@156d4e8`, sem PRs/issues abertas no momento da auditoria. **A14 IMPLEMENTADO:** o preview tem `installedGeneration`; atualização revalida origem, base local, manifest e geração; o instalador verifica sob Web Lock e transfere a condição ao armazenamento. A ativação somente promove staging se a mesma geração ainda estiver ativa na transação IndexedDB; falha `stale-active-generation` pede nova consulta. Se ativação falhar, cleanup best-effort restringe-se à geração staging própria. Mapa ativo, outbox e projeto são preservados. **A15 IMPLEMENTADO:** BroadcastChannel entre abas notifica apenas ID da região após ativação/remoção; Configurações limpa consentimentos antigos e atualiza a lista lendo IndexedDB. Sem BroadcastChannel, a aplicação continua com CAS obrigatório.
+
+**TESTES REAIS DIRECIONADOS:** Node 22.16.0 `17/17` verdes (6 novos + 11 regressões), JS check, tipos auxiliares `tsc --noEmit`, TS/TSX syntax e execução controlada da rejeição CAS no store com IndexedDB simulado: sem erros. **NÃO TESTADO (sem bloquear desenvolvimento):** full monorepo lint/typecheck/build, IndexedDB e múltiplas abas reais, WebKit/Capacitor, Android/iOS físico e performance. Não declarar homologação. Documentação detalhada `docs/MM-MAP-A14-A15-cross-tab-consistency.md`. Sem CI/deploy/merge/tag/migração/Neon. **Próximo desenvolvimento:** avaliar a atualização de seleção/mapa visível fora de Configurações e persistência após suspensão, sem duplicar store existente.
+
+---
+
+
 ## Continuidade A12/A13 — recuperação de URL e identidade do update (2026-10-10)
 
 **Base auditada:** `dev/markmap-pwa-v2@6cb65ca`, `main@156d4e8` intacta, sem PRs/issues abertos na auditoria. **A12 CÓDIGO:** URL pública do manifest salva somente em `sessionStorage` após sanitização e restaurada ao reentrar em Configurações; caso não exista, carrega origem associada à região selecionada. Nenhum fetch silencioso. Rascunho inválido ou instalação bem-sucedida elimina a URL temporária, sem apagar checkpoints. **A13 CÓDIGO:** confirmação de atualização carrega preview preso à origem, versão local e fingerprint canônico SHA-256 de todos os campos do manifest; mudança entre consulta e confirmação obriga consultar novamente. State stale invalidado ao atualizar lista/erro. Nenhuma mudança de banco/outbox/Neon.

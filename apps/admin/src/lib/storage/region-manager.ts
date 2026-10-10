@@ -268,7 +268,7 @@ export class RegionManager {
   /** Check a user-configured HTTPS manifest without modifying installed data. */
   async checkUpdateAvailable(regionId: string): Promise<{ hasUpdate: boolean; updateInfo: Record<string, unknown> }> {
     const unavailable = (reason: string) => ({ hasUpdate: false, updateInfo: { status: 'unavailable', reason } });
-    const installed = await offlineMapStore.get(regionId).catch(() => null);
+    const installed = await offlineMapStore.getActiveRevision(regionId).catch(() => null);
     if (!installed) return unavailable('Região não encontrada neste dispositivo.');
     const source = getRegionSourceUrl(regionId);
     if (!source) return unavailable('Instale a região a partir de uma URL HTTPS para ativar atualizações.');
@@ -294,6 +294,7 @@ export class RegionManager {
         status: 'available', installedVersion: current.packageVersion,
         availableVersion: next.packageVersion, bytes: next.totalBytes,
         sourceUrl: source, manifestFingerprint: fingerprintRegionManifest(next),
+        installedGeneration: installed.generation,
       } };
     } catch (cause) {
       return unavailable(cause instanceof Error ? cause.message : 'Falha ao consultar o catálogo regional.');
@@ -308,16 +309,17 @@ export class RegionManager {
     try {
       const remote = await fetchRemoteRegionManifest(source);
       const manifest = offlineMapPackageManifestSchema.parse(remote.manifest);
-      const installed = await offlineMapStore.get(regionId);
+      const installed = await offlineMapStore.getActiveRevision(regionId);
       if (!installed || manifest.id !== regionId ||
           compareRegionVersions(manifest.packageVersion, installed.manifest.packageVersion) !== 1 ||
           (compareRegionVersions(manifest.minimumCompatibleVersion, appVersion) ?? 1) > 0 ||
-          !matchesRegionUpdatePreview(manifest, source, installed.manifest.packageVersion, expected))
+          !matchesRegionUpdatePreview(manifest, source, installed.manifest.packageVersion, expected, installed.generation))
         return { success: false, message: 'A versão, origem ou algum arquivo mudou. Consulte novamente antes de instalar.' };
       const installer = new ResumableInstaller();
       const result = await installer.startInstall({ packageId: regionId,
         manifest: { ...manifest, archivePath: 'package.pmtiles' },
-        baseUrl: remote.baseUrl, forceValidate: true });
+        baseUrl: remote.baseUrl, forceValidate: true,
+        expectedActiveGeneration: expected.installedGeneration });
       return result.success
         ? { success: true, message: `Região ${manifest.label} atualizada para ${manifest.packageVersion}.` }
         : { success: false, message: result.error.message };

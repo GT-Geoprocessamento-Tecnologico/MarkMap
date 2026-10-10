@@ -27,6 +27,9 @@ export function describeRegionInstallError(code) {
     case 'invalid-content-range':
       return { kind: 'network', title: 'Conexão interrompida',
         message: 'Verifique a conexão e tente novamente com a mesma URL. Os blocos completos podem ser reutilizados.', retryable: true };
+    case 'stale-active-generation':
+      return { kind: 'version', title: 'Mapa alterado em outra aba',
+        message: 'Outra aba alterou o mapa ativo. Consulte a nova versão antes de confirmar; o mapa atual não foi sobrescrito.', retryable: false };
     case 'outdated-checkpoint':
       return { kind: 'version', title: 'Pacote alterado na origem',
         message: 'O download salvo pertence a outra versão. Confirme a fonte antes de iniciar uma nova versão; o mapa instalado permanece preservado.', retryable: false };

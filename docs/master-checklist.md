@@ -1,6 +1,17 @@
 # MarkMap — Checklist Mestre de Execução
 
 
+## A14/A15 — geração transacional e aviso entre abas (2026-10-10)
+
+- [x] **A14 CÓDIGO:** snapshot de geração ativa com manifest; preview exige geração local; atualização reconfirma sob Web Lock e passa geração esperada para `OfflineMapStore`.
+- [x] **A14 CÓDIGO:** `stage()` + `activate()` aplicam CAS na transação IndexedDB e recusam sobrescrever novo ativo da mesma região; cleanup limitado ao staging próprio; mensagem de erro orienta consultar novamente.
+- [x] **A15 CÓDIGO:** catálogo envia sinal `BroadcastChannel` apenas após commit; Settings invalida autorização e relê IndexedDB; ausência de API não altera proteção da ativação.
+- [x] **QA LOCAL DIRECIONADO:** Node `17/17 PASS` (6 novos + 11 regressões); JS check, declarações TS isoladas, sintaxe TS/TSX e simulação do store CAS rejeitando stale sem mutation.
+- [ ] **HOMOLOGAÇÃO NÃO BLOQUEANTE PARA DESENVOLVIMENTO:** full lint/typecheck/build, navegador IndexedDB real, múltiplas abas/Capacitor, E2E, Android/iOS físico e fontes OSM licenciadas.
+- [ ] **PRÓXIMO CÓDIGO:** seleção de mapa fora de Configurações, atualização de catálogo na navegação e recuperação ao reabrir; checar HEAD/PRs antes de iniciar.
+- [ ] **RELEASE SEPARADO:** não realizar CI remoto, deploy Vercel, merge main, tag/release, banco Neon/migração ou exclusão de dados sem autorização expressa. PRD `docs/MM-MAP-A14-A15-cross-tab-consistency.md`.
+
+
 ## A12/A13 — Recuperação de instalação e confirmação segura de versão (2026-10-10)
 
 - [x] **A12 — IMPLEMENTADO EM CÓDIGO:** ao voltar para Configurações restaura URL pública de manifest na aba ou origem do mapa selecionado, sem rede automática; sessionStorage ignora tokens/credenciais/query/hash e não armazena bytes.

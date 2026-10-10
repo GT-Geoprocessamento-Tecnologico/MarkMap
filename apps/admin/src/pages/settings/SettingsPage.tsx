@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useSyncExternalStore, type InputHTMLAttributes } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type InputHTMLAttributes } from "react";
 import { useToast, Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger, Button, Checkbox } from "@geonexo/ui";
 import {
   offlineMapPackageManifestSchema,
@@ -17,6 +17,7 @@ import { ResumableInstaller, type InstallerStatus } from "../../lib/storage/resu
 import { describeRegionInstallError } from "../../lib/storage/region-install-feedback.mjs";
 import { fetchRemoteRegionManifest } from "../../lib/storage/remote-region-manifest.mjs";
 import { RegionManager, type RegionUpdatePreview } from '../../lib/storage/region-manager';
+import { subscribeRegionCatalogChanges } from '../../lib/storage/region-catalog-events.mjs';
 import { getRegionInstallDraftUrl, rememberRegionInstallDraftUrl, clearRegionInstallDraftUrl } from '../../lib/storage/region-install-draft.mjs';
 import { rememberRegionSource, forgetRegionSource, getRegionSourceUrl } from '../../lib/storage/region-source-registry';
 import { version as appVersion } from '../../../package.json';
@@ -126,7 +127,7 @@ export default function SettingsPage() {
     else next.add(category);
     setSelectedCategories(next);
   };
-  const refreshOfflinePackages = async () => {
+  const refreshOfflinePackages = useCallback(async () => {
     const installed = await offlineMapStore.list();
     const manifests = installed.map((value) => value.manifest);
     setOfflinePackages(manifests);
@@ -142,7 +143,15 @@ export default function SettingsPage() {
     const next = latest?.manifest.id ?? null;
     if (next) setSelectedOfflineMapId(next);
     setSelectedOfflineMapIdState(next);
-  };
+  }, []);
+  useEffect(() => {
+    return subscribeRegionCatalogChanges(() => {
+      setRegionUpdates({}); // Never retain approval after another tab changed the active generation.
+      void refreshOfflinePackages().catch(() => {
+        setError('Outra aba alterou um mapa, mas não foi possível atualizar a lista local.');
+      });
+    });
+  }, [refreshOfflinePackages]);
   useEffect(() => {
     let disposed = false;
     let permission: PermissionStatus | undefined;
@@ -484,8 +493,10 @@ export default function SettingsPage() {
       const info = result.updateInfo;
       const preview: RegionUpdatePreview | undefined = result.hasUpdate &&
         typeof info.sourceUrl === 'string' && typeof info.installedVersion === 'string' &&
+        typeof info.installedGeneration === 'string' && /^[a-z0-9-]{8,80}$/i.test(info.installedGeneration) &&
         typeof info.manifestFingerprint === 'string' && /^[a-f0-9]{64}$/.test(info.manifestFingerprint)
         ? { sourceUrl: info.sourceUrl, installedVersion: info.installedVersion,
+          installedGeneration: info.installedGeneration,
           manifestFingerprint: info.manifestFingerprint } : undefined;
       setRegionUpdates(previous => ({ ...previous, [regionId]: {
         available: Boolean(preview), preview,

@@ -1,6 +1,15 @@
 # MarkMap — Documento Mestre Único
 
 
+## A14/A15 — CAS de geração e estado multiabas (2026-10-10)
+
+**IMPLEMENTADO EM CÓDIGO / QA DIRECIONADA:** atualizações regionais passam a identificar o ativo por **geração IndexedDB**, além de versão/origem/fingerprint. `RegionManager` usa snapshot local consistente; `ResumableInstaller` reconfirma a geração sob Web Lock antes do download; `OfflineMapStore.stage()` e `activate()` aplicam compare-and-swap dentro das transações readwrite. Se outra aba ativar um mapa entre a consulta e o commit, a atualização antiga é rejeitada sem sobrescrever o novo ativo; staging da tentativa é descartado por geração exata em cleanup best-effort. **A15:** broadcast apenas de ID de região após commit/removal; Configurações invalida aceites anteriores e relê IndexedDB. Sem BroadcastChannel o CAS continua autoritativo. Sem alteração de schema, API, outbox ou banco.
+
+**EVIDÊNCIA LOCAL:** Node 22.16.0 **17/17 testes PASS** (6 novos A14/A15, 11 dirigidos anteriores A10–A13), `node --check` em helpers, `tsc --strict --noEmit` nas declarações, `transpileModule` sintático TS/TSX sem erros. Harness IndexedDB simulado com código `OfflineMapStore.activate()` transpilado confirmou rejeição antes de mutação quando a geração diverge. **NÃO EXECUTADO:** lint/typecheck/build completo, browser IndexedDB real, multiabas WebView, E2E, Android/iOS e testes físicos. São pendências de homologação **sem travar novas fases de código**; não há autorização de merge/release/deploy. Sem CI remoto, Vercel, main, Neon/migrações ou alterações em produção. PRD: `docs/MM-MAP-A14-A15-cross-tab-consistency.md`.
+
+---
+
+
 ## A12/A13 — Recuperação ao navegar e atualização regional fixada (2026-10-10)
 
 **IMPLEMENTADO EM CÓDIGO / QA NODE DIRECIONADA:** Configurações recupera URL pública sanitizada na mesma aba por sessionStorage, ou a URL instalada da região selecionada. Não baixa nem toca checkpoints automaticamente. URLs com credenciais/query/hash e HTTP externo nunca são gravadas. Rascunho é limpo na instalação bem-sucedida. O gerenciador de regiões entrega ao botão de atualização a identidade completa do manifest consultado (SHA-256 canônico), origem HTTPS e versão local; ao confirmar, refaz consulta e recusa se algum desses dados mudou. A UI invalida aceite antigo após erro ou mudança de lista instalada. Sem alterar mapas ativos, IndexedDB/outbox ou contrato.

@@ -1,6 +1,17 @@
 import type { OfflineMapPackageManifest } from "@geonexo/contracts";
 import { bytesOf, validateOfflinePackage, OFFLINE_PACKAGE_DB, OFFLINE_PACKAGE_VERSION, OFFLINE_PACKAGE_QUOTA, type PackageAssets, type StoredOfflinePackage } from "@geonexo/maps/offline/package";
 
+import { matchesActiveRegionGeneration } from './region-generation-guard.mjs';
+import { notifyRegionCatalogChanged } from './region-catalog-events.mjs';
+
+export class StaleRegionGenerationError extends Error {
+  readonly code = 'stale-active-generation';
+  constructor() {
+    super('A região instalada mudou em outra aba. Consulte a versão novamente antes de atualizar.');
+    this.name = 'StaleRegionGenerationError';
+  }
+}
+
 const PACKAGES = "packages";
 const ASSETS = "assets";
 type PackageRow = StoredOfflinePackage & { key: string; packageId: string; generation: string; bytes: number };
@@ -32,6 +43,14 @@ export class OfflineMapStore {
   }
   async list(): Promise<StoredOfflinePackage[]> { const db = await this.open(); const rows = await request<PackageRow[]>(db.transaction(PACKAGES, "readonly").objectStore(PACKAGES).getAll()); return rows.filter((row) => row.state === "active").map(({ key: _key, packageId: _packageId, generation: _generation, bytes: _bytes, ...row }) => row); }
   async get(packageId: string): Promise<StoredOfflinePackage | null> { const db = await this.open(); const rows = await request<PackageRow[]>(db.transaction(PACKAGES, "readonly").objectStore(PACKAGES).getAll()); const row = rows.find((candidate) => candidate.packageId === packageId && candidate.state === "active"); if (!row) return null; const { key: _key, packageId: _packageId, generation: _generation, bytes: _bytes, ...value } = row; return value; }
+  /** Read the installed manifest and its CAS generation in the SAME snapshot. */
+  async getActiveRevision(packageId: string): Promise<{generation: string; manifest: OfflineMapPackageManifest} | null> {
+    const db = await this.open();
+    const rows = await request<PackageRow[]>(db.transaction(PACKAGES, 'readonly').objectStore(PACKAGES).getAll());
+    const matching = rows.filter((row) => row.packageId === packageId && row.state === 'active');
+    if (matching.length > 1) throw new Error('Ambiguous active offline map generations');
+    return matching.length ? { generation: matching[0].generation, manifest: matching[0].manifest } : null;
+  }
   async active(): Promise<StoredOfflinePackage | null> { const values = await this.list(); return values.find((v) => v.state === "active") ?? null; }
   async asset(packageId: string, path: string): Promise<Blob | null> { const db = await this.open(); const rows = await request<PackageRow[]>(db.transaction(PACKAGES, "readonly").objectStore(PACKAGES).getAll()); const active = rows.find((row) => row.packageId === packageId && row.state === "active"); if (!active) return null; const row = await request<AssetRow | undefined>(db.transaction(ASSETS, "readonly").objectStore(ASSETS).get(`${active.generation}:${path}`)); return row?.bytes ?? null; }
 
@@ -42,7 +61,7 @@ export class OfflineMapStore {
     const usedBytes = accountedBytes(rows, packageId);
     return { usedBytes, availableBytes: Math.max(0, OFFLINE_PACKAGE_QUOTA - usedBytes), limitBytes: OFFLINE_PACKAGE_QUOTA };
   }
-  async stage(manifest: OfflineMapPackageManifest, assets: PackageAssets): Promise<string> {
+  async stage(manifest: OfflineMapPackageManifest, assets: PackageAssets, expectedActiveGeneration?: string): Promise<string> {
     const checked = await validateOfflinePackage(manifest, assets);
     if (!checked.ok) throw new Error(`${checked.code}: ${checked.detail}`);
     const packageBytes = manifest.archive.bytes + manifest.style.blob.bytes + manifest.glyphs.reduce((n, r) => n + r.blob.bytes, 0) + manifest.sprites.reduce((n, r) => n + r.blob.bytes, 0) + (manifest.searchShards ?? []).reduce((n, r) => n + r.blob.bytes, 0) +
@@ -67,6 +86,12 @@ export class OfflineMapStore {
     const tx = db.transaction([PACKAGES, ASSETS], "readwrite");
     const packages = tx.objectStore(PACKAGES); const store = tx.objectStore(ASSETS);
     const current = await request<PackageRow[]>(packages.getAll());
+    // CAS under the same readwrite transaction as staging. Without this check,
+    // stale tabs may silently overwrite the already-updated active generation.
+    if (!matchesActiveRegionGeneration(current, manifest.id, expectedActiveGeneration)) {
+      tx.abort();
+      throw new StaleRegionGenerationError();
+    }
     const used = accountedBytes(current, manifest.id);
     if (used + packageBytes > OFFLINE_PACKAGE_QUOTA) {
       tx.abort();
@@ -83,10 +108,16 @@ export class OfflineMapStore {
     await transaction(tx);
     return generation;
   }
-  async activate(packageId: string, expectedGeneration?: string): Promise<void> {
+  async activate(packageId: string, expectedGeneration?: string, expectedActiveGeneration?: string): Promise<void> {
     const db = await this.open(); const tx = db.transaction([PACKAGES, ASSETS], "readwrite");
     const store = tx.objectStore(PACKAGES); const assetStore = tx.objectStore(ASSETS);
     const all = await request<PackageRow[]>(store.getAll());
+    // Recheck CAS atomically immediately before replacing the active package.
+    // Locks may not exist in every WebView and local imports bypass HTTP locks.
+    if (!matchesActiveRegionGeneration(all, packageId, expectedActiveGeneration)) {
+      tx.abort();
+      throw new StaleRegionGenerationError();
+    }
     const staged = all.filter((p) => p.packageId === packageId && p.state === "staged");
     const next = expectedGeneration
       ? staged.find((p) => p.generation === expectedGeneration)
@@ -95,9 +126,40 @@ export class OfflineMapStore {
     for (const row of all.filter((p) => p.packageId === packageId)) { if (row.key !== next.key) { store.delete(row.key); const oldAssets = await request<AssetRow[]>(assetStore.index("package").getAll(row.generation)); for (const asset of oldAssets) assetStore.delete(asset.key); } }
     store.put({ ...next, state: "active" });
     await transaction(tx);
+    notifyRegionCatalogChanged(packageId);
   }
-  async install(manifest: OfflineMapPackageManifest, assets: PackageAssets): Promise<void> { const generation = await this.stage(manifest, assets); await this.activate(manifest.id, generation); }
-  async remove(packageId: string): Promise<void> { const db = await this.open(); const tx = db.transaction([PACKAGES, ASSETS], "readwrite"); const packages = tx.objectStore(PACKAGES); const assets = tx.objectStore(ASSETS); const rows = await request<PackageRow[]>(packages.getAll()); for (const row of rows.filter((candidate) => candidate.packageId === packageId)) { packages.delete(row.key); const owned = await request<AssetRow[]>(assets.index("package").getAll(row.generation)); for (const asset of owned) assets.delete(asset.key); } await transaction(tx); }
+  /** Roll back only the generation created by the failed installation. */
+  private async discardStaged(packageId: string, generation: string): Promise<void> {
+    const db = await this.open();
+    const tx = db.transaction([PACKAGES, ASSETS], 'readwrite');
+    const settled = transaction(tx);
+    const packages = tx.objectStore(PACKAGES);
+    const assets = tx.objectStore(ASSETS);
+    try {
+      const key = `${packageId}:${generation}`;
+      const row = await request<PackageRow | undefined>(packages.get(key));
+      if (row && row.state === 'staged' && row.generation === generation && row.packageId === packageId) {
+        packages.delete(key);
+        const owned = await request<IDBValidKey[]>(assets.index('package').getAllKeys(generation));
+        for (const assetKey of owned) assets.delete(assetKey);
+      }
+      await settled;
+    } catch (error) {
+      try { tx.abort(); } catch { /* Already finished. */ }
+      await settled.catch(() => undefined);
+      throw error;
+    }
+  }
+  async install(manifest: OfflineMapPackageManifest, assets: PackageAssets, expectedActiveGeneration?: string): Promise<void> {
+    const generation = await this.stage(manifest, assets, expectedActiveGeneration);
+    try { await this.activate(manifest.id, generation, expectedActiveGeneration); }
+    catch (error) {
+      // Never delete an active generation, including one installed by another tab.
+      await this.discardStaged(manifest.id, generation).catch(() => undefined);
+      throw error;
+    }
+  }
+  async remove(packageId: string): Promise<void> { const db = await this.open(); const tx = db.transaction([PACKAGES, ASSETS], "readwrite"); const packages = tx.objectStore(PACKAGES); const assets = tx.objectStore(ASSETS); const rows = await request<PackageRow[]>(packages.getAll()); for (const row of rows.filter((candidate) => candidate.packageId === packageId)) { packages.delete(row.key); const owned = await request<AssetRow[]>(assets.index("package").getAll(row.generation)); for (const asset of owned) assets.delete(asset.key); } await transaction(tx); notifyRegionCatalogChanged(packageId); }
 }
 
 export const offlineMapStore = new OfflineMapStore();

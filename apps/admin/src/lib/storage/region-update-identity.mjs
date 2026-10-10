@@ -25,11 +25,13 @@ export function fingerprintRegionManifest(manifest) {
  * Fail closed when the source, installed base or any manifest field changes
  * between the user's preview and the explicit Apply click.
  */
-export function matchesRegionUpdatePreview(manifest, sourceUrl, installedVersion, expected) {
+export function matchesRegionUpdatePreview(manifest, sourceUrl, installedVersion, expected, installedGeneration) {
   if (!expected || typeof expected.sourceUrl !== 'string' ||
       typeof expected.installedVersion !== 'string' ||
       typeof expected.manifestFingerprint !== 'string' ||
       !/^[a-f0-9]{64}$/.test(expected.manifestFingerprint)) return false;
+  if (installedGeneration !== undefined && (typeof expected.installedGeneration !== 'string' ||
+      expected.installedGeneration !== installedGeneration)) return false;
   return sourceUrl === expected.sourceUrl && installedVersion === expected.installedVersion &&
     fingerprintRegionManifest(manifest) === expected.manifestFingerprint;
 }

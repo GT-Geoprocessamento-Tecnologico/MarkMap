@@ -7,7 +7,7 @@ import { getDeviceStorageProfile } from './device-storage-profile';
 import { type LargeBlobStore, type StoreResult, createBlobStoreError } from './large-blob-store';
 import { offlineMapPackageManifestSchema, type OfflineMapPackageManifest } from '@geonexo/contracts';
 import { validateOfflinePackage, OFFLINE_PACKAGE_QUOTA } from '@geonexo/maps/offline/package';
-import { offlineMapStore } from './offline-map-store';
+import { offlineMapStore, StaleRegionGenerationError } from './offline-map-store';
 import { RegionDownloadCheckpoints } from './region-download-checkpoints';
 import { withRegionInstallLock } from './region-install-lock.mjs';
 import { downloadVerifiedAsset, DownloadIntegrityError } from './verified-range-download.mjs';
@@ -39,6 +39,8 @@ export interface InstallParams {
   forceValidate: boolean;
   /** Optional UI cancellation, including reads before the download begins. */
   signal?: AbortSignal;
+  /** CAS of the currently installed generation for explicit version updates. */
+  expectedActiveGeneration?: string;
 }
 export interface Checkpoint {
   id: string;
@@ -146,6 +148,17 @@ export class ResumableInstaller {
     try { base = validatedBaseUrl(params.baseUrl); }
     catch (e) { return fail('invalid-source', e instanceof Error ? e.message : 'Fonte inválida'); }
     const manifest = parsed.data;
+    // Check under the existing per-region Web Lock, before changing checkpoints
+    // or transferring bytes. Activation rechecks atomically in IndexedDB.
+    if (params.expectedActiveGeneration !== undefined) {
+      if (!/^[a-z0-9-]{8,80}$/i.test(params.expectedActiveGeneration))
+        return fail('stale-active-generation', 'A revisão local não é válida. Consulte novamente.');
+      try {
+        const revision = await offlineMapStore.getActiveRevision(params.packageId);
+        if (revision?.generation !== params.expectedActiveGeneration)
+          return fail('stale-active-generation', 'Outra aba modificou este mapa. Consulte novamente.');
+      } catch { return fail('storage-unavailable', 'Não foi possível confirmar a revisão local.'); }
+    }
     const files = [
       { path: archivePath, target: 'package.pmtiles', size: manifest.archive.bytes, sha256: manifest.archive.sha256 },
       ...[manifest.style, ...manifest.glyphs, ...manifest.sprites, ...(manifest.searchShards ?? []), ...(manifest.routingGraph ? [manifest.routingGraph] : []), ...(manifest.contourLines ? [manifest.contourLines] : []),
@@ -240,7 +253,7 @@ export class ResumableInstaller {
         message: 'Ativando mapa validado', downloadedBytes: total, totalBytes: total,
         speed: 0, eta: 0, checkpoint: total, lastCheckpoint: total,
         abort: () => undefined });
-      await offlineMapStore.install(manifest, assets);
+      await offlineMapStore.install(manifest, assets, params.expectedActiveGeneration);
       // Removing obsolete checkpoints is best-effort; installation already
       // committed and must not be reported as failed due to garbage collection.
       try {
@@ -252,6 +265,7 @@ export class ResumableInstaller {
       return { success: true, data: { installId: `${params.packageId}:${manifest.archive.sha256}`, status: 'active' } };
     } catch (e) {
       const code = signal.aborted ? 'aborted' :
+        e instanceof StaleRegionGenerationError ? e.code :
         e instanceof DownloadIntegrityError ? e.code :
         isRegionalQuotaError(e) ? 'insufficient-space' : 'install-failed';
       return fail(code, e instanceof Error ? e.message : 'Falha ao instalar região',
