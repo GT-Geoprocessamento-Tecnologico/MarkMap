@@ -1,6 +1,17 @@
 # MarkMap — Documento Mestre Único
 
 
+## A5/A6 — Integridade incremental e downloads maiores (2026-10-10)
+
+**DECISÃO VIGENTE DO RESPONSÁVEL:** testes físicos, dados regionais externos e ambientes de homologação NÃO bloqueiam a continuidade do DESENVOLVIMENTO. Registrar validações faltantes com honestidade, sem assumir que passaram. Produção, release, `main` e deploy público continuam fora do escopo sem autorização específica.
+
+**IMPLEMENTADO + QA DIRECIONADA NODE:** módulo SHA-256 incremental para blobs, sem `Blob.arrayBuffer()` integral. Validação de PMTiles usa só header de 127 bytes e hashes progressivos; JSON é materializado somente quando necessário. Downloader aceita streams HTTP 206 com limite exato e fallback HTTP 200 em chunks persistidos/validados, limpando checkpoints parciais no erro. Resumo dos checkpoints passa de `getAll` a cursor IndexedDB. Instalador remoto deixa de recusar arbitrariamente pacotes de 64 MiB e passa a observar o limite agregado já existente de **250 MiB**, respeitando espaço temporário/quota e preservando geração ativa. UI mostra o limite correto.
+
+**EVIDÊNCIA:** Node `22.16.0`, suíte dirigida (37 anteriores + 6 novos) **43/43 testes aprovados**, `node --check` e sintaxe TS dos 3 arquivos ajustados sem erro (não equivale a typecheck completo). **NÃO EXECUTADO:** instalação browser real de 250 MiB, Android/iOS físico, Playwright, lint/build/typecheck do monorepo, benchmark de RAM, garantia de quota. Continuam como pendências de homologação, **não travam novas fases de código**. Riscos: `Blob` final ainda acumula chunks na memória, SHA-256 JS necessita revisão antes de release, fonte OSM real com data/licença confirmadas pendente. Sem Neon, CI, Vercel, main, tag ou release. PRD e critérios: `docs/MM-MAP-A5-A6-offline-streaming.md`.
+
+---
+
+
 ## M10 — QA real parcial após A4 (2026-10-10)
 
 **GATE `MM-MAP-900/940` AINDA BLOQUEADO.** Recuperados pelo GitHub os módulos Node do HEAD `86180b5` em ambiente local Linux/Node `22.16.0`. A primeira suíte real teve **25/29 passando**; 4 falhas eram fixtures antigas de PMTiles de 127 bytes sem tiles MVT reais, estilo inválido e assert `totalBytes` desatualizado após busca/grafo regional. Testes/fixtures corrigidos sem enfraquecer o runtime; acrescentados cenários de publicação anterior preservada, falha tardia sem saída parcial, prebuilt PMTiles válido, raster rejeitado, limite de 250 MiB e handshake de service worker simulado. **Reexecução: 37/37 testes Node passam, 0 skipped.** `node --check` dos módulos recuperados sem erro; typecheck isolado `search/index.ts` e `regional-shards.ts` passou.

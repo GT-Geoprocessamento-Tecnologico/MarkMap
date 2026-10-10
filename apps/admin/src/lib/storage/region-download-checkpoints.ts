@@ -89,10 +89,21 @@ export class RegionDownloadCheckpoints implements ChunkStore {
   async getDownloadedBytes(hashes: string[]): Promise<number> {
     const db = await this.open();
     let bytes = 0;
-    for (const sha of hashes) {
-      const rows = await request<ChunkRow[]>(db.transaction(STORE_CHUNKS, 'readonly')
-        .objectStore(STORE_CHUNKS).index('sha').getAll(sha));
-      for (const row of rows) bytes += row.data.byteLength;
+    // Cursor: count persisted chunks without loading an entire 250 MiB
+    // checkpoint set into JS memory via index.getAll(sha).
+    for (const sha of new Set(hashes)) {
+      bytes += await new Promise<number>((resolve, reject) => {
+        const cursor = db.transaction(STORE_CHUNKS, 'readonly')
+          .objectStore(STORE_CHUNKS).index('sha').openCursor(IDBKeyRange.only(sha));
+        let partBytes = 0;
+        cursor.onsuccess = () => {
+          const row = cursor.result;
+          if (!row) { resolve(partBytes); return; }
+          partBytes += (row.value as ChunkRow).data.byteLength;
+          row.continue();
+        };
+        cursor.onerror = () => reject(cursor.error ?? new Error('IndexedDB checkpoint scan failed'));
+      });
     }
     return bytes;
   }

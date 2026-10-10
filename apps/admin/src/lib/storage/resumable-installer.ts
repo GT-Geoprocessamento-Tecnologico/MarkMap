@@ -6,7 +6,7 @@
 import { getDeviceStorageProfile } from './device-storage-profile';
 import { type LargeBlobStore, type StoreResult, createBlobStoreError } from './large-blob-store';
 import { offlineMapPackageManifestSchema, type OfflineMapPackageManifest } from '@geonexo/contracts';
-import { validateOfflinePackage } from '@geonexo/maps/offline/package';
+import { validateOfflinePackage, OFFLINE_PACKAGE_QUOTA } from '@geonexo/maps/offline/package';
 import { offlineMapStore } from './offline-map-store';
 import { RegionDownloadCheckpoints } from './region-download-checkpoints';
 import { downloadVerifiedAsset, DownloadIntegrityError } from './verified-range-download.mjs';
@@ -108,10 +108,12 @@ export class ResumableInstaller {
     if (files.some((f) => !safePath(f.path) || !safePath(f.target)))
       return fail('invalid-path', 'O manifest inclui caminho inseguro');
     const total = files.reduce((sum, f) => sum + f.size, 0);
-    // The current OfflineMapStore validation materializes every asset in RAM.
-    // Until streaming validation lands, use a smaller defensive network budget.
-    if (total > 64 * 1024 * 1024 || files.some((f) => f.size > 48 * 1024 * 1024))
-      return fail('package-too-large', 'Instalacao por URL limitada a 64 MiB nesta etapa; use importacao local para regioes maiores');
+    // Integrity is verified per chunk and via bounded Blob slices. The
+    // application-wide budget remains the canonical 250 MiB (not a promise of
+    // physical availability: preflight and IndexedDB quota can still reject).
+    if (!Number.isSafeInteger(total) || total <= 0 || total > OFFLINE_PACKAGE_QUOTA ||
+        files.some((f) => !Number.isSafeInteger(f.size) || f.size <= 0 || f.size > OFFLINE_PACKAGE_QUOTA))
+      return fail('package-too-large', 'Pacote excede o limite agregado de 250 MiB para mapas offline');
     if (total !== manifest.totalBytes) return fail('size-mismatch', 'Tamanho total difere dos artefatos declarados');
     const hashes = [...new Set(files.map((f) => f.sha256.toLowerCase()))];
     const signature = [manifest.version, manifest.packageVersion, ...files.map((f) => f.sha256)].join(':');

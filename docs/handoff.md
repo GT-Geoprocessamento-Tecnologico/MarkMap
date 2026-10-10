@@ -1,6 +1,17 @@
 # Handoff de continuidade
 
 
+## Continuidade A5/A6 — desenvolvimento sem gate físico (2026-10-10)
+
+**Decisão do responsável:** não travar próximas fases por avaliações físicas ou testes reais. Continuar implementação em `dev/markmap-pwa-v2` com checks locais quando disponíveis; resultados não executados permanecem explicitamente pendentes. Isso NÃO é aprovação de release, nem autorização para alterar `main`, Vercel, Neon ou publicar em loja.
+
+**Base auditada:** `1de7c48`; nenhum PR ou issue aberto. **A5/A6 IMPLEMENTADOS EM CÓDIGO, VALIDADO SOMENTE POR NODE:** SHA-256 incremental em slices de Blob (sem materialização de archive inteiro); header PMTiles lido parcialmente, parsing JSON seletivo, downloads HTTP 206 e fallback HTTP 200 limitados por stream, checkpoints progressivos e contagem com cursor IndexedDB, limite remoto unificado ao orçamento agregado de 250 MiB com preflight de quota. Tela de Configurações atualizada. Foram executados **43/43 testes Node (37 regressões + 6 novos), 0 falhas**, sintaxe JS e 3 arquivos TS checada. Não executados typecheck/lint/build/E2E completos, benchmark em aparelho ou distribuição real acima de 64 MiB. A integridade não é autenticação da fonte.
+
+**PENDENTE MAS NÃO BLOQUEANTE AO DESENVOLVIMENTO:** validação Android/iOS/WebView, volumes regionais reais, gestão de memória e quota, PMTiles independente e cache offline end-to-end. **PRÓXIMA PRIORIDADE FUNCIONAL:** revisão do uso de memória na criação do `Blob` final e tratamento de concorrência de download entre abas, mantendo mapa ativo e outbox; homologação/release só com evidência adequada e autorização separada. PRD `docs/MM-MAP-A5-A6-offline-streaming.md`.
+
+---
+
+
 ## Continuidade M10 — testes locais parciais e pacote OSM real (2026-10-10)
 
 **Base verificada:** `dev/markmap-pwa-v2@86180b5`, `main@156d4e8`. **NÃO APROVAR MM-MAP-940.** Execução Node `22.16.0`: inicial 25/29 (4 fixtures antigas inválidas/desatualizadas); após corrigir somente testes e incluir casos A3/A4/SW, **37/37 verdes**, sem skipped. `node --check` sem erro e TypeScript isolado da busca regional sem erros. Testado PBF real externo de ciclismo NL (SHA-256 `bad024f5f883d751365de707aafde722212daf3a275a6d78b566f11e195b8c1e`), gerou 22 artefatos, 21 hashes/bytes verificados, 7 tiles PMTiles, 128 nomes, grafo walk+bicycle. O `osmDataDate` do smoke foi placeholder NÃO verificado; pacote não é distribuível.

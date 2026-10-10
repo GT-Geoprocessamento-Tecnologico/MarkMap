@@ -1,6 +1,18 @@
 # MarkMap — Checklist Mestre de Execução
 
 
+## Continuidade após M10 — A5/A6 (2026-10-10)
+
+**REGRA NOVA:** avaliação física, dispositivo real e testes de campo **não bloqueiam desenvolvimento**. Evidências ausentes são registradas em dívida de QA/homologação; nunca recebem marcação de teste aprovado. Deploy/release/merge ainda são ações separadas, exigindo autorização explícita.
+
+- [x] **A5 código + Node:** SHA-256 incremental auditável e `sha256Blob` por slices, header PMTiles sem alocação de arquivo inteiro; 6 novos testes direcionados, digest comparado com Node em vários limites de bloco.
+- [x] **A6 código + Node:** HTTP Range limitado exatamente ao conteúdo esperado; HTTP 200 completo baixado em chunks com checksum, persistência e limpeza segura; checkpoint contagem com cursor; remoção de cap remoto arbitrário de 64 MiB em favor do orçamento existente de 250 MiB + preflight de quota.
+- [x] **QA Node direcionada:** 43/43 verdes (37 anteriores + 6 novos), `node --check` e sintaxe TS isolada.
+- [ ] **DÍVIDA DE HOMOLOGAÇÃO, SEM TRAVAR PRÓXIMAS FASES:** teste end-to-end de arquivo >64 MiB, IndexedDB/outbox no WebView e browser, benchmarks RAM/quota, lint/typecheck/build monorepo, Playwright, aparelhos físicos, dados reais licenciados.
+- [ ] **PRÓXIMO DESENVOLVIMENTO:** concorrência entre abas e redução de pico de RAM na montagem de arquivos; preservar integração existente e registrar evidências locais.
+- [ ] **RELEASE/PUBLICAÇÃO:** não foi solicitado deploy, merge main, tag ou loja; não executar sem autorização explícita. Relatório `docs/MM-MAP-A5-A6-offline-streaming.md`.
+
+
 ## M10 — MM-MAP-900/940, execução local parcial (2026-10-10)
 
 - [x] **QA REAL / Node:** `node --check` do recorte de módulos `.mjs`; suíte começou 25/29 e depois de consertar fixtures PMTiles/contagem e adicionar regressões passou **37/37**, 0 falhas/0 skipped.

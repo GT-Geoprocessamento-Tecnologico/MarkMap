@@ -3,6 +3,7 @@ import { MAX_GRAPH_BYTES, validateRegionalGraph } from '../routing/graph-format.
 import { MAX_CONTOUR_BYTES, validateRegionalContours } from '../elevation/contour-package.mjs';
 import { MAX_REGIONAL_DEM_BYTES, validateRegionalDem } from '../elevation/regional-dem.mjs';
 import { MAX_REGIONAL_SEARCH_BYTES, MAX_REGIONAL_SHARD_BYTES, MAX_REGIONAL_SEARCH_RECORDS, parseRegionalShard } from "../search/regional-shards.js";
+import { IncrementalSha256, sha256Blob } from "./incremental-sha256.mjs";
 // @ts-expect-error contracts emits runtime JS without declarations in this workspace
 import { offlineMapPackageManifestSchema, type OfflineMapPackageManifest } from "../../../contracts/dist/src/offline-map.js";
 
@@ -30,9 +31,10 @@ export async function bytesOf(value: PackageAsset): Promise<Uint8Array> {
 }
 
 export async function sha256(value: PackageAsset): Promise<string> {
-  const bytes = await bytesOf(value);
-  const digest = await crypto.subtle.digest("SHA-256", bytes as Uint8Array<ArrayBuffer>);
-  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+  // Blob-backed archives are hashed in bounded slices. Never materialize a
+  // second 250 MiB ArrayBuffer just to verify a map in the browser.
+  if (value instanceof Blob) return sha256Blob(value);
+  return new IncrementalSha256().update(await bytesOf(value)).digestHex();
 }
 
 function localRef(value: unknown, pmtiles = false): boolean {
@@ -56,24 +58,34 @@ export async function validateOfflinePackage(manifestInput: unknown, assets: Pac
     return { ok: false, code: "unsafe-path", detail: "asset paths must be unique and safe" };
   const total = manifest.archive.bytes + refs.reduce((n, r) => n + r.blob.bytes, 0);
   if (total > OFFLINE_PACKAGE_QUOTA) return { ok: false, code: "budget-exceeded", detail: "package exceeds the activation budget" };
-  const archive = await bytesOf(assets.get("package.pmtiles") ?? new Uint8Array());
-  if (archive.byteLength !== manifest.archive.bytes) return { ok: false, code: "size-mismatch", detail: "archive byte length does not match manifest" };
+  const archive = assets.get("package.pmtiles") ?? new Uint8Array();
+  const archiveSize = archive instanceof Blob ? archive.size : archive.byteLength;
+  if (archiveSize !== manifest.archive.bytes) return { ok: false, code: "size-mismatch", detail: "archive byte length does not match manifest" };
   if ((await sha256(archive)).toLowerCase() !== manifest.archive.sha256.toLowerCase()) return { ok: false, code: "checksum-mismatch", detail: "archive checksum does not match manifest" };
-  if (archive.byteLength < 127 || new TextDecoder().decode(archive.subarray(0, 7)) !== "PMTiles" || archive[7] !== 3)
+  const header = archive instanceof Blob
+    ? new Uint8Array(await archive.slice(0, 127).arrayBuffer())
+    : (await bytesOf(archive)).subarray(0, 127);
+  if (header.byteLength < 127 || new TextDecoder().decode(header.subarray(0, 7)) !== "PMTiles" || header[7] !== 3)
     return { ok: false, code: "invalid-pmtiles-header", detail: "only PMTiles v3 archives are supported" };
-  const view = new DataView(archive.buffer, archive.byteOffset, archive.byteLength);
+  const view = new DataView(header.buffer, header.byteOffset, header.byteLength);
   for (let offset = 8; offset < 72; offset += 16) {
     const start = Number(view.getBigUint64(offset, true));
     const length = Number(view.getBigUint64(offset + 8, true));
-    if (!Number.isSafeInteger(start) || !Number.isSafeInteger(length) || start < 127 || start + length > archive.byteLength)
+    if (!Number.isSafeInteger(start) || !Number.isSafeInteger(length) || start < 127 || start + length > archiveSize)
       return { ok: false, code: "pmtiles-length-mismatch", detail: "PMTiles section exceeds archive bytes" };
   }
   for (const ref of refs) {
     const value = assets.get(ref.path);
     if (!value) return { ok: false, code: "missing-asset", detail: `missing asset: ${ref.path}` };
-    const bytes = await bytesOf(value);
-    if (bytes.byteLength !== ref.blob.bytes) return { ok: false, code: "size-mismatch", detail: `asset size mismatch: ${ref.path}` };
-    if ((await sha256(bytes)).toLowerCase() !== ref.blob.sha256.toLowerCase()) return { ok: false, code: "checksum-mismatch", detail: `asset checksum mismatch: ${ref.path}` };
+    const assetSize = value instanceof Blob ? value.size : value.byteLength;
+    if (assetSize !== ref.blob.bytes) return { ok: false, code: "size-mismatch", detail: `asset size mismatch: ${ref.path}` };
+    if ((await sha256(value)).toLowerCase() !== ref.blob.sha256.toLowerCase()) return { ok: false, code: "checksum-mismatch", detail: `asset checksum mismatch: ${ref.path}` };
+    // Parse only bounded JSON assets. Binary PMTiles/glyphs/sprites stay as Blobs.
+    const needsJson = ref.path === manifest.style.path || ref.path === 'routing/graph.json' ||
+      ref.path === 'elevation/contours.json' || ref.path === 'elevation/dem.json' ||
+      ref.path.startsWith('search/') || ref.path === 'content/wikipedia.json' ||
+      ref.path === 'content/transit.json';
+    const bytes = needsJson ? await bytesOf(value) : new Uint8Array(0);
     if (ref.path === 'routing/graph.json') {
       if (bytes.byteLength > MAX_GRAPH_BYTES) return { ok: false, code: 'graph-too-large', detail: 'routing graph exceeds local budget' };
       try {
