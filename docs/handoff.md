@@ -1,6 +1,15 @@
 # Handoff de continuidade
 
 
+## Continuidade A20/A21 — retry controlado e fundo simples offline (2026-10-10)
+
+**HEAD auditado antes de executar:** `dev/markmap-pwa-v2@55bd506`, `main@156d4e8` preservada. PRs/issues abertos 0. **A20 CÓDIGO:** tratamento de erro cartográfico mostra botão para reinicializar MapLibre sem remover pacote ou dados. Foreground tenta automaticamente só uma vez por contexto local com erro; sem polling/timer; usuário pode repetir manualmente. Erros de tile em rajada são coalescidos; eventos após cleanup não contaminam a nova tela. **A21 CÓDIGO:** modo fundo simples já disponível na biblioteca passa a ser opção para pacote regional com erro, usando estilo em data URI sem rede; dados de projeto e outbox não são alterados, a seleção original é mantida e pode ser reativada. GeoPDF preserva precedência. Quando a região muda, modo neutro anterior não é transferido para outra região.
+
+**TESTES REAIS LOCAIS:** `node --test scripts/*.test.mjs` em workspace de regressão A10–A21 **42/42 verdes** (6 novos + 36 anteriores). `node --check` helper e TS tipo isolado `tsc --noEmit --strict` verdes. **NÃO EXECUTADOS:** typecheck/lint/build completo, React/MapLibre E2E, WebGL/context-loss, IndexedDB browser e dispositivos físicos; nenhuma homologação alegada. Testes físicos não bloqueiam próxima fase de desenvolvimento. PRD `docs/MM-MAP-A20-A21-map-recovery.md`. Próximo foco: observar erros de protocolo e comportamento de UI após retry em browser quando ambiente permitir, sem impedir funcionalidades. `main`, Vercel, Neon e produção intactos; sem CI remoto ou release.
+
+---
+
+
 ## Continuidade A18/A19 — reconciliação foreground e assets por geração (2026-10-10)
 
 **HEAD-base auditado:** `dev/markmap-pwa-v2@8a986d3`, `main@156d4e8`; PRs/issues abertos: 0 antes da intervenção. **A18 IMPLEMENTADO:** janela e documento revalidam seleção e geração apenas quando retornam visíveis (focus/pageshow/visibilitychange), sem polling/rede. Mudança de geração aciona reinit MapLibre já existente; atualização nula de IndexedDB não é interpretada como exclusão. `SettingsPage` relê catálogo local ao despertar; seleção persistida recupera evento `storage` perdido. **A19 IMPLEMENTADO:** ativo + Blob agora são lidos em uma transação IndexedDB readonly com geração explícita. PMTiles/estilo/contornos/recursos MapLibre não misturam gerações após troca concorrente. GeoPDF continua dominante; projetos, desenhos e outbox não são removidos.

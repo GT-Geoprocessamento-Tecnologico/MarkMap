@@ -1,6 +1,17 @@
 # MarkMap — Checklist Mestre de Execução
 
 
+## A20/A21 — recuperação de falhas do mapa e alternativa offline (2026-10-10)
+
+- [x] **A20 IMPLEMENTADO EM CÓDIGO:** mapa com erro mostra `Tentar novamente`, que dispara remount controlado de MapLibre/protocolos sem tocar na seleção, mapas ativos ou outbox.
+- [x] **A20 IMPLEMENTADO EM CÓDIGO:** uma tentativa automática por contexto local com erro ao retornar à tela/aba visível; sem timer/poll; evitar loops em falha permanente, erros em rajada e eventos tardios do mapa desmontado.
+- [x] **A21 IMPLEMENTADO EM CÓDIGO:** modo `Fundo simples offline` usa fallback local sem fontes remotas, preserva dados de campo e origem selecionada, permite voltar ao mapa regional; GeoPDF e mudança de região/revisão têm prioridade.
+- [x] **QA NODE DIRECIONADA:** 42/42 PASS (36 regressões A10–A19, 6 novos A20/A21); `node --check` e declaração auxiliar TypeScript `tsc --strict --noEmit` PASS.
+- [ ] **HOMOLOGAÇÃO NÃO BLOQUEANTE PARA DESENVOLVER:** lint/typecheck/build/Playwright monorepo, MapLibre e IndexedDB reais, WebGL context-loss, Android/iOS físicos e desempenho.
+- [ ] **PRÓXIMA FASE:** diagnosticar erros residuais de protocolo/recuperação visual e UX de armazenamento sem criar novo estado global; iniciar sobre HEAD real.
+- [ ] **PUBLICAÇÃO NÃO AUTORIZADA:** sem merge `main`, Vercel deploy, GitHub CI remoto, Neon/migration, lojas, tags/releases ou exclusão/force-push. PRD `docs/MM-MAP-A20-A21-map-recovery.md`.
+
+
 ## A18/A19 — reconciliação ao retomar e assets da geração correta (2026-10-10)
 
 - [x] **A18 CÓDIGO:** seleção do localStorage reavaliada ao retornar do background mesmo se `storage` foi perdido; verificação do ID+geração ativo IndexedDB em focus/pageshow/visibilitychange visível, sem rede, timers nem polling.

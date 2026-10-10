@@ -39,6 +39,7 @@ import { offlineMapStore } from "../../lib/storage/offline-map-store";
 import { getSelectedOfflineMapId, setSelectedOfflineMapId, subscribeSelectedOfflineMapId } from "../../lib/storage/offline-map-selection";
 import { subscribeRegionCatalogChanges } from "../../lib/storage/region-catalog-events.mjs";
 import { createRegionRevisionReconciler, subscribeRegionForeground } from "../../lib/storage/region-foreground-reconcile.mjs";
+import { createOfflineMapRecovery, resolveOfflineBasemap } from "../../lib/map/offline-map-recovery.mjs";
 import { ensureLocationPermission } from "../../lib/device-location-permission";
 import {
   createOfflineAssetProtocol,
@@ -129,6 +130,21 @@ export default function CommandCenterPage() {
   // GeoPDF has precedence and should not be replaced by region changes.
   const activeRegionPackageId = search.pdfId ? null : selectedOfflineMapId;
   const regionalRenderRevision = search.pdfId ? 0 : catalogRevision;
+  // When a new region generation is committed during neutral mode, offer the
+  // latest package again instead of indefinitely retaining an old fallback.
+  const neutralRegionId = activeRegionPackageId;
+  // The neutral basemap is a temporary view choice, never an installed-package mutation.
+  const [neutralFor, setNeutralFor] = useState<string | null>(null);
+  const mapSource = resolveOfflineBasemap({
+    regionId: activeRegionPackageId, revision: regionalRenderRevision,
+    neutralFor, geoPdfId: search.pdfId,
+  });
+  useEffect(() => {
+    if (!mapSource.neutralActive || !neutralRegionId) return;
+    return subscribeRegionCatalogChanges((regionId) => {
+      if (regionId === neutralRegionId) setCatalogRevision((value) => value + 1);
+    });
+  }, [mapSource.neutralActive, neutralRegionId]);
   const createLayerMutation = useCreateLayer(params.projectId ?? "");
   const layersQuery = useProjectLayers(params.projectId ?? "", { limit: 100 });
   const projectLayers = useMemo(
@@ -156,8 +172,33 @@ export default function CommandCenterPage() {
   );
   const [localReadError, setLocalReadError] = useState<string | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
-  const [mapEpoch, setMapEpoch] = useState(0);
   const [mapReady, setMapReady] = useState(false);
+  const mapErrorRef = useRef<string | null>(null);
+  mapErrorRef.current = mapError;
+  const [mapRetryRevision, setMapRetryRevision] = useState(0);
+  const retryMap = useCallback(() => {
+    mapErrorRef.current = null;
+    setMapError(null);
+    setMapReady(false);
+    setMapRetryRevision((value) => value + 1);
+  }, []);
+  const mapRecoveryRef = useRef<ReturnType<typeof createOfflineMapRecovery> | null>(null);
+  useEffect(() => {
+    const policy = createOfflineMapRecovery(retryMap);
+    mapRecoveryRef.current = policy;
+    const stop = subscribeRegionForeground(() => {
+      policy.onForeground({
+        hasError: Boolean(mapErrorRef.current),
+        hasLocalContext: Boolean((activeRegionPackageId && !mapSource.neutralActive) || search.pdfId),
+      });
+    });
+    return () => {
+      stop();
+      policy.dispose();
+      if (mapRecoveryRef.current === policy) mapRecoveryRef.current = null;
+    };
+  }, [retryMap, activeRegionPackageId, regionalRenderRevision, mapSource.neutralActive, search.pdfId]);
+  const [mapEpoch, setMapEpoch] = useState(0);
   const [routingPickMode, setRoutingPickMode] = useState<RoutePointSelection['kind'] | null>(null);
   const routingPickRef = useRef<RoutePointSelection['kind'] | null>(null);
   routingPickRef.current = routingPickMode;
@@ -551,7 +592,15 @@ export default function CommandCenterPage() {
       let offlinePackageSelected = false;
       let displayedGeneration: string | null = null;
       let basemap = getDefaultBasemaps()[0];
-      const selectedPackageId = activeRegionPackageId;
+      const selectedPackageId = mapSource.regionId;
+      if (mapSource.neutralActive) {
+        // Keep project GeoJSON and drawings accessible without tiles or network.
+        fallbackActive = true;
+        basemap = {
+          ...basemap,
+          styleUrl: `data:application/json,${encodeURIComponent(JSON.stringify(createFallbackStyle()))}`,
+        };
+      }
 
       if (search.pdfId) {
         fallbackActive = true;
@@ -707,8 +756,14 @@ export default function CommandCenterPage() {
       mapRef.current = map;
       regionReconcilerRef.current?.noteRendered(selectedPackageId, displayedGeneration);
       map.on("error", (event) => {
-        if (offlinePackageSelected) {
-          setMapError(event.error?.message ?? "Não foi possível carregar um recurso do pacote offline.");
+        if (cancelled) return;
+        if (offlinePackageSelected || mapSource.neutralActive || Boolean(search.pdfId)) {
+          // Tile/glyph errors can arrive in bursts; show one actionable error.
+          if (!mapErrorRef.current) {
+            const message = event.error?.message ?? "Não foi possível carregar um recurso cartográfico local.";
+            mapErrorRef.current = message;
+            setMapError(message);
+          }
           return;
         }
         if (!fallbackActive && shouldFallbackOnError(event)) {
@@ -937,7 +992,9 @@ export default function CommandCenterPage() {
       if (cancelled) return;
       regionReconcilerRef.current?.resetPending();
       releaseProtocols();
-      setMapError(cause instanceof Error ? cause.message : "Não foi possível iniciar o mapa neste dispositivo.");
+      const message = cause instanceof Error ? cause.message : "Não foi possível iniciar o mapa neste dispositivo.";
+      mapErrorRef.current = message;
+      setMapError(message);
         toast({
           title: "Mapa indisponível",
           description:
@@ -960,7 +1017,8 @@ export default function CommandCenterPage() {
       geoPdfOverlay?.release();
       releaseProtocols();
     };
-  }, [toast, updateTelemetry, fitSelection, search.pdfId, activeRegionPackageId, regionalRenderRevision]);
+  }, [toast, updateTelemetry, fitSelection, search.pdfId, activeRegionPackageId, regionalRenderRevision,
+    mapSource.neutralActive, mapRetryRevision]);
 
   useEffect(() => {
     if (!mapContainer.current) return;
@@ -1065,16 +1123,49 @@ export default function CommandCenterPage() {
         </p>
       )}
       {(localReadError || mapError || projectFeatureError) && (
-        <p
+        <div
           role="alert"
-          className="absolute left-4 right-4 top-4 z-30 rounded-lg border border-red-400/40 bg-surface-container p-3 text-sm text-on-surface"
+          className="absolute left-4 right-4 top-4 z-30 rounded-lg border border-red-400/40 bg-surface-container p-3 text-sm text-on-surface shadow-lg"
         >
-          {localReadError ??
-            mapError ??
-            (projectFeatureError instanceof Error
-              ? projectFeatureError.message
-              : "Não foi possível carregar as camadas/feições do projeto.")}
-        </p>
+          <p>
+            {mapError ??
+              localReadError ??
+              (projectFeatureError instanceof Error
+                ? projectFeatureError.message
+                : "Não foi possível carregar as camadas/feições do projeto.")}
+          </p>
+          {mapError && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button type="button" onClick={() => {
+                if (!mapRecoveryRef.current?.retryManually()) retryMap();
+              }} className="min-h-[44px] rounded-lg border border-outline-variant px-3 py-2 text-sm font-semibold">
+                Tentar novamente
+              </button>
+              {activeRegionPackageId && !mapSource.neutralActive && !search.pdfId && (
+                <button type="button" onClick={() => {
+                  setNeutralFor(`${activeRegionPackageId}:${regionalRenderRevision}`);
+                  mapErrorRef.current = null;
+                  setMapError(null);
+                }} className="min-h-[44px] rounded-lg border border-outline-variant px-3 py-2 text-sm font-semibold">
+                  Usar fundo simples offline
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+      {mapSource.neutralActive && !mapError && !localReadError && !projectFeatureError && !search.pdfId && (
+        <div role="status"
+          className="absolute left-4 right-4 top-4 z-30 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-outline-variant bg-surface-container/95 p-3 text-sm text-on-surface shadow-lg">
+          <p>Fundo simples offline em uso. O mapa regional e os dados de campo foram preservados.</p>
+          <button type="button" onClick={() => {
+            setNeutralFor(null);
+            mapErrorRef.current = null;
+            setMapError(null);
+          }} className="min-h-[44px] rounded-lg border border-outline-variant px-3 py-2 text-sm font-semibold">
+            Voltar ao mapa regional
+          </button>
+        </div>
       )}
       {projectFeatureTruncated && (
         <p

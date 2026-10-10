@@ -1,6 +1,15 @@
 # MarkMap — Documento Mestre Único
 
 
+## A20/A21 — recuperação visual do mapa regional (2026-10-10)
+
+**IMPLEMENTADO EM CÓDIGO / QA DIRECIONADA:** `CommandCenterPage` agora oferece `Tentar novamente` em erros cartográficos locais, remontando MapLibre e protocolos a partir dos mesmos dados offline. Um controlador sem timers permite **no máximo uma recuperação automática por contexto** ao voltar do background enquanto houver falha, evitando loops de carregamento. Eventos de mapas cancelados são ignorados e erros em rajada não geram sucessivas mensagens. **A21:** botão `Usar fundo simples offline` apresenta o estilo neutro `createFallbackStyle` local sem tiles remotos, preservando escolha de região no localStorage, arquivos IndexedDB, GeoPDF, feições de projeto, desenhos e outbox. Há indicação de fundo simples e `Voltar ao mapa regional`; troca de região/revisão invalida a alternativa da geração anterior.
+
+**EVIDÊNCIA:** Node 22.16.0 no recorte A10–A21 **42/42 testes PASS** (36 anteriores + 6 novos), `node --check` no helper e `tsc --strict --noEmit` isolado da declaração auxiliar: PASS. Conferências estáticas do componente React concluídas. **NÃO EXECUTADO:** build/lint/typecheck monorepo, MapLibre/React/IndexedDB E2E, WebGL/context-loss/Capacitor/Android/iOS físicos; isso NÃO bloqueia desenvolvimento, mas não equivale à homologação. Limitação: fundo simples ainda depende de WebGL funcionando. Nenhum deploy Vercel, GitHub CI, merge main, Neon/migration, tag/release, exclusão ou mudança de stack. PRD: `docs/MM-MAP-A20-A21-map-recovery.md`.
+
+---
+
+
 ## A18/A19 — reconciliação após suspensão + leitura de assets por geração (2026-10-10)
 
 **IMPLEMENTADO EM CÓDIGO / QA DIRECIONADA:** mapa passa a verificar a geração ativa no IndexedDB ao receber `focus`, `pageshow`, `visibilitychange` visível ou aviso A15 da região selecionada. `createRegionRevisionReconciler` evita rebuild quando a geração não mudou, colapsa despertares concorrentes e ignora resultados obsoletos; `selected-offline-map.mjs` recupera `storage` perdido no retorno do WebView. Configurações atualiza catálogo local no foreground, sem fetch, polling nem perda de checkpoints. **A19:** `OfflineMapStore.assetAtRevision` lê marcador ativo e Blob na mesma transação readonly. `CommandCenterPage` fixa a geração ao carregar PMTiles, estilo, contornos e protocolos de recursos, recusando misturas após atualização concorrente. GeoPDF, desenhos, projetos e outbox preservados.
