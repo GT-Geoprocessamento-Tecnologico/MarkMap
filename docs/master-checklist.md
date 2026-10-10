@@ -1,6 +1,17 @@
 # MarkMap — Checklist Mestre de Execução
 
 
+## A28/A29 — estilo MapLibre e camadas locais recuperáveis (2026-10-10)
+
+- [x] **A28 EM CÓDIGO:** eventos `style.load`/`sourcedata`/`render` coordenados por geração; um callback de paint por estilo, descarta renders atrasados após style swap, cancelamento e perda WebGL; não marca mapa antigo como pronto.
+- [x] **A28 EM CÓDIGO:** mantém readiness para GeoJSON local carregado sincronamente; erro de hidratação não vira falso sucesso; após repetida restauração WebGL sem orçamento de remount, reidrata estilo vigente quando possível.
+- [x] **A29 EM CÓDIGO:** reparar individualmente overlays dataset/GeoPDF/desenho/contornos/trânsito/rota sem duplicar fontes ou excluir dados de campo/IndexedDB/outbox.
+- [x] **QA LOCAL REAL:** 93/93 testes Node versionados PASS (76 anteriores + 17 novos); 101/101 PASS incluindo harness legado local A22 com stub não versionado. `node --check`, `tsc --noEmit --strict` isolado de helper/declarations e parsing TSX PASS.
+- [ ] **HOMOLOGAÇÃO NÃO BLOQUEANTE PARA CODAR:** lint/typecheck/build completo, Vitest/MapLibre/PMTiles/IndexedDB reais, Playwright, GPU/WebGL context-loss real, Android/iOS e medições.
+- [ ] **PRÓXIMO CÓDIGO:** auditar estabilidade do worker/protocolo e gatilhos de `mapReady` em MapLibre real; corrigir somente lacunas comprovadas no HEAD.
+- [ ] **SEM PUBLICAÇÃO/PRODUÇÃO:** nenhum CI remoto, deploy Vercel, merge main, Neon/migration, release/tag, exclusão ou force-push. PRD `docs/MM-MAP-A28-A29-style-hydration.md`.
+
+
 ## A26/A27 — cancelar I/O da view antiga e recuperar WebGL sem loops (2026-10-10)
 
 - [x] **A26 EM CÓDIGO:** cada lease MapLibre rastreia seus requests e AbortControllers; release aborta leituras pendentes (PMTiles e assets), remove listeners e não afeta outros mapas. Requests atrasados continuam bloqueados; APIs existentes mantidas.

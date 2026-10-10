@@ -1,6 +1,17 @@
 # Handoff de continuidade
 
 
+## Continuidade A28/A29 — estilos e overlays após restauração WebGL (2026-10-10)
+
+**HEAD-base auditado:** `dev/markmap-pwa-v2@f93d9bb`; `main@156d4e8`; zero PRs/issues abertos na auditoria inicial. **A28 IMPLEMENTADO:** `createOfflineStyleLifecycle` controla eventos `style.load`, `sourcedata` e `render` por geração; impede callbacks atrasados, duplicação de readiness, perda de evento síncrono e operações em mapa removido/sem contexto WebGL. Integrado à `CommandCenterPage`, com reporte de falha seguro A23 e preservação do orçamento de recuperação A27. **A29 IMPLEMENTADO:** `ensureOfflineSourceLayers` repara camadas ausentes mesmo se a fonte existe; integrado a dataset, preview de desenho, GeoPDF, contornos, trânsito e rota sem substituir dados de campo. Modo neutro, GeoPDF e offline-first preservados.
+
+**TESTES REALMENTE EXECUTADOS:** Node v22.16.0 **93/93 PASS** em arquivos Node versionados A10–A29; **101/101 PASS** incluindo harness A22 local não versionado; 17 novos testes (11 A28, 6 A29). JS `node --check`, `tsc --strict --noEmit` isolado de declarations e typing smoke, parsing TSX: PASS. **NÃO EXECUTADO:** monorepo full build/lint/typecheck, Vitest, MapLibre real/WebGL, IndexedDB/WebView, Playwright e Android/iOS físico; homologação pendente, desenvolvimento não bloqueado. PRD: `docs/MM-MAP-A28-A29-style-hydration.md`. **Próximo desenvolvimento:** reauditar HEAD para fluxos reais de renderização/recuperação de worker ou transições de estilos que ainda apresentem lacunas comprovadas, sem duplicar funcionalidades existentes.
+
+**SEGURANÇA/GIT:** commit `[skip ci]` somente em dev, sem mudar schemas, Hono, Neon, outbox, Vercel, `main` ou produção. Sem CI remoto, tag/release, deploy, publicação ou operações destrutivas.
+
+---
+
+
 ## Continuidade A26/A27 — requests abortados e restauração do WebGL (2026-10-10)
 
 **HEAD-base auditado:** `dev/markmap-pwa-v2@f042a88`; `main@156d4e8` intocada. Sem PRs/issues abertos na auditoria. **A26 IMPLEMENTADO:** dispatch de protocolo liga cada request a AbortController da sua instância; release do lease cancela requests pendentes, remove listeners e não aborta dados de outra view. Cancelamento propaga prontamente até o chamador mesmo quando I/O de baixo nível não coopera. **A27 IMPLEMENTADO:** eventos MapLibre de perda/restauração WebGL marcam indisponibilidade e tentam reconstrução só uma vez por região/revisão (orçamento permanece entre remounts). Foreground é suspenso enquanto contexto perdido; erros de `map.remove` não impedem descarte do lease e restauração de outra view. GeoPDF, campo, projetos e IndexedDB/outbox preservados.

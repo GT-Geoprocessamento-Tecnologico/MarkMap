@@ -1,6 +1,15 @@
 # MarkMap — Documento Mestre Único
 
 
+## A28/A29 — readiness de estilo MapLibre e reparo de overlays offline (2026-10-10)
+
+**IMPLEMENTADO EM CÓDIGO (QA DIRECIONADA):** a visualização controla uma geração de `style.load` e associa o status `mapReady` ao `sourcedata`/próximo `render` daquela geração. Eventos repetidos não criam callbacks duplicados; render pendente de estilo anterior é removido em nova `style.load`, perda WebGL ou unmount. Fontes GeoJSON que concluem sincronamente durante a hidratação também são consideradas. Em restaurações WebGL consecutivas, esgotado o orçamento automático da A27, tenta reparar o estilo já carregado **sem remount infinito**. **A29:** overlays `local-dataset`, `geopdf-overlay`, `draw-preview`, contornos, trânsito e rota passam a reparar **camadas individualmente**, mesmo se a fonte persistiu; não substituem geometrias, projetos, dados de campo, IndexedDB/outbox ou seleção.
+
+**EVIDÊNCIA LOCAL:** Node v22.16.0, recorte A10–A29 **93/93 testes Node versionados PASS** (76 anteriores + 17 novos A28/A29); **101/101 PASS** se incluído harness legado local A22 PMTiles transpilado com stubs (**não versionado**). `node --check`, `tsc --strict --noEmit` isolado em declarações e smoke das assinaturas, e `typescript.transpileModule` da tela TSX sem diagnósticos: PASS. **NÃO EXECUTADO:** lint/typecheck/build integral do monorepo, Vitest/Playwright e MapLibre/WebGL/IndexedDB/Capacitor reais. Não há homologação de release; essa dívida não bloqueia novas fases de desenvolvimento. Sem CI remoto, merge `main`, Vercel, Neon/migração, release/tag ou exclusão. PRD: `docs/MM-MAP-A28-A29-style-hydration.md`.
+
+---
+
+
 ## A26/A27 — cancelamento por lease e recuperação WebGL controlada (2026-10-10)
 
 **IMPLEMENTADO EM CÓDIGO, NÃO HOMOLOGADO EM BROWSER:** cada view MapLibre agora vincula os requests PMTiles e `geonexo-package` ao AbortController próprio do lease e ao controller externo do MapLibre. `release()` aborta imediatamente as leituras pendentes de sua view, sem cancelar outros mapas; listener externo é removido em sucesso/erro/abort. O resultado tardio não pode ser aplicado. **A27:** mapa observa `webglcontextlost`/`webglcontextrestored`, apresenta erro local e agenda no máximo uma reconstrução automática por seleção/revisão/GeoPDF, mesmo através de remounts. Foreground não força retry enquanto WebGL está perdido; cleanup tolera exceções de teardown sem prender protocolos. Seleção, pacotes IndexedDB, projetos, desenhos, GeoPDF e outbox preservados; sem rede automática.

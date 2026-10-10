@@ -42,6 +42,8 @@ import { subscribeRegionCatalogChanges } from "../../lib/storage/region-catalog-
 import { createRegionRevisionReconciler, subscribeRegionForeground } from "../../lib/storage/region-foreground-reconcile.mjs";
 import { createOfflineMapRecovery, resolveOfflineBasemap } from "../../lib/map/offline-map-recovery.mjs";
 import { createWebglContextRecovery } from "../../lib/map/webgl-context-recovery.mjs";
+import { createOfflineStyleLifecycle } from "../../lib/map/offline-style-lifecycle.mjs";
+import { ensureOfflineSourceLayers } from "../../lib/map/offline-style-layers.mjs";
 import { describeOfflineMapFailure } from "../../lib/map/offline-map-diagnostics.mjs";
 import { ensureLocationPermission } from "../../lib/device-location-permission";
 import {
@@ -608,6 +610,7 @@ export default function CommandCenterPage() {
     });
     let fallbackActive = !navigator.onLine;
     let releaseProtocolLease: (() => void) | null = null;
+    let styleLifecycle: ReturnType<typeof createOfflineStyleLifecycle> | null = null;
     let geoPdfOverlay: GeoPdfOverlay | null = null;
     let regionalContours: GeoJSON.FeatureCollection | null = null;
     const releaseProtocols = () => {
@@ -796,15 +799,21 @@ export default function CommandCenterPage() {
       regionReconcilerRef.current?.noteRendered(selectedPackageId, displayedGeneration);
       // MapLibre emits these typed events from the underlying WebGL canvas.
       map.on("webglcontextlost", (event) => {
-        if (!cancelled) glRecovery.lost(event);
+        if (cancelled) return;
+        styleLifecycle?.contextLost();
+        glRecovery.lost(event);
       });
       map.on("webglcontextrestored", () => {
         if (cancelled) return;
         webglLostRef.current = false;
-        glRecovery.restored();
+        styleLifecycle?.contextRestored();
+        // After the one automatic remount budget is spent, repair the current
+        // style in place. Never keep a lost-context view marked ready.
+        const remounting = glRecovery.restored();
+        if (!remounting && map.isStyleLoaded()) styleLifecycle?.styleLoad();
       });
       map.on("error", (event) => {
-        if (cancelled) return;
+        if (cancelled || webglLostRef.current) return;
         if (offlinePackageSelected || mapSource.neutralActive || Boolean(search.pdfId)) {
           // Selection changes abort outstanding tiles: cancellation is not corruption.
           const issue = describeOfflineMapFailure(event);
@@ -829,134 +838,101 @@ export default function CommandCenterPage() {
         map.on("rotate", onMove);
 
         const ensureSource = () => {
-          if (cancelled) return;
-          if (!map.getSource("local-dataset")) {
-            map.addSource("local-dataset", {
-              type: "geojson",
-              data: activeGeoJsonRef.current as unknown as GeoJSON.FeatureCollection,
-            });
-            map.addLayer({
-              id: "local-dataset-fill",
-              type: "fill",
-              source: "local-dataset",
-              paint: { "fill-color": "#0ea5e9", "fill-opacity": 0.4 },
-            });
-            map.addLayer({
-              id: "local-dataset-outline",
-              type: "line",
-              source: "local-dataset",
-              paint: { "line-color": "#0284c7", "line-width": 2 },
-            });
-            map.addLayer({
-              id: "local-dataset-points",
-              type: "circle",
-              source: "local-dataset",
-              paint: {
-                "circle-color": "#0284c7",
-                "circle-radius": 5,
-                "circle-stroke-color": "#fff",
-                "circle-stroke-width": 1,
-              },
-            });
-          }
-          if (geoPdfOverlay && !map.getSource("geopdf-overlay")) {
-            map.addSource("geopdf-overlay", {
-              type: "image",
-              url: geoPdfOverlay.url,
+          if (cancelled || webglLostRef.current || mapRef.current !== map) return;
+          // Recover individual missing layers even when a previous partial
+          // style.load already created their shared source.
+          ensureOfflineSourceLayers(map, "local-dataset", {
+            type: "geojson",
+            data: activeGeoJsonRef.current as unknown as GeoJSON.FeatureCollection,
+          }, [
+            { id: "local-dataset-fill", type: "fill", source: "local-dataset",
+              paint: { "fill-color": "#0ea5e9", "fill-opacity": 0.4 } },
+            { id: "local-dataset-outline", type: "line", source: "local-dataset",
+              paint: { "line-color": "#0284c7", "line-width": 2 } },
+            { id: "local-dataset-points", type: "circle", source: "local-dataset",
+              paint: { "circle-color": "#0284c7", "circle-radius": 5,
+                "circle-stroke-color": "#fff", "circle-stroke-width": 1 } },
+          ]);
+          if (geoPdfOverlay) {
+            const overlay = ensureOfflineSourceLayers(map, "geopdf-overlay", {
+              type: "image", url: geoPdfOverlay.url,
               coordinates: geoPdfOverlay.coordinates,
-            });
-            map.addLayer({
-              id: "geopdf-overlay",
-              type: "raster",
-              source: "geopdf-overlay",
-              paint: { "raster-opacity": 1 },
-            });
-            if (map.getLayer("local-dataset-fill"))
-              map.moveLayer("geopdf-overlay", "local-dataset-fill");
-            const lngs = geoPdfOverlay.coordinates.map(([lng]) => lng);
-            const lats = geoPdfOverlay.coordinates.map(([, lat]) => lat);
-            map.fitBounds(
-              [
+            }, [
+              { id: "geopdf-overlay", type: "raster", source: "geopdf-overlay",
+                paint: { "raster-opacity": 1 } },
+            ]);
+            if (overlay.sourceAdded || overlay.layersAdded) {
+              if (map.getLayer("local-dataset-fill"))
+                map.moveLayer("geopdf-overlay", "local-dataset-fill");
+              const lngs = geoPdfOverlay.coordinates.map(([lng]) => lng);
+              const lats = geoPdfOverlay.coordinates.map(([, lat]) => lat);
+              map.fitBounds([
                 [Math.min(...lngs), Math.min(...lats)],
                 [Math.max(...lngs), Math.max(...lats)],
-              ],
-              { padding: 32, duration: 0 },
-            );
+              ], { padding: 32, duration: 0 });
+            }
             setGeoPdfReady(true);
             setGeoPdfMessage("Mapa PDF disponível offline.");
           }
-          if (!map.getSource("draw-preview")) {
-            map.addSource("draw-preview", {
-              type: "geojson",
-              data: drawingPreviewRef.current,
-            });
-            map.addLayer({
-              id: "draw-preview-fill",
-              type: "fill",
-              source: "draw-preview",
-              paint: { "fill-color": "#f59e0b", "fill-opacity": 0.2 },
-            });
-            map.addLayer({
-              id: "draw-preview-line",
-              type: "line",
-              source: "draw-preview",
-              paint: { "line-color": "#f59e0b", "line-width": 3 },
-            });
-            map.addLayer({
-              id: "draw-preview-points",
-              type: "circle",
-              source: "draw-preview",
-              paint: {
-                "circle-color": "#f59e0b",
-                "circle-radius": 6,
-                "circle-stroke-color": "#fff",
-                "circle-stroke-width": 2,
-              },
-            });
+          ensureOfflineSourceLayers(map, "draw-preview", {
+            type: "geojson", data: drawingPreviewRef.current,
+          }, [
+            { id: "draw-preview-fill", type: "fill", source: "draw-preview",
+              paint: { "fill-color": "#f59e0b", "fill-opacity": 0.2 } },
+            { id: "draw-preview-line", type: "line", source: "draw-preview",
+              paint: { "line-color": "#f59e0b", "line-width": 3 } },
+            { id: "draw-preview-points", type: "circle", source: "draw-preview",
+              paint: { "circle-color": "#f59e0b", "circle-radius": 6,
+                "circle-stroke-color": "#fff", "circle-stroke-width": 2 } },
+          ]);
+          if (regionalContours) {
+            ensureOfflineSourceLayers(map, "regional-contours", {
+              type: "geojson", data: regionalContours,
+            }, [
+              { id: "regional-contours-line", type: "line", source: "regional-contours",
+                paint: { "line-color": "#9a754e", "line-width": ['case', ['get', 'major'], 1.6, 0.8],
+                  "line-opacity": 0.75 } },
+            ]);
           }
-          if (regionalContours && !map.getSource('regional-contours')) {
-            map.addSource('regional-contours', { type: 'geojson', data: regionalContours });
-            map.addLayer({ id: 'regional-contours-line', type: 'line', source: 'regional-contours',
-              paint: { 'line-color': '#9a754e', 'line-width': ['case', ['get', 'major'], 1.6, 0.8], 'line-opacity': 0.75 },
-            });
-          }
-          if (!map.getSource('regional-transit')) {
-            map.addSource('regional-transit', { type: 'geojson', data: transitGeoJSONRef.current });
-            map.addLayer({ id: 'regional-transit-points', type: 'circle', source: 'regional-transit',
-              paint: { 'circle-radius': 5, 'circle-color': ['coalesce', ['get', 'color'], '#2586a3'],
-                'circle-stroke-color': '#ffffff', 'circle-stroke-width': 1.4, 'circle-opacity': 0.9 },
-            });
-          }
-          if (!map.getSource('offline-route')) {
-            map.addSource('offline-route', { type: 'geojson', data: routeAsGeoJSON(plannedRouteRef.current) });
-            map.addLayer({ id: 'offline-route-line', type: 'line', source: 'offline-route',
-              paint: { 'line-color': '#dc2626', 'line-width': 5, 'line-opacity': 0.9 },
-              layout: { 'line-join': 'round', 'line-cap': 'round' },
-            });
-          }
+          ensureOfflineSourceLayers(map, "regional-transit", {
+            type: "geojson", data: transitGeoJSONRef.current,
+          }, [
+            { id: "regional-transit-points", type: "circle", source: "regional-transit",
+              paint: { "circle-radius": 5, "circle-color": ['coalesce', ['get', 'color'], '#2586a3'],
+                "circle-stroke-color": "#ffffff", "circle-stroke-width": 1.4,
+                "circle-opacity": 0.9 } },
+          ]);
+          ensureOfflineSourceLayers(map, "offline-route", {
+            type: "geojson", data: routeAsGeoJSON(plannedRouteRef.current),
+          }, [
+            { id: "offline-route-line", type: "line", source: "offline-route",
+              paint: { "line-color": "#dc2626", "line-width": 5, "line-opacity": 0.9 },
+              layout: { "line-join": "round", "line-cap": "round" } },
+          ]);
           fitSelection(map);
           setMapEpoch((value) => value + 1);
         };
-        map.on("style.load", ensureSource);
-        if (map.isStyleLoaded()) ensureSource();
-        const publishApplied = () => {
-          if (cancelled) return;
-          setMapReady(true);
-          setAppliedCount(activeGeoJsonRef.current.features.length);
-        };
-        map.on("sourcedata", (event) => {
-          if (
-            event.sourceId !== "local-dataset" ||
-            !event.isSourceLoaded ||
-            cancelled
-          )
-            return;
-          // `sourcedata` antecede o desenho: publicar no proximo quadro pintado
-          // garante que queryRenderedFeatures e o clique ja encontrem a feicao
-          // aplicada. `idle` nao serve porque sem rede os tiles nunca terminam.
-          if (map.loaded()) publishApplied();
-          else map.once("render", publishApplied);
+        styleLifecycle = createOfflineStyleLifecycle({
+          map,
+          isActive: () => !cancelled && !webglLostRef.current && mapRef.current === map,
+          onHydrate: ensureSource,
+          onStyleReset: () => { setMapReady(false); setGeoPdfReady(false); },
+          onReady: () => {
+            setMapReady(true);
+            setAppliedCount(activeGeoJsonRef.current.features.length);
+          },
+          onError: (cause) => {
+            const issue = describeOfflineMapFailure(cause);
+            if (!issue || mapErrorRef.current) return;
+            mapErrorRef.current = issue.message;
+            setMapError(issue.message);
+          },
         });
+        // Listen to source changes BEFORE hydrating; tiny local GeoJSON
+        // sources may finish loading immediately in offline WebViews.
+        map.on("style.load", styleLifecycle.styleLoad);
+        map.on("sourcedata", styleLifecycle.sourceData);
+        if (map.isStyleLoaded()) styleLifecycle.styleLoad();
 
         map.on("click", "local-dataset-fill", (e) => {
           if (!e.features?.length || measuringRef.current || drawingSessionRef.current) return;
@@ -1040,6 +1016,8 @@ export default function CommandCenterPage() {
     void initialize().catch((cause) => {
       if (cancelled) return;
       glRecovery.dispose();
+      styleLifecycle?.dispose();
+      styleLifecycle = null;
       webglLostRef.current = false;
       regionReconcilerRef.current?.resetPending();
       if (mapRef.current) {
@@ -1065,6 +1043,8 @@ export default function CommandCenterPage() {
     return () => {
       cancelled = true;
       glRecovery.dispose();
+      styleLifecycle?.dispose();
+      styleLifecycle = null;
       webglLostRef.current = false;
       // Teardown is best-effort per resource; failed MapLibre/WebGL cleanup
       // cannot strand the protocol lease or poison the next React mount.
