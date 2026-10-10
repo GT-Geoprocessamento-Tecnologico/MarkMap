@@ -1,6 +1,16 @@
 # MarkMap — Checklist Mestre de Execução
 
 
+## A10/A11 — Retomada na interface e quota segura (2026-10-10)
+
+- [x] **A10 CÓDIGO + NODE:** consulta read-only do manifest e contagem de blocos com versão/hash correspondentes; botão retomar e confirmação explícita para staging de outra versão; estados UI checking/downloading/validating/activating/canceling e barra de progresso.
+- [x] **A10 CÓDIGO + NODE:** cancelamento por AbortSignal desde fetch HTTPS bounded do manifest, pré-download, download e antes da ativação; cancelamento/saída da tela não apaga chunks ou mapa ativo.
+- [x] **A11 CÓDIGO + NODE:** quota insuficiente e limite de mapas tratados separadamente, mensagens acionáveis sem limpar dados automaticamente; rede, checksum e conflito de abas possuem mensagens diferentes.
+- [x] **TESTE LOCAL DIRECIONADO:** 8/8 Node PASS (5 novos + 3 históricos), JS `node --check`, TS/TSX `transpileModule` sintático sem erros.
+- [ ] **DÍVIDA DE HOMOLOGAÇÃO NÃO BLOQUEANTE PARA DESENVOLVIMENTO:** full lint/typecheck/Vitest/build, E2E UI/IndexedDB/Capacitor, Android/iOS e medição RAM/quota com pacotes regionais reais. Não declarar essas verificações aprovadas nem fechar gate de release.
+- [ ] **CONTINUIDADE:** verificar UX de recuperação após navegação/reentrada, fonte remota e diagnosticar pendências de código antes de próxima fase; respeitar `dev/markmap-pwa-v2`. Nenhum CI/deploy/merge/tag/Neon autorizado.
+
+
 ## A8/A9 — memória e retomada segura (2026-10-10)
 
 - [x] **A8 código + Node:** novo `Blob` por chunk persistido no IndexedDB v1, leitura `getBlob` compatível com antigos `ArrayBuffer`, hash do Blob realmente montado sem retenção de arrays completos. Não pressupor benchmark de RAM.

@@ -11,6 +11,7 @@ import { offlineMapStore } from './offline-map-store';
 import { RegionDownloadCheckpoints } from './region-download-checkpoints';
 import { withRegionInstallLock } from './region-install-lock.mjs';
 import { downloadVerifiedAsset, DownloadIntegrityError } from './verified-range-download.mjs';
+import { isRegionalQuotaError } from './region-install-feedback.mjs';
 
 export type InstallerStatus = 'idle' | 'downloading' | 'validating' | 'activating' | 'active' | 'rollback' | 'error';
 export interface InstallerProgress {
@@ -36,6 +37,8 @@ export interface InstallParams {
   baseUrl?: string;
   onProgress?: (progress: InstallerProgress) => void;
   forceValidate: boolean;
+  /** Optional UI cancellation, including reads before the download begins. */
+  signal?: AbortSignal;
 }
 export interface Checkpoint {
   id: string;
@@ -45,7 +48,7 @@ export interface Checkpoint {
   speed: number;
   eta: number;
 }
-export interface ResumeResult { canResume: boolean; checkpoint: Checkpoint | null; reason?: string; }
+export interface ResumeResult { canResume: boolean; checkpoint: Checkpoint | null; reason?: string; needsConfirmation?: boolean; }
 
 function safePath(path: string): boolean {
   return typeof path === 'string' && path.length > 0 && !path.startsWith('/') && !path.includes('\\') &&
@@ -63,6 +66,17 @@ function fail(code: string, message: string, retryable = false): StoreResult<nev
   return { success: false, error: createBlobStoreError(code, message, retryable) };
 }
 
+function manifestSignature(manifest: OfflineMapPackageManifest): string {
+  const refs = [manifest.style, ...manifest.glyphs, ...manifest.sprites,
+    ...(manifest.searchShards ?? []), ...(manifest.routingGraph ? [manifest.routingGraph] : []),
+    ...(manifest.contourLines ? [manifest.contourLines] : []),
+    ...(manifest.wikipediaPack ? [manifest.wikipediaPack] : []),
+    ...(manifest.transitPack ? [manifest.transitPack] : []),
+    ...(manifest.demGrid ? [manifest.demGrid] : [])];
+  return [manifest.version, manifest.packageVersion, manifest.archive.sha256,
+    ...refs.map((ref) => ref.blob.sha256)].join(':');
+}
+
 export class ResumableInstaller {
   private readonly chunks = new RegionDownloadCheckpoints();
   private active: AbortController | null = null;
@@ -75,10 +89,13 @@ export class ResumableInstaller {
     try { await getDeviceStorageProfile(); return { success: true }; }
     catch (e) { return { success: false, error: e instanceof Error ? e.message : 'Erro desconhecido' }; }
   }
-  async checkResume(packageId: string): Promise<ResumeResult> {
+  async checkResume(packageId: string, manifest?: OfflineMapPackageManifest): Promise<ResumeResult> {
     try {
       const session = await this.chunks.getSession(packageId);
       if (!session) return { canResume: false, checkpoint: null, reason: 'Nenhum download interrompido' };
+      if (manifest && (manifest.id !== packageId || session.manifestSha !== manifestSignature(manifest)))
+        return { canResume: false, checkpoint: null,
+          reason: 'Há blocos de outra versão; confirme a nova versão antes de substituir o download salvo.', needsConfirmation: true };
       // Legacy sessions have no expected sizes; resume still works from the
       // manifest but cannot report a trusted preflight count yet.
       if (!session.assets?.length)
@@ -94,6 +111,7 @@ export class ResumableInstaller {
     } catch (e) { return { canResume: false, checkpoint: null, reason: e instanceof Error ? e.message : 'Falha no checkpoint' }; }
   }
   async startInstall(params: InstallParams): Promise<StoreResult<{ installId: string; status: InstallerStatus }>> {
+    if (params?.signal?.aborted) return fail('aborted', 'Instalação cancelada', true);
     if (this.installing || this.active) return fail('install-busy', 'Já existe uma instalação em andamento');
     if (!params || typeof params.packageId !== 'string' ||
         !/^[a-z0-9][a-z0-9._-]{0,127}$/.test(params.packageId))
@@ -116,6 +134,7 @@ export class ResumableInstaller {
   }
 
   private async installWithLock(params: InstallParams): Promise<StoreResult<{ installId: string; status: InstallerStatus }>> {
+    if (params.signal?.aborted) return fail('aborted', 'Instalação cancelada', true);
     if (this.active) return fail('install-busy', 'Já existe uma instalação em andamento');
     if (!params?.manifest || typeof params.manifest !== 'object') return fail('invalid-manifest', 'Manifest ausente');
     const { archivePath, ...persistedManifest } = params.manifest;
@@ -146,10 +165,11 @@ export class ResumableInstaller {
     if (total !== manifest.totalBytes) return fail('size-mismatch', 'Tamanho total difere dos artefatos declarados');
     const hashes = [...new Set(files.map((f) => f.sha256.toLowerCase()))];
     const expectedAssets = files.map((f) => ({ sha256: f.sha256.toLowerCase(), size: f.size }));
-    const signature = [manifest.version, manifest.packageVersion, ...files.map((f) => f.sha256)].join(':');
+    const signature = manifestSignature(manifest);
     let existing;
     try { existing = await this.chunks.getSession(params.packageId); }
     catch { return fail('storage-unavailable', 'Não foi possível recuperar checkpoints'); }
+    if (params.signal?.aborted) return fail('aborted', 'Instalação cancelada', true);
     if (existing && existing.manifestSha !== signature && !params.forceValidate)
       return fail('outdated-checkpoint', 'Download anterior é de outra versão. Revalide a fonte antes de substituir o checkpoint');
 
@@ -172,6 +192,7 @@ export class ResumableInstaller {
       if (profile.maxLimit > 0 && profile.safeLimit < additionalBytes)
         return fail('insufficient-space', `A instalação exige até ${Math.ceil(additionalBytes / 1048576)} MiB adicionais para download e ativação; libere espaço sem apagar seus projetos`, true);
     } catch { return fail('storage-unavailable', 'Não foi possível verificar o armazenamento'); }
+    if (params.signal?.aborted) return fail('aborted', 'Instalação cancelada', true);
     if (existing && existing.manifestSha !== signature) {
       try {
         // Hashes can be shared by another region. Only unreferenced chunks
@@ -179,7 +200,11 @@ export class ResumableInstaller {
         await this.chunks.finishSession(params.packageId);
       } catch { return fail('storage-unavailable', 'Não foi possível descartar staging anterior'); }
     }
+    if (params.signal?.aborted) return fail('aborted', 'Instalação cancelada', true);
     this.active = new AbortController();
+    const cancelActive = () => this.active?.abort();
+    params.signal?.addEventListener('abort', cancelActive, { once: true });
+    if (params.signal?.aborted) cancelActive();
     const signal = this.active.signal;
     try {
       await this.chunks.setSession({ packageId: params.packageId, manifestSha: signature,
@@ -211,6 +236,10 @@ export class ResumableInstaller {
       if (signal.aborted) return fail('aborted', 'Instalação cancelada');
       // The existing IndexedDB package store stages and activates in transactions,
       // leaving the old active map available if validation or writes fail.
+      params.onProgress?.({ status: 'activating', percent: 100,
+        message: 'Ativando mapa validado', downloadedBytes: total, totalBytes: total,
+        speed: 0, eta: 0, checkpoint: total, lastCheckpoint: total,
+        abort: () => undefined });
       await offlineMapStore.install(manifest, assets);
       // Removing obsolete checkpoints is best-effort; installation already
       // committed and must not be reported as failed due to garbage collection.
@@ -222,9 +251,15 @@ export class ResumableInstaller {
         checkpoint: total, lastCheckpoint: total, abort: () => undefined });
       return { success: true, data: { installId: `${params.packageId}:${manifest.archive.sha256}`, status: 'active' } };
     } catch (e) {
-      const code = e instanceof DownloadIntegrityError ? e.code : 'install-failed';
-      return fail(code, e instanceof Error ? e.message : 'Falha ao instalar região', code === 'network-error');
-    } finally { this.active = null; }
+      const code = signal.aborted ? 'aborted' :
+        e instanceof DownloadIntegrityError ? e.code :
+        isRegionalQuotaError(e) ? 'insufficient-space' : 'install-failed';
+      return fail(code, e instanceof Error ? e.message : 'Falha ao instalar região',
+        code === 'network-error' || code === 'insufficient-space' || code === 'aborted');
+    } finally {
+      params.signal?.removeEventListener('abort', cancelActive);
+      this.active = null;
+    }
   }
   abortInstall(): void { this.active?.abort(); }
 }

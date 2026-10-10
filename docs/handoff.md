@@ -1,6 +1,15 @@
 # Handoff de continuidade
 
 
+## A10/A11 — Consulta de retomada e recuperação de quota (2026-10-10)
+
+**HEAD-base auditado:** `dev/markmap-pwa-v2@b753278`; `main@156d4e8` preservada, PRs/issues abertos: 0 no início. **A10 EM CÓDIGO:** Settings usa AbortController da leitura do manifest até downloads e preflight; permite consultar progresso salvo sem gravar, exibe retomada e fases, exige clique explícito para trocar versão de checkpoints, e cancela operação ao sair da tela. Cancelar indisponível depois que ativação começa. **A11 EM CÓDIGO:** classificador de quota e mensagens por tipo de falha com instrução de revisar armazenamento, sem apagar mapa, projetos, outbox ou blocos completos. Nenhum novo serviço/backend/DB e a execução offline existente é mantida.
+
+**EVIDÊNCIA LOCAL:** 8/8 testes Node executados nesta rodada (3 históricos, 5 novos); sintaxe TS/TSX + JS dos módulos alterados sem erros. **SEM HOMOLOGAÇÃO:** React/E2E browser, IndexedDB real, Full Typecheck/Lint/Build, WebView e aparelho. Não confundir testes de sintaxe com build. Testes reais/físicos não bloqueiam desenvolvimento por orientação atual, mas tampouco autorizam release público. PRD detalhado: `docs/MM-MAP-A10-A11-remote-install-ux.md`. **Próxima ação:** revisar recuperação de estado do instalador entre navegações e alertas de fonte remota, apenas se houver lacuna no HEAD real; não reescrever fluxo funcional. Manter `main`, Neon/Vercel, CI, tags, release e branches alheios intactos.
+
+---
+
+
 ## Continuidade MarkMap A8/A9 — código + Node (2026-10-10)
 
 **HEAD-base auditado:** `dev/markmap-pwa-v2@716f112`; `main@156d4e8` intocada. Sem PRs/issues abertos no momento da auditoria. **IMPLEMENTADO A8:** download por Blob parts de IndexedDB ao invés de reter arrays completos; adapter antigo ArrayBuffer preservado sem schema migration. **IMPLEMENTADO A9:** só contar checkpoint alinhado/com tamanho exato, sessões novas incluem sha+size; limpeza transacional protege hashes compartilhados; HTTP 200 sem Range durante retomada reinicia digest e arquivo, sem duplicar prefixo. Resguarda download offline já persistido, mapa ativo e outbox.

@@ -1,6 +1,15 @@
 # MarkMap — Documento Mestre Único
 
 
+## A10/A11 — UX de retomada e quota (2026-10-10)
+
+**IMPLEMENTADO EM CÓDIGO, QA LOCAL DIRECIONADA:** `SettingsPage` expõe consulta read-only de progresso salvo por URL/manifest, tamanho da região, blocos completos, retomada, estágios com barra acessível e confirmação explícita antes de substituir checkpoints de outra versão. O cancelamento alcança a consulta do manifest (AbortSignal), o pré-download e o fluxo de chunks; a UI não oferece cancelamento quando a ativação transacional já começou. Saída da tela cancela transferência não observada, sem excluir blocos persistidos. `ResumableInstaller.checkResume` compara assinatura de versão + SHA de todos os arquivos; quota real/estimada é categorizada sem limpar dados. Mensagens distinguem cancelamento, rede, quota, checksum, versão e concorrência de abas.
+
+**EVIDÊNCIA REAL LOCAL:** Node 22.16.0, 8/8 testes isolados (3 históricos do manifest + 5 novos sobre Cancel/Quota/HTTP), `node --check` JS e `typescript.transpileModule` sintático nos dois arquivos TSX/TS, sem erros. **NÃO EXECUTADO:** suíte completa 53+ testes reexecutada nesta rodada, lint/typecheck/build monorepo, Playwright, IndexedDB/browser/WebView real e dispositivos físicos. Testes físicos continuam **não bloqueantes para fases de desenvolvimento**, mas nenhum recurso é declarado homologado. Limite agregado local 250 MiB continua sujeito à quota real. Sem alteração `main`, Neon, Vercel, CI GitHub, tag/release/deploy. Documento: `docs/MM-MAP-A10-A11-remote-install-ux.md`.
+
+---
+
+
 ## A8/A9 — memória por Blob + recuperação segura (2026-10-10)
 
 **Branch dev:** `dev/markmap-pwa-v2` após A7 (`716f112`). **A8 IMPLEMENTADO EM CÓDIGO:** chunks novos são salvos como Blob no IndexedDB e o downloader monta arquivo a partir de Blob parts persistidas; valida hash do conteúdo efetivamente lido e mantém compatibilidade com checkpoints antigos ArrayBuffer sem migração. Evita reter `Uint8Array[]` de até 250 MiB no JS, mas **não garante limite de RAM físico**, a depender do browser.
