@@ -1,6 +1,17 @@
 # MarkMap — Checklist Mestre de Execução
 
 
+## A18/A19 — reconciliação ao retomar e assets da geração correta (2026-10-10)
+
+- [x] **A18 CÓDIGO:** seleção do localStorage reavaliada ao retornar do background mesmo se `storage` foi perdido; verificação do ID+geração ativo IndexedDB em focus/pageshow/visibilitychange visível, sem rede, timers nem polling.
+- [x] **A18 CÓDIGO:** eventos concorrentes coalescidos; geração sem mudança não recria MapLibre; remoção é distinguida de falha de leitura; resultados após troca de seleção/desmontagem são ignorados. Settings revalida catálogo local.
+- [x] **A19 CÓDIGO:** `assetAtRevision` busca pacote ativo e recurso Blob em **uma transação readonly**, vincula estilo/PMTiles/contornos/glyphs por geração e recusa dados stale.
+- [x] **QA Node real e direcionada:** **36/36 PASS**, 0 fail/skip no recorte A10–A19; `node --check` e `tsc --noEmit --strict` isolado de helpers/declarations PASS.
+- [ ] **QA NÃO BLOQUEANTE PARA CONTINUAR CÓDIGO:** lint/typecheck/build/E2E monorepo, IndexedDB/MapLibre/WebView real, suspensão real de WebView e aparelhos Android/iOS.
+- [ ] **PRÓXIMO DESENVOLVIMENTO:** diagnosticar fluxo de reconciliação de UI em retorno do background e tratar casos confirmados sem substituir store nem arquitetura.
+- [ ] **SEM PUBLICAÇÃO:** não foi autorizado merge `main`, GitHub CI, Vercel deploy, Neon/migration, tag/release, app stores, exclusão ou force-push. PRD `docs/MM-MAP-A18-A19-foreground-generation.md`.
+
+
 ## A16/A17 — seleção ativa e mapa offline reativos (2026-10-10)
 
 - [x] **A16 CÓDIGO:** eventos de seleção same-tab e cross-tab via storage, chave histórica preservada, IDs validados e subscribe com unsubscribe; Settings passa a usar `useSyncExternalStore` sem estado duplicado.

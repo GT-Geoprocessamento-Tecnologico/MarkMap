@@ -3,6 +3,7 @@ import { bytesOf, validateOfflinePackage, OFFLINE_PACKAGE_DB, OFFLINE_PACKAGE_VE
 
 import { matchesActiveRegionGeneration } from './region-generation-guard.mjs';
 import { notifyRegionCatalogChanged } from './region-catalog-events.mjs';
+import { readActiveGenerationAsset } from './region-generation-asset.mjs';
 
 export class StaleRegionGenerationError extends Error {
   readonly code = 'stale-active-generation';
@@ -50,6 +51,13 @@ export class OfflineMapStore {
     const matching = rows.filter((row) => row.packageId === packageId && row.state === 'active');
     if (matching.length > 1) throw new Error('Ambiguous active offline map generations');
     return matching.length ? { generation: matching[0].generation, manifest: matching[0].manifest } : null;
+  }
+  /**
+   * A19: bind MapLibre assets to a single active generation. The package marker
+   * and asset are read from the same readonly transaction; stale readers get null.
+   */
+  async assetAtRevision(packageId: string, path: string, generation: string): Promise<Blob | null> {
+    return readActiveGenerationAsset(await this.open(), packageId, path, generation);
   }
   async active(): Promise<StoredOfflinePackage | null> { const values = await this.list(); return values.find((v) => v.state === "active") ?? null; }
   async asset(packageId: string, path: string): Promise<Blob | null> { const db = await this.open(); const rows = await request<PackageRow[]>(db.transaction(PACKAGES, "readonly").objectStore(PACKAGES).getAll()); const active = rows.find((row) => row.packageId === packageId && row.state === "active"); if (!active) return null; const row = await request<AssetRow | undefined>(db.transaction(ASSETS, "readonly").objectStore(ASSETS).get(`${active.generation}:${path}`)); return row?.bytes ?? null; }

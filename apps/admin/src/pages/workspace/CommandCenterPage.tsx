@@ -38,6 +38,7 @@ import {
 import { offlineMapStore } from "../../lib/storage/offline-map-store";
 import { getSelectedOfflineMapId, setSelectedOfflineMapId, subscribeSelectedOfflineMapId } from "../../lib/storage/offline-map-selection";
 import { subscribeRegionCatalogChanges } from "../../lib/storage/region-catalog-events.mjs";
+import { createRegionRevisionReconciler, subscribeRegionForeground } from "../../lib/storage/region-foreground-reconcile.mjs";
 import { ensureLocationPermission } from "../../lib/device-location-permission";
 import {
   createOfflineAssetProtocol,
@@ -104,12 +105,27 @@ export default function CommandCenterPage() {
     subscribeSelectedOfflineMapId, getSelectedOfflineMapId, () => null,
   );
   const [catalogRevision, setCatalogRevision] = useState(0);
-  useEffect(() => subscribeRegionCatalogChanges((regionId) => {
-    // Changes in unrelated regions do not tear down the current MapLibre map.
-    if (regionId === getSelectedOfflineMapId()) {
-      setCatalogRevision((value) => value + 1);
-    }
-  }), []);
+  const regionReconcilerRef = useRef<ReturnType<typeof createRegionRevisionReconciler> | null>(null);
+  useEffect(() => {
+    const reconciler = createRegionRevisionReconciler({
+      readSelection: getSelectedOfflineMapId,
+      readGeneration: async (id) => (await offlineMapStore.getActiveRevision(id))?.generation ?? null,
+      onChanged: () => setCatalogRevision((value) => value + 1),
+    });
+    regionReconcilerRef.current = reconciler;
+    const stopForeground = subscribeRegionForeground(() => { void reconciler.check(); });
+    const stopCatalog = subscribeRegionCatalogChanges((regionId) => {
+      // No unnecessary rerenders for unrelated packages or suspended views.
+      if (regionId === getSelectedOfflineMapId() && document.visibilityState !== 'hidden')
+        void reconciler.check();
+    });
+    return () => {
+      stopForeground();
+      stopCatalog();
+      reconciler.dispose();
+      if (regionReconcilerRef.current === reconciler) regionReconcilerRef.current = null;
+    };
+  }, []);
   // GeoPDF has precedence and should not be replaced by region changes.
   const activeRegionPackageId = search.pdfId ? null : selectedOfflineMapId;
   const regionalRenderRevision = search.pdfId ? 0 : catalogRevision;
@@ -533,6 +549,7 @@ export default function CommandCenterPage() {
       let center: [number, number] = [-47.92, -15.785];
       let zoom = 14;
       let offlinePackageSelected = false;
+      let displayedGeneration: string | null = null;
       let basemap = getDefaultBasemaps()[0];
       const selectedPackageId = activeRegionPackageId;
 
@@ -576,22 +593,32 @@ export default function CommandCenterPage() {
       if (selectedPackageId && !search.pdfId) {
         offlinePackageSelected = true;
         fallbackActive = true;
-        const installed = await offlineMapStore.get(selectedPackageId);
+        const installed = await offlineMapStore.getActiveRevision(selectedPackageId);
         if (cancelled) return;
         if (!installed) {
-          // Another tab can remove an installed package without changing the
-          // selection key. Clear only if it still points to the missing region.
+          // A package might have been installed during the first lookup.
+          const latest = await offlineMapStore.getActiveRevision(selectedPackageId);
+          if (cancelled) return;
+          if (latest) { setCatalogRevision((value) => value + 1); return; }
           if (getSelectedOfflineMapId() === selectedPackageId) {
             try { setSelectedOfflineMapId(null); } catch { /* storage may be denied */ }
           }
           throw new Error("O mapa selecionado foi removido ou não está disponível. Selecione outro em Configurações.");
         }
+        displayedGeneration = installed.generation;
         const [archive, styleBlob] = await Promise.all([
-          offlineMapStore.asset(selectedPackageId, "package.pmtiles"),
-          offlineMapStore.asset(selectedPackageId, installed.manifest.style.path),
+          offlineMapStore.assetAtRevision(selectedPackageId, "package.pmtiles", installed.generation),
+          offlineMapStore.assetAtRevision(selectedPackageId, installed.manifest.style.path, installed.generation),
         ]);
         if (cancelled) return;
-        if (!archive || !styleBlob) throw new Error("O pacote offline está incompleto neste dispositivo.");
+        if (!archive || !styleBlob) {
+          // Do not mix archived tiles with the style from a newer activation.
+          if ((await offlineMapStore.getActiveRevision(selectedPackageId))?.generation !== installed.generation) {
+            if (!cancelled) setCatalogRevision((value) => value + 1);
+            return;
+          }
+          throw new Error("O pacote offline está incompleto neste dispositivo.");
+        }
         let sourceStyle: Record<string, unknown>;
         try {
           sourceStyle = JSON.parse(await styleBlob.text()) as Record<string, unknown>;
@@ -601,7 +628,7 @@ export default function CommandCenterPage() {
         const adaptedStyle = adaptOfflineStyle(sourceStyle, installed.manifest);
         if (installed.manifest.contourLines) {
           const contourRef = installed.manifest.contourLines;
-          const contourBlob = await offlineMapStore.asset(selectedPackageId, contourRef.path);
+          const contourBlob = await offlineMapStore.assetAtRevision(selectedPackageId, contourRef.path, installed.generation);
           if (!contourBlob || contourBlob.size !== contourRef.blob.bytes || contourBlob.size > MAX_CONTOUR_BYTES)
             throw new Error('Curvas de nível incompletas; reinstale o pacote regional.');
           const digest = await crypto.subtle.digest('SHA-256', await contourBlob.arrayBuffer());
@@ -621,7 +648,7 @@ export default function CommandCenterPage() {
           "geonexo-package",
           createOfflineAssetProtocol((packageId, path) =>
             packageId === installed.manifest.id
-              ? offlineMapStore.asset(packageId, path)
+              ? offlineMapStore.assetAtRevision(packageId, path, installed.generation)
               : Promise.resolve(null),
           ),
         );
@@ -678,6 +705,7 @@ export default function CommandCenterPage() {
       }
       locationControlRef.current = geolocate;
       mapRef.current = map;
+      regionReconcilerRef.current?.noteRendered(selectedPackageId, displayedGeneration);
       map.on("error", (event) => {
         if (offlinePackageSelected) {
           setMapError(event.error?.message ?? "Não foi possível carregar um recurso do pacote offline.");
@@ -907,6 +935,7 @@ export default function CommandCenterPage() {
     };
     void initialize().catch((cause) => {
       if (cancelled) return;
+      regionReconcilerRef.current?.resetPending();
       releaseProtocols();
       setMapError(cause instanceof Error ? cause.message : "Não foi possível iniciar o mapa neste dispositivo.");
         toast({

@@ -1,6 +1,15 @@
 # Handoff de continuidade
 
 
+## Continuidade A18/A19 — reconciliação foreground e assets por geração (2026-10-10)
+
+**HEAD-base auditado:** `dev/markmap-pwa-v2@8a986d3`, `main@156d4e8`; PRs/issues abertos: 0 antes da intervenção. **A18 IMPLEMENTADO:** janela e documento revalidam seleção e geração apenas quando retornam visíveis (focus/pageshow/visibilitychange), sem polling/rede. Mudança de geração aciona reinit MapLibre já existente; atualização nula de IndexedDB não é interpretada como exclusão. `SettingsPage` relê catálogo local ao despertar; seleção persistida recupera evento `storage` perdido. **A19 IMPLEMENTADO:** ativo + Blob agora são lidos em uma transação IndexedDB readonly com geração explícita. PMTiles/estilo/contornos/recursos MapLibre não misturam gerações após troca concorrente. GeoPDF continua dominante; projetos, desenhos e outbox não são removidos.
+
+**TESTES LOCAIS:** Node `v22.16.0` no recorte local A10–A19, **36/36 PASS** (8 novos testes A18 + 5 A19 + 1 caso A18 seleção e 22 regressões); JS `node --check`, TypeScript `tsc --noEmit --strict` isolado de tipos e fachada PASS. **NÃO EXECUTADO:** build/lint/typecheck do monorepo, React/MapLibre/IndexedDB E2E e Android/iOS; registrar como pendência não bloqueante de desenvolvimento, nunca como aprovado. Documentação técnica: `docs/MM-MAP-A18-A19-foreground-generation.md`. **Próxima prioridade:** auditar UX/erros em retomadas e qualidade integrada quando possível, sem efetuar publicação. `main`, Neon, Vercel, CI remoto, release/tag e lojas intocados.
+
+---
+
+
 ## Continuidade A16/A17 — seleção única e refresh regional (2026-10-10)
 
 **HEAD-base:** `dev/markmap-pwa-v2@7e1339a`, `main@156d4e8`, PRs/issues abertos: 0 na auditoria. **A16 EM CÓDIGO:** `selected-offline-map.mjs` usa chave histórica `geonexo:selected-offline-map-package`, avisa mesmo documento e observa storage de outra aba; fachada TS preserva imports. `SettingsPage` usa `useSyncExternalStore` sem state espelho; nenhuma migração ou rede. **A17 EM CÓDIGO:** `CommandCenterPage` passa a ler seleção observável e sinal A15 de catálogo (somente região selecionada); reinicializa MapLibre/protocolos ao trocar ID/geração, recarrega índice offline e remonta OfflineKnowledge/OfflineElevation/OfflineRouting/OfflineSearch, limpa rota/trânsito obsoletos e ignora mudanças regionais enquanto GeoPDF domina. Região removida zera seleção obsoleta sem excluir dados.

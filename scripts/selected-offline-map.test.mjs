@@ -102,3 +102,16 @@ test('A17: same-region catalog changes refresh listeners without changing user s
   assert.equal(getSelectedOfflineMapId(), 'current');
   leaveCatalog(); leaveSelection();
 });
+
+test('A18: missed storage event is reconciled on focus once, without overwriting selection', (t) => {
+  const { store, win } = setup(t);
+  const values = [];
+  const unsubscribe = subscribeSelectedOfflineMapId(() => values.push(getSelectedOfflineMapId()));
+  // This simulates another tab committing a change while WebView is suspended.
+  store.setItem('geonexo:selected-offline-map-package', 'resumed-region');
+  win.dispatchEvent(new Event('focus'));
+  win.dispatchEvent(new Event('pageshow'));
+  assert.deepEqual(values, ['resumed-region']);
+  assert.equal(getSelectedOfflineMapId(), 'resumed-region');
+  unsubscribe();
+});

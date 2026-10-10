@@ -1,6 +1,15 @@
 # MarkMap — Documento Mestre Único
 
 
+## A18/A19 — reconciliação após suspensão + leitura de assets por geração (2026-10-10)
+
+**IMPLEMENTADO EM CÓDIGO / QA DIRECIONADA:** mapa passa a verificar a geração ativa no IndexedDB ao receber `focus`, `pageshow`, `visibilitychange` visível ou aviso A15 da região selecionada. `createRegionRevisionReconciler` evita rebuild quando a geração não mudou, colapsa despertares concorrentes e ignora resultados obsoletos; `selected-offline-map.mjs` recupera `storage` perdido no retorno do WebView. Configurações atualiza catálogo local no foreground, sem fetch, polling nem perda de checkpoints. **A19:** `OfflineMapStore.assetAtRevision` lê marcador ativo e Blob na mesma transação readonly. `CommandCenterPage` fixa a geração ao carregar PMTiles, estilo, contornos e protocolos de recursos, recusando misturas após atualização concorrente. GeoPDF, desenhos, projetos e outbox preservados.
+
+**EVIDÊNCIA LOCAL:** Node 22.16.0, suite direcionada A10–A19 `node --test scripts/*.test.mjs` **36/36 PASS**, zero skipped/fail; `node --check` módulos JS e `tsc --noEmit --strict` de declarações auxiliares + fachada de seleção PASS. **NÃO EXECUTADO:** lint/typecheck/build monorepo, React/MapLibre/IndexedDB E2E, WebView multiabas e aparelho físico; não representam gate de release, mas **não bloqueiam novas fases de desenvolvimento**. Nenhuma alteração de stack/IndexedDB schema ou contrato, CI remoto, Neon, Vercel, `main`, tag/release ou produção. PRD: `docs/MM-MAP-A18-A19-foreground-generation.md`.
+
+---
+
+
 ## A16/A17 — Seleção e interface cartográfica reativas (2026-10-10)
 
 **IMPLEMENTADO EM CÓDIGO, QA LOCAL DIRECIONADA:** a seleção offline mantém a chave histórica de localStorage e passa a emitir evento na aba atual e observar `storage` de outras abas. `SettingsPage` deixa de espelhar manualmente o state e usa `useSyncExternalStore`. `CommandCenterPage` usa o mesmo snapshot de seleção para basemap MapLibre, busca, conteúdo, elevação e roteamento; sinais de catálogo A15 da **região selecionada** acionam reconstrução de protocolos/fontes, descartando workers e caches de UI dependentes da geração anterior. Seleção removida é invalidada sem apagar pacotes/projetos/outbox. GeoPDF mantém precedência; operações offline continuam locais.

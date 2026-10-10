@@ -19,6 +19,7 @@ import { describeRegionInstallError } from "../../lib/storage/region-install-fee
 import { fetchRemoteRegionManifest } from "../../lib/storage/remote-region-manifest.mjs";
 import { RegionManager, type RegionUpdatePreview } from '../../lib/storage/region-manager';
 import { subscribeRegionCatalogChanges } from '../../lib/storage/region-catalog-events.mjs';
+import { subscribeRegionForeground } from '../../lib/storage/region-foreground-reconcile.mjs';
 import { getRegionInstallDraftUrl, rememberRegionInstallDraftUrl, clearRegionInstallDraftUrl } from '../../lib/storage/region-install-draft.mjs';
 import { rememberRegionSource, forgetRegionSource, getRegionSourceUrl } from '../../lib/storage/region-source-registry';
 import { version as appVersion } from '../../../package.json';
@@ -146,12 +147,19 @@ export default function SettingsPage() {
     if (next) setSelectedOfflineMapId(next);
   }, []);
   useEffect(() => {
-    return subscribeRegionCatalogChanges(() => {
-      setRegionUpdates({}); // Never retain approval after another tab changed the active generation.
+    let checking = false;
+    let disposed = false;
+    const refresh = () => {
+      if (checking || disposed) return;
+      checking = true;
+      // The list and selected region are re-read from IndexedDB, never from network.
       void refreshOfflinePackages().catch(() => {
-        setError('Outra aba alterou um mapa, mas não foi possível atualizar a lista local.');
-      });
-    });
+        if (!disposed) setError('Não foi possível reconciliar a lista local de mapas.');
+      }).finally(() => { checking = false; });
+    };
+    const stopCatalog = subscribeRegionCatalogChanges(refresh);
+    const stopForeground = subscribeRegionForeground(refresh);
+    return () => { disposed = true; stopCatalog(); stopForeground(); };
   }, [refreshOfflinePackages]);
   useEffect(() => {
     let disposed = false;
