@@ -1,6 +1,17 @@
 # MarkMap — Checklist Mestre de Execução
 
 
+## A22/A23 — integridade do protocolo e recuperação de erros locais (2026-10-10)
+
+- [x] **A22 CÓDIGO:** validar intervalo PMTiles inteiro dentro de `File.size`, limite máximo 4 MiB, rejeitar bytes truncados; validar blobs do protocolo local e comprimento exato, sem alterar contratos.
+- [x] **A22 CÓDIGO:** AbortSignal aplicado a resolver/leituras com remoção do listener em sucesso/erro/abort, códigos estáveis e mensagens legadas preservadas.
+- [x] **A23 CÓDIGO:** `CommandCenterPage` mostra diagnóstico seguro/localizado por tipo de falha, evita expor URLs/tokens/paths e não transforma cancelamento normal em alerta. Botão retry e fundo neutro anteriores preservados.
+- [x] **QA NODE DIRIGIDA:** 60/60 PASS no recorte local A10–A23 (42 regressões, 11 novos versionados, 7 smoke TS com stubs). TypeScript protocolo/declarations isolados e JS `node --check` PASS. Exigências legadas `too large` e `invalid offline package asset URL` testadas em stub.
+- [ ] **QA NÃO BLOQUEANTE PARA DESENVOLVIMENTO:** executar novo teste Vitest real `packages/maps/tests/offline/offline-protocol-integrity.test.ts`, full monorepo lint/typecheck/build/E2E e navegação MapLibre/IndexedDB/WebView/Android/iOS em ambiente apto. Não marcar como PASS sem executar.
+- [ ] **PRÓXIMA FASE DE CÓDIGO:** revisar remount de protocolos/recursos e perda de contexto gráfico, preservando local-first.
+- [ ] **RELEASE/PRODUÇÃO NÃO AUTORIZADOS:** não houve CI, deploy, merge main, Neon/migration, tag/release/loja ou exclusões. PRD `docs/MM-MAP-A22-A23-protocol-recovery.md`.
+
+
 ## A20/A21 — recuperação de falhas do mapa e alternativa offline (2026-10-10)
 
 - [x] **A20 IMPLEMENTADO EM CÓDIGO:** mapa com erro mostra `Tentar novamente`, que dispara remount controlado de MapLibre/protocolos sem tocar na seleção, mapas ativos ou outbox.

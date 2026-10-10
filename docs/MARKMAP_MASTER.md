@@ -1,6 +1,15 @@
 # MarkMap — Documento Mestre Único
 
 
+## A22/A23 — protocolos offline seguros e diagnóstico de erros (2026-10-10)
+
+**IMPLEMENTADO EM CÓDIGO:** PMTiles passa a rejeitar offset/length inválidos, bytes além do arquivo e leituras truncadas (limite anterior de 4 MiB preservado). Protocolo de glyph/sprite/style verifica Blob e contagem exata de bytes e agora remove listeners de AbortSignal em todos os encerramentos; cancelamento do resolver é observado imediatamente. Tipos e códigos de erro estáveis sem URL/path. A interface MapLibre distingue AbortError normal, ausência de recurso, pacote incompleto, atualização concorrente, WebGL/rede e erro desconhecido sem ecoar mensagens brutas potencialmente sensíveis. Retry e fundo simples A20/A21 preservados. Não toca IndexedDB, projetos, outbox, selection ou backend.
+
+**EVIDÊNCIA LOCAL:** Node v22.16.0 **60/60 testes PASS** no recorte A10–A23, incluindo 11 novos Node versionados e 7 smoke de protocolo TS transpilado com stubs de pmtiles/package (harness local), mais 42 regressões. `tsc --strict --noEmit` isolado do `protocol.ts` com types de stub e declarações auxiliares: PASS; `node --check` nos novos JS: PASS. Regressões históricas exigindo strings `too large`/`invalid offline package asset URL` conferidas com stub. **Vitest real adicionado mas NÃO EXECUTADO**, assim como lint/typecheck/build monorepo, E2E MapLibre, WebView ou aparelho físico. Pendências não bloqueiam próximas fases de código e não equivalem a homologação. Sem CI remoto, main, Neon, Vercel, migração, tag ou release. PRD: `docs/MM-MAP-A22-A23-protocol-recovery.md`.
+
+---
+
+
 ## A20/A21 — recuperação visual do mapa regional (2026-10-10)
 
 **IMPLEMENTADO EM CÓDIGO / QA DIRECIONADA:** `CommandCenterPage` agora oferece `Tentar novamente` em erros cartográficos locais, remontando MapLibre e protocolos a partir dos mesmos dados offline. Um controlador sem timers permite **no máximo uma recuperação automática por contexto** ao voltar do background enquanto houver falha, evitando loops de carregamento. Eventos de mapas cancelados são ignorados e erros em rajada não geram sucessivas mensagens. **A21:** botão `Usar fundo simples offline` apresenta o estilo neutro `createFallbackStyle` local sem tiles remotos, preservando escolha de região no localStorage, arquivos IndexedDB, GeoPDF, feições de projeto, desenhos e outbox. Há indicação de fundo simples e `Voltar ao mapa regional`; troca de região/revisão invalida a alternativa da geração anterior.

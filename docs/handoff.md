@@ -1,6 +1,17 @@
 # Handoff de continuidade
 
 
+## Continuidade A22/A23 — limites de recursos e diagnóstico MapLibre (2026-10-10)
+
+**HEAD-base auditado:** `dev/markmap-pwa-v2@82d4de0`; `main@156d4e8`; sem PRs ou issues abertas antes da intervenção. **A22 EM CÓDIGO:** `OfflinePackageSource` valida offset/length contra `File.size`, rejeita resposta truncada; `createOfflineAssetProtocol` limita blob a 4 MiB, rejeita dados inválidos, usa abort com listener removido em sucesso, falha ou cancelamento e mantém strings de erro testadas anteriormente. **A23 EM CÓDIGO:** diagnóstico seguro de recursos MapLibre e falhas de inicialização, ignora AbortError ao trocar mapas e não exibe URL/token/path cru na interface. A20 retry/fundo simples e integridade A14/A19 preservados.
+
+**QA LOCAL REAL:** 60/60 testes Node PASS no recorte A10–A23 (42 anteriores, 11 novos tests versionados, 7 smoke com pmtiles/package simulados); 2 asserções de mensagens legadas sob o mesmo stub PASS. `tsc --noEmit --strict` do protocolo com stub dos tipos e declarações e `node --check` novos helpers PASS; sintaxe TS do novo teste Vitest verificada, mas o **Vitest real NÃO FOI EXECUTADO**. Ainda não foi executado o build/lint/typecheck completo, React/MapLibre E2E, IndexedDB/WebView e dispositivos reais. Não declarar homologação nem bloquear próximas fases por QA física. PRD: `docs/MM-MAP-A22-A23-protocol-recovery.md`.
+
+**Próxima fase de desenvolvimento:** investigar ciclo de protocolos durante remount rápido e perda de contexto WebGL, com auditoria do HEAD e do Checklist Mestre antes de alterar. Não executar merge/main, CI remoto, deploy Vercel, migrações Neon, publicação, tag, reset ou exclusões.
+
+---
+
+
 ## Continuidade A20/A21 — retry controlado e fundo simples offline (2026-10-10)
 
 **HEAD auditado antes de executar:** `dev/markmap-pwa-v2@55bd506`, `main@156d4e8` preservada. PRs/issues abertos 0. **A20 CÓDIGO:** tratamento de erro cartográfico mostra botão para reinicializar MapLibre sem remover pacote ou dados. Foreground tenta automaticamente só uma vez por contexto local com erro; sem polling/timer; usuário pode repetir manualmente. Erros de tile em rajada são coalescidos; eventos após cleanup não contaminam a nova tela. **A21 CÓDIGO:** modo fundo simples já disponível na biblioteca passa a ser opção para pacote regional com erro, usando estilo em data URI sem rede; dados de projeto e outbox não são alterados, a seleção original é mantida e pode ser reativada. GeoPDF preserva precedência. Quando a região muda, modo neutro anterior não é transferido para outra região.

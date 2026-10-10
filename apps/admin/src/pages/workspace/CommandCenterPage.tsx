@@ -40,6 +40,7 @@ import { getSelectedOfflineMapId, setSelectedOfflineMapId, subscribeSelectedOffl
 import { subscribeRegionCatalogChanges } from "../../lib/storage/region-catalog-events.mjs";
 import { createRegionRevisionReconciler, subscribeRegionForeground } from "../../lib/storage/region-foreground-reconcile.mjs";
 import { createOfflineMapRecovery, resolveOfflineBasemap } from "../../lib/map/offline-map-recovery.mjs";
+import { describeOfflineMapFailure } from "../../lib/map/offline-map-diagnostics.mjs";
 import { ensureLocationPermission } from "../../lib/device-location-permission";
 import {
   createOfflineAssetProtocol,
@@ -758,11 +759,12 @@ export default function CommandCenterPage() {
       map.on("error", (event) => {
         if (cancelled) return;
         if (offlinePackageSelected || mapSource.neutralActive || Boolean(search.pdfId)) {
-          // Tile/glyph errors can arrive in bursts; show one actionable error.
+          // Selection changes abort outstanding tiles: cancellation is not corruption.
+          const issue = describeOfflineMapFailure(event);
+          if (!issue) return;
           if (!mapErrorRef.current) {
-            const message = event.error?.message ?? "Não foi possível carregar um recurso cartográfico local.";
-            mapErrorRef.current = message;
-            setMapError(message);
+            mapErrorRef.current = issue.message;
+            setMapError(issue.message);
           }
           return;
         }
@@ -992,9 +994,11 @@ export default function CommandCenterPage() {
       if (cancelled) return;
       regionReconcilerRef.current?.resetPending();
       releaseProtocols();
-      const message = cause instanceof Error ? cause.message : "Não foi possível iniciar o mapa neste dispositivo.";
-      mapErrorRef.current = message;
-      setMapError(message);
+      const issue = describeOfflineMapFailure(cause);
+      if (!issue) return; // Normal cancellation on remount.
+      // Do not expose raw file paths or remote URLs in UI/toasts.
+      mapErrorRef.current = issue.message;
+      setMapError(issue.message);
         toast({
           title: "Mapa indisponível",
           description:
