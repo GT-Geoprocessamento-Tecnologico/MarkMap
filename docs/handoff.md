@@ -1,6 +1,15 @@
 # Handoff de continuidade
 
 
+## Continuidade A2 — atualização PWA segura (2026-10-09)
+
+**MM-UPD-030/040 PARCIAL EM CÓDIGO, NÃO VALIDADO:** controle `controllerchange` só recarrega a aba que aceitou atualização; antes de `SKIP_WAITING`, verifica persistência, compatibilidade, escopo e identidade do worker em espera. No service worker, ativação exige handshake recente de cliente same-origin. Dados locais, IndexedDB e outbox não são excluídos. Site `apps/site` permanece intacto por ter escopo separado.
+
+**QA ainda pendente:** nenhuma suíte lint/typecheck/test/build/E2E executada (M10 reservado); testes de duas abas, atualização offline, cache, worker site/app e fluxo real de dados após atualização necessários antes de release. **Branch:** `dev/markmap-pwa-v2` sobre `10a5642`; `main` intacta. **Próxima fase A3:** MM-MAP-200/210/400/430 (mapa OSM regional maior e busca offline). Sem CI/Actions, Vercel, merge, release/tag ou banco.
+
+---
+
+
 ## Continuidade A1 — 2026-10-09
 
 **MM-MAP-135/140/145 PARCIAL EM CÓDIGO, NÃO VALIDADO:** staging regional obsoleto da mesma região descartado transacionalmente; a geração ativa fica preservada até commit da substituta e `install()` exige identidade da geração. Limite agregado 250 MiB + preflight de espaço temporário de download e atualização; perfil de espaço considera uso efetivo estimado da origem. UI esclarece reserva temporária. Base da branch: `dev/markmap-pwa-v2@f029bda`; versão `0.2.0-dev.0`.

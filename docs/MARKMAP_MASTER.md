@@ -1,6 +1,15 @@
 # MarkMap — Documento Mestre Único
 
 
+## A2 — Atualização segura da PWA (MM-UPD-030/040; 2026-10-09)
+
+**PARCIAL EM CÓDIGO, NÃO VALIDADO:** `UpdatePrompt` deixou de recarregar a página sempre que o navegador muda o controller; o reload agora requer aceite explícito da atualização nesta aba, com leitura prévia da outbox e handshake de compatibilidade. O prompt ignora registration com escopo incompatível e recusa se o worker em espera mudar enquanto a validação está em andamento. O service worker do app só atende `SKIP_WAITING` vindo de cliente da mesma origem que realizou `CHECK_COMPATIBILITY` recentemente. A atualização continua opt-in e não limpa IndexedDB/outbox.
+
+**PARCIAL/PENDENTE:** worker do site same-origin possui escopo e cache distintos; não foi alterado. Não há prova ainda de multiabas, duas registrations, atualização offline ou schema migration. Os checks de persistência cobrem leitura da outbox, não dados de formulário ainda não salvos. **NÃO EXECUTADO:** lint, typecheck, testes, build, E2E e dispositivo (gate final `MM-MAP-900/940`). Sem CI, deploy, main, Neon ou tags. **Próximo:** A3 — MM-MAP-200/210/400/430, pipeline cartográfico regional e busca sem rede.
+
+---
+
+
 ## A1 — Robustez do instalador regional (MM-MAP-135/140/145; 2026-10-09)
 
 **PARCIAL EM CÓDIGO — NÃO VALIDADO.** Em `dev/markmap-pwa-v2`, `OfflineMapStore` agora descarta staging obsoleto da mesma região na transação IndexedDB de escrita, sem apagar a geração ativa, e `install()` só ativa a geração exata produzida por seu staging. O orçamento agregado permanece 250 MiB; o instalador remoto prevê o pico temporário de chunks restantes mais pacote novo e recusa cedo se não houver espaço estimado. `DeviceStorageProfile` passa a considerar `navigator.storage.estimate().usage` para evitar subestimar outros dados da origem; a UI explica a reserva temporária.

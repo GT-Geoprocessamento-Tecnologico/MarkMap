@@ -153,17 +153,31 @@ self.addEventListener('fetch', (event) => {
   }
 });
 
-// Respond to a waiting-tab compatibility handshake before accepting skipWaiting.
+// Only a same-origin window client can complete a short-lived handshake.
+// A postMessage flag alone must not activate a worker without compatibility negotiation.
+const pendingUpgradeClients = new Map();
 self.addEventListener('message', (event) => {
+  const client = event.source;
+  if (!client || typeof client.id !== 'string' || typeof client.url !== 'string') return;
+  let clientUrl;
+  try { clientUrl = new URL(client.url); } catch { return; }
+  if (clientUrl.origin !== self.location.origin) return;
+
   if (event.data?.type === 'CHECK_COMPATIBILITY') {
-    event.ports?.[0]?.postMessage({
+    if (!event.ports?.[0]) return;
+    pendingUpgradeClients.set(client.id, Date.now());
+    event.ports[0].postMessage({
       type: 'MARKMAP_COMPATIBILITY', shellProtocolVersion: 1,
       localSchemaVersion: 1, regionPackageSchemaVersion: 2,
     });
     return;
   }
-  if (event.data && event.data.type === 'SKIP_WAITING' &&
+  if (event.data?.type === 'SKIP_WAITING' &&
       event.data.durableWritesReady === true && event.data.compatibilityVersion === 1) {
-    self.skipWaiting();
+    const requestedAt = pendingUpgradeClients.get(client.id);
+    pendingUpgradeClients.delete(client.id);
+    if (typeof requestedAt === 'number' && Date.now() - requestedAt < 15000) {
+      event.waitUntil(self.skipWaiting());
+    }
   }
 });

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /** Ask the WAITING worker for protocol information; do not infer it from network status. */
 async function waitingWorkerCompatible(waiting: ServiceWorker): Promise<boolean> {
@@ -43,6 +43,8 @@ export function UpdatePrompt({
 }: UpdatePromptProps) {
   const [registration, setRegistration] = useState<ServiceWorkerRegistration | null>(null);
   const [busy, setBusy] = useState(false);
+  const activationApproved = useRef(false);
+  const reloadStarted = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [dismissedVersion, setDismissedVersion] = useState<ServiceWorker | null>(null);
 
@@ -52,9 +54,13 @@ export function UpdatePrompt({
     let disposed = false;
     let updateInterval: NodeJS.Timeout | null = null;
 
-    const hadController = navigator.serviceWorker.controller !== null;
     const onControllerChange = () => {
-      if (hadController) window.location.reload();
+      // A different tab may activate a worker. Never force-reload unsaved local UI
+      // unless THIS tab approved an update and finished its durable write check.
+      if (activationApproved.current && !reloadStarted.current) {
+        reloadStarted.current = true;
+        window.location.reload();
+      }
     };
 
     const checkForUpdate = async () => {
@@ -101,6 +107,8 @@ export function UpdatePrompt({
     navigator.serviceWorker.addEventListener("controllerchange", onControllerChange);
     void navigator.serviceWorker.ready.then((ready) => {
       if (disposed) return;
+      // Only a worker registered for this document's scope can prompt activation.
+      if (!window.location.href.startsWith(ready.scope)) return;
       if (ready.waiting && ready.waiting !== dismissedVersion) setRegistration(ready);
       ready.addEventListener("updatefound", () => {
         const worker = ready.installing;
@@ -139,18 +147,29 @@ export function UpdatePrompt({
         durableWritesReady(), compatibilityReady(), waitingWorkerCompatible(waiting),
       ]);
       if (!writesReady || !appCompatible) {
-        setError('Aguarde o salvamento local dos dados antes de atualizar.');
+        setError('Os dados locais ainda não estão prontos. Salve as alterações antes de atualizar.');
         return;
       }
       if (!workerCompatible) {
         setError('Esta versão não confirmou compatibilidade dos dados locais. Atualização bloqueada por segurança.');
         return;
       }
-      waiting.postMessage({
-        type: "SKIP_WAITING",
-        durableWritesReady: true,
-        compatibilityVersion: 1,
-      });
+      // The target must still be the same waiting instance after async checks.
+      if (registration.waiting !== waiting || waiting.state !== "installed") {
+        setError('A versão disponível mudou. Verifique novamente antes de atualizar.');
+        return;
+      }
+      activationApproved.current = true;
+      try {
+        waiting.postMessage({
+          type: "SKIP_WAITING",
+          durableWritesReady: true,
+          compatibilityVersion: 1,
+        });
+      } catch (cause) {
+        activationApproved.current = false;
+        throw cause;
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Não foi possível ativar a atualização com segurança.');
     } finally {
@@ -160,6 +179,7 @@ export function UpdatePrompt({
 
   const handleLater = () => {
     if (registration.waiting) {
+      activationApproved.current = false;
       setDismissedVersion(registration.waiting);
     }
     setRegistration(null);

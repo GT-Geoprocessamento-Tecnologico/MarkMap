@@ -1,6 +1,14 @@
 # MarkMap — Checklist Mestre de Execução
 
 
+## A2 — MM-UPD-030/040 (2026-10-09)
+
+- [x] **CÓDIGO PARCIAL, NÃO VALIDADO:** reload do update PWA só na aba que autorizou; controllerchange de outra aba não força reload.
+- [x] **CÓDIGO PARCIAL, NÃO VALIDADO:** validação de scope/worker waiting antes de ativação; SW requer handshake same-origin recente para `SKIP_WAITING`.
+- [ ] **QA M10:** verificar outbox, IndexedDB, duas abas, site/app same-origin, atualização online/offline, compatibilidade SW, Safari/Chromium e persistência após reload.
+- [ ] **PRÓXIMO A3:** ampliar pipeline OSM/PMTiles e busca regional, sem dados inventados.
+
+
 ## Continuidade A1 — MM-MAP-135/140/145 (2026-10-09)
 
 - [x] **PARCIAL EM CÓDIGO, NÃO VALIDADO:** staging antigo da região substituído em transação IndexedDB, sem excluir mapa ativo; ativação exige geração esperada.
