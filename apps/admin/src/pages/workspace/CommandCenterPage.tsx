@@ -19,6 +19,7 @@ import type {
   GeometryType as DrawingGeometryType,
 } from "@geonexo/maps";
 import { addProtocol, Popup, Marker, removeProtocol } from "maplibre-gl";
+import { acquireOfflineProtocolLease } from "../../lib/map/offline-protocol-leases.mjs";
 import type { GeoJSONSource, Map as MapLibreMap } from "maplibre-gl";
 import { createPropertyPopupContent } from "./property-popup";
 import {
@@ -577,14 +578,13 @@ export default function CommandCenterPage() {
     fittedKeyRef.current = "";
     let cancelled = false;
     let fallbackActive = !navigator.onLine;
-    let protocolsRegistered = false;
+    let releaseProtocolLease: (() => void) | null = null;
     let geoPdfOverlay: GeoPdfOverlay | null = null;
     let regionalContours: GeoJSON.FeatureCollection | null = null;
     const releaseProtocols = () => {
-      if (!protocolsRegistered) return;
-      removeProtocol("pmtiles");
-      removeProtocol("geonexo-package");
-      protocolsRegistered = false;
+      const release = releaseProtocolLease;
+      releaseProtocolLease = null;
+      release?.();
     };
     const initialize = async () => {
       setMapError(null);
@@ -675,7 +675,6 @@ export default function CommandCenterPage() {
         } catch {
           throw new Error("O estilo do pacote offline não é um JSON válido.");
         }
-        const adaptedStyle = adaptOfflineStyle(sourceStyle, installed.manifest);
         if (installed.manifest.contourLines) {
           const contourRef = installed.manifest.contourLines;
           const contourBlob = await offlineMapStore.assetAtRevision(selectedPackageId, contourRef.path, installed.generation);
@@ -692,17 +691,27 @@ export default function CommandCenterPage() {
         // assets were being read. Never register protocols for a stale map.
         if (cancelled) return;
         const file = new File([archive], "package.pmtiles", { type: "application/vnd.pmtiles" });
-        const tileProtocol = createOfflineProtocol(installed.manifest, file);
-        addProtocol("pmtiles", (params, controller) => tileProtocol.tile(params, controller));
-        addProtocol(
-          "geonexo-package",
-          createOfflineAssetProtocol((packageId, path) =>
-            packageId === installed.manifest.id
-              ? offlineMapStore.assetAtRevision(packageId, path, installed.generation)
-              : Promise.resolve(null),
-          ),
-        );
-        protocolsRegistered = true;
+        const lease = acquireOfflineProtocolLease({
+          addProtocol: (scheme, handler) =>
+            addProtocol(scheme, handler as Parameters<typeof addProtocol>[1]),
+          removeProtocol,
+          createHandlers: (leaseId) => {
+            const tileProtocol = createOfflineProtocol(installed.manifest, file, leaseId);
+            return {
+              tile: (params, controller) =>
+                tileProtocol.tile(params, controller) as Promise<{ data: unknown }>,
+              asset: createOfflineAssetProtocol((requestedId, path) =>
+                requestedId === leaseId
+                  ? offlineMapStore.assetAtRevision(selectedPackageId, path, installed.generation)
+                  : Promise.resolve(null),
+              ),
+            };
+          },
+        });
+        releaseProtocolLease = lease.release;
+        // Unique source URLs bind tile, style and glyph loads to the same map
+        // instance, even while the previous MapLibre worker is stopping.
+        const adaptedStyle = adaptOfflineStyle(sourceStyle, installed.manifest, lease.id);
         basemap = {
           ...(basemap ?? { id: "offline", name: installed.manifest.label, attribution: installed.manifest.attribution }),
           styleUrl: `data:application/json,${encodeURIComponent(JSON.stringify(adaptedStyle))}`,
@@ -993,6 +1002,12 @@ export default function CommandCenterPage() {
     void initialize().catch((cause) => {
       if (cancelled) return;
       regionReconcilerRef.current?.resetPending();
+      if (mapRef.current) {
+        // A partially configured map must not block a later retry/remount.
+        try { mapRef.current.remove(); } catch { /* keep original failure */ }
+        mapRef.current = null;
+        locationControlRef.current = null;
+      }
       releaseProtocols();
       const issue = describeOfflineMapFailure(cause);
       if (!issue) return; // Normal cancellation on remount.

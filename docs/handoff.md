@@ -1,6 +1,17 @@
 # Handoff de continuidade
 
 
+## Continuidade A24/A25 — protocolos globais por leases e rollback WebGL (2026-10-10)
+
+**Base auditada:** `dev/markmap-pwa-v2@dcc8b93`, `main@156d4e8`; sem PRs/issues abertos. **A24 IMPLEMENTADO:** add/remove dos protocolos `pmtiles`/`geonexo-package` migrou da vida de cada componente para gerenciador compartilhado com IDs exclusivos por view, roteando PMTiles/style/glyph/sprite para a geração correta. Liberação não afeta mapas que permanecem montados; requests tardios são abortados. APIs com ID antigo mantidas como defaults de compatibilidade para consumidores existentes. **A25 IMPLEMENTADO:** rollback de configuração síncrona do mapa/controles, preservação de exceção original e limpeza de mapa parcial e lease na falha. Sem mudanças em dados operacionais, sync, outbox, quota ou Neon.
+
+**QA DIRECIONADA REAL:** Node v22.16.0 **70/70 PASS** no recorte A10–A25, incluindo 10 novos Node de simultaneidade, requests tardios e rollback; `node --check` e `tsc --noEmit --strict` em declarations auxiliares PASS. Teste Vitest adicional foi escrito mas **não executado**. Typecheck/lint/build monorepo, React/MapLibre/PMTiles no browser, WebView multiaberta e testes físicos NÃO EXECUTADOS; continuam dívida de homologação **sem bloquear novas fases de implementação**. PRD `docs/MM-MAP-A24-A25-protocol-lifecycle.md`.
+
+**Próxima prioridade de código:** revisar o estado e teardown de workers/PMTiles durante requests realmente concorrentes e eventos WebGL context-lost, com base no HEAD real. Não realizar CI remoto, merge main, deploy Vercel, alterações Neon, tag/release, força de push, exclusão de dados ou loja.
+
+---
+
+
 ## Continuidade A22/A23 — limites de recursos e diagnóstico MapLibre (2026-10-10)
 
 **HEAD-base auditado:** `dev/markmap-pwa-v2@82d4de0`; `main@156d4e8`; sem PRs ou issues abertas antes da intervenção. **A22 EM CÓDIGO:** `OfflinePackageSource` valida offset/length contra `File.size`, rejeita resposta truncada; `createOfflineAssetProtocol` limita blob a 4 MiB, rejeita dados inválidos, usa abort com listener removido em sucesso, falha ou cancelamento e mantém strings de erro testadas anteriormente. **A23 EM CÓDIGO:** diagnóstico seguro de recursos MapLibre e falhas de inicialização, ignora AbortError ao trocar mapas e não exibe URL/token/path cru na interface. A20 retry/fundo simples e integridade A14/A19 preservados.

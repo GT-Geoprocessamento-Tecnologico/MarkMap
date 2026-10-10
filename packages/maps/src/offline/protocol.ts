@@ -30,9 +30,9 @@ export class OfflinePackageSource extends FileSource {
 
 export function createOfflinePmtiles(file: File, packageId: string): PMTiles { return new PMTiles(new OfflinePackageSource(file, packageId)); }
 
-export function createOfflineProtocol(manifest: OfflineMapPackageManifest, file: File): Protocol {
+export function createOfflineProtocol(manifest: OfflineMapPackageManifest, file: File, protocolId = manifest.id): Protocol {
   const protocol = new Protocol({ metadata: false });
-  protocol.add(createOfflinePmtiles(file, manifest.id));
+  protocol.add(createOfflinePmtiles(file, protocolId));
   return protocol;
 }
 

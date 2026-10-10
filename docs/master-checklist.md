@@ -1,6 +1,17 @@
 # MarkMap — Checklist Mestre de Execução
 
 
+## A24/A25 — segurança do ciclo de protocolos MapLibre (2026-10-10)
+
+- [x] **A24 EM CÓDIGO:** `pmtiles` e `geonexo-package` registrados globalmente com leases por montagem; URL de cada estilo/PMTiles/glyphs/sprites reescrita por alias exclusivo; nenhuma instância remove os protocolos de outra.
+- [x] **A24 EM CÓDIGO:** requests antigos ou abortados falham sem acessar outra geração; rollback de registro parcial e release idempotente, com desregistro global só após último lease.
+- [x] **A25 EM CÓDIGO:** `createMapLibreMap` envolve controles/listeners em rollback síncrono; falha pós-criação limpa WebGL e lease no `CommandCenterPage`, evitando retry preso a `mapRef`.
+- [x] **QA NODE EXECUTADA:** 70/70 PASS (60 regressões do recorte anterior + 10 novos A24/A25), `node --check` dos novos helpers e `tsc --noEmit --strict` das declarations auxiliares PASS.
+- [ ] **QA NÃO BLOQUEANTE PARA CODAR:** teste Vitest novo de estilo/alias escrito mas não executado, lint/typecheck/build integral, PMTiles/MapLibre reais em browser, E2E WebView/Capacitor e aparelhos físicos. Não declarar homologação.
+- [ ] **PRÓXIMO CÓDIGO:** revisar eventos de perda WebGL e teardown de requisições concorrentes sem redesenhar a arquitetura.
+- [ ] **SEM AUTORIZAÇÃO DE PRODUÇÃO:** não fazer CI GitHub, merge main, deploy Vercel, Neon/migration, tag/release/loja ou exclusões/force-push. PRD `docs/MM-MAP-A24-A25-protocol-lifecycle.md`.
+
+
 ## A22/A23 — integridade do protocolo e recuperação de erros locais (2026-10-10)
 
 - [x] **A22 CÓDIGO:** validar intervalo PMTiles inteiro dentro de `File.size`, limite máximo 4 MiB, rejeitar bytes truncados; validar blobs do protocolo local e comprimento exato, sem alterar contratos.

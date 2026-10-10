@@ -1,6 +1,15 @@
 # MarkMap — Documento Mestre Único
 
 
+## A24/A25 — posse dos protocolos MapLibre e cleanup de mapas incompletos (2026-10-10)
+
+**IMPLEMENTADO EM CÓDIGO / QA NODE DIRECIONADA:** os esquemas globais `pmtiles` e `geonexo-package` agora são registrados uma vez por documento e gerenciados por leases de identidade exclusiva por montagem. `CommandCenterPage` reescreve estilo/PMTiles/glyphs/sprites com alias temporário `mk...`, sempre vinculado à geração do pacote offline. Desmontar mapa antigo apenas libera seu lease, sem remover handlers usados por uma nova montagem. Requests obsoletos/abortados não podem retornar dados de outro mapa. `createMapLibreMap` remove instância WebGL parcial quando algum controle ou listener lança durante setup síncrono; initializer também limpa mapa/lease no erro. Mantidos GeoPDF, projetos, dados de campo, IndexedDB/outbox, retry e modo neutro A20.
+
+**EVIDÊNCIA LOCAL:** Node `v22.16.0`, **70/70 testes Node PASS** em recorte local A10–A25 (60 anteriores + 10 novos A24/A25), zero skips/falhas. `node --check` helpers e `tsc --noEmit --strict` isolado das duas declarações TypeScript: PASS. Revisão estática dos blobs TS/TSX e vínculo de URLs de estilo: sem falhas identificadas. **Teste Vitest adicional de alias criado, mas NÃO EXECUTADO.** Sem full lint/typecheck/build do monorepo, PMTiles/MapLibre/browser/WebView real ou testes físicos. Essas pendências não travam novas fases de desenvolvimento por decisão vigente, mas não autorizam release. Sem CI remoto, merge main, Vercel, Neon, migrações, tag/release ou exclusões. PRD `docs/MM-MAP-A24-A25-protocol-lifecycle.md`.
+
+---
+
+
 ## A22/A23 — protocolos offline seguros e diagnóstico de erros (2026-10-10)
 
 **IMPLEMENTADO EM CÓDIGO:** PMTiles passa a rejeitar offset/length inválidos, bytes além do arquivo e leituras truncadas (limite anterior de 4 MiB preservado). Protocolo de glyph/sprite/style verifica Blob e contagem exata de bytes e agora remove listeners de AbortSignal em todos os encerramentos; cancelamento do resolver é observado imediatamente. Tipos e códigos de erro estáveis sem URL/path. A interface MapLibre distingue AbortError normal, ausência de recurso, pacote incompleto, atualização concorrente, WebGL/rede e erro desconhecido sem ecoar mensagens brutas potencialmente sensíveis. Retry e fundo simples A20/A21 preservados. Não toca IndexedDB, projetos, outbox, selection ou backend.
