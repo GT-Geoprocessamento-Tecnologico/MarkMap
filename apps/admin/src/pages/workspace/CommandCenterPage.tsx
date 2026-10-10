@@ -41,6 +41,7 @@ import { getSelectedOfflineMapId, setSelectedOfflineMapId, subscribeSelectedOffl
 import { subscribeRegionCatalogChanges } from "../../lib/storage/region-catalog-events.mjs";
 import { createRegionRevisionReconciler, subscribeRegionForeground } from "../../lib/storage/region-foreground-reconcile.mjs";
 import { createOfflineMapRecovery, resolveOfflineBasemap } from "../../lib/map/offline-map-recovery.mjs";
+import { createWebglContextRecovery } from "../../lib/map/webgl-context-recovery.mjs";
 import { describeOfflineMapFailure } from "../../lib/map/offline-map-diagnostics.mjs";
 import { ensureLocationPermission } from "../../lib/device-location-permission";
 import {
@@ -177,8 +178,13 @@ export default function CommandCenterPage() {
   const [mapReady, setMapReady] = useState(false);
   const mapErrorRef = useRef<string | null>(null);
   mapErrorRef.current = mapError;
+  const webglLostRef = useRef(false);
+  const webglRetryBudgetRef = useRef<{ sceneKey: string; autoRecoveryUsed: boolean }>({
+    sceneKey: "", autoRecoveryUsed: false,
+  });
   const [mapRetryRevision, setMapRetryRevision] = useState(0);
   const retryMap = useCallback(() => {
+    webglLostRef.current = false;
     mapErrorRef.current = null;
     setMapError(null);
     setMapReady(false);
@@ -190,7 +196,7 @@ export default function CommandCenterPage() {
     mapRecoveryRef.current = policy;
     const stop = subscribeRegionForeground(() => {
       policy.onForeground({
-        hasError: Boolean(mapErrorRef.current),
+        hasError: Boolean(mapErrorRef.current) && !webglLostRef.current,
         hasLocalContext: Boolean((activeRegionPackageId && !mapSource.neutralActive) || search.pdfId),
       });
     });
@@ -577,6 +583,29 @@ export default function CommandCenterPage() {
     setGeoPdfMessage(null);
     fittedKeyRef.current = "";
     let cancelled = false;
+    const sceneKey = JSON.stringify([
+      search.pdfId ?? null, activeRegionPackageId, regionalRenderRevision, mapSource.neutralActive,
+    ]);
+    if (webglRetryBudgetRef.current.sceneKey !== sceneKey) {
+      webglRetryBudgetRef.current = { sceneKey, autoRecoveryUsed: false };
+    }
+    const glRecovery = createWebglContextRecovery({
+      budget: webglRetryBudgetRef.current,
+      onLost: () => {
+        if (cancelled) return;
+        webglLostRef.current = true;
+        const message = "O contexto gráfico foi perdido. Aguarde a restauração ou tente reabrir o mapa.";
+        mapErrorRef.current = message;
+        setMapError(message);
+        setMapReady(false);
+      },
+      onRestore: () => {
+        if (cancelled) return;
+        // One automatic remount per region/revision. Further retries are manual.
+        webglLostRef.current = false;
+        retryMap();
+      },
+    });
     let fallbackActive = !navigator.onLine;
     let releaseProtocolLease: (() => void) | null = null;
     let geoPdfOverlay: GeoPdfOverlay | null = null;
@@ -765,6 +794,15 @@ export default function CommandCenterPage() {
       locationControlRef.current = geolocate;
       mapRef.current = map;
       regionReconcilerRef.current?.noteRendered(selectedPackageId, displayedGeneration);
+      // MapLibre emits these typed events from the underlying WebGL canvas.
+      map.on("webglcontextlost", (event) => {
+        if (!cancelled) glRecovery.lost(event);
+      });
+      map.on("webglcontextrestored", () => {
+        if (cancelled) return;
+        webglLostRef.current = false;
+        glRecovery.restored();
+      });
       map.on("error", (event) => {
         if (cancelled) return;
         if (offlinePackageSelected || mapSource.neutralActive || Boolean(search.pdfId)) {
@@ -1001,6 +1039,8 @@ export default function CommandCenterPage() {
     };
     void initialize().catch((cause) => {
       if (cancelled) return;
+      glRecovery.dispose();
+      webglLostRef.current = false;
       regionReconcilerRef.current?.resetPending();
       if (mapRef.current) {
         // A partially configured map must not block a later retry/remount.
@@ -1024,16 +1064,21 @@ export default function CommandCenterPage() {
 
     return () => {
       cancelled = true;
-      gpsMarkerRef.current?.remove();
+      glRecovery.dispose();
+      webglLostRef.current = false;
+      // Teardown is best-effort per resource; failed MapLibre/WebGL cleanup
+      // cannot strand the protocol lease or poison the next React mount.
+      try { gpsMarkerRef.current?.remove(); } catch { /* detached by WebGL */ }
       gpsMarkerRef.current = null;
-      markersRef.current.forEach((marker) => marker.remove());
+      for (const marker of markersRef.current) {
+        try { marker.remove(); } catch { /* detached map */ }
+      }
       markersRef.current = [];
       locationControlRef.current = null;
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
-      }
-      geoPdfOverlay?.release();
+      const oldMap = mapRef.current;
+      mapRef.current = null;
+      try { oldMap?.remove(); } catch { /* context may already be lost */ }
+      try { geoPdfOverlay?.release(); } catch { /* release continues */ }
       releaseProtocols();
     };
   }, [toast, updateTelemetry, fitSelection, search.pdfId, activeRegionPackageId, regionalRenderRevision,

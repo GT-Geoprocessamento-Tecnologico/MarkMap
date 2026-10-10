@@ -1,6 +1,15 @@
 # MarkMap — Documento Mestre Único
 
 
+## A26/A27 — cancelamento por lease e recuperação WebGL controlada (2026-10-10)
+
+**IMPLEMENTADO EM CÓDIGO, NÃO HOMOLOGADO EM BROWSER:** cada view MapLibre agora vincula os requests PMTiles e `geonexo-package` ao AbortController próprio do lease e ao controller externo do MapLibre. `release()` aborta imediatamente as leituras pendentes de sua view, sem cancelar outros mapas; listener externo é removido em sucesso/erro/abort. O resultado tardio não pode ser aplicado. **A27:** mapa observa `webglcontextlost`/`webglcontextrestored`, apresenta erro local e agenda no máximo uma reconstrução automática por seleção/revisão/GeoPDF, mesmo através de remounts. Foreground não força retry enquanto WebGL está perdido; cleanup tolera exceções de teardown sem prender protocolos. Seleção, pacotes IndexedDB, projetos, desenhos, GeoPDF e outbox preservados; sem rede automática.
+
+**QA EXECUTADA:** Node v22.16.0 **76/76 testes Node versionados PASS** no recorte A10–A27; **84/84 PASS** no mesmo recorte mais harness A22 transpilado com stubs `pmtiles` (8 casos locais, NÃO versionados). 13 testes novos versionados nesta rodada (7 A26 e 6 A27). `node --check` dos helpers, `tsc --strict --noEmit` isolado das declarações e `transpileModule` de TSX PASS. **NÃO EXECUTADO:** lint/typecheck/build monorepo, Vitest/MapLibre real, Playwright, IndexedDB navegador, contexto WebGL perdido fisicamente, Android/iOS. Testes externos não bloqueiam novas fases de desenvolvimento por orientação vigente, mas não autorizam release. Sem CI remoto, deploy, merge `main`, Neon, migration, release/tag, alteração de secrets ou exclusão. PRD: `docs/MM-MAP-A26-A27-webgl-lifecycle.md`.
+
+---
+
+
 ## A24/A25 — posse dos protocolos MapLibre e cleanup de mapas incompletos (2026-10-10)
 
 **IMPLEMENTADO EM CÓDIGO / QA NODE DIRECIONADA:** os esquemas globais `pmtiles` e `geonexo-package` agora são registrados uma vez por documento e gerenciados por leases de identidade exclusiva por montagem. `CommandCenterPage` reescreve estilo/PMTiles/glyphs/sprites com alias temporário `mk...`, sempre vinculado à geração do pacote offline. Desmontar mapa antigo apenas libera seu lease, sem remover handlers usados por uma nova montagem. Requests obsoletos/abortados não podem retornar dados de outro mapa. `createMapLibreMap` remove instância WebGL parcial quando algum controle ou listener lança durante setup síncrono; initializer também limpa mapa/lease no erro. Mantidos GeoPDF, projetos, dados de campo, IndexedDB/outbox, retry e modo neutro A20.

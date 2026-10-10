@@ -1,7 +1,6 @@
 /**
- * Shared MapLibre protocol leases. MapLibre protocol names are global to a page,
- * so each mounted map gets an isolated alias and releases only its own handlers.
- * The actual protocol registration lives until the last map releases its lease.
+ * Shared MapLibre protocol leases. Protocol names are global per document, but
+ * requests and abort controllers belong to one mounted map instance.
  */
 const SCHEMES = ['pmtiles', 'geonexo-package'];
 const leases = new Map();
@@ -25,25 +24,57 @@ function leaseFromUrl(scheme, url) {
   return expression.exec(url)?.[1] ?? null;
 }
 
-function abortRequest() {
-  return new DOMException('Offline map view was replaced', 'AbortError');
-}
+const abortRequest = () => new DOMException('Offline map view was replaced', 'AbortError');
 
 async function dispatch(scheme, params, controller) {
   const id = leaseFromUrl(scheme, params?.url);
-  const handler = id && leases.get(id)?.[scheme === 'pmtiles' ? 'tile' : 'asset'];
-  if (!handler || controller?.signal?.aborted) throw abortRequest();
-  const result = await handler(params, controller);
-  // An old MapLibre worker may resolve after its view has already been removed.
-  if (!leases.has(id) || controller?.signal?.aborted) throw abortRequest();
-  return result;
+  const lease = id && leases.get(id);
+  const handler = lease?.[scheme === 'pmtiles' ? 'tile' : 'asset'];
+  if (!lease || !handler || controller?.signal?.aborted) throw abortRequest();
+
+  // MapLibre may still have outstanding requests after a React view unmount.
+  // Link every read to both the upstream controller and its owning map lease.
+  const request = new AbortController();
+  lease.pending.add(request);
+  const external = controller?.signal;
+  const onExternalAbort = () => request.abort();
+  if (external?.aborted) request.abort();
+  else external?.addEventListener('abort', onExternalAbort, { once: true });
+  try {
+    return await new Promise((resolve, reject) => {
+      let settled = false;
+      const finish = (callback, value) => {
+        if (settled) return;
+        settled = true;
+        request.signal.removeEventListener('abort', onAbort);
+        callback(value);
+      };
+      const onAbort = () => finish(reject, abortRequest());
+      request.signal.addEventListener('abort', onAbort, { once: true });
+      // Do not enter the underlying PMTiles/IndexedDB handler if already stale.
+      Promise.resolve().then(() => {
+        if (request.signal.aborted) throw abortRequest();
+        return handler(params, request);
+      }).then(
+        value => {
+          if (request.signal.aborted || leases.get(id) !== lease) finish(reject, abortRequest());
+          else finish(resolve, value);
+        },
+        error => finish(reject, error),
+      );
+      if (request.signal.aborted) onAbort();
+    });
+  } finally {
+    external?.removeEventListener('abort', onExternalAbort);
+    lease.pending.delete(request);
+  }
 }
 
 const tileDispatch = (params, controller) => dispatch('pmtiles', params, controller);
 const assetDispatch = (params, controller) => dispatch('geonexo-package', params, controller);
 
 export function acquireOfflineProtocolLease({ addProtocol, removeProtocol, createHandlers }) {
-  if ([addProtocol, removeProtocol, createHandlers].some((value) => typeof value !== 'function'))
+  if ([addProtocol, removeProtocol, createHandlers].some(value => typeof value !== 'function'))
     throw new TypeError('Expected protocol registration and handler callbacks');
   if (!Number.isSafeInteger(sequence + 1)) throw new Error('Offline map protocol identity exhausted');
   const id = `mk${prefix}${(++sequence).toString(36)}`;
@@ -61,7 +92,8 @@ export function acquireOfflineProtocolLease({ addProtocol, removeProtocol, creat
     }
     registered = true;
   }
-  leases.set(id, handlers);
+  const lease = { ...handlers, pending: new Set() };
+  leases.set(id, lease);
   let released = false;
   return {
     id,
@@ -69,8 +101,11 @@ export function acquireOfflineProtocolLease({ addProtocol, removeProtocol, creat
       if (released) return;
       released = true;
       leases.delete(id);
+      // Abort immediately instead of merely discarding a late response. A
+      // cooperative PMTiles/Blob read can now stop its own I/O as well.
+      for (const request of lease.pending) request.abort();
+      lease.pending.clear();
       if (leases.size === 0 && registered) {
-        // A released page must not remove the protocol of another active map.
         registered = false;
         for (const scheme of SCHEMES) {
           try { removeProtocol(scheme); } catch { /* best-effort unmount */ }

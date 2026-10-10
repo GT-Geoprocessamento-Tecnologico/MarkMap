@@ -1,6 +1,17 @@
 # Handoff de continuidade
 
 
+## Continuidade A26/A27 — requests abortados e restauração do WebGL (2026-10-10)
+
+**HEAD-base auditado:** `dev/markmap-pwa-v2@f042a88`; `main@156d4e8` intocada. Sem PRs/issues abertos na auditoria. **A26 IMPLEMENTADO:** dispatch de protocolo liga cada request a AbortController da sua instância; release do lease cancela requests pendentes, remove listeners e não aborta dados de outra view. Cancelamento propaga prontamente até o chamador mesmo quando I/O de baixo nível não coopera. **A27 IMPLEMENTADO:** eventos MapLibre de perda/restauração WebGL marcam indisponibilidade e tentam reconstrução só uma vez por região/revisão (orçamento permanece entre remounts). Foreground é suspenso enquanto contexto perdido; erros de `map.remove` não impedem descarte do lease e restauração de outra view. GeoPDF, campo, projetos e IndexedDB/outbox preservados.
+
+**VALIDAÇÃO LOCAL:** Node v22.16.0, **76/76 testes do recorte versionado A10–A27 PASS**, zero fail/skipped; incluindo harness legado de protocolo com stub não versionado **84/84 PASS**. Novos testes versionados A26 (7), A27 (6). `node --check` JS, `tsc --noEmit --strict` isolado `.d.mts` e parsing TSX PASS. **NÃO EXECUTADO:** full lint/typecheck/build/Vitest/Playwright monorepo, MapLibre real, WebGL context lost real, WebView/Android/iOS. Não alegar homologação física. PRD: `docs/MM-MAP-A26-A27-webgl-lifecycle.md`.
+
+**Próxima fase de desenvolvimento:** auditar limites de worker/estilo após múltiplas restaurações e diagnóstico de retry manual/fundo neutro com base no HEAD real. Manter única branch dev, nenhum CI/deploy/merge/tag/migration ou operação Neon sem autorização separada.
+
+---
+
+
 ## Continuidade A24/A25 — protocolos globais por leases e rollback WebGL (2026-10-10)
 
 **Base auditada:** `dev/markmap-pwa-v2@dcc8b93`, `main@156d4e8`; sem PRs/issues abertos. **A24 IMPLEMENTADO:** add/remove dos protocolos `pmtiles`/`geonexo-package` migrou da vida de cada componente para gerenciador compartilhado com IDs exclusivos por view, roteando PMTiles/style/glyph/sprite para a geração correta. Liberação não afeta mapas que permanecem montados; requests tardios são abortados. APIs com ID antigo mantidas como defaults de compatibilidade para consumidores existentes. **A25 IMPLEMENTADO:** rollback de configuração síncrona do mapa/controles, preservação de exceção original e limpeza de mapa parcial e lease na falha. Sem mudanças em dados operacionais, sync, outbox, quota ou Neon.

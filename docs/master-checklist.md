@@ -1,6 +1,16 @@
 # MarkMap — Checklist Mestre de Execução
 
 
+## A26/A27 — cancelar I/O da view antiga e recuperar WebGL sem loops (2026-10-10)
+
+- [x] **A26 EM CÓDIGO:** cada lease MapLibre rastreia seus requests e AbortControllers; release aborta leituras pendentes (PMTiles e assets), remove listeners e não afeta outros mapas. Requests atrasados continuam bloqueados; APIs existentes mantidas.
+- [x] **A27 EM CÓDIGO:** eventos `webglcontextlost`/`webglcontextrestored` tratados com aviso, preventDefault e no máximo um remount automático por seleção/revisão; foregound não tenta retry enquanto WebGL está perdido. Teardown tolera falhas de remoção de marcador/mapa/GeoPDF e sempre libera lease.
+- [x] **QA NODE DIRIGIDA:** **76/76 PASS** dos arquivos de teste versionados presentes no recorte A10–A27; com harness local A22 de parser TS sob stubs `pmtiles`, **84/84 PASS**. 13 testes A26/A27 novos versionados; `node --check`, declarations `tsc --strict --noEmit` e sintaxe TSX PASS.
+- [ ] **HOMOLOGAÇÃO NÃO BLOQUEANTE PARA CÓDIGO:** testes reais de WebGL lost/restored, MapLibre e PMTiles/IndexedDB, Playwright/E2E, lint/typecheck/build monorepo, Android/iOS físico, RAM em aparelho. Não marcar gate de release como verde.
+- [ ] **PRÓXIMO DESENVOLVIMENTO:** diagnosticar worker/protocol teardown após restaurações consecutivas e UX sem WebGL; avançar apenas onde existir lacuna comprovada no HEAD.
+- [ ] **SEM AÇÕES DE PRODUÇÃO:** não executar CI GitHub, Vercel deploy, merge main, Neon/migration, tag/release, lojas ou exclusões. PRD `docs/MM-MAP-A26-A27-webgl-lifecycle.md`.
+
+
 ## A24/A25 — segurança do ciclo de protocolos MapLibre (2026-10-10)
 
 - [x] **A24 EM CÓDIGO:** `pmtiles` e `geonexo-package` registrados globalmente com leases por montagem; URL de cada estilo/PMTiles/glyphs/sprites reescrita por alias exclusivo; nenhuma instância remove os protocolos de outra.

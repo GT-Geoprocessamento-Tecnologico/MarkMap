@@ -147,3 +147,115 @@ test('A25 teardown failure never hides original initialization error',()=>{
 test('A25 invalid setup callback cannot mutate a map',()=>{
   assert.throws(()=>configureMapWithRollback({},()=>1),/Expected map/);
 });
+
+test('A26 releasing a map aborts an in-flight PMTiles handler without waiting for I/O', async () => {
+  const reg = registry();
+  let started;
+  const startedPromise = new Promise(resolve => { started = resolve; });
+  let inner;
+  const lease = acquireOfflineProtocolLease({
+    addProtocol: reg.addProtocol,
+    removeProtocol: reg.removeProtocol,
+    createHandlers: () => ({
+      tile: async (_params, controller) => {
+        inner = controller;
+        started();
+        return new Promise(() => {}); // underlying I/O is stalled
+      },
+      asset: async () => ({ data: 1 }),
+    }),
+  });
+  const read = reg.actions.get('pmtiles')({ url: `pmtiles://geonexo-offline:${lease.id}/1/2/3` }, ctl());
+  await startedPromise;
+  lease.release();
+  await assert.rejects(read, e => e.name === 'AbortError');
+  assert.equal(inner.signal.aborted, true);
+  assert.equal(reg.actions.size, 0);
+});
+
+test('A26 a released map cannot abort the still-active map or its asset requests', async () => {
+  const reg = registry();
+  const old = session(reg, 'old');
+  let finish;
+  let currentSignal;
+  const next = acquireOfflineProtocolLease({
+    addProtocol: reg.addProtocol,
+    removeProtocol: reg.removeProtocol,
+    createHandlers: () => ({
+      tile: async () => ({ data: 'current' }),
+      asset: async (_params, inner) => {
+        currentSignal = inner;
+        return new Promise(resolve => { finish = resolve; });
+      },
+    }),
+  });
+  const asset = reg.actions.get('geonexo-package');
+  const pending = asset({ url: `geonexo-package://${next.id}/sprites/light.json` }, ctl());
+  // Wait for the handler to receive its controller.
+  while (!finish) await Promise.resolve();
+  old.release();
+  assert.equal(currentSignal.signal.aborted, false);
+  finish({ data: 'still-valid' });
+  assert.deepEqual(await pending, { data: 'still-valid' });
+  next.release();
+  assert.equal(reg.actions.size, 0);
+});
+
+test('A26 caller abort cancels only that request and keeps the lease usable', async () => {
+  const reg = registry();
+  let first = true;
+  const lease = acquireOfflineProtocolLease({
+    addProtocol: reg.addProtocol,
+    removeProtocol: reg.removeProtocol,
+    createHandlers: () => ({
+      tile: async () => ({ data: 0 }),
+      asset: async (_params, inner) => first ? (
+        first = false,
+        new Promise((_, reject) => inner.signal.addEventListener('abort', () => reject(new Error('aborted underlying read')), { once: true }))
+      ) : ({ data: 2 }),
+    }),
+  });
+  const action = reg.actions.get('geonexo-package');
+  const controller = ctl();
+  const pending = action({ url: `geonexo-package://${lease.id}/style.json` }, controller);
+  while (first) await Promise.resolve();
+  controller.abort();
+  await assert.rejects(pending, e => e.name === 'AbortError');
+  assert.deepEqual(await action({ url: `geonexo-package://${lease.id}/style.json` }, ctl()), { data: 2 });
+  lease.release();
+});
+
+test('A26 MapLibre upstream abort listener is removed on resolve and reject', async () => {
+  const reg = registry();
+  const lease = acquireOfflineProtocolLease({
+    addProtocol: reg.addProtocol,
+    removeProtocol: reg.removeProtocol,
+    createHandlers: () => ({
+      tile: async () => ({ data: 1 }),
+      asset: async () => { throw new Error('resource missing'); },
+    }),
+  });
+  const observed = ctl();
+  let active = 0;
+  const add = observed.signal.addEventListener.bind(observed.signal);
+  const remove = observed.signal.removeEventListener.bind(observed.signal);
+  observed.signal.addEventListener = (...args) => { active++; return add(...args); };
+  observed.signal.removeEventListener = (...args) => { active--; return remove(...args); };
+  await reg.actions.get('pmtiles')({url:`pmtiles://geonexo-offline:${lease.id}`},observed);
+  assert.equal(active, 0);
+  await assert.rejects(reg.actions.get('geonexo-package')({url:`geonexo-package://${lease.id}/style.json`}, observed),/resource missing/);
+  assert.equal(active, 0);
+  lease.release();
+});
+
+test('A26 releasing one view while another is loading never leaks data across URLs', async () => {
+  const reg = registry();
+  const one = session(reg, 'region-1');
+  const two = session(reg, 'region-2');
+  const tile = reg.actions.get('pmtiles');
+  one.release();
+  await assert.rejects(tile({url:`pmtiles://geonexo-offline:${one.id}`}, ctl()), e => e.name === 'AbortError');
+  const result = await tile({url:`pmtiles://geonexo-offline:${two.id}`}, ctl());
+  assert.match(result.data, /^region-2:tile:/);
+  two.release();
+});
