@@ -79,9 +79,14 @@ export class ResumableInstaller {
     try {
       const session = await this.chunks.getSession(packageId);
       if (!session) return { canResume: false, checkpoint: null, reason: 'Nenhum download interrompido' };
-      const downloadedBytes = await this.chunks.getDownloadedBytes(session.hashes);
+      // Legacy sessions have no expected sizes; resume still works from the
+      // manifest but cannot report a trusted preflight count yet.
+      if (!session.assets?.length)
+        return { canResume: false, checkpoint: null,
+          reason: 'Abra novamente a fonte do mapa para validar os blocos antigos e retomar.' };
+      const downloadedBytes = await this.chunks.getDownloadedBytes(session.assets);
       if (downloadedBytes <= 0 || downloadedBytes > session.totalBytes)
-        return { canResume: false, checkpoint: null, reason: 'Sem chunks verificados para retomar' };
+        return { canResume: false, checkpoint: null, reason: 'Sem blocos completos para retomar' };
       return { canResume: true, checkpoint: {
         id: session.manifestSha, timestamp: session.updatedAt, downloadedBytes,
         totalBytes: session.totalBytes, speed: 0, eta: 0,
@@ -140,6 +145,7 @@ export class ResumableInstaller {
       return fail('package-too-large', 'Pacote excede o limite agregado de 250 MiB para mapas offline');
     if (total !== manifest.totalBytes) return fail('size-mismatch', 'Tamanho total difere dos artefatos declarados');
     const hashes = [...new Set(files.map((f) => f.sha256.toLowerCase()))];
+    const expectedAssets = files.map((f) => ({ sha256: f.sha256.toLowerCase(), size: f.size }));
     const signature = [manifest.version, manifest.packageVersion, ...files.map((f) => f.sha256)].join(':');
     let existing;
     try { existing = await this.chunks.getSession(params.packageId); }
@@ -150,7 +156,7 @@ export class ResumableInstaller {
     let resumedBytes = 0;
     if (existing?.manifestSha === signature) {
       try {
-        const bytes = await this.chunks.getDownloadedBytes(hashes);
+        const bytes = await this.chunks.getDownloadedBytes(expectedAssets);
         if (bytes >= 0 && bytes <= total) resumedBytes = bytes;
       } catch { return fail('storage-unavailable', 'Não foi possível contabilizar o download parcial'); }
     }
@@ -168,15 +174,16 @@ export class ResumableInstaller {
     } catch { return fail('storage-unavailable', 'Não foi possível verificar o armazenamento'); }
     if (existing && existing.manifestSha !== signature) {
       try {
-        for (const hash of existing.hashes) await this.chunks.deleteAsset(hash);
-        await this.chunks.clearSession(params.packageId);
+        // Hashes can be shared by another region. Only unreferenced chunks
+        // may be removed, atomically with the old session deletion.
+        await this.chunks.finishSession(params.packageId);
       } catch { return fail('storage-unavailable', 'Não foi possível descartar staging anterior'); }
     }
     this.active = new AbortController();
     const signal = this.active.signal;
     try {
       await this.chunks.setSession({ packageId: params.packageId, manifestSha: signature,
-        hashes, totalBytes: total });
+        hashes, totalBytes: total, assets: expectedAssets });
       const assets = new Map<string, Blob>();
       let already = 0;
       let reported = 0;
@@ -208,8 +215,7 @@ export class ResumableInstaller {
       // Removing obsolete checkpoints is best-effort; installation already
       // committed and must not be reported as failed due to garbage collection.
       try {
-        for (const hash of hashes) await this.chunks.deleteAsset(hash);
-        await this.chunks.clearSession(params.packageId);
+        await this.chunks.finishSession(params.packageId);
       } catch { /* Safe to retry orphan cleanup later. */ }
       params.onProgress?.({ status: 'active', percent: 100, message: 'Regiao instalada',
         downloadedBytes: total, totalBytes: total, speed: 0, eta: 0,

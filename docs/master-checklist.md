@@ -1,6 +1,17 @@
 # MarkMap — Checklist Mestre de Execução
 
 
+## A8/A9 — memória e retomada segura (2026-10-10)
+
+- [x] **A8 código + Node:** novo `Blob` por chunk persistido no IndexedDB v1, leitura `getBlob` compatível com antigos `ArrayBuffer`, hash do Blob realmente montado sem retenção de arrays completos. Não pressupor benchmark de RAM.
+- [x] **A9 código + Node:** `checkResume` usa tamanho esperado por hash e valida alinhamento/chunk; sessions legadas permanecem legíveis. Limpeza atômica de sessão remove somente hashes sem uso em outra região.
+- [x] **A9 fallback:** servidor que retorna HTTP 200 em Range não inicial provoca recomeço de digest/montagem do zero, checksum integral obrigatório e progresso monotônico.
+- [x] **Testes locais direcionados:** **53/53 Node PASS**, `node --check` e TypeScript isolado do checkpoint store sem erros.
+- [ ] **HOMOLOGAÇÃO NÃO BLOQUEANTE PARA CÓDIGO:** lint/typecheck/build/test/e2e monorepo, IndexedDB browser real/Capacitor, RAM/CPU em celular, testes físicos, dados regionais reais com licença. Não declarar funcionalidade homologada em produção.
+- [ ] **PRÓXIMO DESENVOLVIMENTO:** auditar fluxo de instalação regional na interface e recuperação amigável em erros/quota, preservar mapa ativo, outbox e operação offline.
+- [ ] **GATE DE RELEASE SEPARADO:** nenhum merge main, deploy, CI remoto, tag, release, publicação móvel ou operação Neon sem autorização. PRD: `docs/MM-MAP-A8-A9-checkpoint-recovery.md`.
+
+
 ## A7 — instalação offline sem concorrência no mesmo origin (2026-10-10)
 
 - [x] **IMPLEMENTADO + NODE:** Web Locks com `ifAvailable` por ID para impedir instalação simultânea da mesma região em abas do mesmo origin que suportem essa API; guarda por instância definida antes do primeiro `await`.

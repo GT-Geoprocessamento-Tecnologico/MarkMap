@@ -1,6 +1,17 @@
 # MarkMap — Documento Mestre Único
 
 
+## A8/A9 — memória por Blob + recuperação segura (2026-10-10)
+
+**Branch dev:** `dev/markmap-pwa-v2` após A7 (`716f112`). **A8 IMPLEMENTADO EM CÓDIGO:** chunks novos são salvos como Blob no IndexedDB e o downloader monta arquivo a partir de Blob parts persistidas; valida hash do conteúdo efetivamente lido e mantém compatibilidade com checkpoints antigos ArrayBuffer sem migração. Evita reter `Uint8Array[]` de até 250 MiB no JS, mas **não garante limite de RAM físico**, a depender do browser.
+
+**A9 IMPLEMENTADO EM CÓDIGO:** contagem para retomada aceita só offsets alinhados e chunks completos conforme `sha256/size` do manifest; sessions novas registram tamanhos sem alterar versão do DB. Sessões legadas podem retomar na instalação, porém contagem incerta não é anunciada. Limpeza transacional `finishSession` mantém hashes referenciados por outras regiões. Se Range virar HTTP 200 no meio da retomada, recomeça montagem/hash do início sem duplicar bytes nem regredir porcentagem.
+
+**EVIDÊNCIA LOCAL:** Node 22.16.0, `node --test scripts/*.test.mjs apps/admin/src/lib/storage/*.test.mjs apps/admin/scripts/*.test.mjs` **53/53 PASS** (46 anteriores + 7 testes A8/A9), checks JS `node --check` verdes; `tsc --strict --noEmit` isolado do módulo `region-download-checkpoints.ts` sem erros e TS sintático do wrapper sem erros. **NÃO EXECUTADO:** monorepo lint/typecheck/build/Vitest/Playwright, IndexedDB/WebView multiabas real, medição RAM, pacote 250 MiB em aparelho. São dívidas de homologação, **não bloqueios de desenvolvimento**. `main`, Neon, Vercel, GitHub CI, release/tag preservados. PRD/evidência: `docs/MM-MAP-A8-A9-checkpoint-recovery.md`.
+
+---
+
+
 ## A7 — Instalação regional coordenada entre abas (2026-10-10)
 
 **IMPLEMENTADO EM CÓDIGO, NÃO HOMOLOGADO NO BROWSER:** instalador agora tem guard local síncrono `installing` e coordena operações para a mesma região com Web Locks API (`ifAvailable`, modo exclusivo). Quando a região já está ocupada em outra aba, retorna `install-busy-other-tab` com retry; em browsers sem Web Locks, preserva o caminho anterior com identificação de geração ao ativar, sem alegar exclusividade. Nenhum IndexedDB schema, SW, outbox, banco ou API alterados. **QA LOCAL:** 3 novos testes com Web Locks simulado (concorrência, erro/liberação, fallback) e regressão A5/A6/M10: **46/46 Node aprovados**. `node --check` e sintaxe TypeScript do wrapper sem erros. Testes de navegador/dispositivo, lint/typecheck/build completos continuam pendentes e **não bloqueiam próxima fase de desenvolvimento**, pela decisão vigente do responsável. Não foi feito deploy/CI/merge/tag/Neon. Handoff `docs/MM-MAP-A7-concurrent-installs.md`.

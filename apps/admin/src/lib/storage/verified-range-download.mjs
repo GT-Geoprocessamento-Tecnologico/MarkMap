@@ -3,6 +3,7 @@
  * Each successful chunk reaches durable storage before progress is published.
  */
 import { IncrementalSha256 } from '../../../../../packages/maps/src/offline/incremental-sha256.mjs';
+import { REGION_DOWNLOAD_CHUNK_SIZE } from './checkpoint-rules.mjs';
 
 export class DownloadIntegrityError extends Error {
   constructor(code, message) { super(message); this.name = 'DownloadIntegrityError'; this.code = code; }
@@ -39,11 +40,31 @@ async function readExactRange(response, wanted, signal) {
   return buffer;
 }
 
+/** Read immutable Blob checkpoints without retaining every ArrayBuffer in RAM. */
+async function existingPart(store, key, offset, wanted) {
+  if (typeof store.getBlob !== 'function') return null;
+  const part = await store.getBlob(key, offset);
+  return part instanceof Blob && part.size === wanted ? part : null;
+}
+
+/** A successful store.put must be readable before claiming progress. */
+async function persistedPart(store, key, offset, bytes) {
+  if (typeof store.getBlob !== 'function') return new Blob([bytes]);
+  const part = await existingPart(store, key, offset, bytes.byteLength);
+  if (!part) throw failure('checkpoint-unreadable', 'stored chunk is missing or invalid');
+  return part;
+}
+
+async function hashPart(hasher, part) {
+  // Each part is at most chunkSize (<= 4 MiB), never the entire package.
+  hasher.update(new Uint8Array(await part.arrayBuffer()));
+}
+
 /**
  * A server ignoring Range may return HTTP 200 only at offset zero.
  * Stream it into fixed-size checkpoints; never response.arrayBuffer() the whole asset.
  */
-async function storeFullFallback(response, { size, chunkSize, store, key, signal, slices, hasher, onProgress }) {
+async function storeFullFallback(response, { size, chunkSize, store, key, signal, parts, hasher, onProgress }) {
   const reader = response.body?.getReader();
   if (!reader) throw failure('invalid-response', 'full response body is missing');
   let saved = 0;
@@ -66,8 +87,9 @@ async function storeFullFallback(response, { size, chunkSize, store, key, signal
         if (buffered === target.length) {
           // Checkpoint first; incomplete chunks are never made resumable.
           await store.put(key, saved, target);
-          hasher.update(target);
-          slices.push(target);
+          const part = await persistedPart(store, key, saved, target);
+          await hashPart(hasher, part);
+          parts.push(part);
           saved += target.length;
           onProgress({ downloadedBytes: saved, totalBytes: size });
           buffered = 0;
@@ -87,7 +109,7 @@ async function storeFullFallback(response, { size, chunkSize, store, key, signal
 
 export async function downloadVerifiedAsset({
   url, sha256, size, store, fetcher = fetch, signal,
-  onProgress = () => {}, chunkSize = 1024 * 1024,
+  onProgress = () => {}, chunkSize = REGION_DOWNLOAD_CHUNK_SIZE,
 }) {
   if (typeof url !== 'string' || (!/^https:\/\//.test(url) && !/^http:\/\/localhost(?::\d+)?\//.test(url)))
     throw failure('invalid-url', 'asset URL must be HTTPS or localhost');
@@ -97,62 +119,77 @@ export async function downloadVerifiedAsset({
     throw failure('invalid-chunk-size', 'range chunk size out of bounds');
 
   const key = sha256.toLowerCase();
-  const slices = [];
-  const hasher = new IncrementalSha256();
+  const parts = [];
+  let hasher = new IncrementalSha256();
   let completed = 0;
   for (let offset = 0; offset < size; offset += chunkSize) {
     assertRunning(signal);
     const wanted = Math.min(size - offset, chunkSize);
-    let chunk = await store.get(key, offset);
-    if (!(chunk instanceof Uint8Array && chunk.length === wanted)) chunk = null;
+    let part = await existingPart(store, key, offset, wanted);
 
-    if (!chunk) {
-      let response;
-      try {
-        response = await fetcher(url, {
-          method: 'GET', headers: { Range: `bytes=${offset}-${offset + wanted - 1}` },
-          signal, redirect: 'error', credentials: 'omit', cache: 'no-store',
-        });
-      } catch (error) {
-        if (signal?.aborted) throw failure('aborted', 'download cancelled');
-        throw failure('network-error', error instanceof Error ? error.message : 'network failed');
-      }
-      if (!response.ok || (response.status !== 206 && !(response.status === 200 && offset === 0)))
-        throw failure('invalid-response', 'download server must support HTTP Range or return the whole file from offset zero');
-
-      if (response.status === 200) {
+    if (!part) {
+      // Adapter compatibility: existing test/memory stores only implement get().
+      let chunk = typeof store.getBlob === 'function' ? null : await store.get(key, offset);
+      if (!(chunk instanceof Uint8Array && chunk.length === wanted)) chunk = null;
+      if (!chunk) {
+        let response;
         try {
-          await storeFullFallback(response, { size, chunkSize, store, key, signal,
-            slices, hasher, onProgress });
+          response = await fetcher(url, {
+            method: 'GET', headers: { Range: `bytes=${offset}-${offset + wanted - 1}` },
+            signal, redirect: 'error', credentials: 'omit', cache: 'no-store',
+          });
         } catch (error) {
-          // Partial full-response checkpoints must never look like a completed asset.
-          await store.deleteAsset(key).catch(() => undefined);
-          throw error;
+          if (signal?.aborted) throw failure('aborted', 'download cancelled');
+          throw failure('network-error', error instanceof Error ? error.message : 'network failed');
         }
-        completed = size;
-        break;
+        if (!response.ok || (response.status !== 206 && response.status !== 200))
+          throw failure('invalid-response', 'download server must return HTTP 206 or a full HTTP 200');
+        if (response.status === 200) {
+          // Server ignored Range, possibly after we reused earlier checkpoints.
+          // Restart the digest/assembly from zero, never concatenate old+new bytes.
+          const progressFloor = completed;
+          parts.length = 0;
+          hasher = new IncrementalSha256();
+          try {
+            await storeFullFallback(response, { size, chunkSize, store, key, signal,
+              parts, hasher, onProgress: (p) => {
+                // A resumed download should not make visible progress go backwards.
+                if (p.downloadedBytes >= progressFloor)
+                  onProgress(p);
+              } });
+          } catch (error) {
+            // Do not retain partial full-response checkpoints after a failed response.
+            await store.deleteAsset(key).catch(() => undefined);
+            throw error;
+          }
+          completed = size;
+          break;
+        }
+        const header = response.headers.get('Content-Range')?.match(/^bytes (\d+)-(\d+)\/(\d+)$/);
+        if (!header || Number(header[1]) !== offset ||
+            Number(header[2]) !== offset + wanted - 1 || Number(header[3]) !== size)
+          throw failure('invalid-content-range', 'server Content-Range does not match manifest');
+        chunk = await readExactRange(response, wanted, signal);
+        await store.put(key, offset, chunk);
       }
-      const header = response.headers.get('Content-Range')?.match(/^bytes (\d+)-(\d+)\/(\d+)$/);
-      if (!header || Number(header[1]) !== offset ||
-          Number(header[2]) !== offset + wanted - 1 || Number(header[3]) !== size)
-        throw failure('invalid-content-range', 'server Content-Range does not match manifest');
-      chunk = await readExactRange(response, wanted, signal);
-      await store.put(key, offset, chunk);
+      part = await persistedPart(store, key, offset, chunk);
     }
 
-    // Persistent or newly fetched chunk: update the checksum in the correct offset order.
-    hasher.update(chunk);
-    slices.push(chunk);
-    completed += chunk.byteLength;
+    // Hash the exact immutable Blob part we will return, not a separate copy.
+    await hashPart(hasher, part);
+    parts.push(part);
+    completed += wanted;
     onProgress({ downloadedBytes: completed, totalBytes: size });
   }
 
   assertRunning(signal);
-  const blob = new Blob(slices);
-  if (blob.size !== size) throw failure('size-mismatch', 'assembled asset length mismatch');
   if (hasher.digestHex() !== key) {
     await store.deleteAsset(key);
     throw failure('checksum-mismatch', 'downloaded bytes do not match immutable manifest SHA-256');
   }
+  // Blob-backed IndexedDB parts avoid retaining all typed chunks in JS heap.
+  // The browser decides how Blob composition is backed; device RAM is not guaranteed.
+  const blob = new Blob(parts);
+  if (blob.size !== size) throw failure('size-mismatch', 'assembled asset length mismatch');
   return blob;
 }

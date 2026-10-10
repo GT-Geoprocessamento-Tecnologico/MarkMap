@@ -1,6 +1,17 @@
 # Handoff de continuidade
 
 
+## Continuidade MarkMap A8/A9 — código + Node (2026-10-10)
+
+**HEAD-base auditado:** `dev/markmap-pwa-v2@716f112`; `main@156d4e8` intocada. Sem PRs/issues abertos no momento da auditoria. **IMPLEMENTADO A8:** download por Blob parts de IndexedDB ao invés de reter arrays completos; adapter antigo ArrayBuffer preservado sem schema migration. **IMPLEMENTADO A9:** só contar checkpoint alinhado/com tamanho exato, sessões novas incluem sha+size; limpeza transacional protege hashes compartilhados; HTTP 200 sem Range durante retomada reinicia digest e arquivo, sem duplicar prefixo. Resguarda download offline já persistido, mapa ativo e outbox.
+
+**VALIDAÇÃO REAL LOCAL:** Node 22.16.0 **53/53 testes PASS (0 falhas/skips)** incluindo 7 novos; `node --check` JS e `tsc --strict --noEmit` isolado do checkpoint store sem erros; `transpileModule` sintático de módulos TS. **NÃO EXECUTADO:** lint/typecheck/build/E2E monorepo e dispositivo real; não afirmar medição de memória, nem homologação Android/iOS, nem 250 MiB garantidos em browser. Testes físicos/externos não bloqueiam novas etapas de implementação por ordem expressa do responsável.
+
+**Próximo:** melhorar UX de retomada/erro e quota sem alterar stack. Não abrir branch extra; `main`, Vercel, Neon, CI GitHub, tag/release, migrations, deleção de branches e deploy proibidos sem autorização separada. PRD detalhado `docs/MM-MAP-A8-A9-checkpoint-recovery.md`.
+
+---
+
+
 ## A7 — Continuidade entre abas (2026-10-10)
 
 **Branch única `dev/markmap-pwa-v2`, base A5/A6 `459ef22`.** Código implementado: `withRegionInstallLock` usa Web Locks por ID de região para evitar concorrência em abas do mesmo origin, `ResumableInstaller.startInstall` tem guarda `installing` síncrona e retorna `install-busy-other-tab` quando lock indisponível. Sem suporte Web Locks o sistema mantém o fluxo anterior, com a proteção de geração no IndexedDB e sem promessa de exclusividade. **QA dirigida real Node 46/46 verdes** (43 anteriores + 3 novos), sintaxe de helper/wrapper verificada. **Browser multiabas, performance, device, build e typecheck completos NÃO EXECUTADOS**, seguem dívida de homologação sem bloquear implementação. `main`, Neon, Vercel, release/CI/deploy intocados. PRD: `docs/MM-MAP-A7-concurrent-installs.md`.
