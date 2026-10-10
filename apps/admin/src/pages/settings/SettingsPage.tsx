@@ -567,6 +567,9 @@ export default function SettingsPage() {
           <p className="text-xs text-on-surface-variant">
             Informe o manifest.json da região. O download é retomável, verifica SHA-256 e mantém o mapa atual se falhar. Limite inicial: 64 MiB.
           </p>
+          <p className="text-xs text-on-surface-variant">
+            Reserve espaço para os blocos baixados e a nova geração. O mapa atual permanece até a ativação; limite agregado dos mapas: 250 MiB.
+          </p>
           <input
             id="markmap-remote-region-url"
             type="url"

@@ -1,5 +1,13 @@
 # MarkMap — Checklist Mestre de Execução
 
+
+## Continuidade A1 — MM-MAP-135/140/145 (2026-10-09)
+
+- [x] **PARCIAL EM CÓDIGO, NÃO VALIDADO:** staging antigo da região substituído em transação IndexedDB, sem excluir mapa ativo; ativação exige geração esperada.
+- [x] **PARCIAL EM CÓDIGO, NÃO VALIDADO:** preflight de limite agregado de 250 MiB, espaço temporário para blocos e geração; `navigator.storage.estimate().usage` incorporado; aviso na UI.
+- [ ] **GATE M10:** testar quota, corrupção, abort/resume, múltiplas abas, rollback e preservação IndexedDB/outbox; lint/typecheck/unit/build/E2E adiados.
+- [ ] **PRÓXIMO A2:** MM-UPD-030/040 — compatibilidade do service worker e popup de atualização opt-in, sem deploy.
+
 - [x] `MM-UPD-030` **CÓDIGO NÃO VALIDADO:** bloquear pacote regional que requer app mais recente comparando com `apps/admin/package.json`; exibir versão do PWA em Configurações (`c8e48b4`). Testar no gate final.
 
 ## Próxima fase M8/M1/M3 — GTFS local e hardening (2026-10-09; PREVALECE)

@@ -1,5 +1,5 @@
 import type { OfflineMapPackageManifest } from "@geonexo/contracts";
-import { bytesOf, validateOfflinePackage, OFFLINE_PACKAGE_DB, OFFLINE_PACKAGE_VERSION, type PackageAssets, type StoredOfflinePackage } from "@geonexo/maps/offline/package";
+import { bytesOf, validateOfflinePackage, OFFLINE_PACKAGE_DB, OFFLINE_PACKAGE_VERSION, OFFLINE_PACKAGE_QUOTA, type PackageAssets, type StoredOfflinePackage } from "@geonexo/maps/offline/package";
 
 const PACKAGES = "packages";
 const ASSETS = "assets";
@@ -8,6 +8,13 @@ type AssetRow = { key: string; packageId: string; path: string; bytes: Blob };
 
 function request<T>(req: IDBRequest<T>): Promise<T> { return new Promise((resolve, reject) => { req.onsuccess = () => resolve(req.result); req.onerror = () => reject(req.error ?? new Error("IndexedDB request failed")); }); }
 function transaction(tx: IDBTransaction): Promise<void> { return new Promise((resolve, reject) => { tx.oncomplete = () => resolve(); tx.onabort = () => reject(tx.error ?? new Error("IndexedDB transaction aborted")); tx.onerror = () => reject(tx.error ?? new Error("IndexedDB transaction failed")); }); }
+
+function accountedBytes(rows: PackageRow[], packageId: string): number {
+  return rows.reduce((used, row) => {
+    if (!Number.isSafeInteger(row.bytes) || row.bytes < 0) throw new Error("invalid offline map storage accounting");
+    return row.packageId === packageId && row.state === "staged" ? used : used + row.bytes;
+  }, 0);
+}
 
 export class OfflineMapStore {
   private dbPromise?: Promise<IDBDatabase>;
@@ -28,7 +35,14 @@ export class OfflineMapStore {
   async active(): Promise<StoredOfflinePackage | null> { const values = await this.list(); return values.find((v) => v.state === "active") ?? null; }
   async asset(packageId: string, path: string): Promise<Blob | null> { const db = await this.open(); const rows = await request<PackageRow[]>(db.transaction(PACKAGES, "readonly").objectStore(PACKAGES).getAll()); const active = rows.find((row) => row.packageId === packageId && row.state === "active"); if (!active) return null; const row = await request<AssetRow | undefined>(db.transaction(ASSETS, "readonly").objectStore(ASSETS).get(`${active.generation}:${path}`)); return row?.bytes ?? null; }
 
-  async stage(manifest: OfflineMapPackageManifest, assets: PackageAssets): Promise<void> {
+  /** Active packages remain counted; obsolete staged generations are reclaimed atomically. */
+  async installationBudget(packageId: string): Promise<{ usedBytes: number; availableBytes: number; limitBytes: number }> {
+    const db = await this.open();
+    const rows = await request<PackageRow[]>(db.transaction(PACKAGES, "readonly").objectStore(PACKAGES).getAll());
+    const usedBytes = accountedBytes(rows, packageId);
+    return { usedBytes, availableBytes: Math.max(0, OFFLINE_PACKAGE_QUOTA - usedBytes), limitBytes: OFFLINE_PACKAGE_QUOTA };
+  }
+  async stage(manifest: OfflineMapPackageManifest, assets: PackageAssets): Promise<string> {
     const checked = await validateOfflinePackage(manifest, assets);
     if (!checked.ok) throw new Error(`${checked.code}: ${checked.detail}`);
     const packageBytes = manifest.archive.bytes + manifest.style.blob.bytes + manifest.glyphs.reduce((n, r) => n + r.blob.bytes, 0) + manifest.sprites.reduce((n, r) => n + r.blob.bytes, 0) + (manifest.searchShards ?? []).reduce((n, r) => n + r.blob.bytes, 0) +
@@ -48,19 +62,36 @@ export class OfflineMapStore {
     const tx = db.transaction([PACKAGES, ASSETS], "readwrite");
     const packages = tx.objectStore(PACKAGES); const store = tx.objectStore(ASSETS);
     const current = await request<PackageRow[]>(packages.getAll());
-    const used = current.reduce((n, row) => n + row.bytes, 0);
-    if (used + packageBytes > 250 * 1024 * 1024) { tx.abort(); throw new Error("offline map application quota is insufficient"); }
+    const used = accountedBytes(current, manifest.id);
+    if (used + packageBytes > OFFLINE_PACKAGE_QUOTA) {
+      tx.abort();
+      throw new Error(`A região exige ${Math.ceil(packageBytes / 1048576)} MiB temporários; restam ${Math.floor(Math.max(0, OFFLINE_PACKAGE_QUOTA - used) / 1048576)} MiB no orçamento de mapas.`);
+    }
+    // Replace only stale staging for this region, preserving the active generation until activation.
+    for (const old of current.filter((row) => row.packageId === manifest.id && row.state === "staged")) {
+      packages.delete(old.key);
+      const abandoned = await request<AssetRow[]>(store.index("package").getAll(old.generation));
+      for (const asset of abandoned) store.delete(asset.key);
+    }
     packages.put({ key, packageId: manifest.id, generation, bytes: packageBytes, manifest, state: "staged", installedAt: new Date().toISOString() } satisfies PackageRow);
     for (const [path, bytes] of materialized) store.put({ key: `${generation}:${path}`, packageId: generation, path, bytes });
     await transaction(tx);
+    return generation;
   }
-  async activate(packageId: string): Promise<void> {
-    const db = await this.open(); const tx = db.transaction([PACKAGES, ASSETS], "readwrite"); const store = tx.objectStore(PACKAGES); const assetStore = tx.objectStore(ASSETS); const all = await request<PackageRow[]>(store.getAll()); const next = all.find((p) => p.packageId === packageId && p.state === "staged"); if (!next) throw new Error("offline package is not staged");
+  async activate(packageId: string, expectedGeneration?: string): Promise<void> {
+    const db = await this.open(); const tx = db.transaction([PACKAGES, ASSETS], "readwrite");
+    const store = tx.objectStore(PACKAGES); const assetStore = tx.objectStore(ASSETS);
+    const all = await request<PackageRow[]>(store.getAll());
+    const staged = all.filter((p) => p.packageId === packageId && p.state === "staged");
+    const next = expectedGeneration
+      ? staged.find((p) => p.generation === expectedGeneration)
+      : staged.length === 1 ? staged[0] : undefined;
+    if (!next) { tx.abort(); throw new Error("offline package staging was replaced or is ambiguous"); }
     for (const row of all.filter((p) => p.packageId === packageId)) { if (row.key !== next.key) { store.delete(row.key); const oldAssets = await request<AssetRow[]>(assetStore.index("package").getAll(row.generation)); for (const asset of oldAssets) assetStore.delete(asset.key); } }
     store.put({ ...next, state: "active" });
     await transaction(tx);
   }
-  async install(manifest: OfflineMapPackageManifest, assets: PackageAssets): Promise<void> { await this.stage(manifest, assets); await this.activate(manifest.id); }
+  async install(manifest: OfflineMapPackageManifest, assets: PackageAssets): Promise<void> { const generation = await this.stage(manifest, assets); await this.activate(manifest.id, generation); }
   async remove(packageId: string): Promise<void> { const db = await this.open(); const tx = db.transaction([PACKAGES, ASSETS], "readwrite"); const packages = tx.objectStore(PACKAGES); const assets = tx.objectStore(ASSETS); const rows = await request<PackageRow[]>(packages.getAll()); for (const row of rows.filter((candidate) => candidate.packageId === packageId)) { packages.delete(row.key); const owned = await request<AssetRow[]>(assets.index("package").getAll(row.generation)); for (const asset of owned) assets.delete(asset.key); } await transaction(tx); }
 }
 

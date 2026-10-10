@@ -22,7 +22,7 @@ import { getStorageBreakdown, StorageBreakdown } from "./storage-management";
 export type StorageBackend = "indexeddb" | "filesystem" | "unknown";
 
 export interface DeviceStorageProfile {
-  /** Quota total disponível em bytes (aprox. 20% do total do dispositivo) */
+  /** Orçamento seguro restante estimado para novas gravações (não quota física total) */
   quota: number;
   /** Uso atual em bytes, por categoria */
   usage: Map<StorageCategory, number>;
@@ -32,7 +32,7 @@ export interface DeviceStorageProfile {
   persistentGranted: boolean;
   /** Backend disponível para storage */
   backend: StorageBackend;
-  /** Orçamento seguro calculado (quota * 0.85, nunca exceder 85% do total) */
+  /** Espaço adicional após descontar o uso informado pelo navegador */
   safeLimit: number;
   /** Limite máximo absoluto do dispositivo (bytes) */
   maxLimit: number;
@@ -65,6 +65,7 @@ const categoryMap: Record<string, StorageCategory> = {
  */
 export async function getDeviceStorageProfile(): Promise<DeviceStorageProfile> {
   let maxLimit = 0;
+  let browserUsage: number | null = null;
   let persistentGranted = false;
   const backend: StorageBackend = "indexeddb";
   const usageMap = new Map<StorageCategory, number>();
@@ -74,7 +75,10 @@ export async function getDeviceStorageProfile(): Promise<DeviceStorageProfile> {
   try {
     if (typeof navigator !== "undefined" && navigator.storage?.estimate) {
       const estimate = await navigator.storage.estimate();
-      maxLimit = estimate.quota ?? 0;
+      const quota = estimate.quota ?? 0;
+      const usage = estimate.usage ?? -1;
+      if (Number.isFinite(quota) && quota > 0) maxLimit = quota;
+      if (Number.isFinite(usage) && usage >= 0) browserUsage = usage;
       persistentGranted = await isPersistentStorageGranted();
     }
   } catch {
@@ -87,7 +91,7 @@ export async function getDeviceStorageProfile(): Promise<DeviceStorageProfile> {
       const raw = localStorage.getItem("storage_quota");
       const value = raw === null ? Number.NaN : Number(raw);
       if (Number.isFinite(value) && value > 0) {
-        maxLimit = Math.max(maxLimit, value);
+        if (maxLimit === 0) maxLimit = value; // fallback only, never override browser quota
       }
       persistentGranted = persistentGranted || (await isPersistentStorageGranted());
     } catch {
@@ -108,16 +112,15 @@ export async function getDeviceStorageProfile(): Promise<DeviceStorageProfile> {
     // Fallback se breakdown falhar
   }
 
-  const quota = Math.floor(maxLimit * 0.85); // 85% safe limit
-
-  // Calcular space livre
-  const totalUsed = Array.from(usageMap.values()).reduce((sum, bytes) => sum + bytes, 0);
+  // Breakdown is partial. StorageManager usage also includes outbox, region chunks,
+  // cache and other origin data; never replace the larger usage with a smaller estimate.
+  const categoryUsage = Array.from(usageMap.values()).reduce((sum, bytes) => sum + bytes, 0);
+  const totalUsed = Math.max(browserUsage ?? 0, categoryUsage);
   const freeSpace = maxLimit > 0 ? Math.max(maxLimit - totalUsed, 0) : 0;
-
-  // Ajustar quota se freeSpace for menor
-  const adjustedQuota = maxLimit > 0 && freeSpace < quota
-    ? Math.floor(freeSpace * 0.95) // 95% do espaço livre restante
-    : quota;
+  const safeTotal = Math.floor(maxLimit * 0.85);
+  const adjustedQuota = maxLimit > 0
+    ? Math.max(0, Math.min(safeTotal - totalUsed, Math.floor(freeSpace * 0.95)))
+    : 0;
 
   return {
     quota: adjustedQuota,

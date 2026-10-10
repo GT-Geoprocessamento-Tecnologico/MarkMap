@@ -113,23 +113,38 @@ export class ResumableInstaller {
     if (total > 64 * 1024 * 1024 || files.some((f) => f.size > 48 * 1024 * 1024))
       return fail('package-too-large', 'Instalacao por URL limitada a 64 MiB nesta etapa; use importacao local para regioes maiores');
     if (total !== manifest.totalBytes) return fail('size-mismatch', 'Tamanho total difere dos artefatos declarados');
-    try {
-      const profile = await getDeviceStorageProfile();
-      if (profile.maxLimit > 0 && (profile.safeLimit < total || profile.freeSpace < total))
-        return fail('insufficient-space', 'Espaço local insuficiente para instalar o mapa');
-    } catch { return fail('storage-unavailable', 'Não foi possível verificar o armazenamento'); }
     const hashes = [...new Set(files.map((f) => f.sha256.toLowerCase()))];
     const signature = [manifest.version, manifest.packageVersion, ...files.map((f) => f.sha256)].join(':');
     let existing;
     try { existing = await this.chunks.getSession(params.packageId); }
-    catch { return fail('storage-unavailable', 'Nao foi possivel recuperar checkpoints'); }
+    catch { return fail('storage-unavailable', 'Não foi possível recuperar checkpoints'); }
+    if (existing && existing.manifestSha !== signature && !params.forceValidate)
+      return fail('outdated-checkpoint', 'Download anterior é de outra versão. Revalide a fonte antes de substituir o checkpoint');
+
+    let resumedBytes = 0;
+    if (existing?.manifestSha === signature) {
+      try {
+        const bytes = await this.chunks.getDownloadedBytes(hashes);
+        if (bytes >= 0 && bytes <= total) resumedBytes = bytes;
+      } catch { return fail('storage-unavailable', 'Não foi possível contabilizar o download parcial'); }
+    }
+    // Until the new generation commits, the active map AND downloaded chunks coexist.
+    // Preflight is conservative; the IndexedDB stage transaction re-checks its own budget.
+    const additionalBytes = total + (total - resumedBytes);
+    try {
+      const [profile, budget] = await Promise.all([
+        getDeviceStorageProfile(), offlineMapStore.installationBudget(params.packageId),
+      ]);
+      if (budget.availableBytes < total)
+        return fail('app-budget-exceeded', `A região exige ${Math.ceil(total / 1048576)} MiB adicionais; restam ${Math.floor(budget.availableBytes / 1048576)} MiB no orçamento de mapas offline`);
+      if (profile.maxLimit > 0 && profile.safeLimit < additionalBytes)
+        return fail('insufficient-space', `A instalação exige até ${Math.ceil(additionalBytes / 1048576)} MiB adicionais para download e ativação; libere espaço sem apagar seus projetos`, true);
+    } catch { return fail('storage-unavailable', 'Não foi possível verificar o armazenamento'); }
     if (existing && existing.manifestSha !== signature) {
-      if (!params.forceValidate)
-        return fail('outdated-checkpoint', 'Download anterior e de outra versao; forceValidate precisa ser autorizado');
       try {
         for (const hash of existing.hashes) await this.chunks.deleteAsset(hash);
         await this.chunks.clearSession(params.packageId);
-      } catch { return fail('storage-unavailable', 'Nao foi possivel descartar staging anterior'); }
+      } catch { return fail('storage-unavailable', 'Não foi possível descartar staging anterior'); }
     }
     this.active = new AbortController();
     const signal = this.active.signal;

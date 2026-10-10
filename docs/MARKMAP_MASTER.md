@@ -1,5 +1,14 @@
 # MarkMap — Documento Mestre Único
 
+
+## A1 — Robustez do instalador regional (MM-MAP-135/140/145; 2026-10-09)
+
+**PARCIAL EM CÓDIGO — NÃO VALIDADO.** Em `dev/markmap-pwa-v2`, `OfflineMapStore` agora descarta staging obsoleto da mesma região na transação IndexedDB de escrita, sem apagar a geração ativa, e `install()` só ativa a geração exata produzida por seu staging. O orçamento agregado permanece 250 MiB; o instalador remoto prevê o pico temporário de chunks restantes mais pacote novo e recusa cedo se não houver espaço estimado. `DeviceStorageProfile` passa a considerar `navigator.storage.estimate().usage` para evitar subestimar outros dados da origem; a UI explica a reserva temporária.
+
+**Risco ainda aberto:** quotas e eviction por navegador, atomicidade sob fechamento/quota/concorrrência entre abas, cancelamento, retomada e durabilidade da outbox demandam QA de navegador. **NÃO EXECUTADO:** lint, typecheck, unit, build, E2E e dispositivos, reservados para `MM-MAP-900/940` por decisão do responsável. Próxima etapa: **A2 — MM-UPD-030/040**, atualização PWA opt-in e protocolo SW. Sem GitHub CI, merge/main, deploy Vercel, alterações Neon, release, tag ou migração.
+
+---
+
 **MM-UPD-030 (código, não validado):** comparação de `minimumCompatibleVersion` dos pacotes regionais é feita com a versão REAL declarada em `apps/admin/package.json` (atualmente `0.2.0-dev.0`), e não contra a versão mínima de um pacote anterior. Configurações exibe a versão instalada. Commit `c8e48b4`; sem teste até gate final.
 
 ## M8 — GTFS estático regional e ajustes de segurança (2026-10-09; PREVALECE)

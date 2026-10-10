@@ -1,5 +1,14 @@
 # Handoff de continuidade
 
+
+## Continuidade A1 — 2026-10-09
+
+**MM-MAP-135/140/145 PARCIAL EM CÓDIGO, NÃO VALIDADO:** staging regional obsoleto da mesma região descartado transacionalmente; a geração ativa fica preservada até commit da substituta e `install()` exige identidade da geração. Limite agregado 250 MiB + preflight de espaço temporário de download e atualização; perfil de espaço considera uso efetivo estimado da origem. UI esclarece reserva temporária. Base da branch: `dev/markmap-pwa-v2@f029bda`; versão `0.2.0-dev.0`.
+
+**VALIDAÇÃO NÃO EXECUTADA:** lint, typecheck, testes, build e Playwright reservados ao gate `MM-MAP-900/940`. QA de quota/rollback, duas abas, abort/resume e IndexedDB/outbox continua pendente. **PRÓXIMO A2 — MM-UPD-030/040**, ciclo de atualização PWA opt-in. `main`, Vercel, GitHub CI, Neon, tags/releases e migrações não foram alterados nesta etapa.
+
+---
+
 - `MM-UPD-030` PARCIAL EM CÓDIGO: `region-manager.ts` passou a confrontar pacote com a versão canônica `apps/admin/package.json`; `SettingsPage.tsx` exibe essa versão; commit `c8e48b4`, não testado. Sem main/deploy/CI.
 
 ## Continuidade — GTFS Schedule estático regional + hardening (2026-10-09)
