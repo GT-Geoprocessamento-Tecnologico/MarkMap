@@ -23,7 +23,7 @@ export function SyncController() {
       try {
         const result = await syncNow();
         if (disposed) return;
-        if (result.pulled > 0 || result.pushed > 0)
+        if (result.pulled > 0 || result.pushed > 0 || result.conflicts > 0)
           await queryClient.invalidateQueries();
       } catch {
         // Field work is local-first; sync failure never blocks local editing.
@@ -43,8 +43,18 @@ export function SyncController() {
     const onVisibility = () => {
       if (document.visibilityState === "visible") void run();
     };
+    // BFCache restores and mobile WebView focus do not always emit
+    // visibilitychange. Never force a remote sync while offline or hidden.
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted && document.visibilityState === "visible") void run();
+    };
+    const onFocus = () => {
+      if (document.visibilityState === "visible") void run();
+    };
 
     window.addEventListener("online", onOnline);
+    window.addEventListener("pageshow", onPageShow);
+    window.addEventListener("focus", onFocus);
     window.addEventListener("geonexo-local-mutation", onLocalMutation);
     window.addEventListener("geonexo-conflict-resolved", onConflictResolved);
     document.addEventListener("visibilitychange", onVisibility);
@@ -54,6 +64,8 @@ export function SyncController() {
     return () => {
       disposed = true;
       window.removeEventListener("online", onOnline);
+      window.removeEventListener("pageshow", onPageShow);
+      window.removeEventListener("focus", onFocus);
       window.removeEventListener("geonexo-local-mutation", onLocalMutation);
       window.removeEventListener("geonexo-conflict-resolved", onConflictResolved);
       document.removeEventListener("visibilitychange", onVisibility);

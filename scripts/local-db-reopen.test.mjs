@@ -116,7 +116,9 @@ test('A45 workspace ID loading retries after transaction creation failure', asyn
   await assert.rejects(db.workspaceId(), /Transient transaction failure/);
   const workspace = await db.workspaceId();
   assert.equal(typeof workspace, 'string');
-  assert.equal(indexedDB.opens, 1);
+  // InvalidStateError means the cached connection can be closing/closed.
+  // A46 deliberately reopens it instead of poisoning future operations.
+  assert.equal(indexedDB.opens, 2);
 });
 
 test('A45 versionchange invalidates closed connection and reopens without deleting data', async () => {

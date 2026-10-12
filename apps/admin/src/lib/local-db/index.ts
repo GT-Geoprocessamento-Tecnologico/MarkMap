@@ -94,12 +94,31 @@ class IndexedLocalDb implements LocalDb {
   }
 
   async transact<T>(stores: LocalDbStores[], mode: IDBTransactionMode, work: (tx: LocalDbTransaction) => Promise<T> | T): Promise<T> {
-    const db = await this.database();
+    const opening = this.database();
+    const db = await opening;
     return new Promise<T>((resolve, reject) => {
       let result!: T;
       let callbackDone = false;
       let settled = false;
-      const transaction = db.transaction(stores, mode);
+      let transaction: IDBTransaction;
+      try {
+        transaction = db.transaction(stores, mode);
+      } catch (error) {
+        // Some WebViews close IDB connections on suspend without firing
+        // versionchange. Report the failed operation, then reopen on retry.
+        if (
+          error && typeof error === "object" && "name" in error &&
+          error.name === "InvalidStateError" && this.dbPromise === opening
+        ) {
+          this.dbPromise = undefined;
+          this.workspacePromise = undefined;
+          try { db.close(); } catch { /* already closed */ }
+        }
+        // Do not automatically replay readwrite callbacks: they might have
+        // side effects and their commit status is not necessarily known.
+        reject(error);
+        return;
+      }
       const tx: LocalDbTransaction = { store: (name) => transaction.objectStore(name) };
       const fail = (error: unknown) => {
         if (settled) return;
