@@ -5,6 +5,7 @@ const KNOWN_LOAD_ERRORS = new Set([
   'Grafo ausente ou incompleto',
   'Falha de integridade no grafo offline',
   'Capacidades da regiao inconsistentes',
+  'Mapa regional atualizado durante leitura',
 ]);
 const KNOWN_ROUTE_ERRORS = new Set([
   'Instale um mapa com grafo de rotas offline.',

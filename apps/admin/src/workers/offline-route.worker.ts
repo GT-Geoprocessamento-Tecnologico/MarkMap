@@ -28,21 +28,30 @@ async function load(packageId: string, token: number): Promise<void> {
   activeRoute = null;
   activeRouteId = 0;
   try {
-    const installed = await offlineMapStore.get(packageId);
-    const manifest = installed?.manifest;
-    if (!manifest?.routingGraph) {
+    const installed = await offlineMapStore.getActiveRevision(packageId);
+    if (!installed?.manifest.routingGraph) {
       if (generation === token) scope.postMessage({ type: 'ready', profiles: [], reason: 'Este mapa nao possui rotas offline.' });
       return;
     }
+    const manifest = installed.manifest;
     const ref = manifest.routingGraph;
-    const blob = await offlineMapStore.asset(packageId, ref.path);
-    if (!blob || blob.size !== ref.blob.bytes || blob.size > MAX_GRAPH_BYTES) throw new Error('Grafo ausente ou incompleto');
+    const blob = await offlineMapStore.assetAtRevision(packageId, ref.path, installed.generation);
+    if (!blob) {
+      if ((await offlineMapStore.getActiveRevision(packageId))?.generation !== installed.generation)
+        throw new Error('Mapa regional atualizado durante leitura');
+      throw new Error('Grafo ausente ou incompleto');
+    }
+    if (blob.size !== ref.blob.bytes || blob.size > MAX_GRAPH_BYTES) throw new Error('Grafo ausente ou incompleto');
     const digest = await crypto.subtle.digest('SHA-256', await blob.arrayBuffer());
     const hex = [...new Uint8Array(digest)].map((n) => n.toString(16).padStart(2, '0')).join('');
     if (hex !== ref.blob.sha256) throw new Error('Falha de integridade no grafo offline');
     const parsed = validateRegionalGraph(JSON.parse(await blob.text()), { bounds: manifest.bounds, osmDataDate: manifest.osmDataDate });
     for (const profile of parsed.profiles)
       if (!manifest.capabilities.includes(`routing.${profile}`)) throw new Error('Capacidades da regiao inconsistentes');
+    if (generation !== token) return;
+    // An IndexedDB update may commit while SHA and graph parsing are in flight.
+    if ((await offlineMapStore.getActiveRevision(packageId))?.generation !== installed.generation)
+      throw new Error('Mapa regional atualizado durante leitura');
     if (generation !== token) return;
     graph = parsed;
     scope.postMessage({ type: 'ready', profiles: parsed.profiles });

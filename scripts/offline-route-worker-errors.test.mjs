@@ -7,6 +7,7 @@ test('A33 preserves known actionable integrity and missing-graph messages', () =
     'Grafo ausente ou incompleto',
     'Falha de integridade no grafo offline',
     'Capacidades da regiao inconsistentes',
+    'Mapa regional atualizado durante leitura',
   ]) assert.equal(describeOfflineRouteWorkerFailure(Error(reason), 'load'), reason);
 });
 
