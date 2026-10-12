@@ -1,5 +1,9 @@
 # MarkMap — Documento Mestre Único
 
+## A35–A38 — hardening nativo e sincronização (2026-10-11)
+
+Implementados **ajustes de readiness** (não homologação física): manifesto Android não aceita permissões só citadas em comentários; Info.plist iOS passa a gravar alterações de chaves existentes e usa marca MarkMap; push A37 rejeita receipts fora do lote, duplicados e sem progresso, e mantém status pendente até outbox esvaziar. Baseline A34 164 testes + 17 regressões A35–A37 = **181/181 Node PASS** no recorte fiel do HEAD; `tsc` isolado com stubs passou. Entrega em `dev/markmap-pwa-v2` até `ca5766b`, `[skip ci]`, sem GitHub CI. **NÃO EXECUTADO:** full lint/typecheck/build/Vitest/Playwright, browser/PMTiles/WebGL/IndexedDB reais, Android/iOS APK/App físico, duas instalações reais/Neon, auditoria pública legal/segurança, assinatura e RC. `docs/privacy.md` informa dez itens obrigatórios indefinidos. Sem deploy, release, main, migrations ou lojas.
+
 
 ## A34 — leitores offline presos à geração ativa (2026-10-11)
 

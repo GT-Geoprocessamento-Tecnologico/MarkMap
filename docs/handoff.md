@@ -1,5 +1,13 @@
 # Handoff de continuidade
 
+## A35–A38 — hardening nativo e sincronização (2026-10-11)
+
+**Base:** `dev/markmap-pwa-v2@ca5766b46ea33ae481d36280a866770155474c17`; `main@156d4e8` preservada, nenhum PR/issue aberto na auditoria. Corrigidas duas falhas reproduzidas de GPS nativo: script iOS alterava em memória mas NÃO gravava se chaves já existiam; script Android contava strings dentro de comentários como permissão. Ambos agora passam 10 testes Node de idempotência, XML inválido, inclusão e substituição. `Info.plist` versionado da MarkMap permaneceu inalterado sob script ajustado (validado via `plistlib`).
+
+**A37 sincronização:** resposta vazia de push antes marcava `synced` com outbox pendente (reproduzido); receipts fora do lote/repetidos e ACK sem persistência podem provocar loops. Correção preserva operações e conflitos, rejeita recibos inválidos e impede reenvios sem progresso. 7 novos testes Node direcionados. **Regressão total no código recuperado do HEAD:** `node --test scripts/*.test.mjs` 181/181 PASS, 0 falhas/skips; tipo isolado TS com stub 1/1 PASS. Nenhum GitHub Actions/CI consumido.
+
+**Próxima prioridade:** em ambiente apto, executar build/lint/Vitest/E2E e Android/iOS realmente instalados (GPS, GeoPDF, armazenamento/offline, force stop) e depois sync entre duas instalações com conflito. Sem ADB/SDK Android, Xcode/macOS, dependências monorepo ou browser autorizado neste executor, tais gates seguem **BLOQUEADOS**, não aprovados. A38 depende também de política pública de privacidade revisada (`docs/privacy.md` com 10 pendências), assinatura e autorização de release. Não tocar `main`, banco, deploy, lojas, segredos ou dados operacionais.
+
 
 ## A34 — leitores offline presos à geração ativa (2026-10-11)
 

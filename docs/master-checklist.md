@@ -1,5 +1,16 @@
 # MarkMap — Checklist Mestre de Execução
 
+## A35–A38 — hardening nativo e sincronização (2026-10-11)
+- [x] **A35 código:** script Android identifica permissões realmente declaradas (não comentários/atributos não relacionados), recusa manifesto incompleto e permanece idempotente.
+- [x] **A36 código:** script iOS agora persiste correções em chaves existentes, evita duplicação/chaves inválidas e utiliza o nome MarkMap. `Info.plist` nativo atual permaneceu byte a byte inalterado e foi validado com `plistlib`.
+- [x] **A37 código:** motor de push só aceita receipts dos IDs enviados uma única vez, interrompe falta de progresso e não anuncia `synced` com outbox ainda pendente; preserva conflitos para resolução explícita.
+- [x] **QA local sem CI:** HEAD do código e dos testes relido do GitHub, SHA conferido. Node v22.16.0 `node --test scripts/*.test.mjs` **181/181 PASS**, 17 regressões novas. `tsc --strict --noEmit` do motor de sync com contratos stub isolados PASS. 1 teste de falsa sincronização falhou no código anterior e passou após correção.
+- [ ] **A35 Android real:** APK instalado, GPS, GeoPDF, offline/cold start, background, RAM/energia e permissões em aparelhos não executados (ADB/SDK ausentes).
+- [ ] **A36 iOS real:** Xcode/macOS/iPhone, armazenamento e localização no WebView, force stop e reinstalação offline não executados.
+- [ ] **A37 dois dispositivos reais:** sync/workspace, conflito e recuperação em duas instalações/contas físicas ainda pendentes; mocks locais NÃO homologam integração real.
+- [ ] **A38 e RC:** lint/typecheck/build/Vitest/Playwright monorepo, integração PostGIS/Neon autorizada, privacidade pública aprovada (`docs/privacy.md` lista 10 itens abertos), revisão final de segurança, signing, domínio e publicações pendentes. **Release Candidate NÃO APROVADO.**
+- [x] **Governança:** somente `dev/markmap-pwa-v2`, commits `[skip ci]`; nenhum GitHub Actions disparado, sem merge main, deploy, Neon, migração, tag/release, publicação ou operação destrutiva.
+
 
 ## A34 — leitores offline presos à geração ativa (2026-10-11)
 - [x] **CÓDIGO:** busca regional, roteamento Worker, Wikipedia/transporte e DEM passam a vincular manifest e Blob por `getActiveRevision` + `assetAtRevision`. Revalidam a geração antes de publicar resultados e recusam mistura após atualização concorrente.
