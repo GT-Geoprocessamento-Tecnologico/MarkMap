@@ -1,5 +1,15 @@
 # Handoff de continuidade
 
+## A52 — cursor assinado após renovação de capability (2026-10-12)
+
+**AUDITORIA:** Checklist Mestre Notion e HEAD `dev/markmap-pwa-v2@45ad191` revisados; sem PR/issues ativos. **QUEBRADO:** backend `services/api/src/lib/sync-cursor.ts` assina `v1` com SHA-256 da capability; a rotação de bearer revoga a assinatura do cursor anterior. Cliente preservava `syncCursor` velho e enviava 400 após recovery 401, impedindo o pull e potencialmente deixando mudanças remotas não refletidas na instalação.
+
+**CORRIGIDO (A52):** `LocalRepository.saveWorkspaceCapability` atualiza capability e remove **apenas** `meta.syncCursor` na **mesma transação IndexedDB readwrite** quando bearer muda, respeitando `generation` superior e workspace correto; mantém dados, tombstones, outbox e ACKs. `sync-engine.pull` reconhece mudança real do cursor durante requisição, relê em nova página e recusa limpar cursor genuinamente inválido com bearer inalterado. `scripts/sync-bootstrap-race.test.mjs` ganhou mock `delete`. O backend Hono/Neon, contratos e protocolo assinado permaneceram intactos.
+
+**EVIDÊNCIA LOCAL:** antes 3 falhas/6 testes direcionados. Depois `node --test scripts/sync-rotated-cursor.test.mjs` 6/6 PASS; `NODE_PATH=$(npm root -g) node --test scripts/*.test.mjs` **241/241 PASS**, repetido três vezes (inclui reconferência após commit); `tsc -p tsconfig.qa.json --noEmit` e `tsc -p tsconfig.foreground.qa.json --noEmit` strict com stubs isolados PASS, `node --check` PASS. Quatro SHA de Git blobs conferidos com `git hash-object` dos arquivos testados. Código `81389eb`, regressões `af8cd02`, ambos `[skip ci]`. PRD `docs/MM-MAP-A52-signed-cursor-recovery.md`.
+
+**LIMITES E PRÓXIMO:** testes isolados/mocks não equivalem a build/lint/Vitest/Playwright integrados, IndexedDB real/WebGL, rede Hono/PostGIS, Android/iOS físico e duas instalações; A38/RC permanece bloqueado **apenas para release**. Próximo desenvolvimento: reproduzir erros remanescentes no ciclo cursor/recovery com estado local e simultaneidade, sem sobrescrever funcionalidades que funcionam. Nenhum CI remoto, merge main, deploy, Neon/migration, force push, secrets, tags, releases ou lojas.
+
 ## A50–A51 — bearer entre abas e edições durante sync ativo (2026-10-12)
 
 **BASE E AUDITORIA:** `dev/markmap-pwa-v2@de50526`, Checklist Mestre Notion consultado, 0 PRs/issues. **A50 QUEBRADO:** quando duas abas utilizam o mesmo workspace, a aba com token anterior recebe 401 e iniciava /workspace/recover mesmo após a outra aba persistir token de generation maior; cria tráfego de recuperação desnecessário e possível rotação de credenciais. **A51 QUEBRADO:** edição feita enquanto `syncNow()` está ativo usava a mesma promessa single-flight; após terminar, a edição permanecia na outbox até o timer periódico/evento futuro.

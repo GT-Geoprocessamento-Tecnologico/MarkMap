@@ -1,5 +1,12 @@
 # MarkMap — Checklist Mestre de Execução
 
+## A52 — cursor assinado após renovação de capability (2026-10-12)
+- [x] **A52 CORRIGIDA:** cursor antigo assinado com capability anterior provocava HTTP 400 após renovação. Transação `saveWorkspaceCapability` invalida apenas `syncCursor` junto com bearer novo; não apaga dados/outbox, não regride generation.
+- [x] **RETOMADA SEGURA:** `pull` detecta mudança concorrente de cursor (incluindo rotação enquanto a chamada está em voo), repete com cursor persistido; erro 400 genuinamente inválido continua falhando fechado, sem reset arbitrário.
+- [x] **QA LOCAL SEM CI:** baseline 3/6 falhas; após patch 6/6 direcionados PASS e **241/241 testes Node PASS em 3 rodadas**, `node --check` PASS, TS strict isolado com stubs de sync/PWA PASS; hashes SHA dos 4 arquivos versionados iguais aos testados. Commits `81389eb` e `af8cd02` [skip ci].
+- [ ] **GATE A38/RC PENDENTE:** lint/typecheck/build/Vitest/Playwright monorepo, navegador IndexedDB real, Hono/PostGIS integrado, Android/iOS físicos, 2 instalações, privacidade e signing ainda não executados. Não declarar release pronto; **desenvolvimento liberado**.
+- [x] **GOVERNANÇA:** branch `dev/markmap-pwa-v2`, `main` e produção intactas; sem GitHub Actions/CI, deploy, Neon/migrations, secrets, tag/release, lojas, force push ou exclusões de dados. PRD `docs/MM-MAP-A52-signed-cursor-recovery.md`.
+
 ## A50–A51 — bearer entre abas e edições durante sync ativo (2026-10-12)
 - [x] **A50 reproduzida/corrigida:** outro tab já rotacionou bearer? Após 401, `withCapability` lê token novo do IndexedDB, tenta uma vez e evita /workspace/recover desnecessário; se falhar 401 ou não existir, mantém recovery normal. Sem rebaixar generation.
 - [x] **A51 reproduzida/corrigida:** edição local durante sync ativo não fica esperando 60 segundos: flag de nova rodada ao finalizar; múltiplos gatilhos são coalescidos; offline e unmount não disparam rede.
