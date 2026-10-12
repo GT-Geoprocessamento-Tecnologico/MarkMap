@@ -57,15 +57,19 @@ const randomProof = (): string => {
   return base64Url(bytes);
 };
 
+// The request deadline includes receiving and parsing the body. Clearing the
+// timer after headers alone can strand syncNow() on a stalled HTTP stream.
+type SyncHttpResponse = { ok: boolean; status: number; payload: unknown };
+
 const request = async (
   path: string,
   init: RequestInit,
   bearer?: string,
-): Promise<Response> => {
+): Promise<SyncHttpResponse> => {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
-    return await fetch(`${API_BASE}${path}`, {
+    const response = await fetch(`${API_BASE}${path}`, {
       ...init,
       signal: controller.signal,
       headers: {
@@ -75,15 +79,20 @@ const request = async (
         ...init.headers,
       },
     });
+    if (!response.ok) {
+      // Do not wait for an untrusted error body (including an expired bearer).
+      void response.body?.cancel().catch(() => undefined);
+      return { ok: false, status: response.status, payload: undefined };
+    }
+    const text = await response.text();
+    return {
+      ok: true,
+      status: response.status,
+      payload: text ? JSON.parse(text) as unknown : undefined,
+    };
   } finally {
     clearTimeout(timeout);
   }
-};
-
-const parseJson = async (response: Response): Promise<unknown> => {
-  const text = await response.text();
-  if (!text) return undefined;
-  return JSON.parse(text) as unknown;
 };
 
 const ensureBootstrap = async (): Promise<{
@@ -132,7 +141,7 @@ const provisionCapability = async (): Promise<WorkspaceCapability> => {
     method: "POST",
     body: JSON.stringify(bootstrap),
   });
-  const payload = await parseJson(response);
+  const payload = response.payload;
   if (!response.ok)
     throw new Error(`Workspace provisioning failed (HTTP ${response.status})`);
   return saveCapability(payload);
@@ -144,7 +153,7 @@ const recoverCapability = async (): Promise<WorkspaceCapability> => {
     method: "POST",
     body: JSON.stringify({ bootstrapProof }),
   });
-  const payload = await parseJson(response);
+  const payload = response.payload;
   if (!response.ok)
     throw new Error(`Workspace recovery failed (HTTP ${response.status})`);
   return saveCapability(payload);
@@ -161,7 +170,7 @@ const capability = async (): Promise<WorkspaceCapability> => {
 const withCapability = async (
   path: string,
   init: RequestInit,
-): Promise<Response> => {
+): Promise<SyncHttpResponse> => {
   let current = await capability();
   let response = await request(path, init, current.bearer);
   if (response.status !== 401) return response;
@@ -186,7 +195,7 @@ const push = async (
       method: "POST",
       body: JSON.stringify({ operations: batch }),
     });
-    const payload = await parseJson(response);
+    const payload = response.payload;
     if (!response.ok)
       throw new Error(`Sync push failed (HTTP ${response.status})`);
 
@@ -201,12 +210,16 @@ const push = async (
       respondedIds.add(receipt.operationId);
     }
     for (const ack of [...result.accepted, ...result.alreadyApplied]) {
-      await localRepository.acknowledge(
+      const acknowledged = await localRepository.acknowledge(
         ack.operationId,
         ack.version,
         ack.sequence,
         ack.predecessorOperationId,
       );
+      // Only a durable ACK counts as progress. A rejected/stale receipt must
+      // leave the operation available for a safe retry, not report success.
+      if (acknowledged !== true)
+        throw new Error("Sync acknowledgement could not be persisted");
       pushed += 1;
       onProgress?.(1, 0);
     }
@@ -245,7 +258,7 @@ const pull = async (onProgress?: (applied: number) => void): Promise<number> => 
       `/sync/pull?${params.toString()}`,
       { method: "GET" },
     );
-    const payload = await parseJson(response);
+    const payload = response.payload;
     if (!response.ok)
       throw new Error(`Sync pull failed (HTTP ${response.status})`);
 

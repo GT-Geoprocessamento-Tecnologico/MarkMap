@@ -114,6 +114,7 @@ const resetOutbox = (operations: { operationId: string }[] = []): void => {
   );
   acknowledge.mockImplementation(async (operationId: string) => {
     outbox = outbox.filter((entry) => entry.operationId !== operationId);
+    return true;
   });
   saveConflict.mockImplementation(async (conflict: { operationId: string }) => {
     conflicted.add(conflict.operationId);

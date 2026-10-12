@@ -98,7 +98,13 @@ const bytes = Buffer.from('{"graph":"hello"}');
 const sha256 = createHash('sha256').update(bytes).digest('hex');
 const routeManifest = { routingGraph: { path: 'graph.json', blob: { bytes: bytes.length, sha256 } },
   capabilities: ['routing.walk'], bounds: [0, 0, 10, 10], osmDataDate: '2026-10-01' };
-const microtasks = async () => { await new Promise(resolve => setTimeout(resolve, 20)); };
+const waitFor = async (predicate) => {
+  const deadline = Date.now() + 3000;
+  while (!predicate()) {
+    if (Date.now() > deadline) throw new Error('Timed out waiting for offline worker readiness');
+    await new Promise(resolve => setTimeout(resolve, 5));
+  }
+};
 function workerImports(store) {
   return {
     '../lib/storage/offline-map-store': { offlineMapStore: store },
@@ -127,7 +133,7 @@ test('A34 offline routing binds graph Blob to the manifest generation', async ()
   };
   const w = worker(workerImports(store));
   w.send({ type: 'load', packageId: 'region-1' });
-  await microtasks();
+  await waitFor(() => w.emitted.some(message => message.type === 'ready'));
   assert.equal(pinned, true);
   assert.deepEqual(w.emitted.at(-1)?.profiles, ['walk']);
 });
@@ -145,7 +151,7 @@ test('A34 offline routing does not announce stale routing profiles after region 
   };
   const w = worker(workerImports(store));
   w.send({ type: 'load', packageId: 'region-1' });
-  await microtasks();
+  await waitFor(() => w.emitted.some(message => message.type === 'ready'));
   assert.equal(w.emitted.at(-1)?.profiles?.length, 0);
   assert.match(w.emitted.at(-1)?.reason ?? '', /segura/i);
 });

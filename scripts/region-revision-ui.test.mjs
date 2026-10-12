@@ -8,7 +8,13 @@ import { createHash, webcrypto } from 'node:crypto';
 const ts = createRequire(import.meta.url)('typescript');
 const from = new URL('../apps/admin/src/components/map/', import.meta.url);
 const sha = text => createHash('sha256').update(text).digest('hex');
-const settle = () => new Promise(resolve => setTimeout(resolve, 35));
+const waitFor = async (predicate) => {
+  const deadline = Date.now() + 3000;
+  while (!predicate()) {
+    if (Date.now() > deadline) throw new Error('Timed out waiting for offline React state');
+    await new Promise(resolve => setTimeout(resolve, 5));
+  }
+};
 
 function renderComponent(file, exportName, store, otherModules, props) {
   const state = [];
@@ -88,7 +94,7 @@ const revisions = (manifest, blob, options = {}) => {
 test('A34 Wikipedia offline assets are pinned to the selected active generation', async () => {
   const store = revisions(knowledgeManifest,wiki);
   const ui = renderComponent('OfflineKnowledge.tsx','OfflineKnowledge',store,knowledgeDeps,{packageId:'regional'});
-  await settle();
+  await waitFor(() => ui.state[2].updates.some(v => v?.articles?.[0]?.title === 'Offline verified article'));
   assert.deepEqual(store.observed,[['wikipedia.json','old']]);
   assert.equal(ui.state[2].updates.at(-1)?.articles?.[0]?.title,'Offline verified article');
 });
@@ -96,7 +102,7 @@ test('A34 Wikipedia offline assets are pinned to the selected active generation'
 test('A34 Wikipedia/transport must not surface old data after a region update', async () => {
   const store = revisions(knowledgeManifest,wiki,{changeAfterFirst:true});
   const ui = renderComponent('OfflineKnowledge.tsx','OfflineKnowledge',store,knowledgeDeps,{packageId:'regional'});
-  await settle();
+  await waitFor(() => ui.state[3].updates.some(v => /atualizado/i.test(v || '')));
   assert.equal(ui.state[2].updates.some(v=>v.articles?.length),false);
   assert.match(ui.state[3].updates.at(-1)||'',/atualizado/i);
 });
@@ -104,7 +110,7 @@ test('A34 Wikipedia/transport must not surface old data after a region update', 
 test('A34 knowledge errors never expose untrusted IndexedDB secrets in UI', async () => {
   const store = revisions(knowledgeManifest,wiki,{failAsset:'Denied /private/path?token=TOP_SECRET'});
   const ui = renderComponent('OfflineKnowledge.tsx','OfflineKnowledge',store,knowledgeDeps,{packageId:'regional'});
-  await settle();
+  await waitFor(() => ui.state[3].updates.some(v => /Conteúdo regional indisponível/.test(v || '')));
   const error=ui.state[3].updates.at(-1);
   assert.match(error,/Conteúdo regional indisponível/);
   assert.doesNotMatch(error,/private|token|secret|path/i);
@@ -113,7 +119,7 @@ test('A34 knowledge errors never expose untrusted IndexedDB secrets in UI', asyn
 test('A34 elevation uses the active revision for checksum-verified local DEM', async () => {
   const store=revisions(elevationManifest,demBlob);
   const ui=renderComponent('OfflineElevation.tsx','OfflineElevation',store,demDeps,{packageId:'regional',route:null});
-  await settle();
+  await waitFor(() => ui.state[1].updates.some(v => v?.metadata?.source === 'srtm'));
   assert.deepEqual(store.observed,[['dem.json','old']]);
   assert.equal(ui.state[1].updates.at(-1)?.metadata?.source,'srtm');
 });
@@ -121,7 +127,7 @@ test('A34 elevation uses the active revision for checksum-verified local DEM', a
 test('A34 elevation does not publish a DEM after region generation changes', async () => {
   const store=revisions(elevationManifest,demBlob,{changeAfterFirst:true});
   const ui=renderComponent('OfflineElevation.tsx','OfflineElevation',store,demDeps,{packageId:'regional',route:null});
-  await settle();
+  await waitFor(() => ui.state[2].updates.some(v => /atualizado/i.test(v || '')));
   assert.equal(ui.state[1].updates.some(v=>v?.metadata),false);
   assert.match(ui.state[2].updates.at(-1)||'',/atualizado/i);
 });
@@ -129,7 +135,7 @@ test('A34 elevation does not publish a DEM after region generation changes', asy
 test('A34 elevation errors redact accidental storage paths and tokens', async () => {
   const store=revisions(elevationManifest,demBlob,{failAsset:'Error from /private/idb?token=TOP_SECRET'});
   const ui=renderComponent('OfflineElevation.tsx','OfflineElevation',store,demDeps,{packageId:'regional',route:null});
-  await settle();
+  await waitFor(() => ui.state[2].updates.some(v => /Dados altimétricos indisponíveis/.test(v || '')));
   const error=ui.state[2].updates.at(-1);
   assert.match(error,/Dados altimétricos indisponíveis/);
   assert.doesNotMatch(error,/private|token|secret|path/i);
