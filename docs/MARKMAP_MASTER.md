@@ -1,5 +1,10 @@
 # MarkMap — Documento Mestre Único
 
+## A46–A47 — transações recuperáveis e retorno da PWA (2026-10-12)
+
+**Implementado em código sem migração:** A46 remove referência de conexão IndexedDB encerrada silenciosamente quando `db.transaction` lança `InvalidStateError`, preserva dados/outbox e não reexecuta escrita; A47 reage à restauração BFCache/foco visível e atualiza queries para conflitos. Baseline 6/10 novos testes falharam, depois **10/10 PASS; Node completo 218/218 duas rodadas** e TypeScript isolado com stubs PASS; cinco blobs GitHub correspondem ao QA. Branch `dev/markmap-pwa-v2` commits `7261c8d` e `ebea8de`, `[skip ci]`. PRD `docs/MM-MAP-A46-A47-offline-resume.md`. Full lint/build/Vitest/E2E, IndexedDB em navegador real, Android/iOS e release A38 ainda não homologados, mas **não bloqueiam desenvolvimento incremental**. Nada em main/Neon/produção/CI remoto.
+
+
 ## A45 — recuperação de IndexedDB após falha/suspensão (2026-10-12)
 
 **Código A45 e QA local:** falhas transitórias de abertura/transação e `versionchange` prendiam `IndexedLocalDb` em promessa rejeitada ou conexão fechada; `close()` podia disparar rejeição não tratada e abertura bloqueada permitia conexão tardia órfã. Corrigido com invalidacão de cache e fechamento de conexão obsoleta, sem migrations, limpeza de IndexedDB/outbox nem operações de rede. Baseline 5/6 falharam; após **6/6 PASS e Node total 208/208 PASS três rodadas**. TypeScript isolado (stubs) e JS check PASS, GitHub blob SHA idêntico aos arquivos locais testados; `dev/markmap-pwa-v2@a839446`, `[skip ci]`. PRD `docs/MM-MAP-A45-idb-recovery.md`. Browser real, monorepo lint/build/Vitest/E2E, aparelhos Android/iOS e gate RC seguem PENDENTES somente para release, não para próxima etapa de código. `main`, Vercel, Neon, secrets e CI remoto intocados.

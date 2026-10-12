@@ -1,5 +1,16 @@
 # Handoff de continuidade
 
+## A46–A47 — transações recuperáveis e retorno da PWA (2026-10-12)
+
+**BASE:** branch `dev/markmap-pwa-v2@37bf678`, Checklist Mestre Notion e HEAD GitHub conferidos; sem PR/issue aberto. **FUNCIONA:** IndexedDB/outbox offline-first, recuperação A45, CAS A44, sincronização singleton. **QUEBRADO e reproduzido:** WebView pode fechar conexão sem `versionchange`; `db.transaction` lança `InvalidStateError` sem limpar `dbPromise`, causando falha persistente em novas tentativas. Retomada de PWA de BFCache `pageshow.persisted` ou apenas foco não dispara sync; conflitos salvos não invalidam cache React.
+
+**CORREÇÃO A46 no commit `7261c8d`:** se criação de transação der `InvalidStateError`, remove cache somente da conexão culpada e permite reabrir em nova tentativa; preserva erro da chamada e **NÃO repete automaticamente write**, nem apaga dados. Erros não relacionados mantêm conexão válida; a expectativa A45 foi atualizada para essa semântica. **A47:** listener `pageshow.persisted` e `focus` visível revalidam sincronização respeitando `navigator.onLine`; queries são invalidadas também para conflitos; cleanup remove novos listeners.
+
+**QA EXECUTADA LOCALMENTE:** antes do patch 6/10 regressões novas falharam; depois `scripts/local-db-suspension.test.mjs` e `scripts/sync-foreground-recovery.test.mjs` **10/10 PASS**; regressão **218/218 Node PASS duas rodadas**, Node v22.16.0; `tsc -p tsconfig.foreground.qa.json` strict no recorte local-db/sync/SyncController com stubs PASS; `node --check` dos testes PASS. Cinco hashes GitHub comparados com os blobs testados e correspondem. Commits `7261c8d`, `ebea8de`, sempre `[skip ci]`. PRD `docs/MM-MAP-A46-A47-offline-resume.md`.
+
+**DÍVIDA NÃO BLOQUEANTE DE CÓDIGO:** navegador IndexedDB real / BFCache real, full pnpm lint/typecheck/build/Vitest/Playwright, Android/iOS físicos e sync entre duas instalações permanecem NÃO EXECUTADOS. A38/Release Candidate não aprovado. **PRÓXIMO:** inspecionar novos erros reproduzíveis de concorrência entre abas e retomada de caches sem reescrever o que funciona. `main`, produção, Neon/migrations, Vercel, CI GitHub, secrets, tag/release, lojas e dados intactos.
+
+
 ## A45 — recuperação de IndexedDB após falha/suspensão (2026-10-12)
 
 **BASE/CLASSIFICAÇÃO:** `dev/markmap-pwa-v2@554cb00`, Checklist Mestre Notion e HEAD verificados; zero PRs/issues abertos. **FUNCIONA:** armazenamento offline, transação de outbox e CAS A44. **QUEBRADO reproduzido:** `dbPromise`/ `workspacePromise` rejeitadas permaneciam em cache depois de falha de abertura/transação; `onversionchange` fechava banco mas não invalidava a conexão; `close()` após falha disparava rejeição não tratada; `onblocked` podia receber sucesso tardio e deixar conexão órfã. **PARCIAL:** integração WebView real; sem reescrever arquitetura.

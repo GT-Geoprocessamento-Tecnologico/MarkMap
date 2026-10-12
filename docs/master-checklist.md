@@ -1,5 +1,13 @@
 # MarkMap — Checklist Mestre de Execução
 
+## A46–A47 — transações recuperáveis e retorno da PWA (2026-10-12)
+- [x] **A46 REPRODUZIDO/CORRIGIDO:** `InvalidStateError` na criação da transação por conexão fechada sem `versionchange` permanecia cacheado. Cache invalidado somente para esse handle, nova tentativa reabre banco e mantém workspace/dados; callback de gravação não é reexecutado silenciosamente.
+- [x] **A47 REPRODUZIDO/CORRIGIDO:** retorno por `pageshow.persisted`/foco visível agora dispara sync, mas não ao estar hidden/offline; `result.conflicts>0` invalida consultas React; listeners removidos no unmount.
+- [x] **QA REAL LOCAL SEM CI:** baseline 6/10 falharam; depois **10/10 novos PASS + 218/218 testes Node PASS duas vezes**; `tsc --strict --noEmit` isolado com stubs e `node --check` PASS; hashes de 5 arquivos confirmados no GitHub. Branch `dev/markmap-pwa-v2`, commits `7261c8d`/`ebea8de` `[skip ci]`; PRD `docs/MM-MAP-A46-A47-offline-resume.md`.
+- [ ] **RELEASE A38/MM-MAP-940 ainda NÃO HOMOLOGADO:** full monorepo lint/typecheck/build/Vitest/Playwright, browser IndexedDB/BFCache, Android/iOS, 2 instalações e política/signing. Não travar próximas fases de código por esses testes físicos.
+- [x] **GOVERNANÇA:** sem GitHub Actions, merge main, deploy, Neon/PostGIS/migration, secrets, força push, release/tag ou publicação.
+
+
 ## A45 — recuperação de IndexedDB após falha/suspensão (2026-10-12)
 - [x] **BUG REPRODUZIDO:** 5/6 regressões falharam no HEAD A44: falha transitória de `indexedDB.open`, exceção ao criar transação de workspace, `versionchange` com conexão fechada cacheada, `close()` após rejeição e `onblocked` seguido de abertura tardia.
 - [x] **CORRIGIDO sem migrations:** cache `dbPromise` e `workspacePromise` invalidado em erro/versão; conexão tardia bloqueada fechada; `close()` não cria `unhandledRejection`; mantém ID workspace e outbox. Não envia dados nem toca nas entidades por recuperação.
