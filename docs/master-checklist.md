@@ -1,5 +1,13 @@
 # MarkMap — Checklist Mestre de Execução
 
+## A54 — rejeição atômica de IDs duplicados por lote no backend (2026-10-12)
+- [x] **A54 QUEBRADO→CORRIGIDO:** `/sync/push` podia aplicar um prefixo do lote antes de perceber operationId duplicado. Agora verifica todos os IDs após Zod e responde `400 VALIDATION_ERROR` antes de qualquer chamada à camada DB.
+- [x] **PRESERVADO:** lote único retorna ACKs na ordem, replay do ID numa requisição **posterior** segue idempotente, conflitos continuam explícitos, lote vazio não escreve, outbox local nunca é descartada.
+- [x] **QA LOCAL, SEM CI:** 3/7 regressões falharam no baseline; após patch 7/7 PASS e `node --test scripts/*.test.mjs` **257/257 PASS, 3 rodadas**; TS estrito isolado/stubs e `node --check` PASS. Hash do código/teste versionado verificado. Branch `dev/markmap-pwa-v2@967fe5d` [skip ci]; PRD `docs/MM-MAP-A54-sync-batch-idempotency.md`.
+- [ ] **A38/RELEASE NÃO HOMOLOGADO:** full lint/typecheck/build/Vitest/Playwright, Hono/Postgres/Neon reais, browser IndexedDB, Android/iOS, sync 2 dispositivos, privacidade e signing pendentes; **não impedem próximas fases de desenvolvimento**.
+- [x] **GIT/SEGURANÇA:** nenhum GitHub Actions/CI remoto, merge main, Vercel, Neon/migration, secrets, tag/release, force push, lojas ou operação destrutiva.
+- [ ] **PRÓXIMO LIVRE A55:** auditar `baseVersion:null` do backend sob concorrência e avaliar risco de sobrescrita, com contrato e reprodução antes de qualquer mudança.
+
 ## A53 — integridade do provisionamento workspace (2026-10-12)
 - [x] **A53 BUG REPRODUZIDO (mock SQLSTATE):** `workspaces.id` tem unicidade independente; `ON CONFLICT(proof_digest)` não captura colisão de ID com outra prova, causando `23505` e HTTP 500 na rota em vez de 409.
 - [x] **CORRIGIDO:** query classifica `23505` (inclusive `DrizzleQueryError.cause`), preserva detalhes SQL fora do cliente; erros DB não únicos não são mascarados. Nenhuma alteração de schema, migrations, API ou dados offline.

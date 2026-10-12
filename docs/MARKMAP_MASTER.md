@@ -1,5 +1,9 @@
 # MarkMap — Documento Mestre Único
 
+## A54 — rejeição atômica de IDs duplicados por lote no backend (2026-10-12)
+
+O backend rejeita agora lotes `POST /sync/push` que repetem `operationId`, **antes da primeira aplicação SQL**, respondendo 400 neutro. Corrigida ambiguidade entre recibos e efeitos parciais; idempotência legítima entre requisições permanece. PRD `docs/MM-MAP-A54-sync-batch-idempotency.md`, regressões em `scripts/backend-sync-batch-idempotency.test.mjs`. Baseline 3/7 FAIL, depois 7/7 PASS e **257/257 testes Node PASS em três rodadas**, TypeScript isolado/stubs PASS, SHA de código/teste iguais aos publicados em `dev/markmap-pwa-v2@967fe5d` [skip ci]. Full monorepo/Hono/Postgres/browser/Android/iOS e gate de RC permanecem não executados, **não bloqueiam desenvolvimento**. Nenhum CI GitHub ou alteração main/Neon/produção. A55: auditar baseVersion null sem alterar semântica sem comprovação.
+
 ## A53 — integridade do provisionamento workspace (2026-10-12)
 
 O PostgreSQL pode lançar `23505` quando `workspaceId` existente recebe bootstrap proof diferente: `ON CONFLICT(proof_digest)` só cobre a constraint por prova, não a PK do workspace. Antes a API tratava como erro inesperado 500. A53 normaliza o SQLSTATE direto ou encapsulado em `cause` no DB e preserva o handler existente que devolve 409 neutro. Não altera contratos, tabela, migração, autenticação ou IndexedDB/outbox. Baseline 4/9 testes Node falhavam, depois 9/9 e regressão geral **250/250 PASS em duas rodadas**; typecheck estrito isolado PASS; SHA GitHub confere com QA. Commits dev `b28ae4c`/`0a042c0`, `[skip ci]`. PRD `docs/MM-MAP-A53-workspace-binding-409.md`. Integração PostgreSQL/Hono real e gates A38/RC permanecem pendentes, **sem bloquear próximas correções**; sem GitHub CI/produção.

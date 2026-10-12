@@ -1,5 +1,15 @@
 # Handoff de continuidade
 
+## A54 — rejeição atômica de IDs duplicados por lote no backend (2026-10-12)
+
+**BASE:** `dev/markmap-pwa-v2@f9bd9a7`, Checklist Mestre Notion e HEAD verificados; sem PRs/issues em andamento. **FUNCIONA:** Zod valida envelopes; `applyPushOperation` já suporta replay idempotente entre requests (mesmo workspace+operationId), CAS/cursor A44–A52. **QUEBRADO REPRODUZIDO:** `/sync/push` permitia operationIds repetidos no mesmo array. O primeiro era gravado antes de processar os outros; o servidor podia responder com ACKs repetidos/contraditórios, deixando o cliente sinalizar erro após efeitos parciais.
+
+**A54 CORRIGIDA:** após parse de `pushSyncRequestSchema`, antes da primeira transação SQL, `services/api/src/routes/sync.ts` rejeita qualquer ID repetido com `AppError` padronizado HTTP 400 `VALIDATION_ERROR`, sem ecoar IDs ou payloads. Operações únicas, conflitos de versão, reenvios idempotentes entre requests e lote vazio preservados. Sem alterações em Hono middleware, contratos públicos, PostgreSQL/Neon/PostGIS, IndexedDB/outbox ou PWA.
+
+**QA LOCAL REAL, SEM GitHub Actions:** sobre HEAD pré-patch, **3/7 testes novos falharam**; após correção, **7/7 PASS**. `NODE_PATH=$(npm root -g) node --test scripts/*.test.mjs` **257/257 PASS em três execuções completas**, `node --check` PASS, `tsc -p tsconfig.sync-route.qa.json` strict isolado com stubs PASS (Node v22.16.0). SHA Git blob do patch `103dde0` e teste `87dd1fe` conferidos com a árvore executada. Commit `967fe5d` [skip ci]. PRD `docs/MM-MAP-A54-sync-batch-idempotency.md`.
+
+**PENDENTE (RC, NÃO BLOQUEAR CÓDIGO):** monorepo full lint/typecheck/build/Vitest/Playwright, Hono/Neon integrados, browser IndexedDB real, Android/iOS físicos, 2 dispositivos, privacidade e assinatura. Testes locais usam mocks da rota/DB, **não homologam PostgreSQL real**. **PRÓXIMO LIVRE:** A55 auditar semântica de `baseVersion:null` e concorrência de criação; só implementar se falha e contrato forem comprovados. Sem CI remoto, merge main, deploy Vercel, migrations, secrets, force push, tags/releases, lojas ou exclusões.
+
 ## A53 — integridade do provisionamento workspace (2026-10-12)
 
 **FONTE/HEAD:** base `dev/markmap-pwa-v2@74d257b`, Checklist Mestre do Notion lido, nenhuma PR/issue aberta. **FUNCIONA:** hashes/capability, provisionamento normal, recuperação, limites de requisição e offline/outbox. **QUEBRADO, reproduzido em mock SQLSTATE:** a query `provisionWorkspace` faz `ON CONFLICT(proof_digest)`, mas `workspaces.id` possui chave primária independente; um ID existente com outra prova gera PostgreSQL `23505`. A rota só mapeia mensagem contendo `workspace binding`; erro SQL bruto iria para tratamento inesperado HTTP 500, em vez de conflito HTTP 409.
