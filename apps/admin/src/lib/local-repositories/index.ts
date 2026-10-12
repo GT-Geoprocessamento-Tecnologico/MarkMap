@@ -250,12 +250,22 @@ export class LocalRepository {
     changes: ServerChange[],
     tombstones: Tombstone[],
     nextCursor: string,
+    options?: { expectedCursor?: string },
   ): Promise<void> {
     const workspaceId = await this.workspaceId();
     await this.db.transact(
       ["meta", "entities", "outbox", "acks", "conflicts"],
       "readwrite",
       async (tx) => {
+        // Another tab may have committed a newer page while this request was
+        // in flight. Check within the same readwrite transaction as the edits.
+        if (options) {
+          const stored = await read<{ key: string; value: string } | undefined>(
+            tx.store("meta").get("syncCursor"),
+          );
+          if (stored?.value !== options.expectedCursor)
+            throw new Error("Sync cursor changed during page application");
+        }
         const entities = tx.store("entities");
         const outboxStore = tx.store("outbox");
         const ackStore = tx.store("acks");

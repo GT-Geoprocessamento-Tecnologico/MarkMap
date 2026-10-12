@@ -271,6 +271,7 @@ const pull = async (onProgress?: (applied: number) => void): Promise<number> => 
       result.changes,
       result.tombstones,
       result.nextCursor,
+      { expectedCursor: cursor },
     );
     const applied = result.changes.length + result.tombstones.length;
     pulled += applied;
