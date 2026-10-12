@@ -1,6 +1,13 @@
 # MarkMap — Checklist Mestre de Execução
 
 
+## A32/A33 — auditoria e mensagens seguras no worker de rotas (2026-10-11)
+- [x] A32 Node: 144/144 testes versionados no HEAD original; ciclo MapLibre, leases e worker auditados no código.
+- [x] A33: erro bruto no worker reproduzido com token; alterado para allowlist de mensagens conhecidas e resposta genérica. Após a correção: 150/150 testes Node PASS (6 novos), declaração TypeScript e parsing sintático PASS.
+- [ ] A32/A34: monorepo lint/typecheck/build/Vitest/Playwright e WebGL/PMTiles/IndexedDB reais pendentes por ausência de checkout, dependências e DNS npm/GitHub.
+- [ ] A35–A38: Android/iOS físico, PWA instalada, dois dispositivos, política de privacidade e RC pendentes. Nenhuma homologação de release.
+- [ ] Sem alterar main, Neon, migrations, deploy, CI remoto, tags, lojas ou dados locais.
+
 ## A30/A31 — fonte cartográfica pronta e aviso WebGL sincronizados (2026-10-10)
 
 - [x] **A30 CÓDIGO:** consultar existência e estado `Map.isSourceLoaded('local-dataset')` da fonte atual após hidratação; aceitar fonte pronta sem novo `sourcedata`, sem polling nem requisição remota.

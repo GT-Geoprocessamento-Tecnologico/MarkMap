@@ -1,6 +1,13 @@
 # MarkMap — Documento Mestre Único
 
 
+## A32/A33 — auditoria e mensagens seguras no worker de rotas (2026-10-11)
+- [x] A32 Node: 144/144 testes versionados no HEAD original; ciclo MapLibre, leases e worker auditados no código.
+- [x] A33: erro bruto no worker reproduzido com token; alterado para allowlist de mensagens conhecidas e resposta genérica. Após a correção: 150/150 testes Node PASS (6 novos), declaração TypeScript e parsing sintático PASS.
+- [ ] A32/A34: monorepo lint/typecheck/build/Vitest/Playwright e WebGL/PMTiles/IndexedDB reais pendentes por ausência de checkout, dependências e DNS npm/GitHub.
+- [ ] A35–A38: Android/iOS físico, PWA instalada, dois dispositivos, política de privacidade e RC pendentes. Nenhuma homologação de release.
+- [ ] Sem alterar main, Neon, migrations, deploy, CI remoto, tags, lojas ou dados locais.
+
 ## A30/A31 — readiness da fonte ativa e recuperação do aviso WebGL (2026-10-10)
 
 **A30 IMPLEMENTADO EM CÓDIGO:** `createOfflineStyleLifecycle` agora consulta `getSource('local-dataset')` antes de `isSourceLoaded('local-dataset')` após hidratar. Fontes já carregadas concluem readiness mesmo sem novo `sourcedata`; eventos atrasados e fontes recarregando não podem validar a geração atual. Em exceção/troca de estilo adota fallback conservador; adapters anteriores sem métodos seguem compatíveis. **A31 IMPLEMENTADO EM CÓDIGO:** alerta temporário de WebGL perdido é removido só após render atual bem-sucedido; falhas reais de PMTiles, glyph, estilo e recursos permanecem visíveis e podem substituir aviso transitório. Retentativa manual, orçamento de remount A27 e dados operacionais offline-first preservados.

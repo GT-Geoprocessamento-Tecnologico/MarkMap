@@ -7,6 +7,7 @@ import {
 } from '@geonexo/maps/routing/navigation-progress';
 import { MAX_GRAPH_BYTES, validateRegionalGraph } from '@geonexo/maps/routing/graph-format.mjs';
 import { offlineMapStore } from '../lib/storage/offline-map-store';
+import { describeOfflineRouteWorkerFailure } from '../lib/map/offline-route-worker-errors.mjs';
 
 type Incoming =
   | { type: 'load'; packageId: string }
@@ -47,7 +48,7 @@ async function load(packageId: string, token: number): Promise<void> {
     scope.postMessage({ type: 'ready', profiles: parsed.profiles });
   } catch (cause) {
     if (generation !== token) return;
-    scope.postMessage({ type: 'ready', profiles: [], reason: cause instanceof Error ? cause.message : 'Grafo local invalido' });
+    scope.postMessage({ type: 'ready', profiles: [], reason: describeOfflineRouteWorkerFailure(cause, 'load') });
   }
 }
 
@@ -79,7 +80,7 @@ self.addEventListener('message', (event: MessageEvent<Incoming>) => {
     } catch (cause) {
       if (!message.reroute) { activeRoute = null; activeRouteId = 0; }
       scope.postMessage({ type: 'result', requestId: message.requestId, reroute: Boolean(message.reroute), route: null,
-        error: cause instanceof Error ? cause.message : 'Roteamento offline indisponivel' });
+        error: describeOfflineRouteWorkerFailure(cause, 'route') });
     }
     return;
   }

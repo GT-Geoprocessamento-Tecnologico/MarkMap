@@ -1,6 +1,13 @@
 # Handoff de continuidade
 
 
+## A32/A33 — auditoria e mensagens seguras no worker de rotas (2026-10-11)
+- [x] A32 Node: 144/144 testes versionados no HEAD original; ciclo MapLibre, leases e worker auditados no código.
+- [x] A33: erro bruto no worker reproduzido com token; alterado para allowlist de mensagens conhecidas e resposta genérica. Após a correção: 150/150 testes Node PASS (6 novos), declaração TypeScript e parsing sintático PASS.
+- [ ] A32/A34: monorepo lint/typecheck/build/Vitest/Playwright e WebGL/PMTiles/IndexedDB reais pendentes por ausência de checkout, dependências e DNS npm/GitHub.
+- [ ] A35–A38: Android/iOS físico, PWA instalada, dois dispositivos, política de privacidade e RC pendentes. Nenhuma homologação de release.
+- [ ] Sem alterar main, Neon, migrations, deploy, CI remoto, tags, lojas ou dados locais.
+
 ## Continuidade A30/A31 — readiness do GeoJSON e aviso de WebGL recuperado (2026-10-10)
 
 **HEAD-base auditado:** `dev/markmap-pwa-v2@6b8b613`, `main@156d4e8`, sem PRs/issues abertas. **A30 EM CÓDIGO:** a fonte `local-dataset` já carregada pode completar readiness após `style.load` mesmo sem novo evento. `Map.getSource` valida existência antes de `Map.isSourceLoaded` para não gerar `ErrorEvent` por ID ausente; valida novamente o estado do source ao receber `sourcedata` e antes do `render` posterior, evitando resposta antiga/carga reiniciada. Adapters antigos continuam aceitos. **A31 EM CÓDIGO:** mensagem conhecida de contexto WebGL perdido só desaparece com pintura concluída; erro real de recursos após restauração substitui banner antigo com texto seguro. Não mexe em pacotes, worker global, sync, GeoPDF, campo, IndexedDB, outbox ou banco.
