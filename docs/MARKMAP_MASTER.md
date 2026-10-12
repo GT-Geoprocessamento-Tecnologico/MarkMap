@@ -1,5 +1,10 @@
 # MarkMap — Documento Mestre Único
 
+## A45 — recuperação de IndexedDB após falha/suspensão (2026-10-12)
+
+**Código A45 e QA local:** falhas transitórias de abertura/transação e `versionchange` prendiam `IndexedLocalDb` em promessa rejeitada ou conexão fechada; `close()` podia disparar rejeição não tratada e abertura bloqueada permitia conexão tardia órfã. Corrigido com invalidacão de cache e fechamento de conexão obsoleta, sem migrations, limpeza de IndexedDB/outbox nem operações de rede. Baseline 5/6 falharam; após **6/6 PASS e Node total 208/208 PASS três rodadas**. TypeScript isolado (stubs) e JS check PASS, GitHub blob SHA idêntico aos arquivos locais testados; `dev/markmap-pwa-v2@a839446`, `[skip ci]`. PRD `docs/MM-MAP-A45-idb-recovery.md`. Browser real, monorepo lint/build/Vitest/E2E, aparelhos Android/iOS e gate RC seguem PENDENTES somente para release, não para próxima etapa de código. `main`, Vercel, Neon, secrets e CI remoto intocados.
+
+
 ## A44 — CAS do cursor pull entre abas (2026-10-12)
 
 Correção A44 em código e teste local: `applyServerPage` exige cursor esperado dentro da transação de aplicação quando chamado pelo motor sync, impedindo rollback do checkpoint por resposta de outra aba atrasada; antes 3/5 regressões novas falhavam. QA Node **202/202 PASS em três rodadas + 202/202 após conferir blobs GitHub**, typescript isolado com stubs PASS. Branch dev commits `70789d3`/`0f97e29` `[skip ci]`, nenhuma migration, alteração IndexedDB schema/outbox, API ou servidor. Browser multiabas/Capacitor reais, build/Vitest/Playwright monorepo, Android/iOS e release A38 continuam não homologados (dívida não bloqueante para desenvolvimento). PRD `docs/MM-MAP-A44-sync-cursor-cas.md`.

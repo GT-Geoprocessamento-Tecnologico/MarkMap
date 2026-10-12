@@ -1,5 +1,12 @@
 # MarkMap — Checklist Mestre de Execução
 
+## A45 — recuperação de IndexedDB após falha/suspensão (2026-10-12)
+- [x] **BUG REPRODUZIDO:** 5/6 regressões falharam no HEAD A44: falha transitória de `indexedDB.open`, exceção ao criar transação de workspace, `versionchange` com conexão fechada cacheada, `close()` após rejeição e `onblocked` seguido de abertura tardia.
+- [x] **CORRIGIDO sem migrations:** cache `dbPromise` e `workspacePromise` invalidado em erro/versão; conexão tardia bloqueada fechada; `close()` não cria `unhandledRejection`; mantém ID workspace e outbox. Não envia dados nem toca nas entidades por recuperação.
+- [x] **QA realmente executado:** alvo 6/6 PASS, `node --test scripts/*.test.mjs` **208/208 PASS em três execuções**; `node --check` e `tsc --strict --noEmit` isolado de local-db e sync (stubs) PASS. Blobs code/tests do GitHub batem com QA. Novo `scripts/local-db-reopen.test.mjs`; PRD `docs/MM-MAP-A45-idb-recovery.md`; branch dev commit `a839446` [skip ci].
+- [ ] **HOMOLOGAÇÃO A38/Release:** lint/typecheck/build/Vitest/Playwright monorepo, IndexedDB/Capacitor real, Android/iOS físico, duas instalações e política/signing NÃO EXECUTADOS, portanto release BLOQUEADO. Não bloquear desenvolvimento por QA física.
+- [x] **GOVERNANÇA:** sem GitHub Actions, merge main, deploy Vercel, Neon/migrations, secrets, force push, tag/release, lojas, exclusão de dados.
+
 ## A44 — CAS do cursor pull entre abas (2026-10-12)
 - [x] **BUG REPRODUZIDO:** duas abas em paralelo podiam escrever cursores remotos fora de ordem: aba atrasada sobrescrevia um `syncCursor` já avançado, causando replays/requisições desnecessárias.
 - [x] **CORREÇÃO ATÔMICA:** `LocalRepository.applyServerPage` compara `expectedCursor` com `meta.syncCursor` na mesma transação IndexedDB `readwrite` ANTES de inserir entidades/ACKs/tombstones. `sync-engine.pull` envia cursor utilizado na requisição; chamada legada com três argumentos segue compatível. Não alterar schemas, dados, backend ou outbox.

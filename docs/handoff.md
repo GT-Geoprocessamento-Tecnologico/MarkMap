@@ -1,5 +1,16 @@
 # Handoff de continuidade
 
+## A45 — recuperação de IndexedDB após falha/suspensão (2026-10-12)
+
+**BASE/CLASSIFICAÇÃO:** `dev/markmap-pwa-v2@554cb00`, Checklist Mestre Notion e HEAD verificados; zero PRs/issues abertos. **FUNCIONA:** armazenamento offline, transação de outbox e CAS A44. **QUEBRADO reproduzido:** `dbPromise`/ `workspacePromise` rejeitadas permaneciam em cache depois de falha de abertura/transação; `onversionchange` fechava banco mas não invalidava a conexão; `close()` após falha disparava rejeição não tratada; `onblocked` podia receber sucesso tardio e deixar conexão órfã. **PARCIAL:** integração WebView real; sem reescrever arquitetura.
+
+**A45 IMPLEMENTADO no commit `a839446` [skip ci]:** `IndexedLocalDb` libera promessas rejeitadas para permitir próxima tentativa; fecha conexões tardias de abertura bloqueada; limpa conexão e cache workspace no evento de versão; `close()` trata abertura já rejeitada. Erro permanece erro na tentativa atual, sem retry automático ilimitado, rede, alteração de IndexedDB version/schema, outbox, Neon ou dados de campo.
+
+**QA REAL LOCAL:** 5/6 testes direcionados falharam antes; corrigidos 6/6. `node --test scripts/*.test.mjs` **208/208 PASS por três execuções consecutivas**; `tsc --strict --noEmit` isolado local-db/index.ts + types.ts e sync-engine.ts com stubs: PASS; `node --check` PASS. SHA das versões de código/testes relidas do GitHub correspondem à versão testada. PRD `docs/MM-MAP-A45-idb-recovery.md`, regressão `scripts/local-db-reopen.test.mjs`.
+
+**GATE RELEASE A38 ainda BLOQUEADO:** não houve lint/typecheck/build/Vitest/Playwright completos, navegador IndexedDB real/multiabas, Android/iOS físico, sync em duas instalações, privacidade e signing. A dívida não bloqueia próximas implementações. **PRÓXIMO:** auditar falhas reais de transações após retomada/versão e integração PWA offline, somente com reprodução. Sem GitHub Actions/CI, merge main, Vercel, Neon/migrations, secrets, force push, tags/releases, loja ou operações destrutivas.
+
+
 ## A44 — CAS do cursor pull entre abas (2026-10-12)
 
 **ESTADO:** baseado em `dev/markmap-pwa-v2@4cd7708`, com HEAD, Checklist Notion e PRs/issues reconfirmados antes de editar. **BUG:** uma resposta de pull antiga podia aplicar `nextCursor` depois que outra aba já avançou o cursor IndexedDB; o singleton `inFlight` não protege abas distintas. **CORREÇÃO:** compare-and-swap de `expectedCursor` dentro da mesma transação `readwrite` em `LocalRepository.applyServerPage`, antes de escrever qualquer entidade, tombstone ou ack. `sync-engine.pull` transmite seu cursor inicial; consumidores legados de três argumentos continuam compatíveis.
