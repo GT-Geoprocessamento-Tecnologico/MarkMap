@@ -62,7 +62,7 @@ import { OfflineRouting, type RoutePointSelection } from "../../components/map/O
 import { OfflineKnowledge } from "../../components/map/OfflineKnowledge";
 import { OfflineElevation } from "../../components/map/OfflineElevation";
 import { MAX_CONTOUR_BYTES, validateRegionalContours, contoursToGeoJSON } from "@geonexo/maps/elevation/contour-package.mjs";
-import { loadRegionalPackageSearch } from '../../lib/search/regional-package-search';
+import { loadRegionalPackageSearch, describeRegionalSearchLoadError } from '../../lib/search/regional-package-search';
 import type { LocalSearchRecord } from '../../lib/search/local-map-search';
 import { buildLocalMapSearchRecords } from "../../lib/search/local-map-search";
 
@@ -318,7 +318,7 @@ export default function CommandCenterPage() {
     if (!activeRegionPackageId) return;
     void loadRegionalPackageSearch(offlineMapStore, activeRegionPackageId)
       .then((records) => { if (!cancelled) { setRegionalSearchRecords(records); setRegionalSearchError(null); } })
-      .catch((cause) => { if (!cancelled) { setRegionalSearchRecords([]); setRegionalSearchError(cause instanceof Error ? cause.message : 'Índice offline indisponível'); } });
+      .catch((cause) => { if (!cancelled) { setRegionalSearchRecords([]); setRegionalSearchError(describeRegionalSearchLoadError(cause)); } });
     return () => { cancelled = true; };
   }, [activeRegionPackageId, regionalRenderRevision]);
   const combinedSearchRecords = useMemo(

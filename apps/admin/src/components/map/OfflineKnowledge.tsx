@@ -7,8 +7,23 @@ type Station = TransitNetwork['stations'][number];
 type ContentState = { articles: WikipediaArticle[]; stations: Station[]; attribution: string[] };
 const empty: ContentState = { articles: [], stations: [], attribution: [] };
 
-async function readVerified(packageId: string, ref: { path: string; blob: { bytes: number; sha256: string } }, limit: number): Promise<unknown> {
-  const file = await offlineMapStore.asset(packageId, ref.path);
+const KNOWN_CONTENT_ERRORS = new Set([
+  'Dados locais ausentes ou incompletos. Reinstale a região.',
+  'Falha de integridade no conteúdo regional.',
+  'O mapa regional foi atualizado. Reabra este painel.',
+]);
+
+export function describeOfflineKnowledgeError(cause: unknown): string {
+  const message = cause instanceof Error ? cause.message : null;
+  return message && KNOWN_CONTENT_ERRORS.has(message)
+    ? message
+    : 'Conteúdo regional indisponível. Verifique o pacote offline em Configurações.';
+}
+
+async function readVerified(packageId: string, generation: string, ref: { path: string; blob: { bytes: number; sha256: string } }, limit: number): Promise<unknown> {
+  const file = await offlineMapStore.assetAtRevision(packageId, ref.path, generation);
+  if (!file && (await offlineMapStore.getActiveRevision(packageId))?.generation !== generation)
+    throw new Error('O mapa regional foi atualizado. Reabra este painel.');
   if (!file || file.size !== ref.blob.bytes || file.size > limit) throw new Error('Dados locais ausentes ou incompletos. Reinstale a região.');
   const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
   const hash = Array.from(new Uint8Array(digest), value => value.toString(16).padStart(2, '0')).join('');
@@ -36,27 +51,30 @@ export function OfflineKnowledge({ packageId, onStation, onTransit }: {
     if (!packageId) return () => { current = false; };
     void (async () => {
       try {
-        const installed = await offlineMapStore.get(packageId);
+        const installed = await offlineMapStore.getActiveRevision(packageId);
         if (!installed) return;
         const m = installed.manifest;
         const next: ContentState = { articles: [], stations: [], attribution: [] };
         let verifiedTransit: TransitNetwork | null = null;
         if (m.wikipediaPack) {
-          const raw = await readVerified(packageId, m.wikipediaPack, MAX_WIKIPEDIA_BYTES);
+          const raw = await readVerified(packageId, installed.generation, m.wikipediaPack, MAX_WIKIPEDIA_BYTES);
           const wiki = validateRegionalWikipedia(raw, m.id);
           next.articles = wiki.articles;
           next.attribution.push(`${wiki.attribution} · ${wiki.license}`);
         }
         if (m.transitPack) {
-          const raw = await readVerified(packageId, m.transitPack, MAX_TRANSIT_BYTES);
+          const raw = await readVerified(packageId, installed.generation, m.transitPack, MAX_TRANSIT_BYTES);
           const network = validateRegionalTransit(raw, m.id, m.bounds);
           next.stations = network.stations;
           verifiedTransit = network;
           next.attribution.push(`${network.attribution} · ${network.license}`);
         }
+        if (!current) return;
+        if ((await offlineMapStore.getActiveRevision(packageId))?.generation !== installed.generation)
+          throw new Error('O mapa regional foi atualizado. Reabra este painel.');
         if (current) { setData(next); onTransit(verifiedTransit); }
       } catch (cause) {
-        if (current) setError(cause instanceof Error ? cause.message : 'Conteúdo offline inválido.');
+        if (current) setError(describeOfflineKnowledgeError(cause));
       }
     })();
     return () => { current = false; };

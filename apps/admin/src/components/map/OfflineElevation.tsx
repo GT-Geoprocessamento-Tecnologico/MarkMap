@@ -7,6 +7,17 @@ import {
 } from '@geonexo/maps/elevation/regional-dem.mjs';
 
 const formatHeight = (height: number | null) => height === null ? 'Sem dado' : `${Math.round(height)} m`;
+const KNOWN_ELEVATION_ERRORS = new Set([
+  'Grade altimétrica ausente ou incompleta; reinstale a região.',
+  'SHA-256 da altitude não corresponde ao pacote.',
+  'O mapa regional foi atualizado. Reabra o perfil de altitude.',
+]);
+export function describeOfflineElevationError(cause: unknown): string {
+  const message = cause instanceof Error ? cause.message : null;
+  return message && KNOWN_ELEVATION_ERRORS.has(message)
+    ? message
+    : 'Dados altimétricos indisponíveis. Verifique o pacote offline em Configurações.';
+}
 
 /** Elevation is always derived from installed, checksum-verified height data. */
 export function OfflineElevation({ packageId, route }: { packageId: string | null; route: Route | null }) {
@@ -21,23 +32,28 @@ export function OfflineElevation({ packageId, route }: { packageId: string | nul
     if (!packageId) return () => { active = false; };
     void (async () => {
       try {
-        const stored = await offlineMapStore.get(packageId);
-        const manifest = stored?.manifest;
-        if (!manifest?.demGrid) {
+        const stored = await offlineMapStore.getActiveRevision(packageId);
+        if (!stored?.manifest.demGrid) {
           if (active) setMessage('Esta região não inclui dados reais de altitude.');
           return;
         }
+        const manifest = stored.manifest;
         const ref = manifest.demGrid;
-        const asset = await offlineMapStore.asset(packageId, ref.path);
+        const asset = await offlineMapStore.assetAtRevision(packageId, ref.path, stored.generation);
+        if (!asset && (await offlineMapStore.getActiveRevision(packageId))?.generation !== stored.generation)
+          throw new Error('O mapa regional foi atualizado. Reabra o perfil de altitude.');
         if (!asset || asset.size !== ref.blob.bytes || asset.size > MAX_REGIONAL_DEM_BYTES)
           throw new Error('Grade altimétrica ausente ou incompleta; reinstale a região.');
         const digest = await crypto.subtle.digest('SHA-256', await asset.arrayBuffer());
         const checksum = [...new Uint8Array(digest)].map(v => v.toString(16).padStart(2, '0')).join('');
         if (checksum !== ref.blob.sha256) throw new Error('SHA-256 da altitude não corresponde ao pacote.');
         const valid = validateRegionalDem(JSON.parse(await asset.text()) as unknown, manifest.id, manifest.bounds);
+        if (!active) return;
+        if ((await offlineMapStore.getActiveRevision(packageId))?.generation !== stored.generation)
+          throw new Error('O mapa regional foi atualizado. Reabra o perfil de altitude.');
         if (active) setGrid(valid);
       } catch (error) {
-        if (active) setMessage(error instanceof Error ? error.message : 'Dados altimétricos indisponíveis.');
+        if (active) setMessage(describeOfflineElevationError(error));
       }
     })();
     return () => { active = false; };
