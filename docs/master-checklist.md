@@ -1,5 +1,12 @@
 # MarkMap — Checklist Mestre de Execução
 
+## A50–A51 — bearer entre abas e edições durante sync ativo (2026-10-12)
+- [x] **A50 reproduzida/corrigida:** outro tab já rotacionou bearer? Após 401, `withCapability` lê token novo do IndexedDB, tenta uma vez e evita /workspace/recover desnecessário; se falhar 401 ou não existir, mantém recovery normal. Sem rebaixar generation.
+- [x] **A51 reproduzida/corrigida:** edição local durante sync ativo não fica esperando 60 segundos: flag de nova rodada ao finalizar; múltiplos gatilhos são coalescidos; offline e unmount não disparam rede.
+- [x] **QA local (nenhum CI remoto executado por nós):** antes A50 **3/4 falhas** e A51 **2/4 falhas**; depois 8/8 novos PASS; **235/235 Node PASS duas execuções**; `node --check` PASS; TS estrito isolado com stubs `tsconfig.qa.json`/`tsconfig.foreground.qa.json` PASS; SHA dos 4 arquivos GitHub corresponde ao testado. Commits `0c711de`/`6628c02`, [skip ci], branch `dev/markmap-pwa-v2`.
+- [ ] **A38/RC HOMOLOGAÇÃO:** monorepo lint/typecheck/build/Vitest/Playwright completo, navegador real IndexedDB/PWA/MapLibre, dois dispositivos Android/iOS e política/assinatura permanecem não executados. Não promover release; desenvolvimento contínuo.
+- [x] **Sem alterações de produção:** main, Neon, migrations, deploy, releases, secrets, lojas, force push e operações destrutivas intocados. PRD `docs/MM-MAP-A50-A51-sync-concurrency.md`.
+
 ## A48–A49 — identidade de instalação e credenciais de sync atômicas (2026-10-12)
 - [x] **A48 REPRODUZIDA/CORRIGIDA:** `installationId` e `workspaceBootstrapProof` antes eram lidos/gravados separados; duas abas podiam enviar provas diferentes e uma receber 409. Agora único par gerado/persistido atomicamente sob `readwrite`; valores existentes permanecem estáveis.
 - [x] **A49 CORRIGIDA:** resposta HTTP tardia não regride bearer/generation; valida workspace e grava somente quando a versão não é inferior, com compare-and-set transacional.

@@ -1,5 +1,9 @@
 # MarkMap — Documento Mestre Único
 
+## A50–A51 — bearer entre abas e edições durante sync ativo (2026-10-12)
+
+A50 corrige recuperação desnecessária de capability entre abas quando IndexedDB já possui geração mais recente que a usada na requisição 401. A51 corrige perda de reexecução quando mutação local acontece durante sync single-flight: controlador agenda nova rodada somente quando a atual termina, agrega gatilhos e respeita offline/unmount. Ambos preservam contratos HTTP, IndexedDB/outbox, React/Vite/Hono/Neon existentes. Baseline A50 3/4 falhas, A51 2/4 falhas; depois **8/8 regressões novas e 235/235 Node PASS em 2 execuções**, TypeScript estrito isolado com stubs PASS, hashes dos 4 arquivos iguais aos testados. Branch `dev/markmap-pwa-v2` commits `0c711de` + `6628c02`, [skip ci]. PRD `docs/MM-MAP-A50-A51-sync-concurrency.md`. Full build/Vitest/E2E, browser IndexedDB real, Android/iOS e A38 RC continuam PENDENTES sem impedir o desenvolvimento. Sem GitHub CI disparado manualmente, sem operações de produção.
+
 ## A48–A49 — identidade de instalação e credenciais de sync atômicas (2026-10-12)
 
 Duas abas PWA podiam inicializar diferentes provas de recuperação de workspace, com falha HTTP 409 reproduzida. A48 usa transação `meta` única para criar e reutilizar `installationId`/`workspaceBootstrapProof`. A49 protege a geração/bearer contra sobrescrita por resposta antiga na mesma transação, com validação de workspace. Sem alterações de schema, contratos HTTP, Neon ou outbox. Novo teste de 9 casos PASS; Node completo **227/227 PASS**, TypeScript isolado com stubs PASS; hashes de cinco arquivos confirmados no GitHub `3cf57b3` [skip ci]. PRD `docs/MM-MAP-A48-A49-atomic-bootstrap.md`. E2E browser/Android/iOS e release A38 continuam pendentes, **não bloqueiam desenvolvimento**. Nenhum CI GitHub/produção/merge main/deploy.

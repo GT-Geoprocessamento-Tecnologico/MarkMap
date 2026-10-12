@@ -1,6 +1,6 @@
 # Checklist de release
 
-> **Gate de release atual: BLOQUEADO (A48–A49 em `dev/markmap-pwa-v2@3cf57b3`).** Os `[x]` abaixo registram verificações históricas e **não homologam o HEAD atual**. Nesta continuidade, **227/227 testes Node locais** (A48–A49: 9 novos; corrida de identidade reproduzida antes) e TypeScript isolado passaram, sem GitHub CI. **Ainda NÃO reexecutados:** lint/typecheck/build/Vitest/E2E completos, testes reais Android/iOS, sync em duas instalações, auditoria final de dependências, review de privacidade, assinatura e autorização de publicação. Não promover Release Candidate.
+> **Gate de release atual: BLOQUEADO (A50–A51 em `dev/markmap-pwa-v2@6628c02`).** Os `[x]` abaixo registram verificações históricas e **não homologam o HEAD atual**. Nesta continuidade, **235/235 testes Node locais** (A50–A51: 8 novos; 2 rodadas após correção) e TypeScript isolado passaram, sem GitHub CI. **Ainda NÃO reexecutados:** lint/typecheck/build/Vitest/E2E completos, testes reais Android/iOS, sync em duas instalações, auditoria final de dependências, review de privacidade, assinatura e autorização de publicação. Não promover Release Candidate.
 
 
 Este checklist complementa o Checklist Mestre operacional no Notion.

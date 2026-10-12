@@ -1,5 +1,17 @@
 # Handoff de continuidade
 
+## A50–A51 — bearer entre abas e edições durante sync ativo (2026-10-12)
+
+**BASE E AUDITORIA:** `dev/markmap-pwa-v2@de50526`, Checklist Mestre Notion consultado, 0 PRs/issues. **A50 QUEBRADO:** quando duas abas utilizam o mesmo workspace, a aba com token anterior recebe 401 e iniciava /workspace/recover mesmo após a outra aba persistir token de generation maior; cria tráfego de recuperação desnecessário e possível rotação de credenciais. **A51 QUEBRADO:** edição feita enquanto `syncNow()` está ativo usava a mesma promessa single-flight; após terminar, a edição permanecia na outbox até o timer periódico/evento futuro.
+
+**CORREÇÃO:** `sync-engine.withCapability` após 401 reconsulta `workspaceCapability` do IndexedDB e, caso geração e workspace indiquem token mais novo, tenta **uma vez** esse bearer antes de recuperar do servidor; fallback 401 remoto permanece. `SyncController` registra `rerunRequested` se novo gatilho ocorrer enquanto há sync ativo, executa uma nova rodada após terminar, agrega gatilhos múltiplos e respeita offline, unmount e estado local. Nenhuma nova requisição quando `navigator.onLine === false`; não altera esquemas, outbox, API Hono, Neon ou MapLibre.
+
+**EVIDÊNCIA LOCAL SEM GitHub CI:** baseline direcionado A50 **1/4 PASS, 3/4 falhas**, A51 **2/4 PASS, 2/4 falhas**. Após patch `node --test scripts/sync-cross-tab-capability.test.mjs scripts/sync-single-flight-mutations.test.mjs`: **8/8 PASS**. Regressão `NODE_PATH=$(npm root -g) node --test scripts/*.test.mjs` **235/235 PASS em duas rodadas** no Node v22.16.0. `tsc -p tsconfig.qa.json --noEmit` e `tsc -p tsconfig.foreground.qa.json --noEmit` com contratos stubs isolados PASS; `node --check` dos testes PASS. Quatro hashes GitHub após push conferidos com arquivos locais: MATCH. Commits `0c711de` e `6628c02`, todos [skip ci]. PRD `docs/MM-MAP-A50-A51-sync-concurrency.md`.
+
+**NÃO EXECUTADO:** lint/typecheck/build/Vitest/Playwright integrais, navegação PWA/IndexedDB real entre abas, dispositivos Android/iOS e sincronização remota entre instalações; QA local usa mocks e não é homologação física. **RC A38 NÃO APROVADO**, mas dívida não bloqueia próximo código. **PRÓXIMO LIVRE:** examinar comportamento de erros persistentes e eventos de sync sem duplicar implementações existentes; corrigir falhas comprovadas.
+
+**GIT/SEGURANÇA:** `main`, PostGIS/Neon, Vercel, migrations, secrets, release/tag, lojas e dados do usuário intactos; não acionar GitHub Actions, deploy ou force push. Rollback por revert isolado dos commits A50–A51.
+
 ## A48–A49 — identidade de instalação e credenciais de sync atômicas (2026-10-12)
 
 **ESTADO REAL:** HEAD-base `dev/markmap-pwa-v2@cea8e86`, Checklist Mestre Notion consultado, sem PR/issue aberto antes da mudança. **QUEBRADO REPRODUZIDO:** duas instâncias de PWA liam `installationId`/`workspaceBootstrapProof` vazios, gravavam valores diferentes em transações separadas, e uma recebia HTTP 409 no provisionamento (teste controlado retornou estados `synced,error`). **RISCO COMPROVADO NO CÓDIGO:** `saveCapability` separava leitura e gravação, permitindo resposta antiga (generation menor) rebaixar bearer mais novo.
