@@ -100,6 +100,11 @@ export class LocalRepository {
       const current = stored?.value;
       if (current && BigInt(current.generation) > BigInt(candidate.generation))
         return current;
+      // Sync cursors are HMAC-signed with the bearer on the API. After rotation
+      // the old cursor is no longer valid; retire it atomically with the token.
+      // Keep the outbox, ACKs, conflicts and offline entities untouched.
+      if (!current || current.bearer !== candidate.bearer)
+        meta.delete("syncCursor");
       meta.put({ key: "workspaceCapability", value: candidate });
       return candidate;
     });

@@ -251,8 +251,20 @@ const pull = async (onProgress?: (applied: number) => void): Promise<number> => 
       { method: "GET" },
     );
     const payload = response.payload;
-    if (!response.ok)
+    if (!response.ok) {
+      // Capability renewal can invalidate the cursor after the URL was built.
+      // Retry only if a concurrent, durable transaction changed the cursor;
+      // never erase an unrelated malformed cursor in response to HTTP 400.
+      if (
+        response.status === 400 &&
+        (await localRepository.getMeta<string>(META_SYNC_CURSOR)) !== cursor
+      ) continue;
       throw new Error(`Sync pull failed (HTTP ${response.status})`);
+    }
+    // Another tab may have advanced/reset the cursor during the request.
+    // Re-fetch rather than attempt to commit an out-of-date page.
+    if ((await localRepository.getMeta<string>(META_SYNC_CURSOR)) !== cursor)
+      continue;
 
     const result = pullSyncResponseSchema.parse(payload);
     // When more data is claimed, the next cursor must never return to one

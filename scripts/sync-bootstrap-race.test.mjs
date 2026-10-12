@@ -49,6 +49,7 @@ class SerializedMetaDb {
         return request;
       },
       put(row) { rows.set(row.key, structuredClone(row)); },
+      delete(key) { rows.delete(key); },
     };
     try {
       const result = await work({ store(name) { assert.equal(name, 'meta'); return store; } });
