@@ -1,5 +1,15 @@
 # Handoff de continuidade
 
+## A55 — bloqueio de sobrescrita por baseVersion nula (2026-10-12)
+
+**ESTADO CONFERIDO:** base `dev/markmap-pwa-v2@8223dfb`, Checklist Mestre Notion lido; HEAD, PRs/issues e integração existente auditados. **FUNCIONA:** criação inicial, CAS de cursor A44, sincronização offline-first/outbox, encadeamento por predecessor e replays idempotentes. **QUEBRADO (reproduzido):** `applyPushOperation` só comparava baseVersion quando não nula; uma segunda instalação podia sobrescrever projeto/tombstone já sincronizado ou excluir sem saber a versão. **PARCIAL:** QA isolado com transação serializada simulada. **NÃO IMPLEMENTADO:** verificação PostgreSQL/PostGIS real nesta rodada.
+
+**A55 CORRIGIDA:** `packages/db/src/queries/sync.ts` trata `baseVersion:null` sem predecessor como expectativa de versão 0; se existir versão remota positiva, retorna `VERSION_CONFLICT` antes de gerar sequência/materializar. Atualização ou exclusão com versão exata e cadeia com predecessor válido continuam permitidas. `operationId` repetido conserva `already_applied`. Não limpa ou transmite outbox adicional; usuário poderá resolver conflito preservando edição offline. **Risco de compatibilidade:** cliente legado que dependia de escrita cega poderá receber conflito explícito em vez de sobrescrever, intencional para evitar perda de dados.
+
+**QA REAL LOCAL SEM CI:** teste A55 com 9 casos iniciais: **3/9 falharam antes** e **9/9 PASS após**; estendido para **11/11 PASS**. Regresso backend com A53+A54+A55 **27/27 PASS em três rodadas**, TypeScript `strict` isolado com stubs do Drizzle/contratos e `node --check` PASS; blobs GitHub fonte `5fb198e`, regressão `641b860` confirmados iguais aos arquivos testados. PRD `docs/MM-MAP-A55-null-base-guard.md`, commits `cf61e2a`, `8221e91`, `eca3dfe` [skip ci]. **Nota:** os 257/257 da A54 são histórico do turno anterior, não reexecutados neste ambiente. Lint/typecheck/build/Vitest/Playwright completos, PostgreSQL/Neon real, navegador IndexedDB real e Android/iOS físicos permanecem pendentes.
+
+**PRÓXIMO LIVRE:** A56 auditoria de rejeições de predecessor e dados tombstone sob sync concorrente, com reprodução, sem reimplementar funções que já operam. **RC A38 NÃO APROVADO** (dívida de homologação não bloqueante para novos patches). **NENHUM** GitHub Actions/CI remoto, merge main, deploy, Neon/migration, secret, force push, tag/release, publicação ou exclusões.
+
 ## A54 — rejeição atômica de IDs duplicados por lote no backend (2026-10-12)
 
 **BASE:** `dev/markmap-pwa-v2@f9bd9a7`, Checklist Mestre Notion e HEAD verificados; sem PRs/issues em andamento. **FUNCIONA:** Zod valida envelopes; `applyPushOperation` já suporta replay idempotente entre requests (mesmo workspace+operationId), CAS/cursor A44–A52. **QUEBRADO REPRODUZIDO:** `/sync/push` permitia operationIds repetidos no mesmo array. O primeiro era gravado antes de processar os outros; o servidor podia responder com ACKs repetidos/contraditórios, deixando o cliente sinalizar erro após efeitos parciais.

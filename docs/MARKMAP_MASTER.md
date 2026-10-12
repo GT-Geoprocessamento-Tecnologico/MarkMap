@@ -1,5 +1,9 @@
 # MarkMap — Documento Mestre Único
 
+## A55 — bloqueio de sobrescrita por baseVersion nula (2026-10-12)
+
+**A55 implementada e validada localmente:** o backend rejeita criação/remoção com `baseVersion:null` sobre entidade remota já versionada; retorno `VERSION_CONFLICT` sem avanço de sequência/materialização. Versão explícita, predecessor validado, idempotência e isolamento de workspace permanecem. 3/9 regressões falhavam antes; após correção **11/11 A55 PASS**, **27/27 backend A53+A54+A55 PASS em três rodadas**, TS estrito isolado com stubs PASS. GitHub SHA código `5fb198e`, teste `641b860`; commits `cf61e2a`/`8221e91` [skip ci]. PRD `docs/MM-MAP-A55-null-base-guard.md`. 257/257 Node A54 históricos não reexecutados aqui. Risco de compatibilidade: operações legadas sem versão sobre registro remoto geram conflito explícito. A38/release continua pendente de banco real, build/lint/testes integrados e dispositivos, **sem bloquear novas correções**. Sem GitHub CI/deploy/main/migration.
+
 ## A54 — rejeição atômica de IDs duplicados por lote no backend (2026-10-12)
 
 O backend rejeita agora lotes `POST /sync/push` que repetem `operationId`, **antes da primeira aplicação SQL**, respondendo 400 neutro. Corrigida ambiguidade entre recibos e efeitos parciais; idempotência legítima entre requisições permanece. PRD `docs/MM-MAP-A54-sync-batch-idempotency.md`, regressões em `scripts/backend-sync-batch-idempotency.test.mjs`. Baseline 3/7 FAIL, depois 7/7 PASS e **257/257 testes Node PASS em três rodadas**, TypeScript isolado/stubs PASS, SHA de código/teste iguais aos publicados em `dev/markmap-pwa-v2@967fe5d` [skip ci]. Full monorepo/Hono/Postgres/browser/Android/iOS e gate de RC permanecem não executados, **não bloqueiam desenvolvimento**. Nenhum CI GitHub ou alteração main/Neon/produção. A55: auditar baseVersion null sem alterar semântica sem comprovação.

@@ -1,5 +1,13 @@
 # MarkMap — Checklist Mestre de Execução
 
+## A55 — bloqueio de sobrescrita por baseVersion nula (2026-10-12)
+- [x] **A55 BUG REPRODUZIDO/CORRIGIDO:** `baseVersion:null` permitia overwrite/delete cego da versão remota, inclusive quando outra instalação já havia criado registro. Agora só aceita como criação sem versão anterior (versão 0); retorna `VERSION_CONFLICT` em versão remota positiva **antes de qualquer escrita**.
+- [x] **COMPATIBILIDADE PRESERVADA:** versão explícita atualiza/deleta, predecessor confirmado encadeia, replay exato retorna `already_applied`, workspace isolado, outbox e dados locais não descartados. Risco documentado: cliente legado sem versão passa a precisar resolver conflito.
+- [x] **QA LOCAL EXECUTADO SEM CI:** baseline 3/9 falhas; 11/11 regressões A55 PASS; **27/27 testes Node backend A53+A54+A55 em três rodadas**, TS `strict` isolado com stubs e `node --check` PASS. SHA dos 2 arquivos versionados comparados com os testados. `257/257` da A54 são resultado histórico, não reexecutado agora. PRD `docs/MM-MAP-A55-null-base-guard.md`, commits `cf61e2a`/`8221e91`/`eca3dfe`, [skip ci].
+- [ ] **A38/RC NÃO HOMOLOGADO:** monorepo full lint/typecheck/build/Vitest/Playwright, banco Neon/PostGIS/Hono real, duas instalações em navegador/aparelho, WebView Android/iOS, política e signing. **Não travar novas fases por homologação física.**
+- [x] **GIT/SEGURANÇA:** `main`, produção, Neo/PostGIS, schema, deploy e secrets intactos; nenhum GitHub Actions, migration, tag/release, force push, loja ou exclusão.
+- [ ] **A56 LIVRE:** auditar replays de predecessor inválido e tombstones; implementar somente com evidência e QA.
+
 ## A54 — rejeição atômica de IDs duplicados por lote no backend (2026-10-12)
 - [x] **A54 QUEBRADO→CORRIGIDO:** `/sync/push` podia aplicar um prefixo do lote antes de perceber operationId duplicado. Agora verifica todos os IDs após Zod e responde `400 VALIDATION_ERROR` antes de qualquer chamada à camada DB.
 - [x] **PRESERVADO:** lote único retorna ACKs na ordem, replay do ID numa requisição **posterior** segue idempotente, conflitos continuam explícitos, lote vazio não escreve, outbox local nunca é descartada.
