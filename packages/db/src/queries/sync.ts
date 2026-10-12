@@ -423,7 +423,11 @@ export async function applyPushOperation(
       expectedVersion = predecessor.version;
     }
 
-    if (expectedVersion !== null && expectedVersion !== currentVersion)
+    // A null base means this installation has never observed a server version.
+    // Allow an initial create only; a second device must not silently replace
+    // an existing value or tombstone. Explicit versions and valid predecessor
+    // chains still permit intentional updates.
+    if ((expectedVersion ?? 0) !== currentVersion)
       return {
         status: "conflict",
         conflict: conflictFor(input, currentVersion, serverPayload),
