@@ -1,6 +1,13 @@
 # MarkMap — Documento Mestre Único
 
 
+## A34 — leitores offline presos à geração ativa (2026-10-11)
+
+**Falha comprovada e corrigida:** quatro consumidores regionais liam metadados de uma geração e blobs potencialmente de outra após atualização simultânea; exceções internas da busca, Wikipedia e altitude podiam vazar detalhes locais na UI. Busca, rota, conteúdo e DEM agora vinculam o mesmo `installed.generation` através das funções já existentes do IndexedDB (`getActiveRevision` + `assetAtRevision`) e fazem checagem final de geração antes de publicar. Mensagens UI de origem não confiável foram sanitizadas por allowlist. Contratos, IndexedDB/outbox, projetos e Neon preservados.
+
+**Evidência local:** 164/164 testes Node aprovados com 14 novos cenários; 4 módulos TypeScript passaram typecheck **isolado com stubs**, CommandCenterPage passou parsing TSX. Commits `6db152f`, `17ba3c7`, `3e11fb7`, todos `[skip ci]`. Sem GitHub Actions e sem consumir CI. **Ainda NÃO HOMOLOGADO:** build/lint/typecheck/Vitest/E2E completos, IndexedDB/MapLibre/WebGL em navegador real (Chrome bloqueado), Android/iOS, sync físico e Release Candidate. Revisão externa/privacy/legal continua pendente; sem ações de produção.
+
+
 ## A32/A33 — auditoria e mensagens seguras no worker de rotas (2026-10-11)
 - [x] A32 Node: 144/144 testes versionados no HEAD original; ciclo MapLibre, leases e worker auditados no código.
 - [x] A33: erro bruto no worker reproduzido com token; alterado para allowlist de mensagens conhecidas e resposta genérica. Após a correção: 150/150 testes Node PASS (6 novos), declaração TypeScript e parsing sintático PASS.

@@ -1,6 +1,14 @@
 # MarkMap — Checklist Mestre de Execução
 
 
+## A34 — leitores offline presos à geração ativa (2026-10-11)
+- [x] **CÓDIGO:** busca regional, roteamento Worker, Wikipedia/transporte e DEM passam a vincular manifest e Blob por `getActiveRevision` + `assetAtRevision`. Revalidam a geração antes de publicar resultados e recusam mistura após atualização concorrente.
+- [x] **SEGURANÇA:** erros inesperados de IndexedDB/JSON/engine não exibem URL, path ou token na UI regional. Mensagens conhecidas de recuperação permanecem úteis.
+- [x] **QA LOCAL, SEM CI:** Node 22.16.0 `node --test scripts/*.test.mjs`: **164/164 PASS** (150 anteriores +14 novos). Testes reproduziram falhas antes da correção, cobrem atualização entre leituras, dados antigos e vazamentos. `tsc --strict --noEmit` com stubs isolados de quatro módulos: **4/4 PASS**; parsing TSX de CommandCenterPage: PASS. Código/testes versionados até `3e11fb7`.
+- [ ] **GATE INTEGRAL BLOQUEADO:** sem checkout/dependências por DNS; lint, typecheck, build, Vitest, Playwright monorepo e IndexedDB/MapLibre/PMTiles/WebGL verdadeiros não executados. Chromium local recusa navegação com `ERR_BLOCKED_BY_ADMINISTRATOR` e about:blank nega IndexedDB.
+- [ ] **A35–A38:** Android/iOS físico, PWA instalada, sync entre duas instalações, política de privacidade/assinatura e RC continuam pendentes. Não marcar homologação.
+- [x] **GOVERNANÇA:** commits somente em `dev/markmap-pwa-v2` com `[skip ci]`, **nenhum GitHub Actions/CI utilizado**, main, Neon, Vercel, migrations e releases intocados.
+
 ## A32/A33 — auditoria e mensagens seguras no worker de rotas (2026-10-11)
 - [x] A32 Node: 144/144 testes versionados no HEAD original; ciclo MapLibre, leases e worker auditados no código.
 - [x] A33: erro bruto no worker reproduzido com token; alterado para allowlist de mensagens conhecidas e resposta genérica. Após a correção: 150/150 testes Node PASS (6 novos), declaração TypeScript e parsing sintático PASS.

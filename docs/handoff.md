@@ -1,6 +1,15 @@
 # Handoff de continuidade
 
 
+## A34 — leitores offline presos à geração ativa (2026-10-11)
+
+**Base confirmada:** `dev/markmap-pwa-v2@bca6b28`; código e testes A34 versionados nos commits `6db152f`, `17ba3c7`, `3e11fb7`, sempre `[skip ci]`. **QUEBRADO EM CONTROLE DE FLUXO:** busca, worker de rota, painel Wikipedia/transporte e altitude liam manifest via `get()` e recurso via `asset()` em transações distintas, permitindo mistura entre gerações durante update concorrente; busca/conteúdo/altitude ecoavam exceções internas no UI. **CORRIGIDO:** agora usam `getActiveRevision` e `assetAtRevision`, verificam geração final e só apresentam mensagens allowlist ou genéricas. Sem alteração em `OfflineMapStore`, schema, IndexedDB/outbox, sync, MapLibre ou rede.
+
+**TESTES EXECUTADOS SEM CI GITHUB:** Node v22.16.0, `node --test scripts/*.test.mjs` **164/164 PASS**, incluindo 14 regressões A34 com mocks do Worker/React. `tsc --noEmit --strict` de quatro módulos com stubs isolados **4/4 PASS**, parsing TSX da página sem diagnósticos e JS check PASS. Não equivalem ao build completo. Browser real inviabilizado: Chromium local bloqueia localhost/file/data por `ERR_BLOCKED_BY_ADMINISTRATOR` e IndexedDB em about:blank lança SecurityError. `git ls-remote` falha por DNS; monorepo completo, pnpm, Vitest, Playwright, desempenho e dispositivos NÃO TESTADOS. A32/A34 **PARCIAL**, A35–A38/RC **PENDENTES**.
+
+**PRÓXIMO:** gate integral e E2E real quando houver checkout/dependências e navegador autorizado; sem impedir desenvolvimento seguro e sem usar quota de CI do GitHub. Não alterar `main`, Vercel, Neon, releases/lojas ou dados reais. Rollback por revert isolado dos commits A34 (sem migration).
+
+
 ## A32/A33 — auditoria e mensagens seguras no worker de rotas (2026-10-11)
 - [x] A32 Node: 144/144 testes versionados no HEAD original; ciclo MapLibre, leases e worker auditados no código.
 - [x] A33: erro bruto no worker reproduzido com token; alterado para allowlist de mensagens conhecidas e resposta genérica. Após a correção: 150/150 testes Node PASS (6 novos), declaração TypeScript e parsing sintático PASS.
