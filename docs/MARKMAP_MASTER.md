@@ -1,5 +1,9 @@
 # MarkMap — Documento Mestre Único
 
+## A53 — integridade do provisionamento workspace (2026-10-12)
+
+O PostgreSQL pode lançar `23505` quando `workspaceId` existente recebe bootstrap proof diferente: `ON CONFLICT(proof_digest)` só cobre a constraint por prova, não a PK do workspace. Antes a API tratava como erro inesperado 500. A53 normaliza o SQLSTATE direto ou encapsulado em `cause` no DB e preserva o handler existente que devolve 409 neutro. Não altera contratos, tabela, migração, autenticação ou IndexedDB/outbox. Baseline 4/9 testes Node falhavam, depois 9/9 e regressão geral **250/250 PASS em duas rodadas**; typecheck estrito isolado PASS; SHA GitHub confere com QA. Commits dev `b28ae4c`/`0a042c0`, `[skip ci]`. PRD `docs/MM-MAP-A53-workspace-binding-409.md`. Integração PostgreSQL/Hono real e gates A38/RC permanecem pendentes, **sem bloquear próximas correções**; sem GitHub CI/produção.
+
 ## A52 — cursor assinado após renovação de capability (2026-10-12)
 
 **A52 CÓDIGO + QA:** backend Hono assina o token de cursor com o hash da capability; após rotação de bearer, cursor anterior resultava em 400 e bloqueava pull. Cliente corrige por remoção atômica **somente** de `syncCursor` ao salvar nova capability em IndexedDB e retry apenas quando o cursor foi modificado por operação concorrente; erro 400 não relacionado não apaga checkpoint. `outbox`, dados, contratos Hono, Neon e esquema permanecem inalterados. 3/6 casos falhavam antes; depois 6/6 e **241/241 Node PASS três vezes**, TypeScript strict isolado PASS, 4 blobs conferidos contra GitHub. Commits `81389eb`/`af8cd02` [skip ci]. PRD `docs/MM-MAP-A52-signed-cursor-recovery.md`. RC ainda precisa de testes integrados e físicos, não bloqueantes para novas fases. Nenhuma ação CI remoto/produção.

@@ -1,5 +1,15 @@
 # Handoff de continuidade
 
+## A53 — integridade do provisionamento workspace (2026-10-12)
+
+**FONTE/HEAD:** base `dev/markmap-pwa-v2@74d257b`, Checklist Mestre do Notion lido, nenhuma PR/issue aberta. **FUNCIONA:** hashes/capability, provisionamento normal, recuperação, limites de requisição e offline/outbox. **QUEBRADO, reproduzido em mock SQLSTATE:** a query `provisionWorkspace` faz `ON CONFLICT(proof_digest)`, mas `workspaces.id` possui chave primária independente; um ID existente com outra prova gera PostgreSQL `23505`. A rota só mapeia mensagem contendo `workspace binding`; erro SQL bruto iria para tratamento inesperado HTTP 500, em vez de conflito HTTP 409.
+
+**A53 CORRIGIDA:** `packages/db/src/queries/workspaces.ts` identifica `23505` direto ou em `cause` do Drizzle até quatro níveis, lança erro de binding estável e sem detalhes SQL. A rota existente o converte em 409. Falhas não únicas continuam no tratamento 500, resposta 201 legítima e 429 de rate limit preservadas. **Sem mudanças** em schema, migrations, Hono routes, proof/token, Neon, IndexedDB, outbox ou MapLibre.
+
+**EVIDÊNCIA EXECUTADA LOCALMENTE:** antes **4/9 FAIL** no novo `scripts/backend-workspace-binding.test.mjs`; após correção **9/9 PASS** e `NODE_PATH=$(npm root -g) node --test scripts/*.test.mjs` **250/250 PASS em duas execuções**. `node --check` PASS, `tsc -p tsconfig.backend.qa.json` strict com stubs Drizzle/DB PASS; TypeScript isolado anterior do sync/PWA também PASS. Hashes Git de código/teste foram conferidos com os blobs versionados: `583c91a` e `ec7164b`. Commits `b28ae4c`/`0a042c0`, `[skip ci]`. PRD `docs/MM-MAP-A53-workspace-binding-409.md`.
+
+**LIMITES:** testes API executados com stub HTTP/Hono e SQLSTATE simulado, NÃO em Neon/PostgreSQL real. Monorepo lint/typecheck/build/Vitest/Playwright, browsers, Android/iOS, sync 2 instalações e gates legais de Release Candidate A38 permanecem não executados; **bloqueiam apenas release, não desenvolvimento**. Próximo trabalho: auditar idempotência/conflitos de sync backend e corrigir exclusivamente problemas com reprodução. Nenhum GitHub Actions remoto, merge main, Vercel, Neon/migrations, secrets, force push, tag/release ou lojas.
+
 ## A52 — cursor assinado após renovação de capability (2026-10-12)
 
 **AUDITORIA:** Checklist Mestre Notion e HEAD `dev/markmap-pwa-v2@45ad191` revisados; sem PR/issues ativos. **QUEBRADO:** backend `services/api/src/lib/sync-cursor.ts` assina `v1` com SHA-256 da capability; a rotação de bearer revoga a assinatura do cursor anterior. Cliente preservava `syncCursor` velho e enviava 400 após recovery 401, impedindo o pull e potencialmente deixando mudanças remotas não refletidas na instalação.

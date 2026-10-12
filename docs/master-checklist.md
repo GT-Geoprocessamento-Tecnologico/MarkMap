@@ -1,5 +1,12 @@
 # MarkMap — Checklist Mestre de Execução
 
+## A53 — integridade do provisionamento workspace (2026-10-12)
+- [x] **A53 BUG REPRODUZIDO (mock SQLSTATE):** `workspaces.id` tem unicidade independente; `ON CONFLICT(proof_digest)` não captura colisão de ID com outra prova, causando `23505` e HTTP 500 na rota em vez de 409.
+- [x] **CORRIGIDO:** query classifica `23505` (inclusive `DrizzleQueryError.cause`), preserva detalhes SQL fora do cliente; erros DB não únicos não são mascarados. Nenhuma alteração de schema, migrations, API ou dados offline.
+- [x] **QA SEM GITHUB CI:** baseline 4/9 falhando, após 9/9 PASS; **250/250 testes Node PASS duas rodadas**; `node --check` e typecheck TS estrito isolado (stubs Drizzle e sync/PWA) PASS. Blobs SHA GitHub iguais às versões testadas. Commits `b28ae4c`, `0a042c0` [skip ci], PRD `docs/MM-MAP-A53-workspace-binding-409.md`.
+- [ ] **A38/RC PENDENTE:** Neon/Postgres e Hono reais, full lint/typecheck/build/Vitest/Playwright, browser IndexedDB, Android/iOS, duas instalações, privacidade e assinatura NÃO EXECUTADOS. **Desenvolvimento continua.**
+- [x] **GOVERNANÇA:** somente `dev/markmap-pwa-v2`; sem CI GitHub, main, deploy, alterações Neon, migrações, segredos, tags, releases, publicação ou exclusão de dados.
+
 ## A52 — cursor assinado após renovação de capability (2026-10-12)
 - [x] **A52 CORRIGIDA:** cursor antigo assinado com capability anterior provocava HTTP 400 após renovação. Transação `saveWorkspaceCapability` invalida apenas `syncCursor` junto com bearer novo; não apaga dados/outbox, não regride generation.
 - [x] **RETOMADA SEGURA:** `pull` detecta mudança concorrente de cursor (incluindo rotação enquanto a chamada está em voo), repete com cursor persistido; erro 400 genuinamente inválido continua falhando fechado, sem reset arbitrário.
