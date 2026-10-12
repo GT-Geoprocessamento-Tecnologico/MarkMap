@@ -2,10 +2,12 @@ import { LOCAL_DB_NAME, LOCAL_DB_VERSION, type LocalDb, type LocalDbStores, type
 
 const STORES: LocalDbStores[] = ["meta", "entities", "originals", "outbox", "conflicts", "acks"];
 
-function openDatabase(): Promise<IDBDatabase> {
+function openDatabase(onVersionChange: () => void): Promise<IDBDatabase> {
   if (typeof indexedDB === "undefined") return Promise.reject(new Error("IndexedDB não está disponível neste navegador."));
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(LOCAL_DB_NAME, LOCAL_DB_VERSION);
+    // A blocked request can later succeed. Do not keep an orphan connection open.
+    let settled = false;
     request.onupgradeneeded = () => {
       const db = request.result;
       for (const name of STORES) {
@@ -33,11 +35,21 @@ function openDatabase(): Promise<IDBDatabase> {
     };
     request.onsuccess = () => {
       const db = request.result;
-      db.onversionchange = () => db.close();
+      if (settled) { db.close(); return; }
+      settled = true;
+      db.onversionchange = () => { db.close(); onVersionChange(); };
       resolve(db);
     };
-    request.onerror = () => reject(request.error ?? new Error("Não foi possível abrir o banco local."));
-    request.onblocked = () => reject(new Error("O banco local está bloqueado por outra versão aberta."));
+    request.onerror = () => {
+      if (settled) return;
+      settled = true;
+      reject(request.error ?? new Error("Não foi possível abrir o banco local."));
+    };
+    request.onblocked = () => {
+      if (settled) return;
+      settled = true;
+      reject(new Error("O banco local está bloqueado por outra versão aberta."));
+    };
   });
 }
 
@@ -46,19 +58,36 @@ class IndexedLocalDb implements LocalDb {
   private workspacePromise?: Promise<string>;
 
   private database(): Promise<IDBDatabase> {
-    this.dbPromise ??= openDatabase();
+    if (!this.dbPromise) {
+      const opening = openDatabase(() => {
+        if (this.dbPromise === opening) {
+          this.dbPromise = undefined;
+          this.workspacePromise = undefined;
+        }
+      });
+      this.dbPromise = opening;
+      // An opening failure must not poison future offline reads or edits.
+      void opening.catch(() => {
+        if (this.dbPromise === opening) this.dbPromise = undefined;
+      });
+    }
     return this.dbPromise;
   }
 
   async workspaceId(): Promise<string> {
     if (!this.workspacePromise) {
-      this.workspacePromise = this.transact(["meta"], "readwrite", async (tx) => {
+      const pending = this.transact(["meta"], "readwrite", async (tx) => {
         const store = tx.store("meta");
         const current = await requestValue<{ key: string; value: string }>(store.get("workspaceId"));
         if (current?.value) return current.value;
         const value = crypto.randomUUID();
         store.put({ key: "workspaceId", value });
         return value;
+      });
+      this.workspacePromise = pending;
+      // A failed transaction must be retryable after a resume/version change.
+      void pending.catch(() => {
+        if (this.workspacePromise === pending) this.workspacePromise = undefined;
       });
     }
     return this.workspacePromise;
@@ -88,7 +117,13 @@ class IndexedLocalDb implements LocalDb {
     });
   }
 
-  close(): void { if (this.dbPromise) void this.dbPromise.then((db) => db.close()); this.workspacePromise = undefined; this.dbPromise = undefined; }
+  close(): void {
+    const opening = this.dbPromise;
+    this.workspacePromise = undefined;
+    this.dbPromise = undefined;
+    // Handle a failed or still-opening connection without unhandled rejections.
+    if (opening) void opening.then((db) => db.close(), () => undefined);
+  }
 }
 
 function requestValue<T>(request: IDBRequest<T>): Promise<T> {
