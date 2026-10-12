@@ -6,6 +6,7 @@ import {
   type SyncEntity,
   type SyncEntityPayload,
   type SyncOperation,
+  type WorkspaceCapability,
   type Tombstone,
 } from "@geonexo/contracts";
 import {
@@ -19,6 +20,8 @@ import {
   type OutboxRecord,
 } from "../local-db";
 import { readBlobBytes } from "../blob-bytes";
+
+type BootstrapIdentity = { installationId: string; bootstrapProof: string };
 
 const now = () => new Date().toISOString();
 
@@ -60,6 +63,45 @@ export class LocalRepository {
   async setMeta<T>(key: string, value: T): Promise<void> {
     await this.db.transact(["meta"], "readwrite", (tx) => {
       tx.store("meta").put({ key, value });
+    });
+  }
+
+  /** Keep both recovery values under one IndexedDB readwrite transaction.
+   * Two tabs must not provision the same workspace with different proofs. */
+  async ensureBootstrapIdentity(
+    create: () => BootstrapIdentity,
+  ): Promise<BootstrapIdentity> {
+    return this.db.transact(["meta"], "readwrite", async (tx) => {
+      const meta = tx.store("meta");
+      const [installation, proof] = await Promise.all([
+        read<{ key: string; value: string } | undefined>(meta.get("installationId")),
+        read<{ key: string; value: string } | undefined>(meta.get("workspaceBootstrapProof")),
+      ]);
+      if (installation?.value && proof?.value)
+        return { installationId: installation.value, bootstrapProof: proof.value };
+      const generated = create();
+      const installationId = installation?.value || generated.installationId;
+      const bootstrapProof = proof?.value || generated.bootstrapProof;
+      if (!installation?.value) meta.put({ key: "installationId", value: installationId });
+      if (!proof?.value) meta.put({ key: "workspaceBootstrapProof", value: bootstrapProof });
+      return { installationId, bootstrapProof };
+    });
+  }
+
+  /** Never allow a delayed 401 recovery response to downgrade a newer bearer. */
+  async saveWorkspaceCapability(candidate: WorkspaceCapability): Promise<WorkspaceCapability> {
+    if (candidate.workspaceId !== await this.workspaceId())
+      throw new Error("Workspace capability does not match this device.");
+    return this.db.transact(["meta"], "readwrite", async (tx) => {
+      const meta = tx.store("meta");
+      const stored = await read<{ key: string; value: WorkspaceCapability } | undefined>(
+        meta.get("workspaceCapability"),
+      );
+      const current = stored?.value;
+      if (current && BigInt(current.generation) > BigInt(candidate.generation))
+        return current;
+      meta.put({ key: "workspaceCapability", value: candidate });
+      return candidate;
     });
   }
 

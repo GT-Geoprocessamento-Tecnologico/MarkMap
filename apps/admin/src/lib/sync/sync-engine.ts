@@ -24,8 +24,6 @@ export type SyncResult = {
   pending: number;
 };
 
-const META_BOOTSTRAP_PROOF = "workspaceBootstrapProof";
-const META_INSTALLATION_ID = "installationId";
 const META_CAPABILITY = "workspaceCapability";
 const META_SYNC_CURSOR = "syncCursor";
 const MAX_BATCH = 500;
@@ -101,20 +99,11 @@ const ensureBootstrap = async (): Promise<{
   bootstrapProof: string;
 }> => {
   const workspaceId = await localRepository.workspaceId();
-  let installationId =
-    await localRepository.getMeta<string>(META_INSTALLATION_ID);
-  let bootstrapProof =
-    await localRepository.getMeta<string>(META_BOOTSTRAP_PROOF);
-
-  if (!installationId) {
-    installationId = crypto.randomUUID();
-    await localRepository.setMeta(META_INSTALLATION_ID, installationId);
-  }
-  if (!bootstrapProof) {
-    bootstrapProof = randomProof();
-    await localRepository.setMeta(META_BOOTSTRAP_PROOF, bootstrapProof);
-  }
-  return { workspaceId, installationId, bootstrapProof };
+  const identity = await localRepository.ensureBootstrapIdentity(() => ({
+    installationId: crypto.randomUUID(),
+    bootstrapProof: randomProof(),
+  }));
+  return { workspaceId, ...identity };
 };
 
 const saveCapability = async (
@@ -124,15 +113,7 @@ const saveCapability = async (
   const localWorkspaceId = await localRepository.workspaceId();
   if (capability.workspaceId !== localWorkspaceId)
     throw new Error("Workspace capability does not match this device.");
-  const current =
-    await localRepository.getMeta<WorkspaceCapability>(META_CAPABILITY);
-  if (
-    current &&
-    BigInt(current.generation) > BigInt(capability.generation)
-  )
-    return current;
-  await localRepository.setMeta(META_CAPABILITY, capability);
-  return capability;
+  return localRepository.saveWorkspaceCapability(capability);
 };
 
 const provisionCapability = async (): Promise<WorkspaceCapability> => {

@@ -33,6 +33,22 @@ function harness({ pending = true, ack = true, network, fastTimeout = false } = 
     async applyServerPage(_changes, _tombstones, nextCursor) { meta.set('syncCursor', nextCursor); },
     async getMeta(key) { return meta.get(key); },
     async setMeta(key, value) { meta.set(key, value); },
+    async ensureBootstrapIdentity(create) {
+      const installationId = meta.get('installationId');
+      const bootstrapProof = meta.get('workspaceBootstrapProof');
+      if (installationId && bootstrapProof) return { installationId, bootstrapProof };
+      const generated = create();
+      if (!installationId) meta.set('installationId', generated.installationId);
+      if (!bootstrapProof) meta.set('workspaceBootstrapProof', generated.bootstrapProof);
+      return { installationId: installationId || generated.installationId,
+        bootstrapProof: bootstrapProof || generated.bootstrapProof };
+    },
+    async saveWorkspaceCapability(candidate) {
+      const current = meta.get('workspaceCapability');
+      if (current && BigInt(current.generation) > BigInt(candidate.generation)) return current;
+      meta.set('workspaceCapability', candidate);
+      return candidate;
+    },
     async workspaceId() { return ID; },
   };
   const fn = async (url, init) => {
