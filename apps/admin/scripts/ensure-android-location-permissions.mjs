@@ -53,19 +53,18 @@ const main = async () => {
     );
   }
 
-  const missing = REQUIRED_PERMISSIONS.filter(
-    (permission) => !manifest.includes(`android:name="${permission}"`),
-  );
-
-  if (missing.length === 0) {
-    return;
-  }
-
-  // Insere antes do </manifest> final, preservando o resto do arquivo.
+  // Permissions mentioned inside XML comments are not installed permissions.
+  // Reject malformed manifests even when permission names happen to appear.
   const closing = manifest.lastIndexOf("</manifest>");
-  if (closing === -1) {
-    throw new Error(`Manifesto malformado: "</manifest>" ausente em ${manifestPath}.`);
-  }
+  if (closing === -1 || !/<manifest(?:\s|>)/.test(manifest))
+    throw new Error(`Manifesto Android malformado em ${manifestPath}.`);
+  const activeXml = manifest.replace(/<!--[\s\S]*?-->/g, "");
+  const missing = REQUIRED_PERMISSIONS.filter((permission) =>
+    !new RegExp(
+      `<uses-permission\\s+[^>]*\\bandroid:name\\s*=\\s*["']${permission}["'][^>]*>`,
+    ).test(activeXml),
+  );
+  if (missing.length === 0) return;
 
   const inserted = missing.map(permissionLine).join("\n");
   const updated = `${manifest.slice(0, closing)}${inserted}\n${manifest.slice(closing)}`;

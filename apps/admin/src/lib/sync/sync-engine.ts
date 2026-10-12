@@ -189,6 +189,15 @@ const push = async (): Promise<{ pushed: number; conflicts: number }> => {
       throw new Error(`Sync push failed (HTTP ${response.status})`);
 
     const result = pushSyncResponseSchema.parse(payload);
+    // A response must only acknowledge operations in this exact request.
+    // Unknown or duplicate IDs could otherwise cause an endless resend loop.
+    const sentIds = new Set(batch.map((operation) => operation.operationId));
+    const respondedIds = new Set<string>();
+    for (const receipt of [...result.accepted, ...result.alreadyApplied, ...result.conflicts]) {
+      if (!sentIds.has(receipt.operationId) || respondedIds.has(receipt.operationId))
+        throw new Error("Invalid sync push response: unexpected or duplicate operation");
+      respondedIds.add(receipt.operationId);
+    }
     for (const ack of [...result.accepted, ...result.alreadyApplied]) {
       await localRepository.acknowledge(
         ack.operationId,
@@ -203,13 +212,15 @@ const push = async (): Promise<{ pushed: number; conflicts: number }> => {
       conflicts += 1;
     }
 
-    if (
-      result.accepted.length +
-        result.alreadyApplied.length +
-        result.conflicts.length ===
-      0
-    )
-      break;
+    if (respondedIds.size === 0) break;
+
+    // Some adapters may fail to remove an ACK from the durable outbox.
+    // Avoid re-posting it indefinitely: the next manual sync can retry safely.
+    const stillPending = new Set(
+      (await localRepository.listOutbox()).map((operation) => operation.operationId),
+    );
+    if (batch.every((operation) => stillPending.has(operation.operationId)))
+      throw new Error("Sync push response did not advance the local outbox");
   }
 
   return { pushed, conflicts };
@@ -279,7 +290,8 @@ const performSync = async (): Promise<SyncResult> => {
     const pulled = await pull();
     const pending = (await localRepository.listOutbox()).length;
     return emit({
-      state: pushed.conflicts > 0 ? "idle" : "synced",
+      // A partial/empty server reply must never label unsent edits as synced.
+      state: pushed.conflicts > 0 || pending > 0 ? "idle" : "synced",
       pushed: pushed.pushed,
       pulled,
       conflicts: pushed.conflicts,
