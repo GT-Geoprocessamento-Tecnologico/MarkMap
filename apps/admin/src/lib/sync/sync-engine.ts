@@ -171,7 +171,9 @@ const withCapability = async (
   return response;
 };
 
-const push = async (): Promise<{ pushed: number; conflicts: number }> => {
+const push = async (
+  onProgress?: (accepted: number, conflicts: number) => void,
+): Promise<{ pushed: number; conflicts: number }> => {
   let pushed = 0;
   let conflicts = 0;
 
@@ -206,10 +208,12 @@ const push = async (): Promise<{ pushed: number; conflicts: number }> => {
         ack.predecessorOperationId,
       );
       pushed += 1;
+      onProgress?.(1, 0);
     }
     for (const conflict of result.conflicts) {
       await localRepository.saveConflict(conflict);
       conflicts += 1;
+      onProgress?.(0, 1);
     }
 
     if (respondedIds.size === 0) break;
@@ -226,11 +230,14 @@ const push = async (): Promise<{ pushed: number; conflicts: number }> => {
   return { pushed, conflicts };
 };
 
-const pull = async (): Promise<number> => {
+const pull = async (onProgress?: (applied: number) => void): Promise<number> => {
   let pulled = 0;
+  // Repeated cursors can replay already-applied data and burn network/CPU.
+  const seenCursors = new Set<string>();
 
   for (let page = 0; page < MAX_PULL_PAGES; page += 1) {
     const cursor = await localRepository.getMeta<string>(META_SYNC_CURSOR);
+    if (cursor) seenCursors.add(cursor);
     const params = new URLSearchParams({ limit: String(MAX_BATCH) });
     if (cursor) params.set("cursor", cursor);
 
@@ -243,12 +250,18 @@ const pull = async (): Promise<number> => {
       throw new Error(`Sync pull failed (HTTP ${response.status})`);
 
     const result = pullSyncResponseSchema.parse(payload);
+    // When more data is claimed, the next cursor must never return to one
+    // already requested in this cycle. Fail before persisting that page.
+    if (result.hasMore && seenCursors.has(result.nextCursor))
+      throw new Error("Sync pull cursor did not advance");
     await localRepository.applyServerPage(
       result.changes,
       result.tombstones,
       result.nextCursor,
     );
-    pulled += result.changes.length + result.tombstones.length;
+    const applied = result.changes.length + result.tombstones.length;
+    pulled += applied;
+    onProgress?.(applied);
 
     if (!result.hasMore) return pulled;
   }
@@ -285,25 +298,33 @@ const performSync = async (): Promise<SyncResult> => {
     pending: pendingBefore,
   });
 
+  // Track durable progress as pages/ACKs are applied. A later failure must
+  // not hide successful changes from SyncController/query invalidation.
+  let pushedCount = 0;
+  let pulledCount = 0;
+  let conflictCount = 0;
   try {
-    const pushed = await push();
-    const pulled = await pull();
+    await push((accepted, conflicts) => {
+      pushedCount += accepted;
+      conflictCount += conflicts;
+    });
+    await pull((applied) => { pulledCount += applied; });
     const pending = (await localRepository.listOutbox()).length;
     return emit({
       // A partial/empty server reply must never label unsent edits as synced.
-      state: pushed.conflicts > 0 || pending > 0 ? "idle" : "synced",
-      pushed: pushed.pushed,
-      pulled,
-      conflicts: pushed.conflicts,
+      state: conflictCount > 0 || pending > 0 ? "idle" : "synced",
+      pushed: pushedCount,
+      pulled: pulledCount,
+      conflicts: conflictCount,
       pending,
     });
   } catch {
     const pending = (await localRepository.listOutbox()).length;
     return emit({
       state: "error",
-      pushed: 0,
-      pulled: 0,
-      conflicts: 0,
+      pushed: pushedCount,
+      pulled: pulledCount,
+      conflicts: conflictCount,
       pending,
     });
   }
