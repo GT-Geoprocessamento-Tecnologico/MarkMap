@@ -1,5 +1,16 @@
 # Handoff de continuidade
 
+## A41–A43 — timeout integral, ACK durável e QA determinística (2026-10-12)
+
+**AUDITORIA:** `dev/markmap-pwa-v2@16906cd`, Checklist Mestre Notion conferido, sem PR/issue aberto. Erros reproduzidos antes: body de resposta HTTP pendente após headers prende `syncNow` porque timer foi removido; `acknowledge(false)` e mock `undefined` eram contados como progresso; dois testes de Worker/React falhavam intermitentemente devido a sleeps de 20/35 ms sob concorrência.
+
+**A41/A42 CORRIGIDAS NO HEAD `b7ac5c5`:** timer de 15s cobre também consumo+parse JSON; erro HTTP não aguarda body; 401 recupera capability; ACK só conta após `LocalRepository.acknowledge(...) === true`. Falhas mantêm operações locais e estado `error`, sem falso `synced`, migração, alteração de contratos, API, Neon ou outbox. Mock Vitest alinhado ao retorno booleano. **A43:** testes de Worker e UI aguardam a mensagem/estado observado com deadline 3s, evitando flakiness artificial.
+
+**QA LOCAL/REPRODUZÍVEL SEM GitHub CI:** 4/7 casos novos falharam no baseline; após patch `NODE_PATH=$(npm root -g) node --test scripts/*.test.mjs`: 197/197 PASS em 3 rodadas; com código/testes SHA iguais aos blobs GitHub, mais uma rodada **197/197 PASS**. `tsc -p tsconfig.qa.json` do sync estrito com stubs isolados: PASS. Os 8 testes novos estão em `scripts/sync-request-durability.test.mjs`. *Não equivalem a browser/monorepo integrado*. PRD versionado em `docs/MM-MAP-A41-A43-sync-durability.md`.
+
+**PRÓXIMO DESENVOLVIMENTO:** auditar concorrência de sync entre abas e erros de IndexedDB no retorno do background; somente corrigir falhas reproduzidas, sem travar desenvolvimento por device. **GATE RELEASE A38/MM-MAP-940 BLOQUEADO:** faltam full lint/typecheck/build/Vitest/Playwright, WebGL/IndexedDB/PMTiles reais, Android/iOS físicos, duas instalações, política de privacidade e revisão final. Rollback por revert de commits A41–A43; nenhum CI remoto, deploy, merge main, Neon/migration, force push, secret, release/tag ou loja.
+
+
 ## A39/A40 — paginação e progresso de sincronização (2026-10-11)
 
 **Base auditada:** `dev/markmap-pwa-v2@2f3a753`, `main@156d4e8`; PRs/issues abertos 0. **QUEBRADO antes da intervenção:** `pull` aceitava `hasMore=true` mesmo com cursor anterior/repetido, gerando dezenas de requests/páginas redundantes; erro de pull depois de ACK confirmada ocultava contagem de push bem-sucedido (e a UI não invalidava queries). Testes Node A39/A40 reproduziram 3/6 falhas antes do ajuste.

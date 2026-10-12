@@ -1,5 +1,10 @@
 # MarkMap — Documento Mestre Único
 
+## A41–A43 — timeout integral, ACK durável e QA determinística (2026-10-12)
+
+**Corrigido em código com QA local:** timeout HTTP agora protege o corpo da resposta além dos headers, evitando inFlight preso quando a conexão para após 200; ACK recusada não anuncia progresso concluído; testes de Worker/React esperam eventos reais, evitando intermitência de 20/35 ms. Os testes novos falharam 4/7 antes do patch; após patch houve **197/197 PASS 3 vezes** e mais uma conferência **197/197 PASS** com hashes GitHub; TypeScript isolado com contratos stub PASS. Commits `79968dc`, `b7ac5c5`, `[skip ci]` em `dev/markmap-pwa-v2`. Sem contratos/schema/Neon/API/outbox alterados. **PENDENTE exclusivamente para homologar release:** full lint/build/Vitest/Playwright, MapLibre/IndexedDB browser, Android/iOS, sync físico, privacidade/signing/gate A38. Estes não bloqueiam próxima implementação. PRD `docs/MM-MAP-A41-A43-sync-durability.md`.
+
+
 ## A39/A40 — confiabilidade incremental do sync (2026-10-11)
 
 **CORRIGIDO/QA LOCAL:** push+pull tinham falhas reproduzidas: `hasMore` com cursor repetido/cíclico causava requests redundantes e checkpoints repetidos; erro após ACK/página já persistida retornava progresso 0 e impedia invalidação do cache React. `sync-engine.ts` agora recusa cursor regressivo antes de mutar e emite contagem efetivamente aplicada mesmo com status `error`. Regresso de 3 falhas antes da correção, 8/8 novos e 189/189 Node totais após correção PASS no recorte fiel do HEAD (TypeScript isolado e JS check PASS). **SEM HOMOLOGAÇÃO:** full monorepo lint/build/Vitest/Playwright, IndexedDB/WebGL reais, Android/iOS físico, duas instalações, política de privacidade e RC continuam pendentes mas **NÃO BLOQUEIAM PRÓXIMAS ETAPAS DE CÓDIGO**. Branch `dev/markmap-pwa-v2@a9eae4c`, `main` intocada, nenhum CI/deploy/Neon/migration/tag/release. PRD `docs/MM-MAP-A39-A40-sync-resilience.md`.

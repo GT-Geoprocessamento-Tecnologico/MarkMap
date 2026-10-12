@@ -1,5 +1,14 @@
 # MarkMap — Checklist Mestre de Execução
 
+## A41–A43 — timeout integral, ACK durável e QA determinística (2026-10-12)
+**Base:** `dev/markmap-pwa-v2@16906cd` verificada com Notion, HEAD e PRs/issues 0; mudança em dois commits `79968dc` e `b7ac5c5`, sempre `[skip ci]`.
+- [x] **A41 — QUEBRADO → CORRIGIDO:** timeout HTTP de 15 s encerrava depois dos headers, deixando body lento prender a promessa única `syncNow`. O timeout agora abrange `fetch` + `response.text()` + parse. Respostas HTTP não OK não aguardam/parseiam body; refresh 401 continua funcionando.
+- [x] **A42 — QUEBRADO → CORRIGIDO:** retorno `false`/`undefined` do `LocalRepository.acknowledge` era contado como push aceito. Agora somente `true` confirmado gera `pushed`; falha preserva outbox, resultado de erro e possibilidade de retry. Mock Vitest passa a refletir contrato booleano.
+- [x] **A43 — PARCIAL → QA ESTÁVEL:** testes A34 de Worker/React tinham esperas fixas 20/35 ms e falhavam esporadicamente durante execução paralela. Esperam condição observável com deadline 3 s, sem sleeps arbitrários.
+- [x] **QA sem CI remoto:** baseline novo 4/7 falhando; após patch **197/197 Node PASS em 3 execuções consecutivas** e nova repetição do código recuperado do GitHub **197/197 PASS**. TypeScript sync `tsc --strict --noEmit` isolado com stubs PASS; hashes de blobs confirmados no GitHub.
+- [ ] **Dívida de homologação não bloqueante ao desenvolvimento:** monorepo full lint/typecheck/build/Vitest/Playwright e WebGL/IndexedDB reais, Android/iOS físico e sync 2 instalações continuam NÃO EXECUTADOS. A38/Release Candidate não aprovado.
+- [x] **Governança:** `main`, produção, Neon, migrations, CI GitHub, Vercel, secrets, releases, tags e lojas intocados. PRD `docs/MM-MAP-A41-A43-sync-durability.md`.
+
 ## A39/A40 — sync pull e progresso parcial (2026-10-11)
 - [x] **A39 código:** cursor repetido ou cíclico com `hasMore=true` causa erro seguro ANTES de reaplicar página; página final com cursor inalterado é válida; limite de 50 páginas mantido.
 - [x] **A40 código:** ACKs/conflitos e páginas remotas já persistidas contam no resultado mesmo se outra página falhar; `SyncController` pode invalidar consultas sem dizer `synced`.
