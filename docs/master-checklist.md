@@ -1,5 +1,13 @@
 # MarkMap — Checklist Mestre de Execução
 
+## A39/A40 — sync pull e progresso parcial (2026-10-11)
+- [x] **A39 código:** cursor repetido ou cíclico com `hasMore=true` causa erro seguro ANTES de reaplicar página; página final com cursor inalterado é válida; limite de 50 páginas mantido.
+- [x] **A40 código:** ACKs/conflitos e páginas remotas já persistidas contam no resultado mesmo se outra página falhar; `SyncController` pode invalidar consultas sem dizer `synced`.
+- [x] **QA real local sem GitHub Actions:** 3/6 regressões novas inicialmente falharam no código antigo (reprodução), após a correção 8/8 novos PASS e regressão `node --test scripts/*.test.mjs` **189/189 PASS**, `node --check` e TypeScript isolado com stubs PASS. HEAD de código `a9eae4c1834bc25367b5ffdc6927d2ab26eb3884`.
+- [ ] **HOMOLOGAÇÃO NÃO BLOQUEANTE PARA CODAR:** full lint/typecheck/build/Vitest/Playwright, browser WebGL/IndexedDB/PMTiles, devices Android/iOS, 2 instalações reais, privacidade final/segurança e gate RC ainda pendentes. Não declarar PASS sem execução.
+- [x] **Governança:** `dev/markmap-pwa-v2`, `[skip ci]`; sem CI remoto, deploy, `main`, Neon, migrations, tag/release, secret, force push ou remoções. PRD `docs/MM-MAP-A39-A40-sync-resilience.md`.
+
+
 ## A35–A38 — hardening nativo e sincronização (2026-10-11)
 - [x] **A35 código:** script Android identifica permissões realmente declaradas (não comentários/atributos não relacionados), recusa manifesto incompleto e permanece idempotente.
 - [x] **A36 código:** script iOS agora persiste correções em chaves existentes, evita duplicação/chaves inválidas e utiliza o nome MarkMap. `Info.plist` nativo atual permaneceu byte a byte inalterado e foi validado com `plistlib`.

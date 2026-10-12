@@ -1,5 +1,17 @@
 # Handoff de continuidade
 
+## A39/A40 — paginação e progresso de sincronização (2026-10-11)
+
+**Base auditada:** `dev/markmap-pwa-v2@2f3a753`, `main@156d4e8`; PRs/issues abertos 0. **QUEBRADO antes da intervenção:** `pull` aceitava `hasMore=true` mesmo com cursor anterior/repetido, gerando dezenas de requests/páginas redundantes; erro de pull depois de ACK confirmada ocultava contagem de push bem-sucedido (e a UI não invalidava queries). Testes Node A39/A40 reproduziram 3/6 falhas antes do ajuste.
+
+**Corrigido em código:** `apps/admin/src/lib/sync/sync-engine.ts` em `a9eae4c1834bc25367b5ffdc6927d2ab26eb3884` recusa repetição/ciclo de cursor antes de gravar a página; respeita conclusão com `hasMore=false`. Contagens de ACK/conflitos e páginas aplicadas são registradas conforme cada operação local conclui, mesmo se etapa posterior lançar; estado continua `error` e a outbox/cursor permanecem duráveis, sem falso `synced`.
+
+**Evidência local:** 8/8 novos testes `scripts/sync-pull-progress.test.mjs` PASS, regressão Node `node --test scripts/*.test.mjs` **189/189 PASS**, Node v22.16.0. `node --check` novos testes e `tsc --strict --noEmit` do módulo isolado com stubs PASS. Códigos e testes SHA rechecados contra GitHub após versionar. `pnpm`/deps, lint/typecheck/build/Vitest/Playwright completos, navegador IndexedDB/WebGL/PMTiles, Android/iOS e dois aparelhos REAIS **NÃO EXECUTADOS** e seguem dívida de homologação, **sem bloquear novas fases de desenvolvimento**.
+
+**Próximo código:** auditar erros reproduzíveis restantes de sync/cache/retomada, sem reescrever o que funciona. Release Candidate A38/MM-MAP-940 segue vermelho até evidência integral e autorização; nenhum GitHub CI, merge `main`, Vercel, Neon/migrations, tags, lojas ou exclusões. PRD: `docs/MM-MAP-A39-A40-sync-resilience.md`.
+
+---
+
 ## A35–A38 — hardening nativo e sincronização (2026-10-11)
 
 **Base:** `dev/markmap-pwa-v2@ca5766b46ea33ae481d36280a866770155474c17`; `main@156d4e8` preservada, nenhum PR/issue aberto na auditoria. Corrigidas duas falhas reproduzidas de GPS nativo: script iOS alterava em memória mas NÃO gravava se chaves já existiam; script Android contava strings dentro de comentários como permissão. Ambos agora passam 10 testes Node de idempotência, XML inválido, inclusão e substituição. `Info.plist` versionado da MarkMap permaneceu inalterado sob script ajustado (validado via `plistlib`).

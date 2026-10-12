@@ -1,5 +1,10 @@
 # MarkMap — Documento Mestre Único
 
+## A39/A40 — confiabilidade incremental do sync (2026-10-11)
+
+**CORRIGIDO/QA LOCAL:** push+pull tinham falhas reproduzidas: `hasMore` com cursor repetido/cíclico causava requests redundantes e checkpoints repetidos; erro após ACK/página já persistida retornava progresso 0 e impedia invalidação do cache React. `sync-engine.ts` agora recusa cursor regressivo antes de mutar e emite contagem efetivamente aplicada mesmo com status `error`. Regresso de 3 falhas antes da correção, 8/8 novos e 189/189 Node totais após correção PASS no recorte fiel do HEAD (TypeScript isolado e JS check PASS). **SEM HOMOLOGAÇÃO:** full monorepo lint/build/Vitest/Playwright, IndexedDB/WebGL reais, Android/iOS físico, duas instalações, política de privacidade e RC continuam pendentes mas **NÃO BLOQUEIAM PRÓXIMAS ETAPAS DE CÓDIGO**. Branch `dev/markmap-pwa-v2@a9eae4c`, `main` intocada, nenhum CI/deploy/Neon/migration/tag/release. PRD `docs/MM-MAP-A39-A40-sync-resilience.md`.
+
+
 ## A35–A38 — hardening nativo e sincronização (2026-10-11)
 
 Implementados **ajustes de readiness** (não homologação física): manifesto Android não aceita permissões só citadas em comentários; Info.plist iOS passa a gravar alterações de chaves existentes e usa marca MarkMap; push A37 rejeita receipts fora do lote, duplicados e sem progresso, e mantém status pendente até outbox esvaziar. Baseline A34 164 testes + 17 regressões A35–A37 = **181/181 Node PASS** no recorte fiel do HEAD; `tsc` isolado com stubs passou. Entrega em `dev/markmap-pwa-v2` até `ca5766b`, `[skip ci]`, sem GitHub CI. **NÃO EXECUTADO:** full lint/typecheck/build/Vitest/Playwright, browser/PMTiles/WebGL/IndexedDB reais, Android/iOS APK/App físico, duas instalações reais/Neon, auditoria pública legal/segurança, assinatura e RC. `docs/privacy.md` informa dez itens obrigatórios indefinidos. Sem deploy, release, main, migrations ou lojas.
