@@ -13,6 +13,8 @@ export function SyncController() {
     if (typeof indexedDB === "undefined") return undefined;
     let disposed = false;
     let debounce: ReturnType<typeof setTimeout> | undefined;
+    let running = false;
+    let rerunRequested = false;
 
     const run = async () => {
       if (
@@ -20,13 +22,29 @@ export function SyncController() {
         (typeof navigator !== "undefined" && navigator.onLine === false)
       )
         return;
+      // A mutation can be queued while a previous sync is awaiting the server.
+      // syncNow() is single-flight, so calling it again immediately would
+      // only join the old request and leave the newly-created outbox entry.
+      if (running) {
+        rerunRequested = true;
+        return;
+      }
+      running = true;
       try {
-        const result = await syncNow();
-        if (disposed) return;
-        if (result.pulled > 0 || result.pushed > 0 || result.conflicts > 0)
-          await queryClient.invalidateQueries();
+        do {
+          rerunRequested = false;
+          const result = await syncNow();
+          if (disposed) return;
+          if (result.pulled > 0 || result.pushed > 0 || result.conflicts > 0)
+            await queryClient.invalidateQueries();
+        } while (
+          rerunRequested && !disposed &&
+          (typeof navigator === "undefined" || navigator.onLine !== false)
+        );
       } catch {
         // Field work is local-first; sync failure never blocks local editing.
+      } finally {
+        running = false;
       }
     };
 

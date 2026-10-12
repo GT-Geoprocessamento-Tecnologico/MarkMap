@@ -156,9 +156,20 @@ const withCapability = async (
   let response = await request(path, init, current.bearer);
   if (response.status !== 401) return response;
 
+  // A second PWA tab may already have recovered a newer bearer while this
+  // request was in flight. Try that durable capability before rotating again.
+  const stored = await localRepository.getMeta<WorkspaceCapability>(META_CAPABILITY);
+  if (
+    stored?.workspaceId === current.workspaceId &&
+    BigInt(stored.generation) > BigInt(current.generation)
+  ) {
+    current = capabilityProvisionResponseSchema.parse(stored);
+    response = await request(path, init, current.bearer);
+    if (response.status !== 401) return response;
+  }
+
   current = await recoverCapability();
-  response = await request(path, init, current.bearer);
-  return response;
+  return request(path, init, current.bearer);
 };
 
 const push = async (
