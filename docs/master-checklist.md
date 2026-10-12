@@ -1,5 +1,12 @@
 # MarkMap — Checklist Mestre de Execução
 
+## A48–A49 — identidade de instalação e credenciais de sync atômicas (2026-10-12)
+- [x] **A48 REPRODUZIDA/CORRIGIDA:** `installationId` e `workspaceBootstrapProof` antes eram lidos/gravados separados; duas abas podiam enviar provas diferentes e uma receber 409. Agora único par gerado/persistido atomicamente sob `readwrite`; valores existentes permanecem estáveis.
+- [x] **A49 CORRIGIDA:** resposta HTTP tardia não regride bearer/generation; valida workspace e grava somente quando a versão não é inferior, com compare-and-set transacional.
+- [x] **QA REAL LOCAL, SEM GitHub CI:** 9/9 novas regressões e **227/227 Node PASS**, reconferência após commits com cinco blobs SHA idênticos; TypeScript estrito isolado com stubs (sync e PWA/IDB) e JS check PASS. HEAD `dev/markmap-pwa-v2@3cf57b3`; PRD `docs/MM-MAP-A48-A49-atomic-bootstrap.md`.
+- [ ] **GATE A38/RC AINDA BLOQUEADO:** full monorepo lint/typecheck/build/Vitest/Playwright, browser IndexedDB real multiabas, Android/iOS físicos, duas instalações, privacidade/signing; não marcar homologado nem bloquear próxima fase de implementação.
+- [x] **GOVERNANÇA:** apenas branch dev e commits `[skip ci]`, sem Github Actions, merge main, Vercel, Neon, migração, segredos, release/tag, force push ou publicação.
+
 ## A46–A47 — transações recuperáveis e retorno da PWA (2026-10-12)
 - [x] **A46 REPRODUZIDO/CORRIGIDO:** `InvalidStateError` na criação da transação por conexão fechada sem `versionchange` permanecia cacheado. Cache invalidado somente para esse handle, nova tentativa reabre banco e mantém workspace/dados; callback de gravação não é reexecutado silenciosamente.
 - [x] **A47 REPRODUZIDO/CORRIGIDO:** retorno por `pageshow.persisted`/foco visível agora dispara sync, mas não ao estar hidden/offline; `result.conflicts>0` invalida consultas React; listeners removidos no unmount.

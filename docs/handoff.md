@@ -1,5 +1,15 @@
 # Handoff de continuidade
 
+## A48–A49 — identidade de instalação e credenciais de sync atômicas (2026-10-12)
+
+**ESTADO REAL:** HEAD-base `dev/markmap-pwa-v2@cea8e86`, Checklist Mestre Notion consultado, sem PR/issue aberto antes da mudança. **QUEBRADO REPRODUZIDO:** duas instâncias de PWA liam `installationId`/`workspaceBootstrapProof` vazios, gravavam valores diferentes em transações separadas, e uma recebia HTTP 409 no provisionamento (teste controlado retornou estados `synced,error`). **RISCO COMPROVADO NO CÓDIGO:** `saveCapability` separava leitura e gravação, permitindo resposta antiga (generation menor) rebaixar bearer mais novo.
+
+**A48/A49 CORRIGIDAS:** `LocalRepository.ensureBootstrapIdentity` cria/preserva os dois metadados em uma transação `readwrite` serializada, reutilizando valores parciais legados sem apagá-los. `saveWorkspaceCapability` valida workspace e realiza CAS monotônico de `generation` na mesma transação; `sync-engine` usa os dois novos métodos sem alterar contratos, SQL/Neon, PWA SW, outbox nem API. Mock do teste A41 ajustado ao contrato interno; nenhuma conexão de rede real feita no QA.
+
+**EVIDÊNCIA LOCAL SEM CI:** novo `scripts/sync-bootstrap-race.test.mjs` cobre 9 cenários, incluindo duas abas e recuperações HTTP 401 concorrentes fora de ordem. **9/9 PASS**, `NODE_PATH=$(npm root -g) node --test scripts/*.test.mjs` **227/227 PASS**, repetido após conferir 5 SHA de arquivos GitHub com hashes locais; `tsc -p tsconfig.qa.json` e `tsc -p tsconfig.foreground.qa.json` isolados com stubs **PASS**, `node --check` PASS. Evidência anterior: 1 cenário real falhou no baseline com outra aba recebendo `error`. Commits `3fc6524` e `3cf57b3` [skip ci]. PRD: `docs/MM-MAP-A48-A49-atomic-bootstrap.md`.
+
+**PRÓXIMA ETAPA DE CÓDIGO:** auditar concorrência na aplicação de dados e recuperação ao retomar PWA, corrigindo apenas falhas reproduzíveis. **GATE RC/A38:** browser IndexedDB multiabas real, full lint/typecheck/build/Vitest/Playwright, Android/iOS físicos, sync entre duas instalações, privacidade/segurança final e assinatura permanecem NÃO EXECUTADOS; não impedem novas fases de código. **SEM** GitHub Actions, merge main, Vercel, Neon/migration, force push, secrets, release/tag, lojas ou exclusões.
+
 ## A46–A47 — transações recuperáveis e retorno da PWA (2026-10-12)
 
 **BASE:** branch `dev/markmap-pwa-v2@37bf678`, Checklist Mestre Notion e HEAD GitHub conferidos; sem PR/issue aberto. **FUNCIONA:** IndexedDB/outbox offline-first, recuperação A45, CAS A44, sincronização singleton. **QUEBRADO e reproduzido:** WebView pode fechar conexão sem `versionchange`; `db.transaction` lança `InvalidStateError` sem limpar `dbPromise`, causando falha persistente em novas tentativas. Retomada de PWA de BFCache `pageshow.persisted` ou apenas foco não dispara sync; conflitos salvos não invalidam cache React.

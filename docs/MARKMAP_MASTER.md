@@ -1,5 +1,9 @@
 # MarkMap — Documento Mestre Único
 
+## A48–A49 — identidade de instalação e credenciais de sync atômicas (2026-10-12)
+
+Duas abas PWA podiam inicializar diferentes provas de recuperação de workspace, com falha HTTP 409 reproduzida. A48 usa transação `meta` única para criar e reutilizar `installationId`/`workspaceBootstrapProof`. A49 protege a geração/bearer contra sobrescrita por resposta antiga na mesma transação, com validação de workspace. Sem alterações de schema, contratos HTTP, Neon ou outbox. Novo teste de 9 casos PASS; Node completo **227/227 PASS**, TypeScript isolado com stubs PASS; hashes de cinco arquivos confirmados no GitHub `3cf57b3` [skip ci]. PRD `docs/MM-MAP-A48-A49-atomic-bootstrap.md`. E2E browser/Android/iOS e release A38 continuam pendentes, **não bloqueiam desenvolvimento**. Nenhum CI GitHub/produção/merge main/deploy.
+
 ## A46–A47 — transações recuperáveis e retorno da PWA (2026-10-12)
 
 **Implementado em código sem migração:** A46 remove referência de conexão IndexedDB encerrada silenciosamente quando `db.transaction` lança `InvalidStateError`, preserva dados/outbox e não reexecuta escrita; A47 reage à restauração BFCache/foco visível e atualiza queries para conflitos. Baseline 6/10 novos testes falharam, depois **10/10 PASS; Node completo 218/218 duas rodadas** e TypeScript isolado com stubs PASS; cinco blobs GitHub correspondem ao QA. Branch `dev/markmap-pwa-v2` commits `7261c8d` e `ebea8de`, `[skip ci]`. PRD `docs/MM-MAP-A46-A47-offline-resume.md`. Full lint/build/Vitest/E2E, IndexedDB em navegador real, Android/iOS e release A38 ainda não homologados, mas **não bloqueiam desenvolvimento incremental**. Nada em main/Neon/produção/CI remoto.
