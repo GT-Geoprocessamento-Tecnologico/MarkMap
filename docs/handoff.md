@@ -1,5 +1,14 @@
 # Handoff de continuidade
 
+## A44 — CAS do cursor pull entre abas (2026-10-12)
+
+**ESTADO:** baseado em `dev/markmap-pwa-v2@4cd7708`, com HEAD, Checklist Notion e PRs/issues reconfirmados antes de editar. **BUG:** uma resposta de pull antiga podia aplicar `nextCursor` depois que outra aba já avançou o cursor IndexedDB; o singleton `inFlight` não protege abas distintas. **CORREÇÃO:** compare-and-swap de `expectedCursor` dentro da mesma transação `readwrite` em `LocalRepository.applyServerPage`, antes de escrever qualquer entidade, tombstone ou ack. `sync-engine.pull` transmite seu cursor inicial; consumidores legados de três argumentos continuam compatíveis.
+
+**EVIDÊNCIA:** novo `scripts/sync-cursor-cas.test.mjs` reproduziu 3/5 falhas antes e 5/5 passou depois. `node --test scripts/*.test.mjs` executado localmente três vezes com **202/202 PASS**; quarta execução sobre arquivos recuperados do GitHub e hashes conferidos **202/202 PASS**. `node --check` e `tsc -p tsconfig.qa.json` isolado do sync: PASS. Commits `70789d3`, `0f97e29`; PRD `docs/MM-MAP-A44-sync-cursor-cas.md`. Tudo `[skip ci]`, sem GitHub Actions.
+
+**RISCO/ROLLBACK:** uma aba atrasada recebe estado `error` sem corrupção e no próximo ciclo relê cursor avançado; rollback via revert isolado sem migrar IndexedDB. **NÃO EXECUTADO:** IndexedDB real em duas abas, monorepo lint/typecheck/build/Vitest/Playwright, Android/iOS físicos, sync entre dispositivos, privacidade e gate RC. Próximo desenvolvimento pode auditar retomada de IndexedDB e conflitos de abas, sem travar por QA física. Nenhuma mudança `main`/Neon/Vercel/produção.
+
+
 ## A41–A43 — timeout integral, ACK durável e QA determinística (2026-10-12)
 
 **AUDITORIA:** `dev/markmap-pwa-v2@16906cd`, Checklist Mestre Notion conferido, sem PR/issue aberto. Erros reproduzidos antes: body de resposta HTTP pendente após headers prende `syncNow` porque timer foi removido; `acknowledge(false)` e mock `undefined` eram contados como progresso; dois testes de Worker/React falhavam intermitentemente devido a sleeps de 20/35 ms sob concorrência.

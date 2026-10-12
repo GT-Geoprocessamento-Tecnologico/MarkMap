@@ -1,5 +1,12 @@
 # MarkMap — Checklist Mestre de Execução
 
+## A44 — CAS do cursor pull entre abas (2026-10-12)
+- [x] **BUG REPRODUZIDO:** duas abas em paralelo podiam escrever cursores remotos fora de ordem: aba atrasada sobrescrevia um `syncCursor` já avançado, causando replays/requisições desnecessárias.
+- [x] **CORREÇÃO ATÔMICA:** `LocalRepository.applyServerPage` compara `expectedCursor` com `meta.syncCursor` na mesma transação IndexedDB `readwrite` ANTES de inserir entidades/ACKs/tombstones. `sync-engine.pull` envia cursor utilizado na requisição; chamada legada com três argumentos segue compatível. Não alterar schemas, dados, backend ou outbox.
+- [x] **QA sem GitHub CI:** caso novo 3/5 falhando antes do patch. Após: 5/5 PASS e **202/202 testes Node em três execuções**, mais **202/202 PASS** no HEAD conferido via hashes GitHub. `node --check` PASS, `tsc --strict --noEmit` isolado com stubs PASS.
+- [x] **GIT:** `dev/markmap-pwa-v2`, commits `70789d3` e `0f97e29` [skip ci]. PRD `docs/MM-MAP-A44-sync-cursor-cas.md`. Sem GitHub Actions, merge main, Vercel deploy, Neon, migration, publicação, tag/release ou remoções.
+- [ ] **GATE A38 BLOQUEADO SOMENTE PARA RELEASE:** full lint/typecheck/build/Vitest/Playwright, navegador IndexedDB multiabas real, Android/iOS físicos, dois dispositivos e privacidade/signing pendentes. Não interromper desenvolvimento seguinte.
+
 ## A41–A43 — timeout integral, ACK durável e QA determinística (2026-10-12)
 **Base:** `dev/markmap-pwa-v2@16906cd` verificada com Notion, HEAD e PRs/issues 0; mudança em dois commits `79968dc` e `b7ac5c5`, sempre `[skip ci]`.
 - [x] **A41 — QUEBRADO → CORRIGIDO:** timeout HTTP de 15 s encerrava depois dos headers, deixando body lento prender a promessa única `syncNow`. O timeout agora abrange `fetch` + `response.text()` + parse. Respostas HTTP não OK não aguardam/parseiam body; refresh 401 continua funcionando.

@@ -1,5 +1,10 @@
 # MarkMap — Documento Mestre Único
 
+## A44 — CAS do cursor pull entre abas (2026-10-12)
+
+Correção A44 em código e teste local: `applyServerPage` exige cursor esperado dentro da transação de aplicação quando chamado pelo motor sync, impedindo rollback do checkpoint por resposta de outra aba atrasada; antes 3/5 regressões novas falhavam. QA Node **202/202 PASS em três rodadas + 202/202 após conferir blobs GitHub**, typescript isolado com stubs PASS. Branch dev commits `70789d3`/`0f97e29` `[skip ci]`, nenhuma migration, alteração IndexedDB schema/outbox, API ou servidor. Browser multiabas/Capacitor reais, build/Vitest/Playwright monorepo, Android/iOS e release A38 continuam não homologados (dívida não bloqueante para desenvolvimento). PRD `docs/MM-MAP-A44-sync-cursor-cas.md`.
+
+
 ## A41–A43 — timeout integral, ACK durável e QA determinística (2026-10-12)
 
 **Corrigido em código com QA local:** timeout HTTP agora protege o corpo da resposta além dos headers, evitando inFlight preso quando a conexão para após 200; ACK recusada não anuncia progresso concluído; testes de Worker/React esperam eventos reais, evitando intermitência de 20/35 ms. Os testes novos falharam 4/7 antes do patch; após patch houve **197/197 PASS 3 vezes** e mais uma conferência **197/197 PASS** com hashes GitHub; TypeScript isolado com contratos stub PASS. Commits `79968dc`, `b7ac5c5`, `[skip ci]` em `dev/markmap-pwa-v2`. Sem contratos/schema/Neon/API/outbox alterados. **PENDENTE exclusivamente para homologar release:** full lint/build/Vitest/Playwright, MapLibre/IndexedDB browser, Android/iOS, sync físico, privacidade/signing/gate A38. Estes não bloqueiam próxima implementação. PRD `docs/MM-MAP-A41-A43-sync-durability.md`.
