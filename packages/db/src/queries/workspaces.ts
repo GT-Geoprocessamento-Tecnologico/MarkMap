@@ -37,6 +37,17 @@ export async function createWorkspace(
   return existing;
 }
 
+/** Drizzle may wrap the PostgreSQL error in a QueryError.cause. */
+const isWorkspaceUniqueViolation = (error: unknown): boolean => {
+  let current: unknown = error;
+  for (let depth = 0; depth < 4; depth += 1) {
+    if (typeof current !== "object" || current === null) return false;
+    if ("code" in current && current.code === "23505") return true;
+    current = "cause" in current ? current.cause : undefined;
+  }
+  return false;
+};
+
 /**
  * Creates the anonymous workspace or rotates its bearer if the same bootstrap
  * proof is provisioned again. The monotonic generation lets the client ignore
@@ -50,7 +61,9 @@ export async function provisionWorkspace(
     capabilityHash: string;
   },
 ): Promise<{ workspaceId: string; generation: string }> {
-  const rows = await db.execute(sql`
+  const rows = await (async () => {
+    try {
+      return await db.execute(sql`
     INSERT INTO workspaces (id, proof_digest, capability_hash, generation, next_sequence, revoked)
     VALUES (${input.workspaceId}, ${input.proofDigest}, ${input.capabilityHash}, 1, 0, false)
     ON CONFLICT (proof_digest) DO UPDATE SET
@@ -59,7 +72,15 @@ export async function provisionWorkspace(
       updated_at = now()
     WHERE workspaces.id = EXCLUDED.id AND workspaces.revoked = false
     RETURNING id, generation
-  `);
+      `);
+    } catch (error) {
+      // Conflicting workspace identity/proof is a 409, not a retryable 500.
+      // Do not expose PostgreSQL constraint names or parameter values.
+      if (isWorkspaceUniqueViolation(error))
+        throw new Error("workspace binding already exists");
+      throw error;
+    }
+  })();
   const row = rows[0] as
     { id?: string; generation?: bigint | string | number } | undefined;
   if (
