@@ -1,5 +1,16 @@
 # MarkMap — Checklist Mestre de Execução
 
+## A67 — GPS atual e consentimento local (2026-10-13)
+
+**Diagnóstico:** permissão nativa/MapLibre já funcionavam, e Configurações gravava status GPS no `offlineDB`, mas o mapa começava em coordenadas fixas/centro da região sem consultar o consentimento. O botão GPS do mapa não persistia escolha.
+
+**Correção:** `apps/admin/src/lib/location-consent.ts` centraliza a preferência `permissions:gps = {status:"granted",autoCenter:true}` na base IndexedDB existente, **sem coordenadas**. `device-location-permission.ts` verifica permissão efetiva (Permissions API/Capacitor) **sem solicitar popup** na abertura web. Com permissão vigente, o mapa obtém um fix novo de `navigator.geolocation` (`maximumAge:0`) e posiciona o mapa + marcador; interação da pessoa, GeoPDF/dataset/feições explícitas e limites de pacotes offline têm prioridade. Se GPS/DB/SO falhar, mantém o mapa funcionando sem mover para posição fictícia. GPS por botão e Configurações passam a persistir preferência após sucesso. Não houve migração remota, histórico GPS, nova dependência ou alteração do tema/instalação PWA.
+
+**Evidências:** Vitest isolado **18/18 PASS** para GPS/IndexedDB/Capacitor; Playwright Chromium **4/4 PASS** (Windows e Android emulados, autorização concedida/ausente, recarga offline com Service Worker). Smoke extra confirmou marcador centralizado a 13,5 px do centro do mapa online e offline; salvo somente status/autoCenter. Build Vercel com código de GPS `6a85a5819bd849ffdedd7e323cb53c1a4b98e90a` **READY** (`dpl_5VV1Wvbjvb19Rf2aoobVKvaQwJJQ`). E2E versionado em `apps/admin/e2e/gps-auto-center.spec.ts`. A última execução do GitHub Actions continuou falhando antes dos steps; não confundir com falha dos testes. Testes em Android/Windows físicos ainda pendentes; o sistema pode conceder permissão "somente desta vez" ou revogar, algo que o IndexedDB não pode contornar.
+
+**Fonte e rollback:** `docs/MM-GPS-A67-local-permission-autocenter.md`. Reverter commits A67 com `git revert` se necessário; nunca sobrescrever dados locais/outbox ou realizar deploy manual. Browser MTS proibido.
+
+
 ## A66 — propagação completa do tema (2026-10-13)
 
 **Problema confirmado:** mesmo após A65 (contraste), menu lateral, cabeçalho, ferramentas do mapa, fallback do mapa, viewport 3D, tela de instalação e cor inicial da PWA forçavam tons escuros no tema claro. **Estado:** QUEBRADO/PARCIAL → CORRIGIDO no código `main@3cca284ad77106f92a092a4dfd38610f1d3bb380`.
