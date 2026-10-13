@@ -1,5 +1,13 @@
 # MarkMap — Checklist Mestre de Execução
 
+## A56 — conflitos válidos para predecessor inválido e entidade ausente (2026-10-12)
+- [x] **BUG REPRODUZIDO:** predecessor inválido ou versão explícita positiva sobre entidade ausente retornava `VERSION_CONFLICT` com `serverVersion:0`, envelope recusado por `syncConflictSchema`.
+- [x] **CORRIGIDO SEM MUDAR CONTRATO:** sem versão remota retorna `SCOPE_REJECTED` versão 0 e nenhum serverPayload; com versão positiva continua `VERSION_CONFLICT`; mantém idempotência, isolamento, tombstones e reativação por predecessor válido.
+- [x] **QA LOCAL SEM GitHub CI:** baseline 3/8 FAIL; após 8/8 A56 PASS, 11/11 A55 PASS, **35/35 backend A53–A56 PASS em três execuções**. `node --check` PASS e TS strict isolado/stubs PASS; SHA código `ef0082d`, teste `fadbc67` e PRD `6c7ee59` conferidos no GitHub. Commit `8435d0d` [skip ci]. Não reexecutou 257/257 histórico do monorepo.
+- [ ] **A38/RC NÃO HOMOLOGADO:** build/lint/typecheck/Vitest/Playwright integrais, Postgres/PostGIS/Neon real, navegador IndexedDB, Android/iOS físicos, dois dispositivos, privacidade e signing pendentes; **desenvolvimento liberado**.
+- [x] **GOVERNANÇA:** sem GitHub Actions remoto, merge main, deploy Vercel, Neon/migration, secrets, tag/release, force push, lojas ou operações destrutivas.
+- [ ] **A57 LIVRE:** auditar consistência de tombstones/pull e contrato de API com bugs reproduzidos; preservar stack offline-first.
+
 ## A55 — bloqueio de sobrescrita por baseVersion nula (2026-10-12)
 - [x] **A55 BUG REPRODUZIDO/CORRIGIDO:** `baseVersion:null` permitia overwrite/delete cego da versão remota, inclusive quando outra instalação já havia criado registro. Agora só aceita como criação sem versão anterior (versão 0); retorna `VERSION_CONFLICT` em versão remota positiva **antes de qualquer escrita**.
 - [x] **COMPATIBILIDADE PRESERVADA:** versão explícita atualiza/deleta, predecessor confirmado encadeia, replay exato retorna `already_applied`, workspace isolado, outbox e dados locais não descartados. Risco documentado: cliente legado sem versão passa a precisar resolver conflito.

@@ -1,5 +1,9 @@
 # MarkMap — Documento Mestre Único
 
+## A56 — conflitos válidos para predecessor inválido e entidade ausente (2026-10-12)
+
+A56 conserta envelopes de conflito inválidos: `conflictFor` produzia `VERSION_CONFLICT serverVersion=0` para entidade não existente/precedessor inválido, rejeitado pela validação do contrato e capaz de causar 500 no `/sync/push`. Sem versão remota usa `SCOPE_REJECTED:0` sem payload do servidor; com versão positiva mantém `VERSION_CONFLICT`, sem novo enum. Operações idempotentes, outbox e tombstones preservados. Baseline 3/8 FAIL; após patch **8/8 A56 PASS, 11/11 A55 PASS e 35/35 backend A53–A56 PASS três vezes**; TypeScript strict isolado com stubs PASS. SHA dos três arquivos verificados no GitHub `8435d0d` [skip ci]. PRD `docs/MM-MAP-A56-predecessor-conflicts.md`; testes 257/257 da A54 são históricos, não repetidos. Gate RC A38 (Postgres real, full monorepo, Android/iOS) continua não homologado sem bloquear próximas correções. Sem CI remoto nem mudanças de produção.
+
 ## A55 — bloqueio de sobrescrita por baseVersion nula (2026-10-12)
 
 **A55 implementada e validada localmente:** o backend rejeita criação/remoção com `baseVersion:null` sobre entidade remota já versionada; retorno `VERSION_CONFLICT` sem avanço de sequência/materialização. Versão explícita, predecessor validado, idempotência e isolamento de workspace permanecem. 3/9 regressões falhavam antes; após correção **11/11 A55 PASS**, **27/27 backend A53+A54+A55 PASS em três rodadas**, TS estrito isolado com stubs PASS. GitHub SHA código `5fb198e`, teste `641b860`; commits `cf61e2a`/`8221e91` [skip ci]. PRD `docs/MM-MAP-A55-null-base-guard.md`. 257/257 Node A54 históricos não reexecutados aqui. Risco de compatibilidade: operações legadas sem versão sobre registro remoto geram conflito explícito. A38/release continua pendente de banco real, build/lint/testes integrados e dispositivos, **sem bloquear novas correções**. Sem GitHub CI/deploy/main/migration.

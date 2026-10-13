@@ -1,5 +1,15 @@
 # Handoff de continuidade
 
+## A56 — conflitos válidos para predecessor inválido e entidade ausente (2026-10-12)
+
+**ESTADO REAL:** base `dev/markmap-pwa-v2@336ee9c`; Checklist Mestre Notion, HEAD e PRs/issues conferidos (0 abertos). **FUNCIONA:** A55 protege baseVersion nula; predecessor correto e tombstone versionada; outbox IndexedDB e idempotência. **QUEBRADO REPRODUZIDO:** `packages/db/src/queries/sync.ts::conflictFor` emitia `VERSION_CONFLICT` com `serverVersion:0` ao receber predecessor ausente e entidade sem versão, ou baseVersion positiva sobre recurso inexistente. `syncConflictSchema` exige versão positiva em `VERSION_CONFLICT`, logo `pushSyncResponseSchema.parse` poderia rejeitar o lote e devolver HTTP 500.
+
+**CORREÇÃO A56:** se `currentVersion===0`, usa `SCOPE_REJECTED` já previsto no contrato, versão 0 e sem `serverPayload`; com versão positiva mantém `VERSION_CONFLICT` e payload presente, quando aplicável. Não altera enums/contrato, DB schema, cursor, outbox, APIs, PostGIS/Neon ou lógica de gravação. Preserva reativação após tombstone por predecessor válido e recusa predecessor obsoleto. **Risco documentado:** `SCOPE_REJECTED` passa a representar também pré-condição inválida sem versão remota para respeitar contrato vigente.
+
+**QA REAL LOCAL:** baseline A56 **3/8 FAIL**, após patch **8/8 PASS**; A55 existente **11/11 PASS**. Suite backend A53+A54+A55+A56 **35/35 PASS em três execuções Node**, 0 falhas/skips. `tsc -p tsconfig.qa.json` strict **somente isolado com stubs** PASS; `node --check` PASS. Hashes versionados conferidos: código `ef0082d`, novo teste `fadbc67`, PRD `6c7ee59`. Commit `8435d0d` [skip ci]. PRD `docs/MM-MAP-A56-predecessor-conflicts.md`. Não se alegam os 257 testes do monorepo: resultado da A54 é histórico e não reexecutado aqui.
+
+**GATE RC A38:** Postgres/Neon real, full pnpm lint/typecheck/build/Vitest/Playwright, browser IndexedDB/PWA, Android/iOS físicos, sync 2 instalações, privacidade/signing pendentes para release; **não travam novas fases de código**. Próximo A57 livre: auditar consistência de tombstones/pull e validadores no caminho API real com novos casos reproduzíveis. `main`, produção, CI GitHub, Vercel/deploy, migration, secrets, release/tag, force push e lojas intactos.
+
 ## A55 — bloqueio de sobrescrita por baseVersion nula (2026-10-12)
 
 **ESTADO CONFERIDO:** base `dev/markmap-pwa-v2@8223dfb`, Checklist Mestre Notion lido; HEAD, PRs/issues e integração existente auditados. **FUNCIONA:** criação inicial, CAS de cursor A44, sincronização offline-first/outbox, encadeamento por predecessor e replays idempotentes. **QUEBRADO (reproduzido):** `applyPushOperation` só comparava baseVersion quando não nula; uma segunda instalação podia sobrescrever projeto/tombstone já sincronizado ou excluir sem saber a versão. **PARCIAL:** QA isolado com transação serializada simulada. **NÃO IMPLEMENTADO:** verificação PostgreSQL/PostGIS real nesta rodada.
