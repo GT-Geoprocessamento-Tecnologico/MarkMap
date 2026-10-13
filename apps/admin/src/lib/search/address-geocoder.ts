@@ -23,10 +23,8 @@ export async function searchAddressOnline(
     throw new Error("Sem internet. Use os locais do mapa baixado.");
   const key = `${endpoint}:${term.toLocaleLowerCase("pt-BR")}`;
   if (cache.has(key)) return cache.get(key)!;
-  const url = new URL(endpoint, "https://appmarkmap.mtsferreira.dev");
-  url.searchParams.set("q", term);
-  url.searchParams.set("limit", "5");
-  const response = await fetcher(url.pathname + url.search, {
+  const params = new URLSearchParams({ q: term, limit: "5" });
+  const response = await fetcher(`${endpoint}?${params.toString()}`, {
     method: "GET", credentials: "same-origin", redirect: "error",
     cache: "no-store", headers: { Accept: "application/json" }, signal,
   });
