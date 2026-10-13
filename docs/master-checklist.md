@@ -1,5 +1,18 @@
 # MarkMap — Checklist Mestre de Execução
 
+## A60 — ignorar upserts históricos anteriores à base conhecida (2026-10-13)
+- [x] **A60 REPRODUZIDA/CORRIGIDA:** upsert histórico `change.version <= pending.baseVersion` não cria falso conflito; ACK exato, predecessor e conflito de versão realmente superior continuam válidos. Antes 5/10 FAIL, depois 10/10 PASS. Commit `3deef67` [skip ci], PRD `docs/MM-MAP-A60-stale-upsert-pull-guard.md`.
+
+## A59 — conflitos monotônicos também no saveConflict do push (2026-10-13)
+- [x] **A59 REPRODUZIDA/CORRIGIDA:** `saveConflict` não rebaixa versão durável por resposta atrasada de push (v5 para v3/v0), mantém payload antigo contra replay de mesma versão; transação local e outbox preservadas. Antes 4/10 FAIL, depois 10/10 PASS. Commit `f8420bb` [skip ci], PRD `docs/MM-MAP-A59-monotonic-push-conflict-receipts.md`.
+
+## A58 — tombstones ambíguos sem ACK inferido (2026-10-13)
+- [x] **A58 REPRODUZIDA/CORRIGIDA:** tombstone sem operationId, exatamente `baseVersion+1` de `delete` pendente, não gera ACK falso nem conflito precoce; preserva outbox para push autoritativo. Tombstone obsoleto `<=baseVersion` não trava operação; tombstone efetivamente nova conflita. Antes 5/10 FAIL, depois 10/10 PASS. Commit `40cf7ce` [skip ci], PRD `docs/MM-MAP-A58-pending-tombstone-authoritative-ack.md`.
+- [x] **QA LOCAL CONSOLIDADO, SEM GitHub CI:** A58 55/55 PASS 2 rodadas, A59 65/65 PASS, A60 **75/75 PASS em 3 execuções** do recorte A53–A60, TS strict isolado com stubs PASS, `node --check` PASS; hashes fonte final/testes GitHub iguais aos validados.
+- [ ] **GATE A38/RC NÃO APROVADO:** full lint/typecheck/build/Vitest/Playwright monorepo, Postgres/Neon/Hono real, browser IndexedDB/PWA instalada, Android/iOS físico e 2 instalações, política e signing pendentes. **Não bloqueia próximas fases de código.**
+- [x] **GOVERNANÇA:** nenhuma GitHub Actions/CI remoto, merge main, deploy Vercel, alteração Neon/produção/migration, force push, secrets, tags/releases/lojas ou exclusões.
+- [ ] **A61 LIVRE:** auditar encadeamento de operações locais e resolução após ACK tardio; corrigir só regressão reproduzida.
+
 ## A57 — versões monotônicas dos conflitos no pull (2026-10-13)
 - [x] **BUG REPRODUZIDO:** exclusão v2 podia sobrescrever conflito de upsert remoto mais novo v3 (mesma página ou próxima); `use-server` podia marcar como deletada uma recriação remota.
 - [x] **A57 CORRIGIDA:** conflito por operationId só avança em serverVersion, em transação local; versões inferiores/iguais não substituem. Tombstone realmente mais nova substitui upsert, sem apagar outbox.

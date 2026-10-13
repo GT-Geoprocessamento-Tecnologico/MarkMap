@@ -1,5 +1,21 @@
 # Handoff de continuidade
 
+## A60 — ignorar upserts históricos anteriores à base conhecida (2026-10-13)
+
+**BUG REPRODUZIDO:** pull upsert v2/v3 tratava como conflito uma edição local baseada em v3; filtro só existia para tombstones (A58). **CORRIGIDO:** `applyServerPage` ignora upsert remoto de `version <= pending.baseVersion` quando base conhecida, mas preserva ACK por operationId, predecessor confirmado, conflito remoto mais novo e comportamento conservador com base nula. **QA:** 5/10 FAIL no baseline, depois 10/10 PASS. Commit `3deef67` [skip ci], PRD `docs/MM-MAP-A60-stale-upsert-pull-guard.md`.
+
+## A59 — conflitos monotônicos também no saveConflict do push (2026-10-13)
+
+**BUG REPRODUZIDO:** resposta tardia de push podia sobrescrever conflito mais recente gerado por pull entre abas, rebaixando payload v5 para v3 ou `SCOPE_REJECTED` v0. **CORRIGIDO:** `saveConflict` lê versão durável na mesma transação `conflicts` readwrite e só grava versão estritamente maior. Resolução `use-server`, outbox e operações diferentes preservadas. **QA:** 4/10 FAIL antes, 10/10 PASS depois. Commit `f8420bb` [skip ci], PRD `docs/MM-MAP-A59-monotonic-push-conflict-receipts.md`.
+
+## A58 — tombstones ambíguos sem ACK inferido (2026-10-13)
+
+**BASE/CONCORRÊNCIA:** arquivo fonte do Projeto, Checklist Mestre Notion e GitHub `dev/markmap-pwa-v2@180e017` revisados; `main@156d4e8`, 0 PRs/issues abertos. **FUNCIONA:** A57 mantém conflito mais recente no pull, CAS de cursor, IndexedDB/outbox, replay por operationId no backend. **QUEBRADO REPRODUZIDO:** tombstone sem operationId gerava conflito para exclusão local possivelmente já confirmada mas sem ACK, bloqueando reenvio; evento histórico inferior à base conhecida também bloqueava operação. **CORRIGIDO:** tombstone `version <= baseVersion` é ignorado; `delete` pendente com base conhecida e tombstone exatamente `baseVersion+1` é **ambíguo**, logo não recebe ACK nem conflito fabricado: permanece na outbox para push posterior confirmar por receipt ou rejeitar por versão. Tombstone mais nova ainda conflita, base nula conservadora. **QA:** 5/10 FAIL antes, 10/10 PASS depois, recorte 55/55 Node PASS 2 rodadas. Commit `40cf7ce` [skip ci], PRD `docs/MM-MAP-A58-pending-tombstone-authoritative-ack.md`.
+
+**VALIDAÇÃO CONSOLIDADA:** recorte local Node `NODE_PATH=$(npm root -g) node --test scripts/*.test.mjs` A53–A60 **75/75 PASS em 3 execuções completas**; TypeScript `tsc -p tsconfig.qa.json` strict com stubs isolados PASS, `node --check` PASS. Código final SHA `8e8bd58` e testes A58/A59/A60 SHA `d157607`, `2713822`, `8796bef` **idênticos ao GitHub**. Cada fase foi commitada na sequência e verificada; sem GitHub CI. *Não testado:* lint/typecheck/build/Vitest/Playwright do monorepo, IndexedDB browser real, Hono/Postgres/Neon/PostGIS integrados, PWA instalada, Android/iOS físicos ou sincronização de duas instalações.
+
+**PRÓXIMA FASE LIVRE A61:** auditar cadeias de pendências locais e resolução de conflitos depois de ACK tardio, reproduzir antes de alterar. RC A38 continua bloqueado **apenas para release**, não desenvolvimento. Sem CI GitHub, merge main, deploy, alterações Neon/migrations/produção, secrets, force push, tag/release, publicação nas lojas ou exclusões destrutivas.
+
 ## A57 — versões monotônicas dos conflitos no pull (2026-10-13)
 
 **BASE REAL:** `dev/markmap-pwa-v2@0c0b0d0`, Checklist Mestre Notion e HEAD/PRs/issues conferidos; 0 PRs/issues. **FUNCIONA:** sync offline-first, outbox, CAS de cursor, `resolveConflict`, versionamento de entidades e A55/A56 backend. **QUEBRADO REPRODUZIDO:** `LocalRepository.applyServerPage` processa arrays de upserts primeiro e tombstones depois. Com edição local pendente, `writeConflict` sobrescrevia o conflito v3/v5 de recriação com tombstone anterior v2/v3, inclusive em páginas posteriores. Resolver `use-server` podia excluir incorretamente a entidade recriada.

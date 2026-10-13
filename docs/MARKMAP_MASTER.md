@@ -1,5 +1,17 @@
 # MarkMap — Documento Mestre Único
 
+## A60 — ignorar upserts históricos anteriores à base conhecida (2026-10-13)
+
+A60 elimina falsos conflitos quando `applyServerPage` recebe upsert remoto com `change.version <= pending.baseVersion`; ACK exato e concorrência real continuam. Baseline 5/10 FAIL, depois 10/10 PASS. Commit `3deef67` [skip ci].
+
+## A59 — conflitos monotônicos também no saveConflict do push (2026-10-13)
+
+A59 protege `saveConflict` contra downgrade por push atrasado entre abas: só grava se `serverVersion` for estritamente maior que a versão já durável. Baseline 4/10 FAIL, depois 10/10 PASS. Commit `f8420bb` [skip ci].
+
+## A58 — tombstones ambíguos sem ACK inferido (2026-10-13)
+
+A58 preserva delete local cujo tombstone `baseVersion+1` não carrega operationId: **não inferir ACK**, deixar na outbox para push confirmar ou gerar conflito real; eventos históricos inferiores/iguais à base são ignorados. Baseline 5/10 FAIL, depois 10/10 PASS. Commit `40cf7ce` [skip ci]. **QA consolidado:** 75/75 testes Node locais A53–A60 PASS em três execuções, TypeScript strict isolado com stubs PASS e `node --check` PASS. PRDs A58/A59/A60 versionados, SHA de código e testes verificados. Full pnpm monorepo, PostgreSQL/Neon integrado, IndexedDB browser real, Android/iOS e duas instalações ainda não executados; RC A38 não aprovado, mas desenvolvimento continua. Sem CI GitHub, merge main, deploy ou alterações em produção.
+
 ## A57 — versões monotônicas dos conflitos no pull (2026-10-13)
 
 A57 resolve downgrade de conflito de pull entre recriação remota e tombstone histórico. `writeConflict` em `apps/admin/src/lib/local-repositories/index.ts` compara `serverVersion` com conflito durável na mesma transação IndexedDB; nunca substitui versão maior/igual com evento antigo, preservando `use-server`, outbox e cursor. Baseline 3/7 falhas; após **10/10 regressões A57 e 45/45 testes Node A53–A57 PASS em três execuções**, TypeScript strict isolado com stubs PASS. Commit `df45018` [skip ci], arquivos SHA verificados; PRD `docs/MM-MAP-A57-monotonic-pull-conflicts.md`. Full monorepo, browser IndexedDB, Neon/PostGIS e Android/iOS ainda não testados, RC permanece não homologado sem bloquear desenvolvimento. A58: investigar tombstones próprios sem operationId wire antes de planejar alteração de contrato.
