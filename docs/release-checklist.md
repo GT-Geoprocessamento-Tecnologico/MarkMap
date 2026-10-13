@@ -1,7 +1,6 @@
 # Checklist de release
 
- Testes Node locais no recorte A53–A60 **75/75 PASS, 3 rodadas**, TypeScript strict isolado com stubs e `node --check` PASS. Não equivalem a full monorepo; resultados históricos não homologam HEAD inteiro. Pendentes: lint/typecheck/build/Vitest/Playwright do monorepo, browser IndexedDB/PWA real, Hono/PostgreSQL/Neon/PostGIS integrado, Android/iOS físicos, 2 instalações, privacidade e signing. Nenhum GitHub Actions/CI remoto utilizado. **Release bloqueado; código não bloqueado.**
-
+> **Gate de distribuição: BLOQUEADO em main@224a2bfd.** Os workflows CI, Build, E2E, PostGIS Integration e Quality/Security da PR #5 foram acionados, mas não iniciaram nenhum job por cobrança/limite de gastos do GitHub Actions. Não houve PASS de lint/typecheck/build/Vitest/Playwright/PostGIS/segurança nesta rodada. Os 75/75 testes Node A53–A60 são evidência histórica isolada, não homologação do monorepo. A integração em main foi solicitada e concluída; não autoriza publicação.
 
 Este checklist complementa o Checklist Mestre operacional no Notion.
 
