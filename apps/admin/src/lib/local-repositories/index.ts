@@ -397,6 +397,10 @@ export class LocalRepository {
           }
           if (pending?.predecessorOperationId === change.operationId) continue;
           if (pending) {
+            // A local edit based on version N already knows the history up to
+            // N. Old pull pages must not quarantine it as a new conflict.
+            if (pending.baseVersion !== null && change.version <= pending.baseVersion)
+              continue;
             await writeConflict(pending, change.version, change.payload);
             continue;
           }
