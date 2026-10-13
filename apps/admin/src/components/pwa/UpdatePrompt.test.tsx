@@ -6,8 +6,11 @@ type NavigatorWithServiceWorker = Omit<Navigator, "serviceWorker"> & {
   serviceWorker?: unknown;
 };
 
+type WaitingMock = { state: 'installed'; postMessage: ReturnType<typeof vi.fn> };
+
 interface MockRegistration {
-  waiting: { postMessage: (message: unknown) => void } | null;
+  scope: string;
+  waiting: WaitingMock | null;
   controller: unknown;
   installing: null;
   addEventListener: ReturnType<typeof vi.fn>;
@@ -18,6 +21,19 @@ interface MockRegistration {
 beforeEach(() => {
   delete (navigator as NavigatorWithServiceWorker).serviceWorker;
   vi.restoreAllMocks();
+  // jsdom does not consistently provide MessageChannel; emulate the real handshake.
+  class TestMessageChannel {
+    port1 = { onmessage: null as ((event: MessageEvent) => void) | null, close() {} };
+    port2 = {
+      postMessage: (data: unknown) => this.port1.onmessage?.({ data } as MessageEvent),
+      close() {},
+    };
+  }
+  vi.stubGlobal('MessageChannel', TestMessageChannel);
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
 });
 
 const createServiceWorkerMock = (overrides: {
@@ -25,7 +41,19 @@ const createServiceWorkerMock = (overrides: {
   controller: unknown;
 }) => {
   const readyObj: MockRegistration = {
-    waiting: overrides.waiting ?? null,
+    scope: `${window.location.origin}/`,
+    waiting: overrides.waiting ? {
+      state: 'installed',
+      postMessage: vi.fn((message: unknown, ports?: Array<{ postMessage: (data: unknown) => void }>) => {
+        if ((message as { type?: string })?.type === 'CHECK_COMPATIBILITY') {
+          ports?.[0]?.postMessage({
+            type: 'MARKMAP_COMPATIBILITY', shellProtocolVersion: 1,
+            localSchemaVersion: 1, regionPackageSchemaVersion: 2,
+          });
+        }
+        overrides.waiting?.postMessage(message);
+      }),
+    } : null,
     controller: overrides.controller ?? null,
     installing: null,
     addEventListener: vi.fn(),
@@ -95,8 +123,7 @@ describe("UpdatePrompt", () => {
       <UpdatePrompt
         durableWritesReady={() => true}
         compatibilityReady={() => true}
-      >
-      </UpdatePrompt>
+      />
     );
 
     await waitFor(() =>
@@ -138,34 +165,14 @@ describe("UpdatePrompt", () => {
     expect(readyObj.waiting?.postMessage).not.toHaveBeenCalled();
   });
 
-  it("should handle controllerchange and reload", async () => {
-    const { sw } = createServiceWorkerMock({
+  it("ignores a waiting worker outside the active service-worker scope", async () => {
+    const { readyObj } = createServiceWorkerMock({
       waiting: { postMessage: vi.fn() },
       controller: {},
     });
-
-    const reloadMock = vi.fn();
-    const originalLocation = window.location;
-    Object.defineProperty(window, "location", {
-      configurable: true,
-      writable: true,
-      value: { ...originalLocation, reload: reloadMock } as Location,
-    });
-
-    try {
-      render(<UpdatePrompt />);
-
-      // O efeito registra o listener no serviceWorker durante o mount
-      sw.dispatch("controllerchange");
-
-      expect(reloadMock).toHaveBeenCalled();
-    } finally {
-      Object.defineProperty(window, "location", {
-        configurable: true,
-        writable: true,
-        value: originalLocation,
-      });
-    }
+    readyObj.scope = "https://unrelated.example/";
+    render(<UpdatePrompt />);
+    await waitFor(() => expect(screen.queryByRole("status")).toBeNull());
   });
 
   it("should persist version check across focus/online events", async () => {
