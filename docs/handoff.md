@@ -1,5 +1,18 @@
 # Handoff de continuidade
 
+## A71 — GPS regional, GeoPDF responsivo, endereços locais e higiene segura — 2026-10-13
+
+**Estado base:** auditado `main@421408cb`, Checklist Mestre no Notion e 0 PR aberto. O catálogo A70 ainda está vazio porque não há PMTiles publicados com licença/manifest/Range verificados.
+
+**Implementado na main:** ao abrir a lista de mapas, consultar permissão GPS já vigente sem prompt; o botão "Encontrar mapa da minha localização" solicita autorização apenas no gesto e sugere a **menor região publicada** cuja extensão contém o dispositivo. Não transmite coordenadas e não inicia download sem o botão consciente "Baixar mapa"; mapa anterior/outbox preservados. `PdfPreview` ajusta a rasterização do canvas à largura/altura disponível, sem modificar arquivo PDF nem pontos; botão ampliar/ajustar. Pesquisa da barra MapLibre agora indexa `addr:street`, `addr:housenumber` e `addr:city` dos dados locais; continua offline. Para endereços remotos, foi removida a dependência direta de Nominatim público: só estará habilitado quando uma rota **de mesmo domínio** com provedor autorizado for configurada, pois o Nominatim comunitário proíbe autocomplete e impõe 1 req/s para todo o aplicativo, não apenas cada navegador.
+
+**Repo:** 6 branches legadas comparadas com main: `behind_by=0` em todas (main contém seus commits), sem PR aberto, candidatas à exclusão. Conector GitHub exposto **não suporta apagar refs/branches**; nenhuma branch foi excluída. Pasta local `REPOSITORIOS MODELOS/` ignorada no git e sem arquivos versionados, por isso não houve exclusão dela. Removido somente o `.eslintignore` redundante, pois `apps/admin/eslint.config.js` e `.gitignore` já ignoram dist.
+
+**Evidência:** testes isolados executados com `tsc --strict --target es2022 --module commonjs --skipLibCheck pdf-fit.ts local-map-search.ts` + asserts Node, **TypeScript PASS, 4/4 casos PDF e 2/2 casos de endereços PASS**. Testes Vitest e E2E adicionados ao repo mas **não executados integralmente**. A tentativa de Vercel para o SHA de código foi bloqueada por HTTP 402 `api-deployments-free-per-day` (mais de 100 deployments em 24h), sem publicação do novo app. Sem `vercel` CLI disponível e sem checkout de repo privado no container; build monorepo/typecheck global/E2E e homologação Android físico seguem **PENDENTES**. Nunca declarar sucesso/READY da versão A71. Última Vercel observada em READY era SHA anterior à mudança. Não alterar produção, migrations, segredos ou lojas.
+
+**Próximos passos:** após liberação da quota, executar build/typecheck, testes unitários e E2E Windows/Android emulados, publicar apenas `markmap-app` para teste e validar domínio; depois permitir teste real físico. Para baixar uma região, é preciso publicar os mapas reais A72. Para manter só `main`, excluir as 6 branches manualmente no GitHub com proteção/checagem dos SHAs. Não usar Browser MTS. Referências: `docs/MM-A71-gps-pdf-address-cleanup.md`, `docs/offline-map-catalog.md`, `docs/repository-audit.md`.
+
+
 ## A70 — catálogo simples de mapas offline (2026-10-13)
 
 **Pedido:** remover a necessidade de `manifest.json`, PMTiles e URLs para usuários comuns; permitir escolher a região e baixar **diretamente no mapa**, semelhante ao fluxo de catálogo de aplicativos de mapas offline.
