@@ -232,11 +232,11 @@ export function PdfPreview({ record }: { record: OriginalRecord }) {
       width: Math.max(1, container.clientWidth - 16),
       height: Math.max(180, Math.round(window.innerHeight * 0.65)),
     });
-    const observer = new ResizeObserver(update);
-    observer.observe(container);
+    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(update) : null;
+    observer?.observe(container);
     window.addEventListener("resize", update);
     update();
-    return () => { observer.disconnect(); window.removeEventListener("resize", update); };
+    return () => { observer?.disconnect(); window.removeEventListener("resize", update); };
   }, []);
   const viewSize = fitToScreen
     ? fitPdfToViewport(pdfSize.width, pdfSize.height, previewBounds.width, previewBounds.height)
