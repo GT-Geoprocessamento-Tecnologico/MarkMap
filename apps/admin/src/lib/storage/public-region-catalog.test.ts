@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { fetchPublicRegionCatalog, parsePublicRegionCatalog, regionCoversPoint, normalizeRegionSearch } from "./public-region-catalog";
+import { fetchPublicRegionCatalog, parsePublicRegionCatalog, regionCoversPoint, normalizeRegionSearch, recommendLocalRegion } from "./public-region-catalog";
 
 const entry = {
   id: "br-teste", label: "Região de teste", area: "Brasil",
@@ -8,6 +8,12 @@ const entry = {
 } as const;
 
 describe("public offline region catalog", () => {
+  it("recommends a matching city rather than a larger state, never a distant map", () => {
+    const first = { ...entry, id: "brasil", bounds: [-74, -34, -34, 6] as const };
+    const city = { ...entry, id: "city" };
+    expect(recommendLocalRegion([first, city], [-48, -7])?.id).toBe("city");
+    expect(recommendLocalRegion([first, city], [0, 0])).toBeNull();
+  });
   it("finds a city even if the user types without accents", () => {
     expect(normalizeRegionSearch("Araguaína")).toBe(normalizeRegionSearch("araguaina"));
   });

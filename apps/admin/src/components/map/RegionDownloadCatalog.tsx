@@ -10,9 +10,11 @@ import { ResumableInstaller, type InstallerStatus } from "../../lib/storage/resu
 import { rememberRegionSource } from "../../lib/storage/region-source-registry";
 import { describeRegionInstallError } from "../../lib/storage/region-install-feedback.mjs";
 import {
-  fetchPublicRegionCatalog, regionCoversPoint, normalizeRegionSearch, type PublicRegion,
+  fetchPublicRegionCatalog, regionCoversPoint, recommendLocalRegion, normalizeRegionSearch, type PublicRegion,
 } from "../../lib/storage/public-region-catalog";
 import { installCatalogRegion } from "../../lib/storage/catalog-region-install";
+import { shouldAutoLocateOnOpen, getFreshDevicePosition, rememberLocationApproval } from "../../lib/location-consent";
+import { ensureLocationPermission } from "../../lib/device-location-permission";
 
 type Props = {
   mapCenter?: readonly [number, number];
@@ -30,6 +32,9 @@ export function RegionDownloadCatalog({
   const [regions, setRegions] = useState<PublicRegion[]>([]);
   const [installed, setInstalled] = useState<OfflineMapPackageManifest[]>([]);
   const [search, setSearch] = useState("");
+  const [devicePoint, setDevicePoint] = useState<readonly [number, number] | null>(null);
+  const [locating, setLocating] = useState(false);
+  const [locationMessage, setLocationMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [catalogError, setCatalogError] = useState("");
   const [revision, setRevision] = useState(0);
@@ -65,6 +70,37 @@ export function RegionDownloadCatalog({
     return () => controller.abort();
   }, [revision]);
   useEffect(() => { onBusyChange?.(busyId !== null); }, [busyId, onBusyChange]);
+  useEffect(() => {
+    let active = true;
+    // Existing OS grant only: startup must never reopen the permission popup.
+    void (async () => {
+      if (!(await shouldAutoLocateOnOpen())) return;
+      const fix = await getFreshDevicePosition();
+      if (active && fix) setDevicePoint([fix.lon, fix.lat]);
+    })().catch(() => undefined);
+    return () => { active = false; };
+  }, []);
+  const findMyRegion = async () => {
+    if (locating) return;
+    setLocating(true);
+    setLocationMessage("");
+    try {
+      const permission = await ensureLocationPermission();
+      if (permission.state !== "granted") {
+        setLocationMessage("Autorize a localização nas configurações do aparelho.");
+        return;
+      }
+      const fix = await getFreshDevicePosition();
+      if (!fix) {
+        setLocationMessage("Não foi possível obter a posição atual. Escolha a região pelo nome.");
+        return;
+      }
+      setDevicePoint([fix.lon, fix.lat]);
+      void rememberLocationApproval().catch(() => undefined);
+    } catch {
+      setLocationMessage("GPS indisponível. Você ainda pode escolher uma região.");
+    } finally { setLocating(false); }
+  };
   useEffect(() => () => {
     // Leaving the screen stops network activity but preserves verified checkpoints.
     current.current?.controller.abort();
@@ -129,15 +165,17 @@ export function RegionDownloadCatalog({
     }
   };
 
+  const suggested = devicePoint ? recommendLocalRegion(regions, devicePoint) : null;
   const matches = useMemo(() => {
     const term = normalizeRegionSearch(search.trim());
     return regions.filter((region) =>
       normalizeRegionSearch(`${region.label} ${region.area}`).includes(term),
     ).sort((a, b) =>
-      Number(regionCoversPoint(b, mapCenter)) - Number(regionCoversPoint(a, mapCenter)) ||
+      Number(regionCoversPoint(b, devicePoint ?? mapCenter)) -
+        Number(regionCoversPoint(a, devicePoint ?? mapCenter)) ||
       a.label.localeCompare(b.label, "pt-BR"),
     );
-  }, [mapCenter, regions, search]);
+  }, [devicePoint, mapCenter, regions, search]);
 
   return <div className="min-w-0 space-y-4 text-on-surface">
     <div>
@@ -145,6 +183,19 @@ export function RegionDownloadCatalog({
       <p className="mt-1 text-xs text-on-surface-variant">
         Encontre a região desejada e toque em Baixar. Depois, o mapa funciona sem internet.
       </p>
+    </div>
+    <div className="space-y-2 rounded-xl border border-outline-variant p-3 text-sm">
+      <button type="button" onClick={() => void findMyRegion()} disabled={locating || disabled}
+        className="min-h-[44px] w-full rounded-lg border border-primary/50 px-3 font-semibold text-on-surface disabled:opacity-50">
+        {locating ? "Localizando região…" : "Encontrar mapa da minha localização"}
+      </button>
+      {devicePoint && <p role="status" className="text-xs text-on-surface-variant">
+        {suggested
+          ? `Mapa sugerido pelo GPS: ${suggested.label}. Confira o tamanho e toque em Baixar.`
+          : "Localização encontrada. Ainda não há mapa publicado para esta área."}
+      </p>}
+      {locationMessage && <p role="status" className="text-xs text-on-surface-variant">{locationMessage}</p>}
+      <p className="text-xs text-on-surface-variant">A posição é usada somente neste aparelho. Nenhum download começa sem sua confirmação.</p>
     </div>
     <input type="search" value={search} onChange={(event) => setSearch(event.target.value)}
       placeholder="Buscar cidade, estado ou região" aria-label="Buscar mapas disponíveis"
@@ -173,7 +224,11 @@ export function RegionDownloadCatalog({
               <p className="text-xs text-on-surface-variant">{region.area} · {sizeLabel(region.sizeBytes)}</p>
               <p className="mt-1 text-xs text-on-surface-variant">{region.attribution}</p>
             </div>
-            {regionCoversPoint(region, mapCenter) && <span className="rounded-full bg-primary/10 px-2 py-1 text-xs text-primary">Nesta área</span>}
+            {suggested?.id === region.id
+              ? <span className="rounded-full bg-primary/10 px-2 py-1 text-xs text-primary">Perto de você</span>
+              : regionCoversPoint(region, mapCenter)
+                ? <span className="rounded-full bg-primary/10 px-2 py-1 text-xs text-primary">Área exibida</span>
+                : null}
           </div>
           {saved
             ? <button type="button" disabled={disabled || busyId !== null}

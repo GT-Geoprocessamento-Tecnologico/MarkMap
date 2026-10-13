@@ -39,6 +39,15 @@ export function parsePublicRegionCatalog(data: unknown): PublicRegion[] {
 export const normalizeRegionSearch = (value: string) =>
   value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR");
 
+export function recommendLocalRegion(regions: PublicRegion[], point: readonly [number, number]): PublicRegion | null {
+  // A more precise city package wins over a broad state/country package.
+  return regions.filter(region => regionCoversPoint(region, point))
+    .sort((a, b) => {
+      const [aw, as, ae, an] = a.bounds, [bw, bs, be, bn] = b.bounds;
+      return (ae - aw) * (an - as) - (be - bw) * (bn - bs);
+    })[0] ?? null;
+}
+
 export function regionCoversPoint(region: PublicRegion, center?: readonly [number, number]): boolean {
   if (!center) return false;
   const [west, south, east, north] = region.bounds;
