@@ -18,6 +18,8 @@
     --shadow-sm: rgba(16, 24, 32, 0.06);
     --shadow-md: rgba(16, 24, 32, 0.12);
     --color-primary: #0075d6;
+    --color-primary-ink: #005fae;
+    --color-secondary-ink: #005f69;
     --color-primary-container: #dceeff;
     --color-secondary: #00d6db;
     --color-secondary-container: #d9fbfc;
@@ -38,6 +40,8 @@
     --shadow-sm: rgba(0, 0, 0, 0.25);
     --shadow-md: rgba(0, 0, 0, 0.4);
     --color-primary: #0075d6;
+    --color-primary-ink: #74d3ff;
+    --color-secondary-ink: #00d6db;
     --color-primary-container: #083f6e;
     --color-secondary: #00d6db;
     --color-secondary-container: #074e50;
@@ -45,6 +49,17 @@
 }
 
 .dark canvas.maplibregl-canvas { filter: none; }
+/* Semantic foregrounds stay legible without changing brand-color fills. */
+.text-primary { color: var(--color-primary-ink); }
+.text-secondary { color: var(--color-secondary-ink); }
+:root:not(.dark) .text-emerald-400 { color: #047857; }
+:root:not(.dark) .text-purple-400 { color: #7e22ce; }
+:root:not(.dark) .text-red-500 { color: #b91c1c; }
+/* White labels disappear on the cyan end of the brand gradient. */
+.bg-gradient-to-r.from-brand-blue.to-brand-cyan.text-white {
+  color: #06131a;
+  background-image: linear-gradient(to right, #1c98d1, #00d6db);
+}
 html, body, #root { min-width: 0; min-height: 100%; }
 html { background: var(--bg-main); }
 body { overflow-x: hidden; background: var(--bg-main); color: var(--text-primary); text-rendering: optimizeLegibility; -webkit-overflow-scrolling: touch; }
@@ -81,6 +96,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   --surface-container-high: #10252e;
   --color-primary: #00d6db;
   --color-secondary: #0075d6;
+  --color-primary-ink: #00d6db;
+  --color-secondary-ink: #00d6db;
   color-scheme: dark;
   background:
     linear-gradient(180deg, rgba(7, 24, 32, .98), rgba(5, 18, 25, .98)),
@@ -113,6 +130,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   --surface-container-high: #10252e;
   --color-primary: #00d6db;
   --color-secondary: #0075d6;
+  --color-primary-ink: #00d6db;
+  --color-secondary-ink: #00d6db;
   color-scheme: dark;
   box-shadow: 0 14px 44px rgba(3, 14, 20, .16);
 }
@@ -137,9 +156,20 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
     var(--bg-main);
 }
 
+/* The map canvas stays dark even while the rest of the app is light. */
 .markmap-workspace {
+  --text-primary: #f2f7fa;
+  --text-secondary: #b2c4cd;
+  --color-primary-ink: #74d3ff;
+  --color-secondary-ink: #00d6db;
+  --surface-container: #0b1b23;
+  --surface-container-high: #10252e;
+  --outline-variant: rgba(255, 255, 255, .14);
+  color: var(--text-primary);
+  color-scheme: dark;
   background: #0a1b21;
 }
+.markmap-workspace .text-cyan-700 { color: #a5f3fc; }
 
 .markmap-workspace .maplibregl-map {
   background: #0a1b21;
@@ -474,7 +504,7 @@ body {
 }
 
 .markmap-mobile-tab.is-active {
-  color: var(--color-secondary);
+  color: var(--color-secondary-ink);
   background: color-mix(in srgb, var(--color-secondary) 8%, transparent);
 }
 

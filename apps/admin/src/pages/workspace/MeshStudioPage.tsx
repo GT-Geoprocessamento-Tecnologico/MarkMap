@@ -244,7 +244,7 @@ export default function MeshStudioPage() {
           {blob && selected ? (
             <MeshCanvas blob={blob} view={view} onError={setMessage} />
           ) : (
-            <div className="flex h-full items-center justify-center p-6 text-center text-sm text-on-surface-variant">
+            <div className="flex h-full items-center justify-center p-6 text-center text-sm text-slate-300">
               Selecione um GLB local para visualizar a geometria.
             </div>
           )}
