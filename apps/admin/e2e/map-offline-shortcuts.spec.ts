@@ -20,6 +20,14 @@ test("offline shortcuts reuse the map toolbar without orphan panels", async ({ p
     await shortcut.click();
     await expect(panel).toBeVisible();
     await expect(shortcut).toHaveAttribute("aria-pressed", "true");
+    if ((page.viewportSize()?.width ?? 1280) < 1024) {
+      const panelBounds = await panel.boundingBox();
+      const toolbarBounds = await toolbar.boundingBox();
+      expect(panelBounds).not.toBeNull();
+      expect(toolbarBounds).not.toBeNull();
+      // On mobile the sheet must stay above, not on top of, the shortcut bar.
+      expect(panelBounds!.y + panelBounds!.height).toBeLessThanOrEqual(toolbarBounds!.y + 4);
+    }
     await panel.getByRole("button", { name: "Fechar " + name }).click();
     await expect(panel).toHaveCount(0);
     await expect(shortcut).toHaveAttribute("aria-pressed", "false");
