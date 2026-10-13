@@ -1,5 +1,18 @@
 # Handoff de continuidade
 
+## A70 — catálogo simples de mapas offline (2026-10-13)
+
+**Pedido:** remover a necessidade de `manifest.json`, PMTiles e URLs para usuários comuns; permitir escolher a região e baixar **diretamente no mapa**, semelhante ao fluxo de catálogo de aplicativos de mapas offline.
+
+**Auditoria na main@7818c8ec:** FUNCIONA o instalador existente (`ResumableInstaller`, downloads retomáveis, SHA-256, IndexedDB/checkpoints e ativação atômica). PARCIAL a UI de Configurações, que apresentava pasta e URL técnica primeiro. NÃO IMPLEMENTADO catálogo de regiões publicadas ou botão de descoberta no mapa. Nenhum arquivo PMTiles real ou registro de distribuição licenciado foi localizado no HEAD.
+
+**Mudança no código:** catálogo público estrito por origem do app `/maps/catalog.json` v1, com id, nome, área, bbox WGS84, tamanho, fonte HTTPS e atribuição. Um componente `RegionDownloadCatalog` é usado em **Configurações e no menu de atalhos do mapa**, com pesquisa, priorização da região mostrada, download/progresso/cancelamento/retomada, seleção de mapas locais sem internet. A integração compara id, bbox e bytes contra `offlineMapPackageManifestSchema` e usa o **instalador existente** para SHA/ativos/checkpoints, sem duplicação nem storage remoto. Campos técnicos continuam em `<details>` avançado. Documentação em `docs/offline-map-catalog.md` e PRD `docs/MM-MAP-A70-simple-region-download.md`.
+
+**Estado verificável:** código integrado e testes de esquema, fluxo do instalador e E2E versionados. O catálogo inicial contém `{"version":1,"regions":[]}` de propósito: ainda não há pacotes com fonte, licença e distribuição comprovadas. **Não prometer downloads disponíveis antes de publicar pacotes reais (A71).** Até o momento desta nota, o último deployment Vercel observado inclui `04453c61` READY, anterior à UI completa, e GitHub Actions falha por bloqueio externo; build/E2E da UI final NÃO verificados. Manter pendência aberta até evidência.
+
+**Regras:** não inventar regiões nem URLs, não copiar/baixar em massa tiles de terceiros, manter licenças, HTTPS/CORS/Range, hash verificado, orçamento 250 MiB, mapas anteriores/outbox, GPS, GeoPDF e subdomínios separados. QA físico Android/Windows e download real somente após primeiro pacote válido.
+
+
 ## A69 — atalhos offline integrados ao menu do mapa (2026-10-13)
 
 **Antes (PARCIAL):** Altitude, Buscar locais, Lugares/Transporte e Navegação GPS criavam quatro cards flutuantes independentes que cobriam o mapa. Existiam quatro irmãos React com a mesma `key` de pacote, causando painéis órfãos ao abrir/fechar. A barra de Telemetria, Camadas, Filtros, Ferramentas e desenho já funcionava.
