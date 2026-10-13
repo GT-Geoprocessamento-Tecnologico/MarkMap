@@ -69,3 +69,16 @@ export const ensureLocationPermission = async (): Promise<LocationPermissionStat
     return { state: "denied", reason: "unavailable" };
   }
 };
+/** Read actual OS/browser authorization without displaying a new prompt. */
+export async function isLocationPermissionGranted(): Promise<boolean> {
+  if (detectNativeShell()) {
+    try {
+      const { Geolocation } = await import("@capacitor/geolocation");
+      return (await Geolocation.checkPermissions()).location === "granted";
+    } catch { return false; }
+  }
+  if (typeof navigator === "undefined" || !navigator.geolocation || !navigator.permissions?.query) return false;
+  try {
+    return (await navigator.permissions.query({ name: "geolocation" })).state === "granted";
+  } catch { return false; }
+}

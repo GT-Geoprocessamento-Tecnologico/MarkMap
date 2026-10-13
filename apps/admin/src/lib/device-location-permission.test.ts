@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ensureLocationPermission } from "./device-location-permission";
+import { ensureLocationPermission, isLocationPermissionGranted } from "./device-location-permission";
 
 const checkPermissions = vi.fn();
 const requestPermissions = vi.fn();
@@ -30,6 +30,7 @@ describe("ensureLocationPermission", () => {
 
   afterEach(() => {
     setCapacitorGlobal(undefined);
+    vi.unstubAllGlobals();
   });
 
   it("resolves granted on the web without touching the native plugin", async () => {
@@ -81,6 +82,27 @@ describe("ensureLocationPermission", () => {
       reason: "denied",
     });
     expect(requestPermissions).not.toHaveBeenCalled();
+  });
+
+  it("reads native authorization without requesting a second prompt", async () => {
+    setCapacitorGlobal({ isNativePlatform: () => true });
+    checkPermissions.mockResolvedValue({ location: "granted" });
+    await expect(isLocationPermissionGranted()).resolves.toBe(true);
+    expect(requestPermissions).not.toHaveBeenCalled();
+  });
+
+  it("respects a revoked native authorization", async () => {
+    setCapacitorGlobal({ isNativePlatform: () => true });
+    checkPermissions.mockResolvedValue({ location: "denied" });
+    await expect(isLocationPermissionGranted()).resolves.toBe(false);
+    expect(requestPermissions).not.toHaveBeenCalled();
+  });
+
+  it("reads browser permission without calling the GPS API", async () => {
+    const query = vi.fn().mockResolvedValue({ state: "granted" });
+    vi.stubGlobal("navigator", { geolocation: {}, permissions: { query } });
+    await expect(isLocationPermissionGranted()).resolves.toBe(true);
+    expect(query).toHaveBeenCalledWith({ name: "geolocation" });
   });
 
   it("reports unavailable when the system location service is disabled", async () => {
