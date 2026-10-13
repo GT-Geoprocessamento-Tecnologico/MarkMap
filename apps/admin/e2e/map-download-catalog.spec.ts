@@ -15,7 +15,7 @@ test("settings shows simple map discovery before advanced file import", async ({
   await page.route("**/maps/catalog.json", route => route.fulfill({ json: published }));
   await page.goto("/settings");
   await expect(page.getByRole("heading", { name: "Mapas offline" })).toBeVisible();
-  await expect(page.getByRole("textbox", { name: "Buscar mapas disponíveis" })).toBeVisible();
+  await expect(page.getByRole("searchbox", { name: "Buscar mapas disponíveis" })).toBeVisible();
   await expect(page.getByText("Região de teste")).toBeVisible();
   await expect(page.getByRole("button", { name: "Baixar mapa" })).toBeVisible();
   await expect(page.getByLabel("Selecionar pasta do pacote de mapa offline")).toBeHidden();
