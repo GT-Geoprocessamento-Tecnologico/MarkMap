@@ -1,5 +1,18 @@
 # MarkMap — Checklist Mestre de Execução
 
+## A69 — atalhos offline integrados ao menu do mapa (2026-10-13)
+
+**Antes (PARCIAL):** Altitude, Buscar locais, Lugares/Transporte e Navegação GPS criavam quatro cards flutuantes independentes que cobriam o mapa. Existiam quatro irmãos React com a mesma `key` de pacote, causando painéis órfãos ao abrir/fechar. A barra de Telemetria, Camadas, Filtros, Ferramentas e desenho já funcionava.
+
+**Agora (corrigido):** quatro novos botões `ToolBtn` fazem parte da **mesma barra existente**, com ícones e `aria-pressed` adequados. Cada painel offline abre sob controle de `SidePanel` em uma única superfície `MapOfflinePanel` com título, fechamento e rolagem; nenhum cabeçalho flutuante é montado por padrão. Os componentes seguem montados enquanto fechados, preservando trabalhadores locais, pesquisa, rota e GPS; cada um possui **chave React única**. Em telas menores que `lg`, painéis online e offline aparecem **acima** da barra de atalhos, permitindo trocar sem bloqueio de toque. Desktop preserva painel lateral à direita.
+
+**Escopo:** `CommandCenterPage.tsx`, quatro `Offline*.tsx`, `MapOfflinePanel.tsx`, `apps/admin/e2e/map-offline-shortcuts.spec.ts`. Nenhuma alteração na API, IndexedDB/outbox, mapas offline, GPS, worker de navegação, temas ou instalação PWA.
+
+**Evidências:** código de interface em `main@ff005f6258e37010c686bf323d3a34e6e97e812e`, testes E2E versionados em `main@1fb7d302bdb544b218dc58812cfc50067a1c55af`. Build do SHA exato `1fb7d30` Vercel `markmap-app` **READY** (`dpl_BzoNX8eMEoeLD58RUTBQ1wEke3JM`, `tsc --noEmit && vite build`). Playwright Chromium contra app publicado: **2/2 testes PASS** (Windows e Android emulados), 13 atalhos presentes, 4 ciclos de abrir/fechar, troca Telemetria→GPS e ausência de sobreposição no Android. Smoke extra com SW e sem rede: **2/2 PASS** (Windows e Android emulados), quatro painéis acessíveis offline, 0 alertas de React por chaves duplicadas. **Pendente:** validação em dispositivos físicos e GitHub Actions (bloqueado anteriormente por faturamento); não declarar teste físico ou CI concluído.
+
+**Regra/rollback:** não voltar a posicionar recursos offline como cards fixos; manter o mesmo componente montado para não interromper navegação. Reversão via `git revert` dos commits A69, sem perder dados de campo.
+
+
 ## A68 — GeoPDF: quadro geográfico versus página inteira (2026-10-13)
 
 **Problema de código confirmado:** o parser ISO 32000 possuía `/BBox` (quadro georreferenciado), mas o modelo usava pontos `/LPTS` como contorno da imagem; o renderer PDF.js exportava a página inteira e projetava os quatro cantos do papel sobre o MapLibre, incluindo margens, legenda e outros elementos fora do mapa. O `fitBounds` do overlay se baseava na página inteira. Isso aumenta/desloca o enquadramento visível e pode criar aparente desregistro em mapas com quadros internos.
