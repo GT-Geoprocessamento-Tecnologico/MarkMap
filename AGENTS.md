@@ -19,4 +19,5 @@ This block is written and re-added by `turbo` before repository-scoped commands 
 - Preservar `IndexedDB/outbox`, offline, APIs, Capacitor, frontend e identidade da PWA. Não duplicar implementação.
 - O crédito **Desenvolvido por MtsFerreira · vMAJOR.MINOR.PATCH** deve aparecer no rodapé lateral do app, derivado do pacote sem sufixos (ex.: `v0.2.0`). Preservar a versão interna e a assinatura no código.
 - Código curto, tipado e comentado **onde há decisão, risco ou contrato**. Não colocar comentários mecânicos em cada linha; não criar arquivos monolíticos nem reescrever legado funcional apenas por estilo.
+- **Contraste obrigatório nos dois temas:** WCAG AA (texto normal >= 4,5:1; grande >= 3:1), inclusive Android, botões em gradiente e mapa de fundo fixamente escuro. Usar cores semânticas de texto (`--color-primary-ink`/`--color-secondary-ink`) sem recolorir o fundo. Executar `node --test scripts/theme-contrast.test.mjs` e QA visual em ambas as aparências.
 - Conferir HEAD e Checklist Mestre, revisar diff e executar testes de fronteira antes de commits. Não declarar QA físico sem executar.

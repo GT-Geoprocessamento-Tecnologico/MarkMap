@@ -1,5 +1,16 @@
 # MarkMap — Checklist Mestre de Execução
 
+## UI-Contrast — textos visíveis em ambos os temas (2026-10-13)
+
+**Diagnóstico (QUEBRADO → CORRIGIDO):** rótulos claros sobre gradientes ciano no tema claro; azul primário sobre superfícies escuras; texto ciano na aba ativa Android; controles de mapa fixamente escuro herdando texto preto no tema claro; etiquetas de status e aviso da malha 3D. Não havia necessidade de trocar os temas.
+
+**Mudança em main:** `46d60629f25f3941412258a56c3378cc95077e74`; `apps/admin/src/styles/main.css` separa tinta dos acentos de fundos via `--color-primary-ink` e `--color-secondary-ink`, corrige contraste do gradiente preservando o azul/ciano, escopa tokens do mapa escuro e ajusta a aba móvel. `MeshStudioPage.tsx` torna legível o aviso sobre viewport escura. Novos testes `scripts/theme-contrast.test.mjs` e gate no workflow CI. Frontend, SW, banco, IndexedDB e lógica de sync intactos.
+
+**Evidências:** script de contraste Node **3/3 PASS** em sandbox Vercel; build `markmap-app` para commit `46d6062` estado **READY**. Auditoria Chromium com **32 combinações** (8 rotas × Windows/Android emulado × claro/escuro), **1.149 elementos de texto verificados, 0 violações detectadas** por teste computacional WCAG AA 4,5:1 para texto normal/3:1 para texto grande com amostragem de gradientes. Verificado também abrir formulário de Novo Projeto e alternar tema via botão em Windows/Android emulados. Limites: ferramenta automatizada não cobre todas as telas condicionais, imagens no mapa, fontes em aparelho físico ou diferenças entre WebViews. Usuário confere em Windows e Android reais.
+
+**Pendente:** GitHub Actions ainda bloqueado por faturamento/limite; QA visual final nos dispositivos e estados condicionais. Sem deploy manual ou alteração de domínios/PWA. Browser MTS permanece proibido.
+
+
 ## UI-PWA — Aviso de atualização do MarkMap (2026-10-13)
 
 **Estado:** `main@786bc850ecc61b6abf04538b7f393f9ae4e6abf3`. Popup `apps/admin/src/components/pwa/UpdatePrompt.tsx` redesenhado com tokens do tema azul/ciano, ícone do `AppIcon`, título destacado, texto explicativo, mensagem de falha clara e botões `Atualizar agora` / `Depois`. CSS responsivo em `apps/admin/src/styles/main.css` (safe-area, mobile acima da barra inferior e respeito a `prefers-reduced-motion`). **Não houve mudança na ativação do Service Worker**, handshake de compatibilidade, verificação de escrita durável, IndexedDB/outbox, API ou design do restante do app.
