@@ -420,6 +420,19 @@ export class LocalRepository {
         for (const tombstone of tombstones) {
           const pending = await latestPending(tombstone.entity, tombstone.entityId);
           if (pending) {
+            if (pending.baseVersion !== null) {
+              // An older deletion is already covered by the version the local
+              // operation was based on: it cannot invalidate that edit.
+              if (tombstone.version <= pending.baseVersion) continue;
+              // A tombstone has no operationId. A pending delete at the next
+              // version could be our own committed operation OR a concurrent
+              // delete. Do not guess or manufacture an ACK: keep it in the
+              // durable outbox for push to confirm or return a real conflict.
+              if (
+                pending.operation === "delete" &&
+                tombstone.version === pending.baseVersion + 1
+              ) continue;
+            }
             await writeConflict(pending, tombstone.version);
             continue;
           }
