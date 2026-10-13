@@ -33,8 +33,15 @@ export function buildLocalMapSearchRecords(features: readonly unknown[]): LocalS
         !feature.geometry || typeof feature.geometry !== 'object') continue;
     const properties = feature.properties as Record<string, unknown>;
     const geometry = feature.geometry as { coordinates?: unknown; type?: unknown };
-    const label = [properties.name, properties.title, properties.ref, properties.label]
+    const street = properties['addr:street'] ?? properties.street;
+    const number = properties['addr:housenumber'] ?? properties.housenumber;
+    const city = properties['addr:city'] ?? properties.city;
+    const address = [street, number, city]
+      .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+      .join(', ');
+    const title = [properties.name, properties.title, properties.ref, properties.label]
       .find((v): v is string => typeof v === 'string' && v.trim().length > 0);
+    const label = [title, address].filter(Boolean).join(' · ');
     if (!label) continue;
     const coords = firstPosition(geometry.coordinates);
     if (!coords) continue;

@@ -2,6 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { buildLocalMapSearchRecords } from './local-map-search';
 
 describe('offline indexed feature search', () => {
+  it('finds an address from locally saved street and house-number fields', () => {
+    const records = buildLocalMapSearchRecords([{
+      id: 1, geometry: { type: 'Point', coordinates: [-48.22, -7.19] },
+      properties: { 'addr:street': 'Rua das Palmeiras', 'addr:housenumber': '123', 'addr:city': 'Araguaína' },
+    }]);
+    expect(records[0]?.normalized).toContain('rua das palmeiras 123 araguaina');
+    expect(records[0]?.lon).toBeCloseTo(-48.22);
+  });
   it('indexes existing local geometries without network access', () => {
     const list = buildLocalMapSearchRecords([
       {id:'a',geometry:{type:'Point',coordinates:[-48.2,-7.2]},properties:{name:'Pico'}},

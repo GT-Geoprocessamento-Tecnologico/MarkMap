@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { LocalSearchRecord } from '../../lib/search/local-map-search';
 import { MapOfflinePanel } from './MapOfflinePanel';
-import { searchAddressOnline, type AddressResult } from '../../lib/search/address-geocoder';
+import { configuredAddressSearchEndpoint, searchAddressOnline, type AddressResult } from '../../lib/search/address-geocoder';
 
 interface SearchHit {id: string; name: string; lon: number; lat: number; category: string;}
 
@@ -90,13 +90,15 @@ export function OfflineSearch({ open, onClose, records, regionalCount = 0, warni
           </li>)}
         </ul>
         <div className="space-y-2 border-t border-outline-variant pt-3">
-          <button type="button" disabled={remoteBusy || query.trim().length < 3}
+          {configuredAddressSearchEndpoint() && <button type="button" disabled={remoteBusy || query.trim().length < 3}
             onClick={() => void findOnline()}
             className="min-h-[44px] w-full rounded-lg border border-primary/40 px-3 font-semibold text-on-surface disabled:opacity-50">
             {remoteBusy ? 'Buscando endereço…' : 'Buscar endereço na internet'}
-          </button>
+          </button>}
           <p className="text-xs text-on-surface-variant">
-            Essa opção envia somente o endereço digitado ao Nominatim. Não funciona sem internet.
+            {configuredAddressSearchEndpoint()
+              ? "A busca online envia somente o texto digitado ao provedor autorizado pelo MarkMap."
+              : "Busca offline disponível. Pesquisa online exige um provedor autorizado configurado."}
           </p>
           {remoteNotice && <p role="status" className="text-xs text-on-surface-variant">{remoteNotice}</p>}
           <ul className="max-h-48 space-y-1 overflow-y-auto">
@@ -108,10 +110,7 @@ export function OfflineSearch({ open, onClose, records, regionalCount = 0, warni
               </button>
             </li>)}
           </ul>
-          <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer"
-            className="inline-block text-xs text-primary underline">
-            Endereços: © OpenStreetMap contributors · Nominatim
-          </a>
+          <p className="text-xs text-on-surface-variant">Mapas locais: dados e atribuições de cada pacote instalado.</p>
         </div>
       </div>
     </MapOfflinePanel>
