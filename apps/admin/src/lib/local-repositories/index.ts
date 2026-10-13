@@ -667,8 +667,13 @@ export class LocalRepository {
       createdAt: now(),
       key: `${workspaceId}:${parsed.operationId}`,
     };
-    await this.db.transact(["conflicts"], "readwrite", (tx) => {
-      tx.store("conflicts").put(record);
+    await this.db.transact(["conflicts"], "readwrite", async (tx) => {
+      const store = tx.store("conflicts");
+      // An in-flight push may report an older server state after another tab
+      // has applied a newer pull. Never downgrade the durable resolution target.
+      const previous = await read<ConflictRecord | undefined>(store.get(record.key));
+      if (previous && previous.serverVersion >= record.serverVersion) return;
+      store.put(record);
     });
   }
 
