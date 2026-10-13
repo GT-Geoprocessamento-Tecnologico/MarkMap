@@ -51,3 +51,8 @@ A referência automática só é salva quando todos os critérios passam. Caso c
 - Rasterizar localmente com PDF.js, recortar a janela georreferenciada em pixels apos aplicar CropBox e rotacao, e converter **os mesmos quatro cantos** do recorte para longitude/latitude via `pageToLonLat` antes de enviar para o MapLibre.
 - Manter a escolha manual e referencia salva quando houver; nao substituir pontos corrigidos pelo usuario silenciosamente.
 - Em arquivos com CRS incompatível, viewport ambiguo ou metadados errados, nao inventar localizacao. Validar com GeoPDF real antes de prometer alinhamento absoluto.
+
+
+## Visualização responsiva no módulo Dados (A71)
+
+`PdfPreview` continua trabalhando com o Blob original offline. O canvas PDF.js conserva suas dimensões de rasterização (com o orçamento já existente de 16 milhões de pixels), mas a **apresentação** é limitada pela largura e altura do dispositivo, mantendo a proporção, sem cortar a carta. O controle **Ampliar para ler / Ajustar à tela** permite examinar o original com rolagem; a escala CSS não modifica arquivo, metadados, referência geográfica, nem os pontos de calibração, que são posicionados proporcionalmente à imagem exibida.

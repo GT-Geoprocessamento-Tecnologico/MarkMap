@@ -47,3 +47,10 @@ A70 implementa a **experiência e a integração**, não fabrica mapas. O trabal
 ## Regra de regressão
 
 Preservar `apps/admin/src/lib/storage/resumable-installer.ts`, `offlineMapStore`, sistema de mapas instalado, opções avançadas e separação dos dois subdomínios. Testes previstos: `public-region-catalog.test.ts`, `catalog-region-install.test.ts` e `apps/admin/e2e/map-download-catalog.spec.ts`. Validação física quando fontes reais estiverem publicadas.
+
+
+## GPS e seleção de mapas (A71)
+
+O catálogo oferece **Encontrar mapa da minha localização**. Na abertura, só consulta GPS quando o sistema operacional já concedeu permissão; se não, solicita somente ao tocar no botão. Usa `lon/lat` no dispositivo para priorizar a menor região publicada que contenha o ponto; **não envia coordenadas para o catálogo nem para o servidor**. Se a posição estiver fora da cobertura, mostra aviso e mantém escolha por nome.
+
+Nenhum download é automático apenas por conceder permissão GPS: o usuário confirma **Baixar mapa** com o tamanho visível, evitando cobranças e armazenamento inesperados. Como `apps/admin/public/maps/catalog.json` ainda não contém pacotes publicados, a aplicação não consegue baixar regiões reais até o time publicar arquivos licenciados com checksums válidos.
