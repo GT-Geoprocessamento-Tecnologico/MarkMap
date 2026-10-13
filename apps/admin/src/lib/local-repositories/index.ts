@@ -337,11 +337,19 @@ export class LocalRepository {
           return pending.sort((a, b) => b.localSequence - a.localSequence)[0];
         };
 
-        const writeConflict = (
+        const writeConflict = async (
           pending: OutboxRecord,
           serverVersion: number,
           serverPayload?: SyncEntityPayload,
-        ) => {
+        ): Promise<void> => {
+          // Pull groups upserts and tombstones separately. They may refer to
+          // different versions of the same entity, even in a single page.
+          // Never replace a newer durable conflict with an older event.
+          const key = `${workspaceId}:${pending.operationId}`;
+          const previous = await read<ConflictRecord | undefined>(
+            conflictStore.get(key),
+          );
+          if (previous && previous.serverVersion >= serverVersion) return;
           const conflict = syncConflictSchema.parse({
             operationId: pending.operationId,
             entity: pending.entity,
@@ -356,7 +364,7 @@ export class LocalRepository {
           });
           conflictStore.put({
             ...conflict,
-            key: `${workspaceId}:${conflict.operationId}`,
+            key,
             workspaceId,
             createdAt: now(),
           } satisfies ConflictRecord);
@@ -389,7 +397,7 @@ export class LocalRepository {
           }
           if (pending?.predecessorOperationId === change.operationId) continue;
           if (pending) {
-            writeConflict(pending, change.version, change.payload);
+            await writeConflict(pending, change.version, change.payload);
             continue;
           }
           const current = await read<EntityRecord | undefined>(
@@ -412,7 +420,7 @@ export class LocalRepository {
         for (const tombstone of tombstones) {
           const pending = await latestPending(tombstone.entity, tombstone.entityId);
           if (pending) {
-            writeConflict(pending, tombstone.version);
+            await writeConflict(pending, tombstone.version);
             continue;
           }
           const current = await read<EntityRecord | undefined>(
