@@ -671,7 +671,25 @@ export class LocalRepository {
       createdAt: now(),
       key: `${workspaceId}:${parsed.operationId}`,
     };
-    await this.db.transact(["conflicts"], "readwrite", async (tx) => {
+    // A push reply can arrive after another tab ACKed or resolved this
+    // operation. Conflict persistence must share the outbox/ACK transaction
+    // boundary with those decisions: never resurrect a resolved operation.
+    await this.db.transact(["conflicts", "outbox", "acks"], "readwrite", async (tx) => {
+      const pending = await read<OutboxRecord | undefined>(
+        tx.store("outbox").get(parsed.operationId),
+      );
+      if (!pending || pending.workspaceId !== workspaceId) return;
+      const ack = await read<{ key: string } | undefined>(
+        tx.store("acks").get(parsed.operationId),
+      );
+      if (ack) return;
+      if (
+        pending.entity !== parsed.entity ||
+        pending.entityId !== parsed.entityId ||
+        pending.baseVersion !== parsed.baseVersion
+      )
+        throw new Error("Conflict receipt does not match pending operation.");
+
       const store = tx.store("conflicts");
       // An in-flight push may report an older server state after another tab
       // has applied a newer pull. Never downgrade the durable resolution target.
