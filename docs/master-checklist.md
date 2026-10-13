@@ -1,5 +1,13 @@
 # MarkMap — Checklist Mestre de Execução
 
+## A57 — versões monotônicas dos conflitos no pull (2026-10-13)
+- [x] **BUG REPRODUZIDO:** exclusão v2 podia sobrescrever conflito de upsert remoto mais novo v3 (mesma página ou próxima); `use-server` podia marcar como deletada uma recriação remota.
+- [x] **A57 CORRIGIDA:** conflito por operationId só avança em serverVersion, em transação local; versões inferiores/iguais não substituem. Tombstone realmente mais nova substitui upsert, sem apagar outbox.
+- [x] **QA REAL LOCAL SEM CI:** baseline 3/7 falhas, após patch **10/10 novos PASS** e **45/45 testes Node A53–A57 PASS em três rodadas**, TS strict isolado com stubs e `node --check` PASS; SHA dos 3 arquivos versionados iguais aos testados. Commit `df45018` [skip ci]. PRD `docs/MM-MAP-A57-monotonic-pull-conflicts.md`.
+- [ ] **RC A38 NÃO HOMOLOGADO:** full lint/typecheck/build/Vitest/Playwright, IndexedDB real multiabas, Hono/Neon/PostGIS integrados, 2 instalações e Android/iOS físicos, privacidade/signing. Não bloquear código por testes físicos.
+- [x] **GOVERNANÇA:** `dev/markmap-pwa-v2` apenas; main/produção, Neon, CI remoto, deploy e releases intocados.
+- [ ] **A58 LIVRE:** auditar conciliação de tombstones de operações locais pendentes (contrato sem operationId), reproduzir antes de qualquer mudança.
+
 ## A56 — conflitos válidos para predecessor inválido e entidade ausente (2026-10-12)
 - [x] **BUG REPRODUZIDO:** predecessor inválido ou versão explícita positiva sobre entidade ausente retornava `VERSION_CONFLICT` com `serverVersion:0`, envelope recusado por `syncConflictSchema`.
 - [x] **CORRIGIDO SEM MUDAR CONTRATO:** sem versão remota retorna `SCOPE_REJECTED` versão 0 e nenhum serverPayload; com versão positiva continua `VERSION_CONFLICT`; mantém idempotência, isolamento, tombstones e reativação por predecessor válido.

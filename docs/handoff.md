@@ -1,5 +1,15 @@
 # Handoff de continuidade
 
+## A57 — versões monotônicas dos conflitos no pull (2026-10-13)
+
+**BASE REAL:** `dev/markmap-pwa-v2@0c0b0d0`, Checklist Mestre Notion e HEAD/PRs/issues conferidos; 0 PRs/issues. **FUNCIONA:** sync offline-first, outbox, CAS de cursor, `resolveConflict`, versionamento de entidades e A55/A56 backend. **QUEBRADO REPRODUZIDO:** `LocalRepository.applyServerPage` processa arrays de upserts primeiro e tombstones depois. Com edição local pendente, `writeConflict` sobrescrevia o conflito v3/v5 de recriação com tombstone anterior v2/v3, inclusive em páginas posteriores. Resolver `use-server` podia excluir incorretamente a entidade recriada.
+
+**A57 CORRIGIDA:** `writeConflict` passa a ler o conflito persistido **dentro da transação IndexedDB readwrite** e ignora eventos de versão menor ou igual. `await` garante persistência/ordem antes de avançar cursor. Evento de versão superior ainda substitui corretamente; upserts, tombstones, outbox e rollback da transação são preservados. Nenhuma alteração de schema, contratos Hono, PostgreSQL/Neon, API, cursor, auth ou versão do banco.
+
+**QA REAL LOCAL:** baseline **3/7 falhas**; após patch **10/10 A57 PASS**, suíte combinada backend A53–A56 + A57 **45/45 Node PASS por três execuções completas**, `node --check` PASS, `tsc -p tsconfig.qa.json` TypeScript strict **em recorte com stubs de contratos** PASS. SHA de 3 blobs GitHub confere com código/teste/PRD executados (`66c056f`, `b00ed83`, `89cd30b`). Commit `df45018` [skip ci]. PRD `docs/MM-MAP-A57-monotonic-pull-conflicts.md`. **Não reexecutados:** 257/257 históricos A54, testes full monorepo, IndexedDB real/browser, integração Hono/Neon/PostGIS, Android/iOS físicos e duas instalações.
+
+**LIMITE RESIDUAL:** tombstones wire não têm `operationId`; não inferir ACK próprio a partir da versão. Próxima etapa A58: auditar conciliação segura de exclusões pendentes e suas evidências, sem mudar contrato sem necessidade. A38/RC não aprovado **apenas para release**; desenvolvimento liberado. Nenhum GitHub CI, deploy, merge main, alteração Neon/migration, force push, secrets, tag/release, loja ou ação destrutiva.
+
 ## A56 — conflitos válidos para predecessor inválido e entidade ausente (2026-10-12)
 
 **ESTADO REAL:** base `dev/markmap-pwa-v2@336ee9c`; Checklist Mestre Notion, HEAD e PRs/issues conferidos (0 abertos). **FUNCIONA:** A55 protege baseVersion nula; predecessor correto e tombstone versionada; outbox IndexedDB e idempotência. **QUEBRADO REPRODUZIDO:** `packages/db/src/queries/sync.ts::conflictFor` emitia `VERSION_CONFLICT` com `serverVersion:0` ao receber predecessor ausente e entidade sem versão, ou baseVersion positiva sobre recurso inexistente. `syncConflictSchema` exige versão positiva em `VERSION_CONFLICT`, logo `pushSyncResponseSchema.parse` poderia rejeitar o lote e devolver HTTP 500.

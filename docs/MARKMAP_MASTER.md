@@ -1,5 +1,9 @@
 # MarkMap — Documento Mestre Único
 
+## A57 — versões monotônicas dos conflitos no pull (2026-10-13)
+
+A57 resolve downgrade de conflito de pull entre recriação remota e tombstone histórico. `writeConflict` em `apps/admin/src/lib/local-repositories/index.ts` compara `serverVersion` com conflito durável na mesma transação IndexedDB; nunca substitui versão maior/igual com evento antigo, preservando `use-server`, outbox e cursor. Baseline 3/7 falhas; após **10/10 regressões A57 e 45/45 testes Node A53–A57 PASS em três execuções**, TypeScript strict isolado com stubs PASS. Commit `df45018` [skip ci], arquivos SHA verificados; PRD `docs/MM-MAP-A57-monotonic-pull-conflicts.md`. Full monorepo, browser IndexedDB, Neon/PostGIS e Android/iOS ainda não testados, RC permanece não homologado sem bloquear desenvolvimento. A58: investigar tombstones próprios sem operationId wire antes de planejar alteração de contrato.
+
 ## A56 — conflitos válidos para predecessor inválido e entidade ausente (2026-10-12)
 
 A56 conserta envelopes de conflito inválidos: `conflictFor` produzia `VERSION_CONFLICT serverVersion=0` para entidade não existente/precedessor inválido, rejeitado pela validação do contrato e capaz de causar 500 no `/sync/push`. Sem versão remota usa `SCOPE_REJECTED:0` sem payload do servidor; com versão positiva mantém `VERSION_CONFLICT`, sem novo enum. Operações idempotentes, outbox e tombstones preservados. Baseline 3/8 FAIL; após patch **8/8 A56 PASS, 11/11 A55 PASS e 35/35 backend A53–A56 PASS três vezes**; TypeScript strict isolado com stubs PASS. SHA dos três arquivos verificados no GitHub `8435d0d` [skip ci]. PRD `docs/MM-MAP-A56-predecessor-conflicts.md`; testes 257/257 da A54 são históricos, não repetidos. Gate RC A38 (Postgres real, full monorepo, Android/iOS) continua não homologado sem bloquear próximas correções. Sem CI remoto nem mudanças de produção.
