@@ -87,7 +87,7 @@ test('A61 resolved keep-local conflict preserves replacement mutation after old 
   assert.ok(successor && successor.operationId !== h.initial.operationId);
   await h.repo.saveConflict(conflict(h.initial, 5, 'late v5'));
   assert.equal((await h.conflicts()).length, 0);
-  assert.deepEqual((await h.pending()).map(x => x.operationId), [successor.operationId]);
+  assert.equal((await h.pending()).map(x => x.operationId).join(','), successor.operationId);
   assert.equal((await h.entity()).payload.data.name, 'field edit');
 });
 
