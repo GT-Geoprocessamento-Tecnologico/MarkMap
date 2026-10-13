@@ -16,6 +16,7 @@ import { installCatalogRegion } from "../../lib/storage/catalog-region-install";
 
 type Props = {
   mapCenter?: readonly [number, number];
+  showInstalled?: boolean;
   disabled?: boolean;
   onBusyChange?: (busy: boolean) => void;
   onInstalled?: () => void;
@@ -24,7 +25,7 @@ type Props = {
 const sizeLabel = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 
 export function RegionDownloadCatalog({
-  mapCenter, disabled = false, onBusyChange, onInstalled, onSelected,
+  mapCenter, showInstalled = true, disabled = false, onBusyChange, onInstalled, onSelected,
 }: Props) {
   const [regions, setRegions] = useState<PublicRegion[]>([]);
   const [installed, setInstalled] = useState<OfflineMapPackageManifest[]>([]);
@@ -198,7 +199,7 @@ export function RegionDownloadCatalog({
       })}
     </ul>
     {notice && <p role="status" aria-live="polite" className="rounded-lg bg-primary/10 p-3 text-sm">{notice}</p>}
-    <div className="space-y-2 border-t border-outline-variant pt-3">
+    {showInstalled && <div className="space-y-2 border-t border-outline-variant pt-3">
       <h4 className="text-sm font-semibold">Mapas no aparelho</h4>
       {installed.length === 0
         ? <p className="text-sm text-on-surface-variant">Nenhum mapa baixado neste dispositivo.</p>
@@ -211,7 +212,7 @@ export function RegionDownloadCatalog({
               {selectedId === manifest.id ? "Em uso" : "Usar"}
             </button>
           </li>)}</ul>}
-    </div>
+    </div>}
     <p className="text-xs text-on-surface-variant">
       Use Wi-Fi para baixar regiões grandes. Os arquivos ficam neste dispositivo; não apague os dados do aplicativo.
     </p>
