@@ -2,15 +2,21 @@
   "redirects": [
     {
       "source": "/app",
-      "destination": "/app/",
+      "destination": "https://appmarkmap.mtsferreira.dev/",
+      "permanent": false
+    },
+    {
+      "source": "/app/",
+      "destination": "https://appmarkmap.mtsferreira.dev/",
+      "permanent": false
+    },
+    {
+      "source": "/app/:path*",
+      "destination": "https://appmarkmap.mtsferreira.dev/:path*",
       "permanent": false
     }
   ],
   "rewrites": [
-    {
-      "source": "/app/:path*",
-      "destination": "https://appmarkmap.mtsferreira.dev/:path*"
-    },
     {
       "source": "/assets/:path*",
       "destination": "https://appmarkmap.mtsferreira.dev/assets/:path*"

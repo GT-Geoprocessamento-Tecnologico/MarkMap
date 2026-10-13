@@ -14,6 +14,10 @@ export function PwaInstallPrompt() {
   const [dismissed, setDismissed] = useState(false);
   const [busy, setBusy] = useState(false);
 
+  const installationRequested =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("install") === "1";
+
   if (installState.installed || dismissed) return null;
 
   const install = async () => {
@@ -72,6 +76,29 @@ export function PwaInstallPrompt() {
         <div className="pwa-install-prompt__copy">
           <strong>Instalar MarkMap</strong>
           <span>No Safari, toque em Compartilhar e depois em “Adicionar à Tela de Início”.</span>
+        </div>
+        <button
+          type="button"
+          className="pwa-install-prompt__secondary"
+          onClick={() => setDismissed(true)}
+        >
+          Entendi
+        </button>
+      </aside>
+    );
+  }
+
+  if (installationRequested) {
+    return (
+      <aside
+        className="pwa-install-prompt"
+        role="status"
+        aria-live="polite"
+        aria-label="Como instalar o MarkMap no dispositivo"
+      >
+        <div className="pwa-install-prompt__copy">
+          <strong>Instale o aplicativo MarkMap</strong>
+          <span>Use “Instalar aplicativo” no menu do navegador ou na barra de endereço. Depois abra pelo ícone do MarkMap.</span>
         </div>
         <button
           type="button"

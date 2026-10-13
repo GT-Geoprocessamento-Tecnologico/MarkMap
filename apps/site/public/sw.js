@@ -1,114 +1,29 @@
-const CACHE_NAME = "markmap-site-app-v1";
-const APP_START = "/app/";
-const APP_SHELL_MANIFEST = "/shell-manifest.json";
+// Migration worker: prior marketing-site PWAs installed /app/ on the wrong origin.
+// No application shell is cached here. The real PWA is at appmarkmap.mtsferreira.dev.
+const APP_ORIGIN = 'https://appmarkmap.mtsferreira.dev';
+const LEGACY_CACHE_PREFIX = 'markmap-site-app-';
 
-function isAppNavigation(pathname) {
-  return pathname === "/app" || pathname.startsWith("/app/");
-}
-
-function isAppAsset(pathname) {
-  return (
-    pathname.startsWith("/assets/") ||
-    pathname.startsWith("/icons/") ||
-    pathname.startsWith("/fonts/")
-  );
-}
-
-async function cacheAppShell() {
-  const cache = await caches.open(CACHE_NAME);
-  const shellResponse = await fetch(APP_SHELL_MANIFEST, { cache: "no-store" });
-  if (!shellResponse.ok) throw new Error("App shell manifest unavailable");
-
-  const shell = await shellResponse.json();
-  const assets = Array.isArray(shell.assets) ? shell.assets : [];
-  const scopedAssets = assets
-    .filter((asset) => typeof asset === "string")
-    .map((asset) => {
-      if (asset === "/" || asset === "/index.html") return APP_START;
-      if (asset === "/manifest.json") return "/manifest.json";
-      return asset;
-    });
-
-  const targets = [...new Set([APP_START, "/manifest.json", ...scopedAssets])];
-  await cache.addAll(targets);
-}
-
-self.addEventListener("install", (event) => {
-  event.waitUntil(cacheAppShell());
+self.addEventListener('install', (event) => {
+  event.waitUntil(self.skipWaiting());
 });
 
-self.addEventListener("activate", (event) => {
-  event.waitUntil(
-    caches
-      .keys()
-      .then((keys) =>
-        Promise.all(
-          keys
-            .filter((key) => key.startsWith("markmap-site-app-") && key !== CACHE_NAME)
-            .map((key) => caches.delete(key)),
-        ),
-      )
-      .then(() => self.clients.claim()),
-  );
+self.addEventListener('activate', (event) => {
+  event.waitUntil(Promise.all([
+    caches.keys().then((names) => Promise.all(
+      names.filter((name) => name.startsWith(LEGACY_CACHE_PREFIX))
+        .map((name) => caches.delete(name)),
+    )),
+    self.clients.claim(),
+  ]));
 });
 
-self.addEventListener("fetch", (event) => {
+self.addEventListener('fetch', (event) => {
   const request = event.request;
-  if (request.method !== "GET") return;
-
+  if (request.method !== 'GET' || request.mode !== 'navigate') return;
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
-
-  if (request.mode === "navigate" && isAppNavigation(url.pathname)) {
-    event.respondWith(
-      fetch(request)
-        .then((response) => {
-          if (response.ok) {
-            const copy = response.clone();
-            event.waitUntil(
-              caches.open(CACHE_NAME).then((cache) => cache.put(request, copy)),
-            );
-          }
-          return response;
-        })
-        .catch(async () => {
-          const cache = await caches.open(CACHE_NAME);
-          return (
-            (await cache.match(request)) ||
-            (await cache.match(APP_START)) ||
-            Response.error()
-          );
-        }),
-    );
-    return;
-  }
-
-  if (isAppAsset(url.pathname)) {
-    event.respondWith(
-      caches.open(CACHE_NAME).then(async (cache) => {
-        const cached = await cache.match(request);
-        if (cached) {
-          event.waitUntil(
-            fetch(request)
-              .then((response) => {
-                if (response.ok) return cache.put(request, response.clone());
-                return undefined;
-              })
-              .catch(() => undefined),
-          );
-          return cached;
-        }
-
-        try {
-          const response = await fetch(request);
-          if (response.ok) {
-            event.waitUntil(cache.put(request, response.clone()));
-          }
-          return response;
-        } catch {
-          return Response.error();
-        }
-      }),
-    );
-  }
+  if (url.pathname !== '/app' && !url.pathname.startsWith('/app/')) return;
+  const relativePath = url.pathname.slice('/app'.length) || '/';
+  const destination = new URL(relativePath + url.search, APP_ORIGIN);
+  event.respondWith(Promise.resolve(Response.redirect(destination.href, 302)));
 });
