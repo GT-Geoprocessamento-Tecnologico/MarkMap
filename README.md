@@ -9,6 +9,8 @@ MarkMap é uma aplicação GIS **offline-first** para planejamento e trabalho de
 - `services/api`: API Hono;
 - `packages/*`: contratos, banco, GIS, mapas e UI compartilhada.
 
+**Contrato de separação:** site e app vivem em subdomínios distintos e mantêm deploy, PWA e armazenamento independentes. O site somente encaminha a instalação para o app; detalhes: [docs/site-app-boundaries.md](docs/site-app-boundaries.md).
+
 ## Estado atual
 
 - operação local: IndexedDB + outbox;

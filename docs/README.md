@@ -6,6 +6,7 @@ Esta pasta é a fonte documental do repositório e separa estado comprovado de p
 
 | Documento | Conteúdo |
 |---|---|
+| [site-app-boundaries.md](site-app-boundaries.md) | Contrato permanente: origens separadas, instalação PWA, autoria e versão |
 | [overview.md](overview.md) | Produto, capacidades e limites |
 | [architecture.md](architecture.md) | Arquitetura e fluxo de dados |
 | [repository-structure.md](repository-structure.md) | Organização do monorepo |

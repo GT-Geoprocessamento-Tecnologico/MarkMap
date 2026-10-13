@@ -7,7 +7,7 @@ interface InstallAppButtonProps {
   onRequest?: () => void;
 }
 
-/** Installation must start on the operational app origin, never the marketing site. */
+/** Desenvolvido por MtsFerreira. Site só encaminha; instalação acontece no app. */
 export function InstallAppButton({
   className = "",
   children,

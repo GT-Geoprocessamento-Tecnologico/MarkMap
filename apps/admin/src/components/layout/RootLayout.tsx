@@ -5,6 +5,7 @@ import { TopNavBar } from "../TopNavBar";
 import { MarkMapBrand } from "../MarkMapBrand";
 import { AppIcon, type AppIconName } from "../AppIcon";
 import { MobileTabBar } from "./MobileTabBar";
+import { appCredits } from "../../lib/app-credits";
 
 const baseLink = "group flex min-h-[44px] items-center gap-3 rounded-xl border px-3 py-2.5 text-xs font-semibold transition-all duration-200";
 const activeLink = "border-brand-cyan/25 bg-brand-cyan/10 text-brand-cyan shadow-[inset_3px_0_0_#00D6DB]";
@@ -77,10 +78,15 @@ export function RootLayout() {
         <div className="border-t border-outline-variant pt-3">
           {!collapsed ? (
             <div className="space-y-2 px-2">
-              <p className="text-[10px] leading-relaxed text-on-surface-variant">Desenvolvido por <a href="https://mtsferreira.dev" target="_blank" rel="noopener noreferrer" className="font-bold text-primary hover:underline">MtsFerreira</a></p>
+              {/* Crédito permanente com versão declarada no pacote do app. */}
+              <p className="text-[10px] leading-relaxed text-on-surface-variant">
+                Desenvolvido por{" "}
+                <a href={appCredits.website} target="_blank" rel="noopener noreferrer" className="font-bold text-primary hover:underline">{appCredits.author}</a>
+                {" · "}<span aria-label="Versão do aplicativo">{appCredits.version}</span>
+              </p>
             </div>
           ) : (
-            <a href="https://mtsferreira.dev" target="_blank" rel="noopener noreferrer" className="flex h-10 items-center justify-center text-xs font-black text-primary" aria-label="Desenvolvido por MtsFerreira">MF</a>
+            <a href={appCredits.website} target="_blank" rel="noopener noreferrer" className="flex h-10 items-center justify-center text-xs font-black text-primary" aria-label={`Desenvolvido por ${appCredits.author} · ${appCredits.version}`} title={appCredits.version}>MF</a>
           )}
         </div>
       </aside>
