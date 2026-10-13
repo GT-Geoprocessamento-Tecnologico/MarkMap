@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { MapOfflinePanel } from './MapOfflinePanel';
 import type { Route, RoutingProfile } from '@geonexo/contracts';
 import { generateTtsText, getDistanceText } from '@geonexo/maps/routing';
 import { ensureLocationPermission } from '../../lib/device-location-permission';
@@ -41,7 +42,9 @@ function speakLocally(text: string): boolean {
   } catch { return false; }
 }
 
-export function OfflineRouting({ packageId, pickedPoint, onRequestPick, onRoute, onPosition, onTrackingChange }: {
+export function OfflineRouting({ packageId, pickedPoint, onRequestPick, onRoute, onPosition, onTrackingChange, open, onClose }: {
+  open: boolean;
+  onClose: () => void;
   packageId: string | null;
   pickedPoint: RoutePointSelection | null;
   onRequestPick: (kind: RoutePointSelection['kind']) => void;
@@ -49,7 +52,6 @@ export function OfflineRouting({ packageId, pickedPoint, onRequestPick, onRoute,
   onPosition?: (position: NavigationMapPosition | null, follow: boolean) => void;
   onTrackingChange?: (tracking: boolean) => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
   const [profiles, setProfiles] = useState<RoutingProfile[]>([]);
   const [profile, setProfile] = useState<RoutingProfile>('walk');
   const [origin, setOrigin] = useState<Point | null>(null);
@@ -343,12 +345,8 @@ export function OfflineRouting({ packageId, pickedPoint, onRequestPick, onRoute,
   };
 
   return (
-    <section className="absolute bottom-32 right-3 z-20 w-[min(21rem,calc(100vw-1.5rem))] rounded-xl border border-outline-variant bg-surface-container/95 p-2 text-on-surface shadow-lg backdrop-blur" aria-label="Roteamento offline">
-      <button type="button" aria-expanded={expanded} onClick={() => setExpanded(v => !v)}
-        className="min-h-[44px] w-full rounded-lg px-3 text-left text-sm font-semibold hover:bg-primary/10">
-        Navegacao GPS offline {expanded ? '-' : '+'}
-      </button>
-      {expanded && <div className="max-h-[60vh] space-y-2 overflow-y-auto p-2 text-sm">
+    <MapOfflinePanel open={open} onClose={onClose} title="Navegação GPS offline" icon="coordinates">
+      <div className="space-y-2 text-sm">
         <p className="text-xs text-on-surface-variant" role="status" aria-live="polite">{message}</p>
         <label className="block text-xs font-semibold">Modo de viagem
           <select className="mt-1 min-h-[40px] w-full rounded-lg border bg-background px-2" value={profile}
@@ -386,7 +384,7 @@ export function OfflineRouting({ packageId, pickedPoint, onRequestPick, onRoute,
           setOrigin(null); setDestination(null); setRoute(null); setProgress(null);
           routeRef.current = null; routeId.current = 0; onRouteRef.current(null);
         }}>Limpar rota</button>
-      </div>}
-    </section>
+      </div>
+    </MapOfflinePanel>
   );
 }

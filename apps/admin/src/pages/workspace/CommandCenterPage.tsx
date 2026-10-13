@@ -99,7 +99,8 @@ function formatDistance(m: number) {
   return m >= 1000 ? `${(m / 1000).toFixed(2)} km` : `${m.toFixed(1)} m`;
 }
 
-type SidePanel = "none" | "ferramentas" | "filtros" | "camadas" | "telemetria";
+type SidePanel = "none" | "ferramentas" | "filtros" | "camadas" | "telemetria"
+  | "busca-offline" | "lugares-offline" | "altitude-offline" | "navegacao-offline";
 type MapControls = Awaited<ReturnType<typeof createMapLibreMap>>;
 
 function routeAsGeoJSON(route: Route | null): GeoJSON.FeatureCollection {
@@ -1293,19 +1294,20 @@ export default function CommandCenterPage() {
         data-testid="map-canvas"
       />
 
-      <OfflineSearch key={`${activeRegionPackageId ?? 'none'}:${regionalRenderRevision}`} records={combinedSearchRecords} regionalCount={regionalSearchRecords.length} warning={regionalSearchError} onChoose={(place) => {
+      <OfflineSearch key={`${activeRegionPackageId ?? 'none'}:${regionalRenderRevision}`} open={sidePanel === "busca-offline"} onClose={() => setSidePanel("none")} records={combinedSearchRecords} regionalCount={regionalSearchRecords.length} warning={regionalSearchError} onChoose={(place) => {
         const map = mapRef.current;
         if (map) map.flyTo({ center: [place.lon, place.lat], zoom: Math.max(15, map.getZoom()) });
       }} />
 
-      <OfflineKnowledge key={`${activeRegionPackageId ?? 'none'}:${regionalRenderRevision}`} packageId={activeRegionPackageId} onTransit={setTransitNetwork} onStation={(lon, lat) => {
+      <OfflineKnowledge key={`${activeRegionPackageId ?? 'none'}:${regionalRenderRevision}`} open={sidePanel === "lugares-offline"} onClose={() => setSidePanel("none")} packageId={activeRegionPackageId} onTransit={setTransitNetwork} onStation={(lon, lat) => {
         const map = mapRef.current;
         if (map) map.flyTo({ center: [lon, lat], zoom: Math.max(15, map.getZoom()) });
       }} />
 
-      <OfflineElevation key={`${activeRegionPackageId ?? 'none'}:${regionalRenderRevision}`} packageId={activeRegionPackageId} route={plannedRoute} />
+      <OfflineElevation key={`${activeRegionPackageId ?? 'none'}:${regionalRenderRevision}`} open={sidePanel === "altitude-offline"} onClose={() => setSidePanel("none")} packageId={activeRegionPackageId} route={plannedRoute} />
 
       <OfflineRouting key={`${activeRegionPackageId ?? 'none'}:${regionalRenderRevision}`} packageId={activeRegionPackageId}
+        open={sidePanel === "navegacao-offline"} onClose={() => setSidePanel("none")}
         pickedPoint={routingPoint}
         onRequestPick={(kind) => {
           if (drawingSessionRef.current) {
@@ -1325,7 +1327,7 @@ export default function CommandCenterPage() {
       </div>}
 
       {/* ── Barra de ferramentas flutuante ── */}
-      <div className="absolute bottom-[calc(4rem+env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 lg:bottom-auto lg:top-6 lg:left-4 lg:translate-x-0 markmap-map-tools bg-surface-container/90 backdrop-blur-xl border border-outline-variant rounded-2xl p-2 flex lg:flex-col gap-1.5 shadow-2xl z-10 w-max max-w-[92vw] overflow-x-auto">
+      <div role="toolbar" aria-label="Atalhos do mapa" className="absolute bottom-[calc(4rem+env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 lg:bottom-auto lg:top-6 lg:left-4 lg:translate-x-0 markmap-map-tools bg-surface-container/90 backdrop-blur-xl border border-outline-variant rounded-2xl p-2 flex lg:flex-col gap-1.5 shadow-2xl z-10 w-max max-w-[92vw] overflow-x-auto lg:max-h-[calc(100%-3rem)] lg:overflow-x-hidden lg:overflow-y-auto">
         {/* Telemetria */}
         <ToolBtn
           active={sidePanel === "telemetria"}
@@ -1358,6 +1360,15 @@ export default function CommandCenterPage() {
           label="Ferramentas"
           color="slate"
         />
+        {/* Atalhos offline no mesmo menu; os serviços seguem montados ao fechar. */}
+        <ToolBtn active={sidePanel === "busca-offline"}
+          onClick={() => togglePanel("busca-offline")} icon="search" label="Buscar locais neste mapa" color="cyan" />
+        <ToolBtn active={sidePanel === "lugares-offline"}
+          onClick={() => togglePanel("lugares-offline")} icon="map" label="Lugares e transporte offline" color="blue" />
+        <ToolBtn active={sidePanel === "altitude-offline"}
+          onClick={() => togglePanel("altitude-offline")} icon="analytics" label="Altitude offline" color="emerald" />
+        <ToolBtn active={sidePanel === "navegacao-offline"}
+          onClick={() => togglePanel("navegacao-offline")} icon="coordinates" label="Navegação GPS offline" color="amber" />
         {/* Separador */}
         <div className="w-full h-px md:block hidden bg-outline-variant my-0.5" />
         <div className="w-px h-8 md:hidden block bg-outline-variant mx-0.5" />
@@ -1453,7 +1464,7 @@ export default function CommandCenterPage() {
       )}
 
       {/* ── Painel lateral (branco, texto escuro) ── */}
-      {sidePanel !== "none" && (
+      {sidePanel !== "none" && !sidePanel.endsWith("-offline") && (
         <div
           className={`${panelBg} ${panelPos} ${panelRound} flex flex-col max-h-[70vh] md:max-h-full overflow-y-auto`}
         >
@@ -1894,7 +1905,7 @@ function ToolBtn({
       title={label}
       aria-label={label}
       aria-pressed={active}
-      className={`min-h-[44px] min-w-[44px] p-2.5 rounded-xl border flex items-center justify-center transition-all shadow-sm ${active ? (activeColors[color] ?? activeColors["slate"]) : idleClass}`}
+      className={`min-h-[44px] min-w-[44px] shrink-0 p-2.5 rounded-xl border flex items-center justify-center transition-all shadow-sm ${active ? (activeColors[color] ?? activeColors["slate"]) : idleClass}`}
     >
       <AppIcon name={icon} size="lg" />
     </button>

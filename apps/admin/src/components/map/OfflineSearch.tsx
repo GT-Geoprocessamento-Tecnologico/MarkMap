@@ -1,15 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import type { LocalSearchRecord } from '../../lib/search/local-map-search';
+import { MapOfflinePanel } from './MapOfflinePanel';
 
 interface SearchHit {id: string; name: string; lon: number; lat: number; category: string;}
 
-export function OfflineSearch({ records, regionalCount = 0, warning, onChoose }: {
+export function OfflineSearch({ open, onClose, records, regionalCount = 0, warning, onChoose }: {
+  open: boolean;
+  onClose: () => void;
   records: LocalSearchRecord[];
   regionalCount?: number;
   warning?: string | null;
   onChoose: (place: SearchHit) => void;
 }) {
-  const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchHit[]>([]);
   const [error, setError] = useState('');
@@ -40,12 +42,8 @@ export function OfflineSearch({ records, regionalCount = 0, warning, onChoose }:
   }, [open, query, records]);
 
   return (
-    <section className="absolute right-3 top-20 z-20 w-[min(22rem,calc(100vw-1.5rem))] rounded-xl border border-outline-variant bg-surface-container/95 p-2 text-on-surface shadow-lg backdrop-blur">
-      <button type="button" className="min-h-[44px] w-full rounded-lg px-3 text-left text-sm font-semibold hover:bg-primary/10"
-        onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-label="Buscar locais neste mapa">
-        Buscar locais neste mapa {open ? '−' : '+'}
-      </button>
-      {open && <div className="space-y-2 p-2">
+    <MapOfflinePanel open={open} onClose={onClose} title="Buscar locais neste mapa" icon="search">
+      <div className="space-y-2 text-sm">
         <input type="search" value={query} onChange={(e) => setQuery(e.target.value)}
           className="w-full rounded-lg border border-outline-variant bg-background px-3 py-2 text-sm"
           placeholder="Rua, lugar ou feição local" aria-label="Pesquisar feições offline" />
@@ -54,12 +52,12 @@ export function OfflineSearch({ records, regionalCount = 0, warning, onChoose }:
         <ul className="max-h-56 space-y-1 overflow-y-auto">
           {results.map((result) => <li key={result.id}>
             <button type="button" className="min-h-[44px] w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-primary/10"
-              onClick={() => {onChoose(result); setOpen(false);}}>
+              onClick={() => {onChoose(result); onClose();}}>
               {result.name}
             </button>
           </li>)}
         </ul>
-      </div>}
-    </section>
+      </div>
+    </MapOfflinePanel>
   );
 }

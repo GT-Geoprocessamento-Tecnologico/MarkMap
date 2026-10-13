@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { MapOfflinePanel } from './MapOfflinePanel';
 import type { Route } from '@geonexo/contracts';
 import { offlineMapStore } from '../../lib/storage/offline-map-store';
 import {
@@ -20,8 +21,7 @@ export function describeOfflineElevationError(cause: unknown): string {
 }
 
 /** Elevation is always derived from installed, checksum-verified height data. */
-export function OfflineElevation({ packageId, route }: { packageId: string | null; route: Route | null }) {
-  const [open, setOpen] = useState(false);
+export function OfflineElevation({ packageId, route, open, onClose }: { packageId: string | null; route: Route | null; open: boolean; onClose: () => void }) {
   const [grid, setGrid] = useState<RegionalDemGrid | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -80,12 +80,8 @@ export function OfflineElevation({ packageId, route }: { packageId: string | nul
     return series;
   }, [profile]);
 
-  return <section className="absolute left-3 top-24 z-20 w-[min(20rem,calc(100vw-1.5rem))] rounded-xl border border-outline-variant bg-surface-container/95 p-2 text-on-surface shadow-lg backdrop-blur" aria-label="Perfil de elevação offline">
-    <button type="button" aria-expanded={open} onClick={() => setOpen(v => !v)}
-      className="min-h-[44px] w-full rounded-lg px-3 text-left text-sm font-semibold hover:bg-primary/10">
-      Altitude offline {open ? '−' : '+'}
-    </button>
-    {open && <div className="max-h-[40vh] space-y-2 overflow-y-auto p-2 text-sm">
+  return <MapOfflinePanel open={open} onClose={onClose} title="Altitude offline" icon="analytics">
+    <div className="space-y-2 text-sm">
       {message && <p role="status" className="text-xs">{message}</p>}
       {grid && !route && <p>Trace uma rota no mapa para consultar o perfil altimétrico.</p>}
       {grid && profile && <>
@@ -98,6 +94,6 @@ export function OfflineElevation({ packageId, route }: { packageId: string | nul
         {profile.missingCount > 0 && <p role="status" className="text-xs text-amber-600">Trechos sem dados foram omitidos; subida e descida são parciais.</p>}
       </>}
       {grid && <p className="break-words text-xs text-on-surface-variant">Fonte: {grid.metadata.attribution} · licença: {grid.metadata.license} · datum: {grid.metadata.verticalDatum}. Altitude do terreno, não a altura do GPS. <a className="underline" href={grid.metadata.sourceUrl} target="_blank" rel="noopener noreferrer">Origem (requer internet)</a></p>}
-    </div>}
-  </section>;
+    </div>
+  </MapOfflinePanel>;
 }

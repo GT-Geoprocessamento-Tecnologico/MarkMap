@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { MapOfflinePanel } from './MapOfflinePanel';
 import type { WikipediaArticle, TransitNetwork } from '@geonexo/contracts';
 import { offlineMapStore } from '../../lib/storage/offline-map-store';
 import { validateRegionalWikipedia, validateRegionalTransit, MAX_TRANSIT_BYTES, MAX_WIKIPEDIA_BYTES } from '@geonexo/maps/content/region-content.mjs';
@@ -32,12 +33,13 @@ async function readVerified(packageId: string, generation: string, ref: { path: 
 }
 
 /** Licensed, text-only regional knowledge. No network requests are performed. */
-export function OfflineKnowledge({ packageId, onStation, onTransit }: {
+export function OfflineKnowledge({ packageId, open, onClose, onStation, onTransit }: {
+  open: boolean;
+  onClose: () => void;
   packageId: string | null;
   onStation: (lon: number, lat: number) => void;
   onTransit: (network: TransitNetwork | null) => void;
 }) {
-  const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [data, setData] = useState<ContentState>(empty);
   const [error, setError] = useState('');
@@ -84,11 +86,8 @@ export function OfflineKnowledge({ packageId, onStation, onTransit }: {
     articles: term.length < 2 ? [] : data.articles.filter(a => a.title.toLocaleLowerCase('pt-BR').includes(term)).slice(0, 10),
     stations: term.length < 2 ? [] : data.stations.filter(a => a.name.toLocaleLowerCase('pt-BR').includes(term)).slice(0, 10),
   }), [term, data]);
-  return <section className="absolute right-3 top-36 z-20 w-[min(22rem,calc(100vw-1.5rem))] rounded-xl border border-outline-variant bg-surface-container/95 p-2 text-on-surface shadow-lg backdrop-blur" aria-label="Conhecimento regional offline">
-    <button type="button" className="min-h-[44px] w-full rounded-lg px-3 text-left text-sm font-semibold hover:bg-primary/10" onClick={() => setOpen(v => !v)} aria-expanded={open}>
-      Lugares e transporte offline {open ? '−' : '+'}
-    </button>
-    {open && <div className="max-h-[55vh] space-y-2 overflow-y-auto px-2 pb-2 text-sm">
+  return <MapOfflinePanel open={open} onClose={onClose} title="Lugares e transporte offline" icon="map">
+    <div className="space-y-2 text-sm">
       <p className="text-xs text-on-surface-variant">{data.articles.length} artigos · {data.stations.length} estações instaladas neste mapa.</p>
       {error && <p role="alert" className="text-xs text-red-500">{error}</p>}
       <input type="search" value={query} onChange={e => { setQuery(e.target.value); setSelectedArticle(null); }} placeholder="Buscar artigo ou estação" aria-label="Buscar conteúdo regional offline" className="w-full rounded-lg border bg-background px-3 py-2" />
@@ -102,6 +101,6 @@ export function OfflineKnowledge({ packageId, onStation, onTransit }: {
       </article>}
       {data.attribution.map(t => <p key={t} className="text-xs text-on-surface-variant">Fonte: {t}</p>)}
       {data.articles.length === 0 && data.stations.length === 0 && !error && <p className="text-xs text-on-surface-variant">Este mapa ainda não inclui artigos ou transporte local.</p>}
-    </div>}
-  </section>;
+    </div>
+  </MapOfflinePanel>;
 }
