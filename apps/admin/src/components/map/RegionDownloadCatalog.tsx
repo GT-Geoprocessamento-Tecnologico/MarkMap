@@ -10,7 +10,7 @@ import { ResumableInstaller, type InstallerStatus } from "../../lib/storage/resu
 import { rememberRegionSource } from "../../lib/storage/region-source-registry";
 import { describeRegionInstallError } from "../../lib/storage/region-install-feedback.mjs";
 import {
-  fetchPublicRegionCatalog, regionCoversPoint, type PublicRegion,
+  fetchPublicRegionCatalog, regionCoversPoint, normalizeRegionSearch, type PublicRegion,
 } from "../../lib/storage/public-region-catalog";
 import { installCatalogRegion } from "../../lib/storage/catalog-region-install";
 
@@ -130,9 +130,9 @@ export function RegionDownloadCatalog({
   };
 
   const matches = useMemo(() => {
-    const term = search.trim().toLocaleLowerCase("pt-BR");
+    const term = normalizeRegionSearch(search.trim());
     return regions.filter((region) =>
-      `${region.label} ${region.area}`.toLocaleLowerCase("pt-BR").includes(term),
+      normalizeRegionSearch(`${region.label} ${region.area}`).includes(term),
     ).sort((a, b) =>
       Number(regionCoversPoint(b, mapCenter)) - Number(regionCoversPoint(a, mapCenter)) ||
       a.label.localeCompare(b.label, "pt-BR"),

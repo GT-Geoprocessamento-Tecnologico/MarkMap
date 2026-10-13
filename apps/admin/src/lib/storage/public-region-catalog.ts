@@ -35,6 +35,10 @@ export function parsePublicRegionCatalog(data: unknown): PublicRegion[] {
   return catalogSchema.parse(data).regions;
 }
 
+// Search must work even when people omit accents in Portuguese place names.
+export const normalizeRegionSearch = (value: string) =>
+  value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR");
+
 export function regionCoversPoint(region: PublicRegion, center?: readonly [number, number]): boolean {
   if (!center) return false;
   const [west, south, east, north] = region.bounds;

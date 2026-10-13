@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { fetchPublicRegionCatalog, parsePublicRegionCatalog, regionCoversPoint } from "./public-region-catalog";
+import { fetchPublicRegionCatalog, parsePublicRegionCatalog, regionCoversPoint, normalizeRegionSearch } from "./public-region-catalog";
 
 const entry = {
   id: "br-teste", label: "Região de teste", area: "Brasil",
@@ -8,6 +8,9 @@ const entry = {
 } as const;
 
 describe("public offline region catalog", () => {
+  it("finds a city even if the user types without accents", () => {
+    expect(normalizeRegionSearch("Araguaína")).toBe(normalizeRegionSearch("araguaina"));
+  });
   it("accepts published region metadata and matches visible map coordinates", () => {
     const [region] = parsePublicRegionCatalog({ version: 1, regions: [entry] });
     expect(regionCoversPoint(region!, [-48, -7])).toBe(true);
