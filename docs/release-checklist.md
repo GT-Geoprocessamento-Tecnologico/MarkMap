@@ -1,25 +1,25 @@
 # Checklist de release
 
-> **Gate de release atual: BLOQUEADO (A60 em `dev/markmap-pwa-v2@3deef67`).** Testes Node locais no recorte A53–A60 **75/75 PASS, 3 rodadas**, TypeScript strict isolado com stubs e `node --check` PASS. Não equivalem a full monorepo; resultados históricos não homologam HEAD inteiro. Pendentes: lint/typecheck/build/Vitest/Playwright do monorepo, browser IndexedDB/PWA real, Hono/PostgreSQL/Neon/PostGIS integrado, Android/iOS físicos, 2 instalações, privacidade e signing. Nenhum GitHub Actions/CI remoto utilizado. **Release bloqueado; código não bloqueado.**
+ Testes Node locais no recorte A53–A60 **75/75 PASS, 3 rodadas**, TypeScript strict isolado com stubs e `node --check` PASS. Não equivalem a full monorepo; resultados históricos não homologam HEAD inteiro. Pendentes: lint/typecheck/build/Vitest/Playwright do monorepo, browser IndexedDB/PWA real, Hono/PostgreSQL/Neon/PostGIS integrado, Android/iOS físicos, 2 instalações, privacidade e signing. Nenhum GitHub Actions/CI remoto utilizado. **Release bloqueado; código não bloqueado.**
 
 
 Este checklist complementa o Checklist Mestre operacional no Notion.
 
-## Código e qualidade
+## Código e qualidade — validação do HEAD atual
 
-- [x] Lint verde.
-- [x] Typecheck verde.
-- [x] Unit tests verdes.
-- [x] Build verde.
-- [x] E2E desktop/Android.
-- [x] E2E iOS/WebKit.
-- [x] E2E duas instalações.
-- [x] PostGIS Integration.
-- [x] Dependency audit (high).
-- [x] Secret scan.
-- [x] Lighthouse/acessibilidade/best-practices.
-- [x] Android APK debug.
-- [x] iOS debug build.
+> **Não homologado:** os workflows da PR #5 em 2026-10-13 não iniciaram jobs por bloqueio de cobrança/limite de gastos informado pelo GitHub Actions. Nenhum lint, typecheck, build, Vitest, Playwright, PostGIS ou teste de segurança passou nesta rodada. Marcas antigas não validam o HEAD atual.
+
+- [ ] Lint do monorepo no HEAD atual.
+- [ ] Typecheck do monorepo no HEAD atual.
+- [ ] Testes Vitest e regressões Node no HEAD atual.
+- [ ] Build do monorepo no HEAD atual.
+- [ ] E2E Chromium + Android emulado.
+- [ ] E2E WebKit/iOS emulado.
+- [ ] E2E sincronização de duas instalações.
+- [ ] Integração PostGIS.
+- [ ] Auditoria de dependências, secrets e Lighthouse.
+- [ ] Android APK debug no HEAD atual.
+- [ ] iOS debug build no HEAD atual.
 
 ## Offline-first / PWA
 
