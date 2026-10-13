@@ -1212,8 +1212,8 @@ export default function CommandCenterPage() {
   const panelBg =
     "absolute z-20 bg-surface-container border border-outline-variant shadow-2xl";
   const panelPos =
-    "bottom-0 left-0 right-0 md:bottom-auto md:top-0 md:left-auto md:right-0 md:h-full md:w-80";
-  const panelRound = "rounded-t-2xl md:rounded-none md:rounded-l-2xl";
+    "bottom-[calc(8rem+env(safe-area-inset-bottom))] left-3 right-3 lg:bottom-auto lg:top-0 lg:left-auto lg:right-0 lg:h-full lg:w-80";
+  const panelRound = "rounded-2xl lg:rounded-none lg:rounded-l-2xl";
   const labelClass = "text-on-surface font-semibold text-sm";
   const subtitleClass = "text-on-surface-variant text-xs";
   const valueClass = "text-on-surface font-mono font-bold text-sm";
@@ -1466,7 +1466,7 @@ export default function CommandCenterPage() {
       {/* ── Painel lateral (branco, texto escuro) ── */}
       {sidePanel !== "none" && !sidePanel.endsWith("-offline") && (
         <div
-          className={`${panelBg} ${panelPos} ${panelRound} flex flex-col max-h-[70vh] md:max-h-full overflow-y-auto`}
+          className={`${panelBg} ${panelPos} ${panelRound} flex flex-col max-h-[55vh] lg:max-h-full overflow-y-auto`}
         >
           {/* Header do painel */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-outline-variant flex-shrink-0">
