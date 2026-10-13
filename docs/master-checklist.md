@@ -1,5 +1,12 @@
 # MarkMap — Checklist Mestre de Execução
 
+## A61 — impedir conflitos ressuscitados por push atrasado (2026-10-13)
+
+**Estado final validado:** `main@96f753e78833aa836f24a983a4210a6dc9d79af2`; PRD `docs/MM-MAP-A61-late-push-conflict-after-resolution.md`. **QUEBRADO→CORRIGIDO:** `saveConflict` podia persistir respostas tardias para `operationId` excluído após ACK ou `resolveConflict`, reabrindo decisões antigas e podendo afetar operações sucessoras. Agora outbox/ACK/conflito são verificados na mesma transação, e entity/base precisam coincidir. **FUNCIONA:** conflitos atuais, versionamento monotônico, preservação de sucessores, operações offline e cursor sem alteração de contrato. **QA REAL:** 12/12 testes Node no sandbox isolado Vercel PASS após corrigir apenas uma comparação de arrays de realms distintos; 0 skips/falhas. Build automatizado `markmap-app` para o commit exato `96f753e`: **READY** (`dpl_7QetUTVfGmJw27KNaWcFtwdEBPWS`). Não representa suíte integral do monorepo nem teste de IndexedDB browser.
+
+**Branches:** seis referências além de main ainda existem, todas com `ahead_by=0` contra main e totalmente ancestrais. Exclusão por conector ainda não disponível, não declarar limpeza concluída. **Gates release:** GitHub Actions bloqueado por cobrança/limite; navegador offline instalado/duas instalações/Neon integrado/Android-iOS físicos, signing e privacidade pública ainda pendentes. Nenhum deploy manual, release, migration ou force push.
+
+
 ## Consolidação de código para main — QA limitado (2026-10-13)
 
 **Base:** `dev/markmap-pwa-v2` sobre `main@156d4e8`, cinco branches históricas comprovadamente ancestrais, PR #5 integrado em `main@224a2bfd1f06062e0a040585df434929ee7d2054` (2026-10-13). O frontend escolhido foi mantido; React/Vite, MapLibre/Terra Draw, IndexedDB/outbox, Hono/Neon/PostGIS e Capacitor não foram substituídos.
