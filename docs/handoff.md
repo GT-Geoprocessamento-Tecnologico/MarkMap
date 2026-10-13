@@ -1,5 +1,18 @@
 # Handoff de continuidade
 
+## A64 — fronteira permanente site/app, autoria e versão (2026-10-13)
+
+**Decisão vigente:** `apps/site` (vitrine) e `apps/admin` (PWA operacional) ficam no mesmo monorepo, porém em **origens/subdomínios e deployments separados**. Endereços concretos pertencem às configurações, não à regra documental. Contrato obrigatório em `docs/site-app-boundaries.md` e `AGENTS.md`; referência adicionada ao `README.md` e índice `docs/README.md`. O botão do site segue para `?install=1` da origem do app; a autorização do navegador/standalone e IndexedDB permanecem exclusivos do app.
+
+**Auditoria e correções:** a vitrine ainda trazia manifest instalável antigo, código de instalação morto, estilos sem uso e rewrites que serviam assets do app no endereço do site. Foram removidos o manifest e módulos obsoletos, os rewrites de assets/fonte/shell; substituído ícone dependente do app por SVG próprio do site. Redirecionamentos históricos `/app*` e SW de migração foram mantidos para evitar regressão em instalações antigas. Frontend operacional, contratos de sync, cache offline do app e estilo escolhido preservados.
+
+**Assinatura/versão:** `apps/admin/src/lib/app-credits.ts` centraliza **Desenvolvido por MtsFerreira** e a versão real de `apps/admin/package.json` (atualmente `v0.2.0-dev.0`). O rodapé lateral `RootLayout` e o componente `AppFooter` mostram **Desenvolvido por MtsFerreira · v0.2.0-dev.0**; Settings já exibia versão. A interface publicada confirmou o texto no menu lateral em navegação real. A regra de comentários passa a documentar decisões/contratos; não se inseriram comentários artificiais em centenas de arquivos, e módulos legados grandes permanecem dívida técnica de refatoração incremental.
+
+**Gates:** novo teste Node `scripts/pwa-product-boundaries.test.mjs`, teste JSX `apps/admin/src/test/app-credits.test.tsx` e etapa de verificação no CI. Execução desses testes **NÃO OCORREU** no GitHub Actions: job abortado antes de etapas por cobrança/limite da conta, confirmado na anotação do CI atual. Compilação+build automatizados Vercel: site código `1d83f7a` **READY**; app código/teste `c4b24b9` **READY**. Navegação publicada: site com CTA para origem dedicada, `/app/` antigo redirecionando corretamente, manifest antigo da vitrine HTTP 404, app mostrando versão ao lado da assinatura. Testes físicos/instalação real não executados.
+
+**Próximo:** regularizar GitHub Actions para rodar as novas regressões, testar instalação standalone no dispositivo e refatorar módulos legados grandes sem tocar em design/funcionalidade comprovada. Não houve deploy manual, migration, release/tag ou force push.
+
+
 ## A63 — autorização nativa para instalar MarkMap (2026-10-13)
 
 **Origem operacional:** `https://appmarkmap.mtsferreira.dev/`; o site permanece apenas vitrine em `https://markmap.mtsferreira.dev/`. **Fluxo implantado:** `?install=1` mostra tela dedicada de instalação, não monta workspace nem sincronizador; ao clicar em **Instalar aplicativo**, usa `BeforeInstallPromptEvent.prompt()` na mesma interação (navegadores que suportam). Aceite/cancelamento/erro tratados; `appinstalled` não é desfeito por `userChoice` tardio. Após autorização, página confirma o pedido e orienta abrir pelo ícone; PWA instalada mantém manifest `start_url=/`, `display=standalone`. Não existe API web confiável para forçar launch automático da janela instalada ou para apresentar prompt nativo em Safari/iOS; fallback oferece orientação manual. Visual do workspace, IndexedDB, SW offline, Neon e backend preservados.
