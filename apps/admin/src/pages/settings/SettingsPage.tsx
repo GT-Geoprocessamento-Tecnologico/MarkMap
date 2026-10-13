@@ -1,4 +1,4 @@
-import { useEffect, useState, useSyncExternalStore, type InputHTMLAttributes } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type InputHTMLAttributes } from "react";
 import { useToast, Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger, Button, Checkbox } from "@geonexo/ui";
 import {
   offlineMapPackageManifestSchema,
@@ -8,11 +8,21 @@ import { offlineMapStore } from "../../lib/storage/offline-map-store";
 import {
   getSelectedOfflineMapId,
   setSelectedOfflineMapId,
+  subscribeSelectedOfflineMapId,
 } from "../../lib/storage/offline-map-selection";
 import { offlineDB } from "../../lib/storage/offline-db";
 import { ensureLocationPermission } from "../../lib/device-location-permission";
-import { getStorageBreakdown, cleanStorageCategories, type StorageBreakdownItem, type StorageCategory } from "../../lib/storage/storage-management";
+import { getStorageBreakdown, cleanStorageCategories, type CategoryBreakdown, type StorageCategory } from "../../lib/storage/storage-management";
 import { getPwaInstallSnapshot, requestPwaInstall, subscribePwaInstall } from "../../lib/pwa-install";
+import { ResumableInstaller, type InstallerStatus } from "../../lib/storage/resumable-installer";
+import { describeRegionInstallError } from "../../lib/storage/region-install-feedback.mjs";
+import { fetchRemoteRegionManifest } from "../../lib/storage/remote-region-manifest.mjs";
+import { RegionManager, type RegionUpdatePreview } from '../../lib/storage/region-manager';
+import { subscribeRegionCatalogChanges } from '../../lib/storage/region-catalog-events.mjs';
+import { subscribeRegionForeground } from '../../lib/storage/region-foreground-reconcile.mjs';
+import { getRegionInstallDraftUrl, rememberRegionInstallDraftUrl, clearRegionInstallDraftUrl } from '../../lib/storage/region-install-draft.mjs';
+import { rememberRegionSource, forgetRegionSource, getRegionSourceUrl } from '../../lib/storage/region-source-registry';
+import { version as appVersion } from '../../../package.json';
 
 type GpsState = "prompt" | "granted" | "denied";
 const directoryPickerAttributes = {
@@ -51,11 +61,34 @@ export default function SettingsPage() {
   }>({});
   const [error, setError] = useState<string | null>(null);
   const [offlinePackages, setOfflinePackages] = useState<OfflineMapPackageManifest[]>([]);
-  const [selectedOfflineMapId, setSelectedOfflineMapIdState] = useState<string | null>(getSelectedOfflineMapId);
+  const selectedOfflineMapId = useSyncExternalStore(
+    subscribeSelectedOfflineMapId, getSelectedOfflineMapId, () => null,
+  );
   const [packageBusy, setPackageBusy] = useState(false);
-  const [storageBreakdown, setStorageBreakdown] = useState<StorageBreakdownItem[]>([]);
+  const [regionalManifestUrl, setRegionalManifestUrl] = useState(() =>
+    getRegionInstallDraftUrl() ?? getRegionSourceUrl(getSelectedOfflineMapId() ?? '') ?? '');
+  const [regionalPercent, setRegionalPercent] = useState<number | null>(null);
+  const [regionalStage, setRegionalStage] = useState<InstallerStatus | 'checking' | 'canceling'>('idle');
+  const [regionalResume, setRegionalResume] = useState<{
+    regionId: string; label: string; downloadedBytes: number; totalBytes: number;
+  } | null>(null);
+  const [regionalPreview, setRegionalPreview] = useState<{ label: string; totalBytes: number } | null>(null);
+  const [regionalNotice, setRegionalNotice] = useState<string | null>(() =>
+    getRegionInstallDraftUrl() ? 'URL pública recuperada desta aba. Consulte o progresso salvo antes de retomar.' : null);
+  const [regionalNewVersion, setRegionalNewVersion] = useState(false);
+  const regionalController = useRef<AbortController | null>(null);
+  const activeRegionalInstaller = useRef<ResumableInstaller | null>(null);
+  const regionManager = useRef(new RegionManager());
+  // Leaving Settings cancels an unobserved download, never its stored checkpoints.
+  useEffect(() => () => {
+    regionalController.current?.abort();
+    activeRegionalInstaller.current?.abortInstall();
+  }, []);
+  const [checkingRegion, setCheckingRegion] = useState<string | null>(null);
+  const [regionUpdates, setRegionUpdates] = useState<Record<string, { available: boolean; message: string; preview?: RegionUpdatePreview }>>({});
+  const [storageBreakdown, setStorageBreakdown] = useState<CategoryBreakdown[]>([]);
   const [cleanupDialogOpen, setCleanupDialogOpen] = useState(false);
-  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
+  const [selectedCategories, setSelectedCategories] = useState<Set<StorageCategory>>(new Set());
   const [cleanupBusy, setCleanupBusy] = useState(false);
   const refreshStorage = async () => {
     try {
@@ -98,21 +131,36 @@ export default function SettingsPage() {
     else next.add(category);
     setSelectedCategories(next);
   };
-  const refreshOfflinePackages = async () => {
+  const refreshOfflinePackages = useCallback(async () => {
     const installed = await offlineMapStore.list();
     const manifests = installed.map((value) => value.manifest);
     setOfflinePackages(manifests);
+    // Installed versions can change in another tab: old update consents are no longer valid.
+    setRegionUpdates({});
     const selected = getSelectedOfflineMapId();
     if (selected && manifests.some((manifest) => manifest.id === selected)) {
-      setSelectedOfflineMapIdState(selected);
       return;
     }
     if (selected) setSelectedOfflineMapId(null);
     const latest = [...installed].sort((a, b) => b.installedAt.localeCompare(a.installedAt))[0];
     const next = latest?.manifest.id ?? null;
     if (next) setSelectedOfflineMapId(next);
-    setSelectedOfflineMapIdState(next);
-  };
+  }, []);
+  useEffect(() => {
+    let checking = false;
+    let disposed = false;
+    const refresh = () => {
+      if (checking || disposed) return;
+      checking = true;
+      // The list and selected region are re-read from IndexedDB, never from network.
+      void refreshOfflinePackages().catch(() => {
+        if (!disposed) setError('Não foi possível reconciliar a lista local de mapas.');
+      }).finally(() => { checking = false; });
+    };
+    const stopCatalog = subscribeRegionCatalogChanges(refresh);
+    const stopForeground = subscribeRegionForeground(refresh);
+    return () => { disposed = true; stopCatalog(); stopForeground(); };
+  }, [refreshOfflinePackages]);
   useEffect(() => {
     let disposed = false;
     let permission: PermissionStatus | undefined;
@@ -271,17 +319,23 @@ export default function SettingsPage() {
       const archives = [...filesByPath.entries()].filter(([path]) => /\.pmtiles$/i.test(path));
       if (archives.length !== 1) throw new Error("A pasta precisa conter exatamente um arquivo PMTiles.");
       const assets = new Map<string, Blob>([["package.pmtiles", archives[0]![1]]]);
-      for (const ref of [manifest.style, ...manifest.glyphs, ...manifest.sprites]) {
+      for (const ref of [manifest.style, ...manifest.glyphs, ...manifest.sprites,
+        ...(manifest.searchShards ?? []),
+        ...(manifest.routingGraph ? [manifest.routingGraph] : []),
+        ...(manifest.contourLines ? [manifest.contourLines] : []),
+        ...(manifest.wikipediaPack ? [manifest.wikipediaPack] : []),
+        ...(manifest.transitPack ? [manifest.transitPack] : []),
+        ...(manifest.demGrid ? [manifest.demGrid] : [])]) {
         const file = filesByPath.get(ref.path);
         if (!file) throw new Error(`O pacote não contém o arquivo ${ref.path}.`);
         assets.set(ref.path, file);
       }
       await offlineMapStore.install(manifest, assets);
+      // A folder import has no trusted remote source; discard any old URL for this region ID.
+      forgetRegionSource(manifest.id);
       setSelectedOfflineMapId(manifest.id);
-      setSelectedOfflineMapIdState(manifest.id);
       await refreshOfflinePackages();
       setSelectedOfflineMapId(manifest.id);
-      setSelectedOfflineMapIdState(manifest.id);
       toast({
         title: "Mapa offline instalado",
         description: `${manifest.label} ficará disponível neste dispositivo sem conexão.`,
@@ -295,11 +349,125 @@ export default function SettingsPage() {
       setPackageBusy(false);
     }
   };
+  /** Read-only inspection: never discards existing chunks or replaces the active map. */
+  const resolveRegionalManifest = async (signal: AbortSignal) => {
+    const remote = await fetchRemoteRegionManifest(regionalManifestUrl.trim(), fetch, signal);
+    const manifest = offlineMapPackageManifestSchema.parse(remote.manifest);
+    const installer = new ResumableInstaller();
+    const resume = await installer.checkResume(manifest.id, manifest);
+    if (signal.aborted) throw new DOMException('Consulta cancelada', 'AbortError');
+    setRegionalPreview({ label: manifest.label, totalBytes: manifest.totalBytes });
+    setRegionalResume(resume.canResume && resume.checkpoint ? {
+      regionId: manifest.id, label: manifest.label,
+      downloadedBytes: resume.checkpoint.downloadedBytes,
+      totalBytes: resume.checkpoint.totalBytes ?? manifest.totalBytes,
+    } : null);
+    setRegionalNewVersion(Boolean(resume.needsConfirmation));
+    setRegionalNotice(resume.canResume ? 'Blocos completos identificados. É possível retomar o download.' :
+      resume.reason ?? 'Nenhum download anterior para esta região.');
+    return { remote, manifest, installer };
+  };
+
+  const inspectRegionResume = async () => {
+    if (packageBusy || regionalController.current || !regionalManifestUrl.trim()) return;
+    const controller = new AbortController();
+    regionalController.current = controller;
+    setPackageBusy(true);
+    setRegionalStage('checking');
+    setRegionalNotice(null);
+    setError(null);
+    try {
+      await resolveRegionalManifest(controller.signal);
+    } catch (cause) {
+      if (controller.signal.aborted) {
+        setRegionalNotice('Consulta cancelada. Nenhum arquivo salvo foi removido.');
+      } else {
+        const message = cause instanceof Error ? cause.message : 'Não foi possível consultar a região.';
+        setRegionalNotice(message);
+        setError(message);
+      }
+    } finally {
+      if (regionalController.current === controller) regionalController.current = null;
+      setRegionalStage('idle');
+      setPackageBusy(false);
+    }
+  };
+
+  const cancelRegionalDownload = () => {
+    if (regionalStage === 'activating' || regionalStage === 'idle' || regionalStage === 'canceling') return;
+    setRegionalStage('canceling');
+    regionalController.current?.abort();
+    activeRegionalInstaller.current?.abortInstall();
+  };
+
+  const installRegionFromUrl = async (forceValidate = false) => {
+    if (packageBusy || regionalController.current || !regionalManifestUrl.trim()) return;
+    const controller = new AbortController();
+    regionalController.current = controller;
+    setPackageBusy(true);
+    setRegionalStage('checking');
+    setRegionalPercent(null);
+    setRegionalNotice(null);
+    setError(null);
+    try {
+      const { remote, manifest, installer } = await resolveRegionalManifest(controller.signal);
+      if (controller.signal.aborted) return;
+      activeRegionalInstaller.current = installer;
+      setRegionalStage('downloading');
+      setRegionalPercent(0);
+      const result = await installer.startInstall({
+        packageId: manifest.id,
+        manifest: { ...manifest, archivePath: 'package.pmtiles' },
+        baseUrl: remote.baseUrl,
+        forceValidate,
+        signal: controller.signal,
+        onProgress: (progress) => {
+          if (controller.signal.aborted) return;
+          setRegionalStage(progress.status);
+          setRegionalPercent(progress.percent);
+        },
+      });
+      if (!result.success) {
+        const advice = describeRegionInstallError(result.error.code);
+        setRegionalNotice(advice.message);
+        if (result.error.code === 'outdated-checkpoint') setRegionalNewVersion(true);
+        if (advice.kind === 'quota') void refreshStorage();
+        if (advice.kind !== 'cancel') {
+          setError(advice.message);
+          toast({ title: advice.title, description: advice.message, variant: 'error' });
+        }
+        return;
+      }
+      setRegionalResume(null);
+      setRegionalNewVersion(false);
+      setRegionalNotice('Mapa regional instalado e verificado. Pronto para uso sem conexão.');
+      setSelectedOfflineMapId(manifest.id);
+      await refreshOfflinePackages();
+      await refreshStorage();
+      rememberRegionSource(manifest.id, regionalManifestUrl.trim());
+      clearRegionInstallDraftUrl();
+      toast({ title: 'Mapa offline instalado', description: `${manifest.label} está pronto para uso local.`, variant: 'success' });
+    } catch (cause) {
+      if (controller.signal.aborted) {
+        setRegionalNotice('Download interrompido. Blocos completos já salvos não foram apagados; use a mesma URL para retomar.');
+      } else {
+        const message = cause instanceof Error ? cause.message : 'Não foi possível instalar a região.';
+        setRegionalNotice(message);
+        setError(message);
+        toast({ title: 'Instalação não concluída', description: message, variant: 'error' });
+      }
+    } finally {
+      if (regionalController.current === controller) regionalController.current = null;
+      activeRegionalInstaller.current = null;
+      setRegionalStage('idle');
+      setRegionalPercent(null);
+      setPackageBusy(false);
+    }
+  };
   const selectOfflinePackage = (manifest: OfflineMapPackageManifest) => {
     try {
       setSelectedOfflineMapId(manifest.id);
-      setSelectedOfflineMapIdState(manifest.id);
-      toast({ title: "Mapa selecionado", description: `${manifest.label} será usado na próxima abertura do mapa.` });
+      toast({ title: "Mapa selecionado", description: `${manifest.label} será carregado no mapa aberto e nas demais abas.` });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Não foi possível salvar a seleção.");
     }
@@ -309,6 +477,7 @@ export default function SettingsPage() {
     setError(null);
     try {
       await offlineMapStore.remove(manifest.id);
+      forgetRegionSource(manifest.id);
       if (selectedOfflineMapId === manifest.id) setSelectedOfflineMapId(null);
       await refreshOfflinePackages();
     } catch (cause) {
@@ -316,6 +485,60 @@ export default function SettingsPage() {
     } finally {
       setPackageBusy(false);
     }
+  };
+  const checkRegionUpdates = async (regionId: string) => {
+    if (packageBusy || checkingRegion) return;
+    setCheckingRegion(regionId);
+    // A previous approval must not survive a fresh or failed lookup.
+    setRegionUpdates(previous => ({ ...previous, [regionId]: {
+      available: false, message: 'Consultando versão remota…',
+    } }));
+    try {
+      const result = await regionManager.current.checkUpdateAvailable(regionId);
+      const info = result.updateInfo;
+      const preview: RegionUpdatePreview | undefined = result.hasUpdate &&
+        typeof info.sourceUrl === 'string' && typeof info.installedVersion === 'string' &&
+        typeof info.installedGeneration === 'string' && /^[a-z0-9-]{8,80}$/i.test(info.installedGeneration) &&
+        typeof info.manifestFingerprint === 'string' && /^[a-f0-9]{64}$/.test(info.manifestFingerprint)
+        ? { sourceUrl: info.sourceUrl, installedVersion: info.installedVersion,
+          installedGeneration: info.installedGeneration,
+          manifestFingerprint: info.manifestFingerprint } : undefined;
+      setRegionUpdates(previous => ({ ...previous, [regionId]: {
+        available: Boolean(preview), preview,
+        message: result.hasUpdate && preview
+          ? `Nova versão ${String(info.availableVersion)} disponível em ${new URL(preview.sourceUrl).host}. Confirme para atualizar.`
+          : String(info.reason ?? (info.status === 'current'
+            ? 'Este mapa está atualizado.' : 'Nenhuma atualização aplicável.')),
+      } }));
+    } catch (cause) {
+      setRegionUpdates(previous => ({ ...previous, [regionId]: {
+        available: false, message: cause instanceof Error ? cause.message : 'Falha ao consultar versão regional.',
+      } }));
+    } finally { setCheckingRegion(null); }
+  };
+  const updateRegion = async (regionId: string) => {
+    if (packageBusy || checkingRegion) return;
+    const preview = regionUpdates[regionId]?.preview;
+    if (!preview) {
+      setError('Consulte a atualização novamente antes de confirmar.');
+      return;
+    }
+    setPackageBusy(true);
+    setError(null);
+    try {
+      const result = await regionManager.current.applyUpdate(regionId, preview);
+      if (!result.success) throw new Error(result.message);
+      await refreshOfflinePackages();
+      await refreshStorage();
+      setRegionUpdates(previous => ({ ...previous, [regionId]: { available: false, message: 'Atualização aplicada.' } }));
+      toast({ title: 'Mapa regional atualizado', description: result.message, variant: 'success' });
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : 'Falha na atualização regional.';
+      setRegionUpdates(previous => ({ ...previous, [regionId]: { available: false,
+        message: `${message} Consulte novamente antes de atualizar.` } }));
+      setError(message);
+      toast({ title: 'Atualização não concluída', description: message, variant: 'error' });
+    } finally { setPackageBusy(false); }
   };
   const formatBytes = (bytes?: number) =>
     bytes === undefined
@@ -341,6 +564,7 @@ export default function SettingsPage() {
       )}
       <div className="rounded-2xl border border-outline-variant bg-surface-container p-5">
         <h2 className="text-lg font-semibold">Aplicativo no dispositivo</h2>
+        <p className="mt-2 text-xs text-on-surface-variant" aria-label="Versão instalada do aplicativo">Versão {appVersion} · PWA</p>
         <p className="my-3 text-sm text-on-surface-variant">
           {installState.installed
             ? "Aberto como aplicativo instalado."
@@ -476,6 +700,81 @@ export default function SettingsPage() {
             aria-label="Selecionar pasta do pacote de mapa offline"
           />
         </label>
+        <div className="mt-4 space-y-2 border-t border-outline-variant pt-4">
+          <label htmlFor="markmap-remote-region-url" className="block text-sm font-semibold">
+            Instalar por URL HTTPS de pacote regional
+          </label>
+          <p className="text-xs text-on-surface-variant">
+            Informe o manifest.json da região. O download é retomável, verifica SHA-256 e mantém o mapa atual se falhar. Limite agregado: 250 MiB (a instalação depende do espaço disponível).
+          </p>
+          <p className="text-xs text-on-surface-variant">
+            Reserve espaço para os blocos baixados e a nova geração. O mapa atual permanece até a ativação; limite agregado dos mapas: 250 MiB.
+          </p>
+          <input
+            id="markmap-remote-region-url"
+            type="url"
+            value={regionalManifestUrl}
+            onChange={(event) => {
+              setRegionalManifestUrl(event.target.value);
+              rememberRegionInstallDraftUrl(event.target.value);
+              setRegionalResume(null);
+              setRegionalPreview(null);
+              setRegionalNewVersion(false);
+              setRegionalNotice(null);
+            }}
+            placeholder="https://servidor.example/regiao/manifest.json"
+            disabled={packageBusy}
+            className="w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-sm"
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" onClick={() => void inspectRegionResume()}
+              disabled={packageBusy || !regionalManifestUrl.trim()}
+              className="min-h-[44px] rounded-lg border border-outline-variant px-3 py-2 text-sm disabled:opacity-50">
+              Verificar progresso salvo
+            </button>
+            <button type="button" onClick={() => void installRegionFromUrl(regionalNewVersion)}
+              disabled={packageBusy || !regionalManifestUrl.trim()}
+              className="min-h-[44px] rounded-lg bg-gradient-to-r from-brand-blue to-brand-cyan px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
+              {regionalStage === 'checking' ? 'Consultando região…' :
+                regionalStage === 'activating' ? 'Ativando mapa…' :
+                regionalNewVersion ? 'Confirmar nova versão e baixar' :
+                regionalResume ? 'Retomar download' : 'Baixar região'}
+            </button>
+            {packageBusy && regionalStage !== 'idle' && regionalStage !== 'activating' && (
+              <button type="button" onClick={cancelRegionalDownload}
+                disabled={regionalStage === 'canceling'}
+                className="min-h-[44px] rounded-lg border border-outline-variant px-3 py-2 text-sm disabled:opacity-50">
+                {regionalStage === 'canceling' ? 'Cancelando…' : 'Cancelar operação'}
+              </button>
+            )}
+          </div>
+          {regionalPreview && (
+            <p className="text-xs text-on-surface-variant" role="status">
+              {regionalPreview.label} · pacote {formatBytes(regionalPreview.totalBytes)}
+            </p>
+          )}
+          {regionalResume && regionalResume.downloadedBytes > 0 && (
+            <p role="status" className="text-xs text-on-surface-variant">
+              Download anterior verificado: {formatBytes(regionalResume.downloadedBytes)} de {formatBytes(regionalResume.totalBytes)}.
+              Os blocos serão conferidos antes da ativação.
+            </p>
+          )}
+          {regionalNotice && <p role="status" aria-live="polite"
+            className="text-xs text-on-surface-variant">{regionalNotice}</p>}
+          {packageBusy && regionalStage !== 'idle' && (
+            <div role="status" aria-live="polite" className="space-y-1">
+              <p className="text-xs text-on-surface-variant">{
+                regionalStage === 'checking' ? 'Consultando o manifest…' :
+                regionalStage === 'canceling' ? 'Interrompendo com segurança…' :
+                regionalStage === 'validating' ? 'Validando integridade do pacote…' :
+                regionalStage === 'activating' ? 'Ativando o mapa local…' :
+                `Recebendo blocos${regionalPercent !== null ? ` — ${regionalPercent}%` : ''}`
+              }</p>
+              {regionalPercent !== null && <progress aria-label="Progresso da instalação da região"
+                value={regionalPercent} max={100} className="h-2 w-full" />}
+            </div>
+          )}
+        </div>
         <ul className="mt-4 space-y-2">
           {offlinePackages.length === 0 ? (
             <li className="text-sm text-on-surface-variant">Nenhum pacote offline instalado.</li>
@@ -485,8 +784,11 @@ export default function SettingsPage() {
                 <p className="font-semibold">{manifest.label}</p>
                 <p className="text-xs text-on-surface-variant">{manifest.attribution}</p>
                 {selectedOfflineMapId === manifest.id && <p className="text-xs text-emerald-500">Selecionado para abrir no mapa</p>}
+                {regionUpdates[manifest.id] && <p role="status" className="text-xs text-on-surface-variant">{regionUpdates[manifest.id].message}</p>}
               </div>
               <div className="flex gap-2">
+                {getRegionSourceUrl(manifest.id) && <button type="button" disabled={packageBusy || Boolean(checkingRegion)} onClick={() => void checkRegionUpdates(manifest.id)} className="min-h-[44px] rounded-lg border border-outline-variant px-3 text-sm">{checkingRegion === manifest.id ? 'Verificando…' : 'Ver atualizações'}</button>}
+                {regionUpdates[manifest.id]?.available && <button type="button" disabled={packageBusy || Boolean(checkingRegion)} onClick={() => void updateRegion(manifest.id)} className="min-h-[44px] rounded-lg border border-primary px-3 text-sm font-semibold">Atualizar região</button>}
                 {selectedOfflineMapId !== manifest.id && <button type="button" disabled={packageBusy} onClick={() => selectOfflinePackage(manifest)} className="min-h-[44px] rounded-lg border border-outline-variant px-3 text-sm">Usar no mapa</button>}
                 <button type="button" disabled={packageBusy} onClick={() => void removeOfflinePackage(manifest)} className="min-h-[44px] rounded-lg border border-red-400/40 px-3 text-sm text-red-500">Remover</button>
               </div>

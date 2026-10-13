@@ -41,7 +41,19 @@ Ou diretamente pelo config:
 pnpm exec playwright test --config=apps/admin/playwright.config.ts
 ```
 
+A suíte usa `baseURL: http://127.0.0.1:5173` e o `webServer`
+(`pnpm build && pnpm preview`) tem `timeout: 300000`:
+
+- **`Error: Timed out waiting 300000ms from config.webServer`** → um `vite preview`
+  zumbi de uma rodada anterior ainda ocupa a 5173 e não responde. Mate os processos
+  `node`/`vite` antigos e rode de novo (`netstat -ano | findstr :5173` para achar o PID).
+- **Falhas intermitentes só em `webkit`/`firefox`** (elemento não achado em 15 s,
+  testes de viewport) → a máquina está carregada. O `@playwright/mcp`, o emulador
+   Android e outros `turbo`/`vitest` simultâneos estouram o `expect.timeout: 15000`.
+   Feche esses processos e rode de novo; a suíte limpa passa 95/0 em ~4 min.
+
 ## PostGIS
+
 
 Use o workflow de integração ou banco local descartável com PostGIS. Nunca reutilize produção como banco de teste.
 
@@ -52,3 +64,31 @@ O CI usa projeto versionado + `cap sync ios`; não apague `apps/admin/ios` antes
 ## Android build
 
 Android é regenerado no CI. Para problemas, reproduza a mesma sequência do workflow `android-apk.yml`.
+
+Sequência local (`apps/admin/android` é regenerável e gitignorado):
+
+```bash
+cd apps/admin
+npx cap add android     # só na primeira vez
+npx cap sync android
+cd android && ./gradlew assembleDebug
+```
+
+O APK sai em `android/app/build/outputs/apk/debug/app-debug.apk`.
+
+Como o diretório é gitignorado, apague-lo e rodar `npx cap add android` de novo descarta
+os dois patches de toolchain abaixo — reaplique-os antes do `./gradlew assembleDebug`.
+
+**Toolchain:** o Capacitor 8 compila com `source 21`, então a JVM do Gradle precisa ser JDK 21 — com `JAVA_HOME` em JDK 17 o build falha com `invalid source release: 21`. No projeto gerado, habilite o resolvedor automático em `android/settings.gradle`:
+
+```gradle
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
+}
+```
+
+e aponte o Gradle para o JDK baixado em `android/gradle.properties`:
+
+```properties
+org.gradle.java.home=C:/Users/<user>/.gradle/jdks/eclipse_adoptium-21-amd64-windows.2
+```

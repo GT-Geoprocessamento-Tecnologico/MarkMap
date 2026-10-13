@@ -38,3 +38,45 @@ Há tela de importações e suporte a GeoPDF georreferenciado. PDFs sem referên
 ## 8. Atualizações
 
 A PWA possui fluxo controlado de atualização. A atualização deve preservar dados duráveis locais; isso ainda precisa de confirmação em aparelho real para release.
+
+## 9. Pacotes de mapa offline
+
+Em **Armazenamento** é possível ver regiões instaladas, espaço usado, versão, data do mapa (OSM), update disponível, remover, reparar e ver detalhes/licenças.
+
+- O download é **resumível**: se cair, retoma de onde parou.
+- A ativação é **atômica**: um pacote só substitui o outro depois de validado
+  (checksum e header conferidos). Se algo falhar, a região anterior continua
+  ativa.
+- Com o pacote instalado, mapa, busca, rota e elevação funcionam **sem
+  internet** (modo avião).
+
+## 10. Busca offline
+
+A busca não chama servidor. O índice é particionado em shards por inicial e
+acompanha o pacote da região:
+
+- resultados ordenados por relevância com destaque do termo;
+- aceita aproximação de digitação (fuzzy) e busca por prefixo;
+- exibe distância quando a posição atual está disponível.
+
+## 11. Rota e navegação
+
+- perfis **a pé**, **bicicleta** e **carro**;
+- origem/destino são ajustados à rede viária mais próxima;
+- manobras (vire à esquerda/direita, rotatória, chegada) com texto falado em
+  pt-BR gerado localmente — nenhum serviço de rota na nuvem;
+- progresso da rota, distância para a próxima manobra, ETA e detecção de
+  desvio com recálculo local.
+
+## 12. Elevação e relevo
+
+- altitude no cursor e em waypoints;
+- perfil de elevação com distância, ganho, perda, mínimo e máximo;
+- curvas de nível geradas localmente a partir do DEM do pacote.
+
+## 13. Importar GPX e KML
+
+A tela de importações aceita `.gpx` e `.kml` (waypoints, tracks e rotas) além
+do GeoJSON. Os arquivos são tratados como **não confiáveis**: XML é validado
+sem resolução de entidade externa e com limite de profundidade, e caminhos de
+pacote não podem escapar do diretório lógico.

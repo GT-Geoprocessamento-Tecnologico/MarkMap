@@ -76,8 +76,8 @@ export async function getStorageBreakdown(): Promise<StorageBreakdown> {
   // 2. Telemetry/Logs
   try {
     const telemetry = (await offlineDB.getAll("telemetry")) as unknown[];
-    const bytes = telemetry.reduce(
-      (sum: number, record) => sum + JSON.stringify(record).length * 2,
+    const bytes = telemetry.reduce<number>(
+      (sum, record) => sum + JSON.stringify(record).length * 2,
       0
     );
 
@@ -101,14 +101,20 @@ export async function getStorageBreakdown(): Promise<StorageBreakdown> {
   // 3. Offline map packages
   try {
     const packages = await offlineMapStore.list();
-    const bytes = packages.reduce(
+    const bytes = packages.reduce<number>(
       (sum, p) =>
         sum +
         p.manifest.archive.bytes +
         p.manifest.style.blob.bytes +
-        p.manifest.glyphs.reduce((glyphTotal: number, range: { blob: { bytes: number } }) => glyphTotal + range.blob.bytes, 0) +
-        p.manifest.sprites.reduce((spriteTotal: number, sprite: { blob: { bytes: number } }) => spriteTotal + sprite.blob.bytes, 0),
-      0,
+        p.manifest.glyphs.reduce(
+          (glyphTotal: number, glyph: { blob: { bytes: number } }) => glyphTotal + glyph.blob.bytes,
+          0,
+        ) +
+        p.manifest.sprites.reduce(
+          (spriteTotal: number, sprite: { blob: { bytes: number } }) => spriteTotal + sprite.blob.bytes,
+          0,
+        ),
+      0
     );
 
     categories.push({

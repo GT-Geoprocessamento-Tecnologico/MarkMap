@@ -1,7 +1,19 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { fileURLToPath } from "node:url";
 import { readFile } from "node:fs/promises";
 import { generateGeoPdfFixture } from "../../../packages/geo/tests/pdf/fixtures/generate-geopdf";
+
+/** No Safari o prompt de instalação fica fixo sobre o conteúdo e intercepta cliques. */
+async function dismissInstallPrompt(page: Page): Promise<void> {
+  const prompt = page.getByRole("status", { name: "Adicionar MarkMap à Tela de Início" });
+  try {
+    await prompt.waitFor({ state: "visible", timeout: 3_000 });
+  } catch {
+    return;
+  }
+  await prompt.getByRole("button", { name: "Entendi" }).click();
+  await expect(prompt).toHaveCount(0);
+}
 
 const trianglePath = fileURLToPath(
   new URL("../src/test/fixtures/triangle.glb", import.meta.url),
@@ -59,11 +71,13 @@ test("PWA mantém projeto editável após cold reload totalmente offline", async
     page.getByRole("heading", { name: "Projetos Cartográficos" }),
   ).toBeVisible();
   await expect(page.getByText("Projeto Offline E2E", { exact: true })).toBeVisible();
-  // O aplicativo é local-first: ficar offline é o caminho normal, então a
-  // interface não anuncia "offline" nem "salvo neste aparelho". O que não pode
-  // aparecer é um aviso de erro ou de sincronização pendente, porque o projeto
-  // acabou de ser criado e nada foi perdido.
-  await expect(page.getByRole("status")).toHaveCount(0);
+  // O aplicativo é local-first: ficar offline é o caminho normal, então o banner
+  // de conectividade é esperado. O que não pode aparecer é um status de erro ou
+  // de sincronização pendente, porque o projeto acabou de ser criado e nada foi
+  // perdido.
+  await expect(
+    page.getByRole("status").filter({ hasText: /erro|falha|pendente|sincroniza/i }),
+  ).toHaveCount(0);
   await expect(page.getByText(/Erro|Falha|não foi possível/i)).toHaveCount(0);
 
   await page
@@ -76,6 +90,9 @@ test("PWA mantém projeto editável após cold reload totalmente offline", async
     "true",
   );
   await page.getByRole("button", { name: "Adicionar ponto" }).click();
+  // startDrawing é assíncrono: aguardar o modo ativo antes de clicar no mapa,
+  // senão o clique é engolido quando a máquina está sob carga.
+  await expect(page.getByText("Toque no mapa para salvar o ponto")).toBeVisible();
   const mapSurface = page.getByTestId("map-canvas");
   const box = await mapSurface.boundingBox();
   expect(box).not.toBeNull();
@@ -319,6 +336,7 @@ test("camada real do projeto: enquadramento, popup, visibilidade e filtro", asyn
   await page.goto(`/projects/${projectId}/map`);
   const map = page.locator("[data-map-ready]");
   await expect(map).toHaveAttribute("data-map-ready", "true");
+  await dismissInstallPrompt(page);
   await expect(page.getByRole("alert")).toHaveCount(0);
   await expect(map).toHaveAttribute("data-feature-count", "1");
   await page.locator(".maplibregl-canvas").click();
@@ -373,6 +391,7 @@ test("GPS do dispositivo funciona e mantém a experiência local-first", async (
 
 test("CRS persistido e tema efetivo após recarregar", async ({ page }) => {
   await page.goto("/coordinate-systems");
+  await dismissInstallPrompt(page);
   await page.getByRole("button", { name: /Novo CRS/ }).click();
   await expect(
     page.getByRole("textbox", { name: "Código do CRS" }),
@@ -473,12 +492,12 @@ for (const [width, height] of [
         await page.getByRole("button", { name: "Abrir menu" }).click();
         await expect(
           page
-            .getByRole("navigation", { name: "Navegação principal" })
+            .getByRole("navigation", { name: "Navegação principal", exact: true })
             .getByRole("link", { name: /Estúdio de Malhas 3D/ }),
         ).toBeVisible();
         await page.getByRole("button", { name: "Fechar menu" }).click();
         await expect(
-          page.getByRole("navigation", { name: "Navegação principal" }),
+          page.getByRole("navigation", { name: "Navegação principal", exact: true }),
         ).not.toBeInViewport();
       }
     }

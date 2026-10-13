@@ -24,7 +24,7 @@ describe('MobileDashboard', () => {
   it('renders saved projects and real navigation actions', () => {
     render(<MobileDashboard />);
     expect(screen.getByText('Recent Survey')).toBeVisible();
-    expect(screen.getAllByRole('link', { name: 'Mapa' }).some((link) => link.getAttribute('href') === '/workspace')).toBe(true);
+    expect(screen.getByRole('link', { name: 'Gerenciar projetos' })).toHaveAttribute('href', '/projects');
     expect(screen.getAllByRole('link', { name: 'Malha 3D' })[0]).toHaveAttribute('href', '/projects/00000000-0000-4000-8000-000000000001/mesh');
   });
 

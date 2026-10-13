@@ -42,8 +42,10 @@ const conflictFor = (
   baseVersion: input.baseVersion,
   serverVersion: currentVersion,
   ...(input.operation === "upsert" ? { localPayload: input.payload } : {}),
-  ...(serverPayload ? { serverPayload } : {}),
-  reason: "VERSION_CONFLICT",
+  // The wire contract forbids VERSION_CONFLICT with serverVersion=0.
+  // A missing entity or invalid predecessor cannot disclose a server payload.
+  ...(currentVersion > 0 && serverPayload ? { serverPayload } : {}),
+  reason: currentVersion > 0 ? "VERSION_CONFLICT" : "SCOPE_REJECTED",
 });
 
 const materializeAcceptedOperation = async (
@@ -423,7 +425,11 @@ export async function applyPushOperation(
       expectedVersion = predecessor.version;
     }
 
-    if (expectedVersion !== null && expectedVersion !== currentVersion)
+    // A null base means this installation has never observed a server version.
+    // Allow an initial create only; a second device must not silently replace
+    // an existing value or tombstone. Explicit versions and valid predecessor
+    // chains still permit intentional updates.
+    if ((expectedVersion ?? 0) !== currentVersion)
       return {
         status: "conflict",
         conflict: conflictFor(input, currentVersion, serverPayload),

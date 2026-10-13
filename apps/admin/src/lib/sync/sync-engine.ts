@@ -24,8 +24,6 @@ export type SyncResult = {
   pending: number;
 };
 
-const META_BOOTSTRAP_PROOF = "workspaceBootstrapProof";
-const META_INSTALLATION_ID = "installationId";
 const META_CAPABILITY = "workspaceCapability";
 const META_SYNC_CURSOR = "syncCursor";
 const MAX_BATCH = 500;
@@ -57,15 +55,19 @@ const randomProof = (): string => {
   return base64Url(bytes);
 };
 
+// The request deadline includes receiving and parsing the body. Clearing the
+// timer after headers alone can strand syncNow() on a stalled HTTP stream.
+type SyncHttpResponse = { ok: boolean; status: number; payload: unknown };
+
 const request = async (
   path: string,
   init: RequestInit,
   bearer?: string,
-): Promise<Response> => {
+): Promise<SyncHttpResponse> => {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
-    return await fetch(`${API_BASE}${path}`, {
+    const response = await fetch(`${API_BASE}${path}`, {
       ...init,
       signal: controller.signal,
       headers: {
@@ -75,15 +77,20 @@ const request = async (
         ...init.headers,
       },
     });
+    if (!response.ok) {
+      // Do not wait for an untrusted error body (including an expired bearer).
+      void response.body?.cancel().catch(() => undefined);
+      return { ok: false, status: response.status, payload: undefined };
+    }
+    const text = await response.text();
+    return {
+      ok: true,
+      status: response.status,
+      payload: text ? JSON.parse(text) as unknown : undefined,
+    };
   } finally {
     clearTimeout(timeout);
   }
-};
-
-const parseJson = async (response: Response): Promise<unknown> => {
-  const text = await response.text();
-  if (!text) return undefined;
-  return JSON.parse(text) as unknown;
 };
 
 const ensureBootstrap = async (): Promise<{
@@ -92,20 +99,11 @@ const ensureBootstrap = async (): Promise<{
   bootstrapProof: string;
 }> => {
   const workspaceId = await localRepository.workspaceId();
-  let installationId =
-    await localRepository.getMeta<string>(META_INSTALLATION_ID);
-  let bootstrapProof =
-    await localRepository.getMeta<string>(META_BOOTSTRAP_PROOF);
-
-  if (!installationId) {
-    installationId = crypto.randomUUID();
-    await localRepository.setMeta(META_INSTALLATION_ID, installationId);
-  }
-  if (!bootstrapProof) {
-    bootstrapProof = randomProof();
-    await localRepository.setMeta(META_BOOTSTRAP_PROOF, bootstrapProof);
-  }
-  return { workspaceId, installationId, bootstrapProof };
+  const identity = await localRepository.ensureBootstrapIdentity(() => ({
+    installationId: crypto.randomUUID(),
+    bootstrapProof: randomProof(),
+  }));
+  return { workspaceId, ...identity };
 };
 
 const saveCapability = async (
@@ -115,15 +113,7 @@ const saveCapability = async (
   const localWorkspaceId = await localRepository.workspaceId();
   if (capability.workspaceId !== localWorkspaceId)
     throw new Error("Workspace capability does not match this device.");
-  const current =
-    await localRepository.getMeta<WorkspaceCapability>(META_CAPABILITY);
-  if (
-    current &&
-    BigInt(current.generation) > BigInt(capability.generation)
-  )
-    return current;
-  await localRepository.setMeta(META_CAPABILITY, capability);
-  return capability;
+  return localRepository.saveWorkspaceCapability(capability);
 };
 
 const provisionCapability = async (): Promise<WorkspaceCapability> => {
@@ -132,7 +122,7 @@ const provisionCapability = async (): Promise<WorkspaceCapability> => {
     method: "POST",
     body: JSON.stringify(bootstrap),
   });
-  const payload = await parseJson(response);
+  const payload = response.payload;
   if (!response.ok)
     throw new Error(`Workspace provisioning failed (HTTP ${response.status})`);
   return saveCapability(payload);
@@ -144,7 +134,7 @@ const recoverCapability = async (): Promise<WorkspaceCapability> => {
     method: "POST",
     body: JSON.stringify({ bootstrapProof }),
   });
-  const payload = await parseJson(response);
+  const payload = response.payload;
   if (!response.ok)
     throw new Error(`Workspace recovery failed (HTTP ${response.status})`);
   return saveCapability(payload);
@@ -161,17 +151,30 @@ const capability = async (): Promise<WorkspaceCapability> => {
 const withCapability = async (
   path: string,
   init: RequestInit,
-): Promise<Response> => {
+): Promise<SyncHttpResponse> => {
   let current = await capability();
   let response = await request(path, init, current.bearer);
   if (response.status !== 401) return response;
 
+  // A second PWA tab may already have recovered a newer bearer while this
+  // request was in flight. Try that durable capability before rotating again.
+  const stored = await localRepository.getMeta<WorkspaceCapability>(META_CAPABILITY);
+  if (
+    stored?.workspaceId === current.workspaceId &&
+    BigInt(stored.generation) > BigInt(current.generation)
+  ) {
+    current = capabilityProvisionResponseSchema.parse(stored);
+    response = await request(path, init, current.bearer);
+    if (response.status !== 401) return response;
+  }
+
   current = await recoverCapability();
-  response = await request(path, init, current.bearer);
-  return response;
+  return request(path, init, current.bearer);
 };
 
-const push = async (): Promise<{ pushed: number; conflicts: number }> => {
+const push = async (
+  onProgress?: (accepted: number, conflicts: number) => void,
+): Promise<{ pushed: number; conflicts: number }> => {
   let pushed = 0;
   let conflicts = 0;
 
@@ -184,42 +187,62 @@ const push = async (): Promise<{ pushed: number; conflicts: number }> => {
       method: "POST",
       body: JSON.stringify({ operations: batch }),
     });
-    const payload = await parseJson(response);
+    const payload = response.payload;
     if (!response.ok)
       throw new Error(`Sync push failed (HTTP ${response.status})`);
 
     const result = pushSyncResponseSchema.parse(payload);
+    // A response must only acknowledge operations in this exact request.
+    // Unknown or duplicate IDs could otherwise cause an endless resend loop.
+    const sentIds = new Set(batch.map((operation) => operation.operationId));
+    const respondedIds = new Set<string>();
+    for (const receipt of [...result.accepted, ...result.alreadyApplied, ...result.conflicts]) {
+      if (!sentIds.has(receipt.operationId) || respondedIds.has(receipt.operationId))
+        throw new Error("Invalid sync push response: unexpected or duplicate operation");
+      respondedIds.add(receipt.operationId);
+    }
     for (const ack of [...result.accepted, ...result.alreadyApplied]) {
-      await localRepository.acknowledge(
+      const acknowledged = await localRepository.acknowledge(
         ack.operationId,
         ack.version,
         ack.sequence,
         ack.predecessorOperationId,
       );
+      // Only a durable ACK counts as progress. A rejected/stale receipt must
+      // leave the operation available for a safe retry, not report success.
+      if (acknowledged !== true)
+        throw new Error("Sync acknowledgement could not be persisted");
       pushed += 1;
+      onProgress?.(1, 0);
     }
     for (const conflict of result.conflicts) {
       await localRepository.saveConflict(conflict);
       conflicts += 1;
+      onProgress?.(0, 1);
     }
 
-    if (
-      result.accepted.length +
-        result.alreadyApplied.length +
-        result.conflicts.length ===
-      0
-    )
-      break;
+    if (respondedIds.size === 0) break;
+
+    // Some adapters may fail to remove an ACK from the durable outbox.
+    // Avoid re-posting it indefinitely: the next manual sync can retry safely.
+    const stillPending = new Set(
+      (await localRepository.listOutbox()).map((operation) => operation.operationId),
+    );
+    if (batch.every((operation) => stillPending.has(operation.operationId)))
+      throw new Error("Sync push response did not advance the local outbox");
   }
 
   return { pushed, conflicts };
 };
 
-const pull = async (): Promise<number> => {
+const pull = async (onProgress?: (applied: number) => void): Promise<number> => {
   let pulled = 0;
+  // Repeated cursors can replay already-applied data and burn network/CPU.
+  const seenCursors = new Set<string>();
 
   for (let page = 0; page < MAX_PULL_PAGES; page += 1) {
     const cursor = await localRepository.getMeta<string>(META_SYNC_CURSOR);
+    if (cursor) seenCursors.add(cursor);
     const params = new URLSearchParams({ limit: String(MAX_BATCH) });
     if (cursor) params.set("cursor", cursor);
 
@@ -227,17 +250,36 @@ const pull = async (): Promise<number> => {
       `/sync/pull?${params.toString()}`,
       { method: "GET" },
     );
-    const payload = await parseJson(response);
-    if (!response.ok)
+    const payload = response.payload;
+    if (!response.ok) {
+      // Capability renewal can invalidate the cursor after the URL was built.
+      // Retry only if a concurrent, durable transaction changed the cursor;
+      // never erase an unrelated malformed cursor in response to HTTP 400.
+      if (
+        response.status === 400 &&
+        (await localRepository.getMeta<string>(META_SYNC_CURSOR)) !== cursor
+      ) continue;
       throw new Error(`Sync pull failed (HTTP ${response.status})`);
+    }
+    // Another tab may have advanced/reset the cursor during the request.
+    // Re-fetch rather than attempt to commit an out-of-date page.
+    if ((await localRepository.getMeta<string>(META_SYNC_CURSOR)) !== cursor)
+      continue;
 
     const result = pullSyncResponseSchema.parse(payload);
+    // When more data is claimed, the next cursor must never return to one
+    // already requested in this cycle. Fail before persisting that page.
+    if (result.hasMore && seenCursors.has(result.nextCursor))
+      throw new Error("Sync pull cursor did not advance");
     await localRepository.applyServerPage(
       result.changes,
       result.tombstones,
       result.nextCursor,
+      { expectedCursor: cursor },
     );
-    pulled += result.changes.length + result.tombstones.length;
+    const applied = result.changes.length + result.tombstones.length;
+    pulled += applied;
+    onProgress?.(applied);
 
     if (!result.hasMore) return pulled;
   }
@@ -274,24 +316,33 @@ const performSync = async (): Promise<SyncResult> => {
     pending: pendingBefore,
   });
 
+  // Track durable progress as pages/ACKs are applied. A later failure must
+  // not hide successful changes from SyncController/query invalidation.
+  let pushedCount = 0;
+  let pulledCount = 0;
+  let conflictCount = 0;
   try {
-    const pushed = await push();
-    const pulled = await pull();
+    await push((accepted, conflicts) => {
+      pushedCount += accepted;
+      conflictCount += conflicts;
+    });
+    await pull((applied) => { pulledCount += applied; });
     const pending = (await localRepository.listOutbox()).length;
     return emit({
-      state: pushed.conflicts > 0 ? "idle" : "synced",
-      pushed: pushed.pushed,
-      pulled,
-      conflicts: pushed.conflicts,
+      // A partial/empty server reply must never label unsent edits as synced.
+      state: conflictCount > 0 || pending > 0 ? "idle" : "synced",
+      pushed: pushedCount,
+      pulled: pulledCount,
+      conflicts: conflictCount,
       pending,
     });
   } catch {
     const pending = (await localRepository.listOutbox()).length;
     return emit({
       state: "error",
-      pushed: 0,
-      pulled: 0,
-      conflicts: 0,
+      pushed: pushedCount,
+      pulled: pulledCount,
+      conflicts: conflictCount,
       pending,
     });
   }

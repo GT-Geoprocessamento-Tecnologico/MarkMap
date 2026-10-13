@@ -9,6 +9,7 @@ import { applyPushOperation, getDb, pullChanges } from "@geonexo/db";
 import type { Hono } from "hono";
 import { z } from "zod";
 
+import { AppError, ErrorCode } from "../lib/errors.js";
 import { createSyncCursor, readSyncCursor } from "../lib/sync-cursor.js";
 
 const pullQuerySchema = z.object({
@@ -20,6 +21,17 @@ export const syncRoutes = (app: Hono<any, any, any>) => {
   app.post("/sync/push", async (c) => {
     const workspaceId = c.get("capabilityWorkspaceId") as string;
     const input = pushSyncRequestSchema.parse(await c.req.json());
+    // Reject an ambiguous batch before the first DB transaction commits.
+    // Replays across separate requests remain idempotent in applyPushOperation.
+    const seenOperationIds = new Set<string>();
+    for (const operation of input.operations) {
+      if (seenOperationIds.has(operation.operationId))
+        throw new AppError("Duplicate operation ID in sync batch", {
+          status: 400,
+          code: ErrorCode.VALIDATION_ERROR,
+        });
+      seenOperationIds.add(operation.operationId);
+    }
     const accepted: PushSyncAck[] = [];
     const conflicts: SyncConflict[] = [];
     const alreadyApplied: PushSyncAck[] = [];

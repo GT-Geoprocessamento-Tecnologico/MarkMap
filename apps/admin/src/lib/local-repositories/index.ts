@@ -6,6 +6,7 @@ import {
   type SyncEntity,
   type SyncEntityPayload,
   type SyncOperation,
+  type WorkspaceCapability,
   type Tombstone,
 } from "@geonexo/contracts";
 import {
@@ -19,6 +20,8 @@ import {
   type OutboxRecord,
 } from "../local-db";
 import { readBlobBytes } from "../blob-bytes";
+
+type BootstrapIdentity = { installationId: string; bootstrapProof: string };
 
 const now = () => new Date().toISOString();
 
@@ -60,6 +63,50 @@ export class LocalRepository {
   async setMeta<T>(key: string, value: T): Promise<void> {
     await this.db.transact(["meta"], "readwrite", (tx) => {
       tx.store("meta").put({ key, value });
+    });
+  }
+
+  /** Keep both recovery values under one IndexedDB readwrite transaction.
+   * Two tabs must not provision the same workspace with different proofs. */
+  async ensureBootstrapIdentity(
+    create: () => BootstrapIdentity,
+  ): Promise<BootstrapIdentity> {
+    return this.db.transact(["meta"], "readwrite", async (tx) => {
+      const meta = tx.store("meta");
+      const [installation, proof] = await Promise.all([
+        read<{ key: string; value: string } | undefined>(meta.get("installationId")),
+        read<{ key: string; value: string } | undefined>(meta.get("workspaceBootstrapProof")),
+      ]);
+      if (installation?.value && proof?.value)
+        return { installationId: installation.value, bootstrapProof: proof.value };
+      const generated = create();
+      const installationId = installation?.value || generated.installationId;
+      const bootstrapProof = proof?.value || generated.bootstrapProof;
+      if (!installation?.value) meta.put({ key: "installationId", value: installationId });
+      if (!proof?.value) meta.put({ key: "workspaceBootstrapProof", value: bootstrapProof });
+      return { installationId, bootstrapProof };
+    });
+  }
+
+  /** Never allow a delayed 401 recovery response to downgrade a newer bearer. */
+  async saveWorkspaceCapability(candidate: WorkspaceCapability): Promise<WorkspaceCapability> {
+    if (candidate.workspaceId !== await this.workspaceId())
+      throw new Error("Workspace capability does not match this device.");
+    return this.db.transact(["meta"], "readwrite", async (tx) => {
+      const meta = tx.store("meta");
+      const stored = await read<{ key: string; value: WorkspaceCapability } | undefined>(
+        meta.get("workspaceCapability"),
+      );
+      const current = stored?.value;
+      if (current && BigInt(current.generation) > BigInt(candidate.generation))
+        return current;
+      // Sync cursors are HMAC-signed with the bearer on the API. After rotation
+      // the old cursor is no longer valid; retire it atomically with the token.
+      // Keep the outbox, ACKs, conflicts and offline entities untouched.
+      if (!current || current.bearer !== candidate.bearer)
+        meta.delete("syncCursor");
+      meta.put({ key: "workspaceCapability", value: candidate });
+      return candidate;
     });
   }
 
@@ -250,12 +297,22 @@ export class LocalRepository {
     changes: ServerChange[],
     tombstones: Tombstone[],
     nextCursor: string,
+    options?: { expectedCursor?: string },
   ): Promise<void> {
     const workspaceId = await this.workspaceId();
     await this.db.transact(
       ["meta", "entities", "outbox", "acks", "conflicts"],
       "readwrite",
       async (tx) => {
+        // Another tab may have committed a newer page while this request was
+        // in flight. Check within the same readwrite transaction as the edits.
+        if (options) {
+          const stored = await read<{ key: string; value: string } | undefined>(
+            tx.store("meta").get("syncCursor"),
+          );
+          if (stored?.value !== options.expectedCursor)
+            throw new Error("Sync cursor changed during page application");
+        }
         const entities = tx.store("entities");
         const outboxStore = tx.store("outbox");
         const ackStore = tx.store("acks");
@@ -280,11 +337,19 @@ export class LocalRepository {
           return pending.sort((a, b) => b.localSequence - a.localSequence)[0];
         };
 
-        const writeConflict = (
+        const writeConflict = async (
           pending: OutboxRecord,
           serverVersion: number,
           serverPayload?: SyncEntityPayload,
-        ) => {
+        ): Promise<void> => {
+          // Pull groups upserts and tombstones separately. They may refer to
+          // different versions of the same entity, even in a single page.
+          // Never replace a newer durable conflict with an older event.
+          const key = `${workspaceId}:${pending.operationId}`;
+          const previous = await read<ConflictRecord | undefined>(
+            conflictStore.get(key),
+          );
+          if (previous && previous.serverVersion >= serverVersion) return;
           const conflict = syncConflictSchema.parse({
             operationId: pending.operationId,
             entity: pending.entity,
@@ -299,7 +364,7 @@ export class LocalRepository {
           });
           conflictStore.put({
             ...conflict,
-            key: `${workspaceId}:${conflict.operationId}`,
+            key,
             workspaceId,
             createdAt: now(),
           } satisfies ConflictRecord);
@@ -332,7 +397,11 @@ export class LocalRepository {
           }
           if (pending?.predecessorOperationId === change.operationId) continue;
           if (pending) {
-            writeConflict(pending, change.version, change.payload);
+            // A local edit based on version N already knows the history up to
+            // N. Old pull pages must not quarantine it as a new conflict.
+            if (pending.baseVersion !== null && change.version <= pending.baseVersion)
+              continue;
+            await writeConflict(pending, change.version, change.payload);
             continue;
           }
           const current = await read<EntityRecord | undefined>(
@@ -355,7 +424,20 @@ export class LocalRepository {
         for (const tombstone of tombstones) {
           const pending = await latestPending(tombstone.entity, tombstone.entityId);
           if (pending) {
-            writeConflict(pending, tombstone.version);
+            if (pending.baseVersion !== null) {
+              // An older deletion is already covered by the version the local
+              // operation was based on: it cannot invalidate that edit.
+              if (tombstone.version <= pending.baseVersion) continue;
+              // A tombstone has no operationId. A pending delete at the next
+              // version could be our own committed operation OR a concurrent
+              // delete. Do not guess or manufacture an ACK: keep it in the
+              // durable outbox for push to confirm or return a real conflict.
+              if (
+                pending.operation === "delete" &&
+                tombstone.version === pending.baseVersion + 1
+              ) continue;
+            }
+            await writeConflict(pending, tombstone.version);
             continue;
           }
           const current = await read<EntityRecord | undefined>(
@@ -589,8 +671,13 @@ export class LocalRepository {
       createdAt: now(),
       key: `${workspaceId}:${parsed.operationId}`,
     };
-    await this.db.transact(["conflicts"], "readwrite", (tx) => {
-      tx.store("conflicts").put(record);
+    await this.db.transact(["conflicts"], "readwrite", async (tx) => {
+      const store = tx.store("conflicts");
+      // An in-flight push may report an older server state after another tab
+      // has applied a newer pull. Never downgrade the durable resolution target.
+      const previous = await read<ConflictRecord | undefined>(store.get(record.key));
+      if (previous && previous.serverVersion >= record.serverVersion) return;
+      store.put(record);
     });
   }
 

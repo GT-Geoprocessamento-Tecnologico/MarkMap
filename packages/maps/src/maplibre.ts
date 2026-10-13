@@ -15,6 +15,7 @@ import {
 } from 'maplibre-gl';
 import mapLibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import { sanitizeKnownBasemapFilter, shouldProvideMissingStyleImage } from './style-safety.js';
+import { configureMapWithRollback } from './maplibre-setup.mjs';
 
 // MapLibre's ESM build does not discover its worker automatically in Vite.
 // Pin the worker emitted by Vite so production builds do not fall back to a
@@ -53,7 +54,7 @@ export async function createMapLibreMap(args: CreateMapArgs): Promise<MapWithCon
   }
 
   const map = new MLMap(options);
-
+  return configureMapWithRollback(map, () => {
   const repairKnownStyleFilters = () => {
     for (const layerId of [
       'highway-shield-non-us',
@@ -107,6 +108,7 @@ export async function createMapLibreMap(args: CreateMapArgs): Promise<MapWithCon
   });
 
   return { map, geolocate: locationControl };
+  });
 }
 
 /** Converte BBox GeoNexo para argumento fitBounds do MapLibre. */

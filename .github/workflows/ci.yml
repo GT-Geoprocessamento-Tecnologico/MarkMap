@@ -66,3 +66,14 @@ jobs:
 
       - name: Run tests
         run: pnpm test
+
+  pwa-smoke:
+    name: PWA service worker regressions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate service worker and shell generation
+        run: node --test apps/admin/scripts/sw-update-protocol.test.mjs apps/admin/scripts/sw-navigation-cache.test.mjs apps/admin/scripts/generate-shell-manifest.test.mjs

@@ -114,6 +114,7 @@ const resetOutbox = (operations: { operationId: string }[] = []): void => {
   );
   acknowledge.mockImplementation(async (operationId: string) => {
     outbox = outbox.filter((entry) => entry.operationId !== operationId);
+    return true;
   });
   saveConflict.mockImplementation(async (conflict: { operationId: string }) => {
     conflicted.add(conflict.operationId);
@@ -319,7 +320,7 @@ describe("syncNow", () => {
 
     expect(result.pulled).toBe(1);
     expect(pathsOf()[0]).toContain(`cursor=${encodeURIComponent(cursor("Y3Vyc29yNw"))}`);
-    expect(applyServerPage).toHaveBeenCalledWith(expect.anything(), [], cursor("bmV4dA"));
+    expect(applyServerPage).toHaveBeenCalledWith(expect.anything(), [], cursor("bmV4dA"), { expectedCursor: cursor("Y3Vyc29yNw") });
   });
 
   it("aplica tombstones recebidos do servidor", async () => {
@@ -344,7 +345,7 @@ describe("syncNow", () => {
     const result = await syncNow();
 
     expect(result.pulled).toBe(1);
-    expect(applyServerPage).toHaveBeenCalledWith([], expect.any(Array), cursor("dG9tYg"));
+    expect(applyServerPage).toHaveBeenCalledWith([], expect.any(Array), cursor("dG9tYg"), { expectedCursor: undefined });
   });
 
   it("provisiona a capability e envia o bearer no push", async () => {
