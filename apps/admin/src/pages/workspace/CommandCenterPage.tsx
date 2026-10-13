@@ -52,6 +52,10 @@ import { ensureOfflineSourceLayers } from "../../lib/map/offline-style-layers.mj
 import { describeOfflineMapFailure } from "../../lib/map/offline-map-diagnostics.mjs";
 import { ensureLocationPermission } from "../../lib/device-location-permission";
 import {
+  getFreshDevicePosition, isInsideOfflineRegion, rememberLocationApproval,
+  shouldAutoLocateOnOpen,
+} from "../../lib/location-consent";
+import {
   createOfflineAssetProtocol,
   createOfflineProtocol,
 } from "@geonexo/maps/offline/protocol";
@@ -241,6 +245,7 @@ export default function CommandCenterPage() {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const locationControlRef = useRef<MapControls["geolocate"] | null>(null);
+  const cancelAutoCenterRef = useRef<(() => void) | null>(null);
   const markersRef = useRef<Marker[]>([]);
   const gpsMarkerRef = useRef<Marker | null>(null);
   const navigationActiveRef = useRef(false);
@@ -628,6 +633,8 @@ export default function CommandCenterPage() {
       let zoom = 14;
       let offlinePackageSelected = false;
       let displayedGeneration: string | null = null;
+      let offlineBounds: readonly [number, number, number, number] | null = null;
+      let offlineMaxZoom = 16;
       let basemap = getDefaultBasemaps()[0];
       const selectedPackageId = mapSource.regionId;
       if (mapSource.neutralActive) {
@@ -752,6 +759,8 @@ export default function CommandCenterPage() {
           ...(basemap ?? { id: "offline", name: installed.manifest.label, attribution: installed.manifest.attribution }),
           styleUrl: `data:application/json,${encodeURIComponent(JSON.stringify(adaptedStyle))}`,
         };
+        offlineBounds = installed.manifest.bounds;
+        offlineMaxZoom = installed.manifest.maxZoom;
         const [minLng, minLat, maxLng, maxLat] = installed.manifest.bounds;
         center = [(minLng + maxLng) / 2, (minLat + maxLat) / 2];
         zoom = Math.min(8, installed.manifest.maxZoom);
@@ -800,6 +809,38 @@ export default function CommandCenterPage() {
       }
       locationControlRef.current = geolocate;
       mapRef.current = map;
+      // Both GPS buttons persist preference only after the device reports a fix.
+      geolocate.on("geolocate", () => {
+        void rememberLocationApproval().catch(() => undefined);
+      });
+      if (!search.pdfId && !search.datasetId && !fitRef.current.bounds) {
+        let userMoved = false;
+        const canvas = map.getCanvas();
+        const events = ["pointerdown", "wheel", "keydown"];
+        const markUserMove = () => { userMoved = true; };
+        for (const event of events) canvas.addEventListener(event, markUserMove);
+        const cancel = () => {
+          userMoved = true;
+          for (const event of events) canvas.removeEventListener(event, markUserMove);
+          if (cancelAutoCenterRef.current === cancel) cancelAutoCenterRef.current = null;
+        };
+        cancelAutoCenterRef.current = cancel;
+        void (async () => {
+          try {
+            if (!(await shouldAutoLocateOnOpen())) return;
+            const fix = await getFreshDevicePosition();
+            if (!fix || cancelled || userMoved || mapRef.current !== map ||
+                fitRef.current.bounds || navigationActiveRef.current ||
+                !isInsideOfflineRegion(fix, offlineBounds)) return;
+            map.jumpTo({
+              center: [fix.lon, fix.lat],
+              zoom: Math.min(Math.max(14, map.getZoom()), offlineMaxZoom),
+            });
+            updateNavigationPosition(fix, false);
+            void rememberLocationApproval().catch(() => undefined);
+          } finally { cancel(); }
+        })();
+      }
       regionReconcilerRef.current?.noteRendered(selectedPackageId, displayedGeneration);
       // MapLibre emits these typed events from the underlying WebGL canvas.
       map.on("webglcontextlost", (event) => {
@@ -1053,6 +1094,7 @@ export default function CommandCenterPage() {
 
     return () => {
       cancelled = true;
+      cancelAutoCenterRef.current?.();
       glRecovery.dispose();
       styleLifecycle?.dispose();
       styleLifecycle = null;
@@ -1110,7 +1152,17 @@ export default function CommandCenterPage() {
     source?.setData(transitGeoJSON);
   }, [transitGeoJSON, mapEpoch]);
 
-  const handleMyLocation = () => {
+  const handleMyLocation = async () => {
+    cancelAutoCenterRef.current?.();
+    const permission = await ensureLocationPermission();
+    if (permission.state !== "granted") {
+      toast({
+        title: "GPS sem autorização",
+        description: "Autorize a localização nas configurações do dispositivo.",
+        variant: "error",
+      });
+      return;
+    }
     if (locationControlRef.current) {
       try {
         locationControlRef.current.trigger();
@@ -1309,7 +1361,7 @@ export default function CommandCenterPage() {
         {/* Minha localização */}
         <ToolBtn
           active={false}
-          onClick={handleMyLocation}
+          onClick={() => void handleMyLocation()}
           icon="location"
           label="Minha localização"
           color="emerald"

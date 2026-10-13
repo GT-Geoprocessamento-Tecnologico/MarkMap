@@ -10,7 +10,7 @@ import {
   setSelectedOfflineMapId,
   subscribeSelectedOfflineMapId,
 } from "../../lib/storage/offline-map-selection";
-import { offlineDB } from "../../lib/storage/offline-db";
+import { rememberLocationApproval } from "../../lib/location-consent";
 import { ensureLocationPermission } from "../../lib/device-location-permission";
 import { getStorageBreakdown, cleanStorageCategories, type CategoryBreakdown, type StorageCategory } from "../../lib/storage/storage-management";
 import { getPwaInstallSnapshot, requestPwaInstall, subscribePwaInstall } from "../../lib/pwa-install";
@@ -246,12 +246,7 @@ export default function SettingsPage() {
       (position) => {
         setGpsBusy(false);
         setGps("granted");
-        void offlineDB
-          .save("permissions", "gps", {
-            status: "granted",
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-          })
+        void rememberLocationApproval()
           .catch(() =>
             setError(
               "A localização foi obtida, mas não foi possível salvá-la localmente.",
