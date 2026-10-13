@@ -116,6 +116,9 @@ export default function CommandCenterPage() {
     pdfId?: string;
   };
   const params = useParams({ strict: false }) as { projectId?: string };
+  // Check explicit deep links at GPS callback time without remounting MapLibre.
+  const requestedDatasetRef = useRef(search.datasetId);
+  requestedDatasetRef.current = search.datasetId;
   const selectedOfflineMapId = useSyncExternalStore(
     subscribeSelectedOfflineMapId, getSelectedOfflineMapId, () => null,
   );
@@ -813,7 +816,7 @@ export default function CommandCenterPage() {
       geolocate.on("geolocate", () => {
         void rememberLocationApproval().catch(() => undefined);
       });
-      if (!search.pdfId && !search.datasetId && !fitRef.current.bounds) {
+      if (!search.pdfId && !requestedDatasetRef.current && !fitRef.current.bounds) {
         let userMoved = false;
         const canvas = map.getCanvas();
         const events = ["pointerdown", "wheel", "keydown"];
@@ -839,7 +842,7 @@ export default function CommandCenterPage() {
             updateNavigationPosition(fix, false);
             void rememberLocationApproval().catch(() => undefined);
           } finally { cancel(); }
-        })();
+        })().catch(() => undefined); // Revoked sensor permission must not break the map.
       }
       regionReconcilerRef.current?.noteRendered(selectedPackageId, displayedGeneration);
       // MapLibre emits these typed events from the underlying WebGL canvas.
@@ -1115,7 +1118,7 @@ export default function CommandCenterPage() {
       releaseProtocols();
     };
   }, [toast, updateTelemetry, fitSelection, search.pdfId, activeRegionPackageId, regionalRenderRevision,
-    mapSource.neutralActive, mapRetryRevision]);
+    mapSource.neutralActive, mapRetryRevision, updateNavigationPosition]);
 
   useEffect(() => {
     if (!mapContainer.current) return;
