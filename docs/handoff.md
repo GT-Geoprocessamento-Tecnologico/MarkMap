@@ -1,5 +1,16 @@
 # Handoff de continuidade
 
+## A66 — propagação completa do tema (2026-10-13)
+
+**Problema confirmado:** mesmo após A65 (contraste), menu lateral, cabeçalho, ferramentas do mapa, fallback do mapa, viewport 3D, tela de instalação e cor inicial da PWA forçavam tons escuros no tema claro. **Estado:** QUEBRADO/PARCIAL → CORRIGIDO no código `main@3cca284ad77106f92a092a4dfd38610f1d3bb380`.
+
+**Correção mínima:** `main.css` mantém estilo escuro existente sob `.dark` e adota superfícies semânticas no claro; `RootLayout` e `TopNavBar` usam classes dinâmicas; `MeshStudioPage` e `MeshCanvas` atualizam painel e fundo WebGL no evento de tema sem remontar câmera/arquivo; `index.html` aplica tema salvo antes de carregar React, inclusive modo standalone. Mapa: só UI e fundo sem tiles são tematizados, preservando conteúdo cartográfico externo/offline. Fluxo de instalação, frontend, sincronização, dados, APIs e domínios não foram alterados.
+
+**QA executado:** 4/4 testes estáticos em sandbox, sintaxe TSX validada; build `markmap-app` no SHA de código acima observado **READY** (`dpl_H8RULaWgXFLSfQbGzVMNYejq2mBh`). Playwright Chromium real contra produção verificou a alternância escuro→claro em **16 combinações de tela** (8 rotas × Windows e Android emulados), incluindo header/sidebar/conteúdo, mapa e malha; também conferiu tela de instalação separada em tema claro. Tudo conforme critérios verificados. **Não equivale à homologação em dispositivos físicos, nem cobre todos os estados condicionais ou estilos dos tiles GIS**. Adicionados `scripts/theme-surfaces.test.mjs`, E2E `apps/admin/e2e/theme-surfaces.spec.ts` e gate do CI para regressão. GitHub Actions ainda bloqueado por cobrança; E2E adicionados mas pipeline não executou.
+
+**Rollback:** git revert normal do commit de código, sem reset/force push. Browser MTS proibido; validação usou Playwright em sandbox. Proteger a separação de origens site/app, versão e autoria definidos anteriormente.
+
+
 ## UI-Contrast — textos visíveis em ambos os temas (2026-10-13)
 
 **Diagnóstico (QUEBRADO → CORRIGIDO):** rótulos claros sobre gradientes ciano no tema claro; azul primário sobre superfícies escuras; texto ciano na aba ativa Android; controles de mapa fixamente escuro herdando texto preto no tema claro; etiquetas de status e aviso da malha 3D. Não havia necessidade de trocar os temas.
