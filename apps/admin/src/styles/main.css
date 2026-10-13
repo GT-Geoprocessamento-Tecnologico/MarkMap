@@ -480,3 +480,52 @@ html.dark {
     font-size: .72rem;
   }
 }
+
+/* A63: install-only entry point; never expose the working UI in a browser install tab. */
+.pwa-install-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: max(1.25rem, env(safe-area-inset-top))
+    max(1.25rem, env(safe-area-inset-right))
+    max(1.25rem, env(safe-area-inset-bottom))
+    max(1.25rem, env(safe-area-inset-left));
+  background: radial-gradient(circle at 60% 15%, rgba(0, 214, 219, .12), transparent 45%), #06131a;
+}
+.pwa-install-gate .pwa-install-prompt--dialog {
+  position: static;
+  width: min(100%, 28rem);
+  max-width: 28rem;
+  padding: clamp(1.3rem, 4vw, 2rem);
+  text-align: center;
+  justify-items: center;
+  background: var(--surface-container);
+}
+.pwa-install-prompt__icon {
+  display: block;
+  width: 82px;
+  height: 82px;
+  border-radius: 22%;
+}
+.pwa-install-gate .pwa-install-prompt__copy {
+  gap: .75rem;
+}
+.pwa-install-gate .pwa-install-prompt__copy strong {
+  font-size: clamp(1.25rem, 3vw, 1.65rem);
+}
+.pwa-install-gate .pwa-install-prompt__copy span {
+  font-size: .95rem;
+}
+.pwa-install-gate .pwa-install-prompt__actions {
+  width: 100%;
+  justify-content: center;
+}
+.pwa-install-gate .pwa-install-prompt__primary {
+  min-height: 48px;
+  width: 100%;
+  cursor: pointer;
+}

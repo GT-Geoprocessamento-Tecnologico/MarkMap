@@ -16,7 +16,7 @@ const listeners = new Set<() => void>();
 let installPrompt: BeforeInstallPromptEvent | null = null;
 let initialized = false;
 
-function detectStandalone(): boolean {
+export function isPwaStandalone(): boolean {
   if (typeof window === "undefined" || typeof navigator === "undefined") return false;
   const navigatorWithStandalone = navigator as Navigator & { standalone?: boolean };
   return (
@@ -38,7 +38,7 @@ function detectIosSafari(): boolean {
 
 let snapshot: PwaInstallSnapshot = {
   available: false,
-  installed: detectStandalone(),
+  installed: isPwaStandalone(),
   iosSafari: detectIosSafari(),
 };
 
@@ -53,6 +53,11 @@ async function preserveLocalStorageBestEffort(): Promise<void> {
   } catch {
     // Persistência é otimização; nunca bloqueia instalação nem trabalho local.
   }
+}
+
+/** Dedicated install route: never render the workspace in a browser install tab. */
+export function shouldShowPwaInstallFlow(search: string, standalone: boolean): boolean {
+  return !standalone && new URLSearchParams(search).get("install") === "1";
 }
 
 export function shouldRedirectLegacyInstallPath(pathname: string): boolean {
@@ -105,20 +110,27 @@ export async function requestPwaInstall(): Promise<
   const promptEvent = installPrompt;
   if (!promptEvent) return "unavailable";
 
-  await promptEvent.prompt();
-  const choice = await promptEvent.userChoice;
+  // prompt() must be invoked synchronously inside the user's click handler.
+  // This one-use event cannot be reused after cancellation or failure.
   installPrompt = null;
-
-  // User choice is not proof of completed installation.
-  // appinstalled or standalone mode is the authoritative installed state.
-  const installed = detectStandalone();
-  publish({
-    available: false,
-    installed,
-    iosSafari: detectIosSafari(),
-  });
-
-  if (installed) void preserveLocalStorageBestEffort();
-
-  return choice.outcome;
+  try {
+    await promptEvent.prompt();
+    const choice = await promptEvent.userChoice;
+    // appinstalled may fire BEFORE userChoice finishes. Never undo that event.
+    const installed = snapshot.installed || isPwaStandalone();
+    publish({
+      available: false,
+      installed,
+      iosSafari: detectIosSafari(),
+    });
+    if (installed) void preserveLocalStorageBestEffort();
+    return choice.outcome;
+  } catch (error) {
+    publish({
+      available: false,
+      installed: snapshot.installed || isPwaStandalone(),
+      iosSafari: detectIosSafari(),
+    });
+    throw error;
+  }
 }
