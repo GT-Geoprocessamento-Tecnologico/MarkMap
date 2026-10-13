@@ -93,7 +93,7 @@ export class RegionManager {
             id: manifest.id,
             version: manifest.packageVersion || manifest.version,
             label: manifest.label || manifest.id,
-            size: manifest.totalBytes || (manifest.archive.bytes + manifest.style.blob.bytes + manifest.glyphs.reduce((n, a) => n + a.blob.bytes, 0) + manifest.sprites.reduce((n, a) => n + a.blob.bytes, 0)),
+            size: manifest.totalBytes || (manifest.archive.bytes + manifest.style.blob.bytes + manifest.glyphs.reduce((n: number, a: { blob: { bytes: number } }) => n + a.blob.bytes, 0) + manifest.sprites.reduce((n: number, a: { blob: { bytes: number } }) => n + a.blob.bytes, 0)),
             date: manifest.osmDataDate || pkg.installedAt,
             status,
             manifest: manifest,
