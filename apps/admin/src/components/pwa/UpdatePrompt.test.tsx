@@ -162,7 +162,10 @@ describe("UpdatePrompt", () => {
 
     // Falha fechada: o fluxo termina sem nunca acionar o skip-waiting
     await waitFor(() => expect(button).toBeEnabled());
-    expect(readyObj.waiting?.postMessage).not.toHaveBeenCalled();
+    // Compatibility handshake may post a message, but activation must not.
+    expect(readyObj.waiting?.postMessage).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: "SKIP_WAITING" })
+    );
   });
 
   it("ignores a waiting worker outside the active service-worker scope", async () => {
