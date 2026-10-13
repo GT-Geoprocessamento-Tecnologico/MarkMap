@@ -1294,19 +1294,19 @@ export default function CommandCenterPage() {
         data-testid="map-canvas"
       />
 
-      <OfflineSearch key={`${activeRegionPackageId ?? 'none'}:${regionalRenderRevision}`} open={sidePanel === "busca-offline"} onClose={() => setSidePanel("none")} records={combinedSearchRecords} regionalCount={regionalSearchRecords.length} warning={regionalSearchError} onChoose={(place) => {
+      <OfflineSearch key={`search:${activeRegionPackageId ?? 'none'}:${regionalRenderRevision}`} open={sidePanel === "busca-offline"} onClose={() => setSidePanel("none")} records={combinedSearchRecords} regionalCount={regionalSearchRecords.length} warning={regionalSearchError} onChoose={(place) => {
         const map = mapRef.current;
         if (map) map.flyTo({ center: [place.lon, place.lat], zoom: Math.max(15, map.getZoom()) });
       }} />
 
-      <OfflineKnowledge key={`${activeRegionPackageId ?? 'none'}:${regionalRenderRevision}`} open={sidePanel === "lugares-offline"} onClose={() => setSidePanel("none")} packageId={activeRegionPackageId} onTransit={setTransitNetwork} onStation={(lon, lat) => {
+      <OfflineKnowledge key={`knowledge:${activeRegionPackageId ?? 'none'}:${regionalRenderRevision}`} open={sidePanel === "lugares-offline"} onClose={() => setSidePanel("none")} packageId={activeRegionPackageId} onTransit={setTransitNetwork} onStation={(lon, lat) => {
         const map = mapRef.current;
         if (map) map.flyTo({ center: [lon, lat], zoom: Math.max(15, map.getZoom()) });
       }} />
 
-      <OfflineElevation key={`${activeRegionPackageId ?? 'none'}:${regionalRenderRevision}`} open={sidePanel === "altitude-offline"} onClose={() => setSidePanel("none")} packageId={activeRegionPackageId} route={plannedRoute} />
+      <OfflineElevation key={`elevation:${activeRegionPackageId ?? 'none'}:${regionalRenderRevision}`} open={sidePanel === "altitude-offline"} onClose={() => setSidePanel("none")} packageId={activeRegionPackageId} route={plannedRoute} />
 
-      <OfflineRouting key={`${activeRegionPackageId ?? 'none'}:${regionalRenderRevision}`} packageId={activeRegionPackageId}
+      <OfflineRouting key={`routing:${activeRegionPackageId ?? 'none'}:${regionalRenderRevision}`} packageId={activeRegionPackageId}
         open={sidePanel === "navegacao-offline"} onClose={() => setSidePanel("none")}
         pickedPoint={routingPoint}
         onRequestPick={(kind) => {
