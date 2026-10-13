@@ -4,9 +4,9 @@ import type { OfflineMapStore } from '../storage/offline-map-store';
 const records=[{id:'way:1',name:'Rua Augusta',normalized:'rua augusta',type:'street',category:'road',lon:-46.64,lat:-23.55}];
 function mockStore(payload: unknown, available = true) {
   return {
-    get: async () => ({ manifest: { searchShards: [{ path:'search/r1.json' }] } }),
-    asset: async () => available ? new Blob([JSON.stringify(payload)]) : null,
-  } as unknown as Pick<OfflineMapStore,'get'|'asset'>;
+    getActiveRevision: async () => ({ manifest: { searchShards: [{ path:'search/r1.json' }] }, generation: 'test-revision' }),
+    assetAtRevision: async () => available ? new Blob([JSON.stringify(payload)]) : null,
+  } as unknown as Pick<OfflineMapStore,'getActiveRevision'|'assetAtRevision'>;
 }
 describe('active offline OSM index loading',()=>{
   it('loads namespaced records from stored bytes',async()=>{
