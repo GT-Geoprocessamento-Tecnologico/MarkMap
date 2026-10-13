@@ -1,5 +1,16 @@
 # Handoff de continuidade
 
+## Consolidação de código para main — QA limitado (2026-10-13)
+
+**Base:** `dev/markmap-pwa-v2` sobre `main@156d4e8`, cinco branches históricas comprovadamente ancestrais, PR #5 em aberto para integração. O frontend escolhido foi mantido; React/Vite, MapLibre/Terra Draw, IndexedDB/outbox, Hono/Neon/PostGIS e Capacitor não foram substituídos.
+
+**FUNCIONA no código (não homologado em execução):** rotas SPA definidas em `apps/admin/src/router.tsx`; Service Worker agora limita interceptação a essas rotas (inclusive `/mesh` e montagem `/app`) e serve shell em queda de rede sem persistir documentos de navegação. **CORRIGIDO:** `apps/admin/public/sw.js`. Novos testes Node em `apps/admin/scripts/sw-navigation-cache.test.mjs`, novo gate `pwa-smoke` em `ci.yml`; testes Vitest antigos de `UpdatePrompt` realinhados com handshake de compatibilidade e scope. Nenhuma mudança de layout ou contratos de sync/backend.
+
+**PARCIAL / NÃO HOMOLOGADO:** 5 workflows GitHub Actions (CI, Build, E2E, PostGIS Integration, Quality and Security) foram disparados no PR #5, porém o GitHub exibiu **"The job was not started because recent account payments have failed or your spending limit needs to be increased"**. Os jobs falharam antes de executar passos, inclusive o smoke Node. Nenhum resultado vermelho representa teste de código executado; nenhum gate recebeu PASS nesta rodada. Container disponível não consegue resolver `github.com` para clonar repositório privado.
+
+**PENDENTE para distribuição:** corrigir cobrança/limite do GitHub Actions e reexecutar gates completos; PWA instalada/navegador real, Android/iOS físico e duas instalações, Hono/Neon integrado remoto, signing/provisioning, política de privacidade pública aprovada e URL/domínio final. Não houve deploy, tag/release, migration nem publicação. **Integrar código em main não é homologar distribuição.**
+
+
 ## A60 — ignorar upserts históricos anteriores à base conhecida (2026-10-13)
 
 **BUG REPRODUZIDO:** pull upsert v2/v3 tratava como conflito uma edição local baseada em v3; filtro só existia para tombstones (A58). **CORRIGIDO:** `applyServerPage` ignora upsert remoto de `version <= pending.baseVersion` quando base conhecida, mas preserva ACK por operationId, predecessor confirmado, conflito remoto mais novo e comportamento conservador com base nula. **QA:** 5/10 FAIL no baseline, depois 10/10 PASS. Commit `3deef67` [skip ci], PRD `docs/MM-MAP-A60-stale-upsert-pull-guard.md`.
