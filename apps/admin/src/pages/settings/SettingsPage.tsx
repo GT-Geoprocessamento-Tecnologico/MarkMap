@@ -23,6 +23,7 @@ import { subscribeRegionForeground } from '../../lib/storage/region-foreground-r
 import { getRegionInstallDraftUrl, rememberRegionInstallDraftUrl, clearRegionInstallDraftUrl } from '../../lib/storage/region-install-draft.mjs';
 import { rememberRegionSource, forgetRegionSource, getRegionSourceUrl } from '../../lib/storage/region-source-registry';
 import { appCredits } from '../../lib/app-credits';
+import { RegionDownloadCatalog } from "../../components/map/RegionDownloadCatalog";
 
 type GpsState = "prompt" | "granted" | "denied";
 const directoryPickerAttributes = {
@@ -65,6 +66,7 @@ export default function SettingsPage() {
     subscribeSelectedOfflineMapId, getSelectedOfflineMapId, () => null,
   );
   const [packageBusy, setPackageBusy] = useState(false);
+  const [catalogBusy, setCatalogBusy] = useState(false);
   const [regionalManifestUrl, setRegionalManifestUrl] = useState(() =>
     getRegionInstallDraftUrl() ?? getRegionSourceUrl(getSelectedOfflineMapId() ?? '') ?? '');
   const [regionalPercent, setRegionalPercent] = useState<number | null>(null);
@@ -296,7 +298,7 @@ export default function SettingsPage() {
   const installOfflinePackage = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.currentTarget.files ?? []);
     event.currentTarget.value = "";
-    if (files.length === 0) return;
+    if (files.length === 0 || catalogBusy || packageBusy) return;
     setPackageBusy(true);
     setError(null);
     try {
@@ -364,7 +366,7 @@ export default function SettingsPage() {
   };
 
   const inspectRegionResume = async () => {
-    if (packageBusy || regionalController.current || !regionalManifestUrl.trim()) return;
+    if (packageBusy || catalogBusy || regionalController.current || !regionalManifestUrl.trim()) return;
     const controller = new AbortController();
     regionalController.current = controller;
     setPackageBusy(true);
@@ -396,7 +398,7 @@ export default function SettingsPage() {
   };
 
   const installRegionFromUrl = async (forceValidate = false) => {
-    if (packageBusy || regionalController.current || !regionalManifestUrl.trim()) return;
+    if (packageBusy || catalogBusy || regionalController.current || !regionalManifestUrl.trim()) return;
     const controller = new AbortController();
     regionalController.current = controller;
     setPackageBusy(true);
@@ -679,18 +681,29 @@ export default function SettingsPage() {
         </div>
       </div>
       <div className="rounded-2xl border border-outline-variant bg-surface-container p-5">
-        <h2 className="text-lg font-semibold">Mapa offline</h2>
+        <h2 id="mapas-offline" className="text-lg font-semibold">Mapas offline</h2>
         <p className="my-3 text-sm text-on-surface-variant">
-          Instale um pacote licenciado com manifest.json, um arquivo PMTiles, estilo, fontes e sprites. O pacote fica neste dispositivo.
+          Escolha uma região, baixe pelo MarkMap e use o mapa mesmo sem internet.
         </p>
-        <label className="inline-flex min-h-[44px] cursor-pointer items-center rounded-lg bg-gradient-to-r from-brand-blue to-brand-cyan px-4 py-2 font-semibold text-white hover:brightness-110">
+        <RegionDownloadCatalog disabled={packageBusy} showInstalled={false}
+          onBusyChange={setCatalogBusy}
+          onInstalled={() => { void refreshOfflinePackages(); void refreshStorage(); }} />
+        <details className="mt-5 rounded-xl border border-outline-variant p-3">
+          <summary className="min-h-[44px] cursor-pointer py-2 text-sm font-semibold">
+            Opções avançadas — importar um pacote manualmente
+          </summary>
+          <div className="mt-3 space-y-3">
+            <p className="text-xs text-on-surface-variant">
+              Somente para quem já possui arquivos ou um endereço de pacote regional.
+            </p>
+        <label className="inline-flex min-h-[44px] cursor-pointer items-center rounded-lg bg-gradient-to-r from-brand-blue to-brand-cyan px-4 py-2 font-semibold text-[#06131a] hover:brightness-110">
           {packageBusy ? "Processando pacote…" : "Selecionar pasta do pacote"}
           <input
             type="file"
             multiple
             {...directoryPickerAttributes}
             onChange={(event) => void installOfflinePackage(event)}
-            disabled={packageBusy}
+            disabled={packageBusy || catalogBusy}
             className="sr-only"
             aria-label="Selecionar pasta do pacote de mapa offline"
           />
@@ -718,17 +731,17 @@ export default function SettingsPage() {
               setRegionalNotice(null);
             }}
             placeholder="https://servidor.example/regiao/manifest.json"
-            disabled={packageBusy}
+            disabled={packageBusy || catalogBusy}
             className="w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-sm"
           />
           <div className="flex flex-wrap items-center gap-2">
             <button type="button" onClick={() => void inspectRegionResume()}
-              disabled={packageBusy || !regionalManifestUrl.trim()}
+              disabled={packageBusy || catalogBusy || !regionalManifestUrl.trim()}
               className="min-h-[44px] rounded-lg border border-outline-variant px-3 py-2 text-sm disabled:opacity-50">
               Verificar progresso salvo
             </button>
             <button type="button" onClick={() => void installRegionFromUrl(regionalNewVersion)}
-              disabled={packageBusy || !regionalManifestUrl.trim()}
+              disabled={packageBusy || catalogBusy || !regionalManifestUrl.trim()}
               className="min-h-[44px] rounded-lg bg-gradient-to-r from-brand-blue to-brand-cyan px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
               {regionalStage === 'checking' ? 'Consultando região…' :
                 regionalStage === 'activating' ? 'Ativando mapa…' :
@@ -770,7 +783,10 @@ export default function SettingsPage() {
             </div>
           )}
         </div>
-        <ul className="mt-4 space-y-2">
+          </div>
+        </details>
+        <h3 className="mt-5 text-sm font-semibold">Gerenciar mapas no aparelho</h3>
+        <ul className="mt-3 space-y-2">
           {offlinePackages.length === 0 ? (
             <li className="text-sm text-on-surface-variant">Nenhum pacote offline instalado.</li>
           ) : offlinePackages.map((manifest) => (
@@ -782,10 +798,10 @@ export default function SettingsPage() {
                 {regionUpdates[manifest.id] && <p role="status" className="text-xs text-on-surface-variant">{regionUpdates[manifest.id].message}</p>}
               </div>
               <div className="flex gap-2">
-                {getRegionSourceUrl(manifest.id) && <button type="button" disabled={packageBusy || Boolean(checkingRegion)} onClick={() => void checkRegionUpdates(manifest.id)} className="min-h-[44px] rounded-lg border border-outline-variant px-3 text-sm">{checkingRegion === manifest.id ? 'Verificando…' : 'Ver atualizações'}</button>}
-                {regionUpdates[manifest.id]?.available && <button type="button" disabled={packageBusy || Boolean(checkingRegion)} onClick={() => void updateRegion(manifest.id)} className="min-h-[44px] rounded-lg border border-primary px-3 text-sm font-semibold">Atualizar região</button>}
-                {selectedOfflineMapId !== manifest.id && <button type="button" disabled={packageBusy} onClick={() => selectOfflinePackage(manifest)} className="min-h-[44px] rounded-lg border border-outline-variant px-3 text-sm">Usar no mapa</button>}
-                <button type="button" disabled={packageBusy} onClick={() => void removeOfflinePackage(manifest)} className="min-h-[44px] rounded-lg border border-red-400/40 px-3 text-sm text-red-500">Remover</button>
+                {getRegionSourceUrl(manifest.id) && <button type="button" disabled={packageBusy || catalogBusy || Boolean(checkingRegion)} onClick={() => void checkRegionUpdates(manifest.id)} className="min-h-[44px] rounded-lg border border-outline-variant px-3 text-sm">{checkingRegion === manifest.id ? 'Verificando…' : 'Ver atualizações'}</button>}
+                {regionUpdates[manifest.id]?.available && <button type="button" disabled={packageBusy || catalogBusy || Boolean(checkingRegion)} onClick={() => void updateRegion(manifest.id)} className="min-h-[44px] rounded-lg border border-primary px-3 text-sm font-semibold">Atualizar região</button>}
+                {selectedOfflineMapId !== manifest.id && <button type="button" disabled={packageBusy || catalogBusy} onClick={() => selectOfflinePackage(manifest)} className="min-h-[44px] rounded-lg border border-outline-variant px-3 text-sm">Usar no mapa</button>}
+                <button type="button" disabled={packageBusy || catalogBusy} onClick={() => void removeOfflinePackage(manifest)} className="min-h-[44px] rounded-lg border border-red-400/40 px-3 text-sm text-red-500">Remover</button>
               </div>
             </li>
           ))}

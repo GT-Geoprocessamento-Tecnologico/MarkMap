@@ -65,6 +65,8 @@ import { OfflineSearch } from "../../components/map/OfflineSearch";
 import { OfflineRouting, type RoutePointSelection } from "../../components/map/OfflineRouting";
 import { OfflineKnowledge } from "../../components/map/OfflineKnowledge";
 import { OfflineElevation } from "../../components/map/OfflineElevation";
+import { MapOfflinePanel } from "../../components/map/MapOfflinePanel";
+import { RegionDownloadCatalog } from "../../components/map/RegionDownloadCatalog";
 import { MAX_CONTOUR_BYTES, validateRegionalContours, contoursToGeoJSON } from "@geonexo/maps/elevation/contour-package.mjs";
 import { loadRegionalPackageSearch, describeRegionalSearchLoadError } from '../../lib/search/regional-package-search';
 import type { LocalSearchRecord } from '../../lib/search/local-map-search';
@@ -100,7 +102,7 @@ function formatDistance(m: number) {
 }
 
 type SidePanel = "none" | "ferramentas" | "filtros" | "camadas" | "telemetria"
-  | "busca-offline" | "lugares-offline" | "altitude-offline" | "navegacao-offline";
+  | "busca-offline" | "lugares-offline" | "altitude-offline" | "navegacao-offline" | "baixar-mapas";
 type MapControls = Awaited<ReturnType<typeof createMapLibreMap>>;
 
 function routeAsGeoJSON(route: Route | null): GeoJSON.FeatureCollection {
@@ -1321,6 +1323,10 @@ export default function CommandCenterPage() {
         onPosition={updateNavigationPosition}
         onTrackingChange={(active) => { navigationActiveRef.current = active; }}
       />
+      <MapOfflinePanel open={sidePanel === "baixar-mapas"}
+        onClose={() => setSidePanel("none")} title="Baixar mapas" icon="download">
+        <RegionDownloadCatalog mapCenter={[telemetry.lng, telemetry.lat]} />
+      </MapOfflinePanel>
       {routingPickMode && <div role="status" className="absolute left-1/2 top-20 z-30 -translate-x-1/2 rounded-lg bg-surface-container p-3 text-sm shadow-lg">
         Toque no mapa para escolher {routingPickMode === 'origin' ? 'a origem' : 'o destino'} da rota.
         <button type="button" className="ml-2 underline" onClick={() => setRoutingPickMode(null)}>Cancelar</button>
@@ -1360,6 +1366,9 @@ export default function CommandCenterPage() {
           label="Ferramentas"
           color="slate"
         />
+        {/* Escolha uma região e baixe diretamente do mapa. */}
+        <ToolBtn active={sidePanel === "baixar-mapas"}
+          onClick={() => togglePanel("baixar-mapas")} icon="download" label="Baixar mapas" color="emerald" />
         {/* Atalhos offline no mesmo menu; os serviços seguem montados ao fechar. */}
         <ToolBtn active={sidePanel === "busca-offline"}
           onClick={() => togglePanel("busca-offline")} icon="search" label="Buscar locais neste mapa" color="cyan" />
@@ -1464,7 +1473,7 @@ export default function CommandCenterPage() {
       )}
 
       {/* ── Painel lateral (branco, texto escuro) ── */}
-      {sidePanel !== "none" && !sidePanel.endsWith("-offline") && (
+      {sidePanel !== "none" && sidePanel !== "baixar-mapas" && !sidePanel.endsWith("-offline") && (
         <div
           className={`${panelBg} ${panelPos} ${panelRound} flex flex-col max-h-[55vh] lg:max-h-full overflow-y-auto`}
         >
