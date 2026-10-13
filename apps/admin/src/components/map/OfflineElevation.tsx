@@ -33,12 +33,12 @@ export function OfflineElevation({ packageId, route }: { packageId: string | nul
     void (async () => {
       try {
         const stored = await offlineMapStore.getActiveRevision(packageId);
-        if (!stored?.manifest.demGrid) {
+        const ref = stored?.manifest.demGrid;
+        if (!stored || !ref) {
           if (active) setMessage('Esta região não inclui dados reais de altitude.');
           return;
         }
         const manifest = stored.manifest;
-        const ref = manifest.demGrid;
         const asset = await offlineMapStore.assetAtRevision(packageId, ref.path, stored.generation);
         if (!asset && (await offlineMapStore.getActiveRevision(packageId))?.generation !== stored.generation)
           throw new Error('O mapa regional foi atualizado. Reabra o perfil de altitude.');
