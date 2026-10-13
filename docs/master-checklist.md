@@ -1,5 +1,16 @@
 # MarkMap — Checklist Mestre de Execução
 
+## A68 — GeoPDF: quadro geográfico versus página inteira (2026-10-13)
+
+**Problema de código confirmado:** o parser ISO 32000 possuía `/BBox` (quadro georreferenciado), mas o modelo usava pontos `/LPTS` como contorno da imagem; o renderer PDF.js exportava a página inteira e projetava os quatro cantos do papel sobre o MapLibre, incluindo margens, legenda e outros elementos fora do mapa. O `fitBounds` do overlay se baseava na página inteira. Isso aumenta/desloca o enquadramento visível e pode criar aparente desregistro em mapas com quadros internos.
+
+**Correção A68 em `main@c82d1222131c1d284c5239492372f4c2f85c7bf1`:** `packages/geo/src/pdf/metadata.ts` define contorno do ISO a partir dos quatro cantos reais de `/BBox`, mantendo os controles `LPTS/GPTS` para ajuste afim e conversão CRS WGS84 existentes. `apps/admin/src/lib/pdf/geopdf-window.ts` calcula crop no sistema PDF.js com respeito a `CropBox`, zoom e rotação. `geopdf-overlay.ts` recorta a imagem ao quadro e calcula os quatro cantos geográficos do recorte; MapLibre recebe imagem e georreferência correspondentes. Mantém quadro inteiro para referências manuais sem recorte. Não altera IndexedDB, dados salvo, CRS canônico, mapas, GPS, instalação ou tema.
+
+**Evidência:** 5 testes locais de geometria em Node PASS (margem interna, rotação 90°, caso página inteira, arredondamento de pixels, erro de coordenadas); adicionados testes Vitest de recorte e fixture ISO com `/BBox` interno e `LPTS` internos. Build Vercel `markmap-app` do SHA exato `c82d122` = **READY** (TypeScript + Vite). **Limite importante:** não havia anexo do GeoPDF específico do usuário neste contexto, portanto deslocamento real em metros, produtor do PDF, georreferenciamento pré-salvo e confirmação visual de superposição ainda não foram validados; os novos testes Vitest estão versionados, mas não executados em CI bloqueado. Um GeoPDF com metadados errados ou transformação não afim ainda pode exigir calibração.
+
+**Reteste recomendado:** importar novamente o arquivo original (sem apagar o existente), conferir contorno/feições coincidentes e medir deslocamento usando dois pontos identificáveis em relação ao mapa-base. Se referência manual já estava armazenada em `pdfGeoref:<blobId>`, ela permanece prioritária e precisa de validação separada.
+
+
 ## A67 — GPS atual e consentimento local (2026-10-13)
 
 **Diagnóstico:** permissão nativa/MapLibre já funcionavam, e Configurações gravava status GPS no `offlineDB`, mas o mapa começava em coordenadas fixas/centro da região sem consultar o consentimento. O botão GPS do mapa não persistia escolha.

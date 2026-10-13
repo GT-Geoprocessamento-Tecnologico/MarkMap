@@ -44,3 +44,10 @@ A referência automática só é salva quando todos os critérios passam. Caso c
 **FUNCIONA:** GeoPDF com referência válida, CRS projetado/SIRGAS e auto-calibração por grade textual com limiar de confiança.
 
 **PARCIAL:** PDFs sem grade textual reconhecível dependem do fallback manual; PDF grande ainda requer validação em aparelho físico.
+
+### Regra de alinhamento de GeoPDF (A68)
+
+- ISO `/VP /BBox` descreve a **area geografica do mapa** na folha, independente dos `/LPTS` usados como pontos de ajuste. Nao extrapolar a folha inteira como mapa.
+- Rasterizar localmente com PDF.js, recortar a janela georreferenciada em pixels apos aplicar CropBox e rotacao, e converter **os mesmos quatro cantos** do recorte para longitude/latitude via `pageToLonLat` antes de enviar para o MapLibre.
+- Manter a escolha manual e referencia salva quando houver; nao substituir pontos corrigidos pelo usuario silenciosamente.
+- Em arquivos com CRS incompatível, viewport ambiguo ou metadados errados, nao inventar localizacao. Validar com GeoPDF real antes de prometer alinhamento absoluto.
