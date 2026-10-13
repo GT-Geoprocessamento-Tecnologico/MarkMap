@@ -56,7 +56,10 @@ function parseIso(viewport: PDFDict, context: Context, limits: Required<PdfLimit
   const controls = normalized.map(([x, y]) => [bbox[0] + x * (bbox[2] - bbox[0]), bbox[1] + y * (bbox[3] - bbox[1])] as PagePoint);
   const effectiveCrs = reconcileIsoCrs(crs, rawGround);
   const ground = rawGround.map((point) => { const converted = effectiveCrs.fromPdf(point); if (effectiveCrs.nativeBounds && (converted[0] < effectiveCrs.nativeBounds[0] || converted[0] > effectiveCrs.nativeBounds[2] || converted[1] < effectiveCrs.nativeBounds[1] || converted[1] > effectiveCrs.nativeBounds[3])) throw new PdfError('invalid-control-points', 'GPTS is outside the CRS area of use'); return converted; });
-  return { name: text(viewport.get(key('Name')), context) ?? null, bbox, profile: 'iso-measure-geo', sourceCrs: effectiveCrs.id, axisOrder: effectiveCrs.axisOrder, controls, ground, neatline: controls };
+  // /BBox, not /LPTS, identifies the whole registered map frame.
+  // LPTS may be interior calibration points rather than its outer corners.
+  const neatline: PagePoint[] = [[bbox[0], bbox[1]], [bbox[2], bbox[1]], [bbox[2], bbox[3]], [bbox[0], bbox[3]]];
+  return { name: text(viewport.get(key('Name')), context) ?? null, bbox, profile: 'iso-measure-geo', sourceCrs: effectiveCrs.id, axisOrder: effectiveCrs.axisOrder, controls, ground, neatline };
 }
 function parseLgi(lgi: PDFDict, context: Context, limits: Required<PdfLimits>): PdfViewportMetadata {
   if (lgi.has(key('Display')) || lgi.has(key('LGIT:Info'))) throw new PdfError('unsupported-profile', 'LGIDict Display/LGIT:Info variants are unsupported');

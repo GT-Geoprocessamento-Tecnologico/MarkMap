@@ -19,6 +19,18 @@ describe('GEO P1 bounded parser and native CRS transform', () => {
     expect(lonLatToPage(reference, [-69.5, 10.5])?.[1]).toBeCloseTo(70, 10);
   });
 
+  it('uses the ISO viewport BBox even when LPTS calibration points are inset', async () => {
+    const inspection = await inspectPdf(generateGeoPdfFixture({ includeLgiDict: false, insetViewport: true }));
+    const viewport = inspection.pages[0]!.viewports[0]!;
+    expect(viewport.bbox).toEqual([60, 40, 170, 100]);
+    expect(viewport.controls[0]![0]).toBeGreaterThan(viewport.bbox[0]);
+    const reference = resolveIsoMeasure(inspection.pages[0]!);
+    expect(reference.neatline).toEqual([
+      [60, 40], [170, 40], [170, 100], [60, 100],
+    ]);
+    expect(reference.cropBox).toEqual([10, 20, 210, 120]);
+  });
+
   it('fits UTM controls in metres and only converts at the WGS84 boundary', async () => {
     const inspection = await inspectPdf(generateGeoPdfFixture({ includeLgiDict: false, projectedCrs: true }));
     const reference = resolveIsoMeasure(inspection.pages[0]!);
