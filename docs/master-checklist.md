@@ -1,5 +1,14 @@
 # MarkMap — Checklist Mestre de Execução
 
+## UI-PWA — Aviso de atualização do MarkMap (2026-10-13)
+
+**Estado:** `main@786bc850ecc61b6abf04538b7f393f9ae4e6abf3`. Popup `apps/admin/src/components/pwa/UpdatePrompt.tsx` redesenhado com tokens do tema azul/ciano, ícone do `AppIcon`, título destacado, texto explicativo, mensagem de falha clara e botões `Atualizar agora` / `Depois`. CSS responsivo em `apps/admin/src/styles/main.css` (safe-area, mobile acima da barra inferior e respeito a `prefers-reduced-motion`). **Não houve mudança na ativação do Service Worker**, handshake de compatibilidade, verificação de escrita durável, IndexedDB/outbox, API ou design do restante do app.
+
+**Evidência:** testes do componente em ambiente isolado Vercel + React/jsdom/Vitest: **6/6 PASS**; build automático Vercel `markmap-app` para o commit exato `786bc85` = **READY** (`dpl_6e1TLDgz19W6BgknwihsyGLnuXEw`). Checagem visual do aviso em PWA instalada permanece **NÃO EXECUTADA** (o aviso só aparece com novo Service Worker aguardando ativação); não confundir testes de componente com homologação física. GitHub Actions permanece bloqueado por cobrança/limite de gastos.
+
+**Regra de continuidade:** manter popup consistente com cores/tokens do MarkMap e sem ativação automática ou perda de alterações offline. Browser MTS foi expressamente vetado pelo responsável; **não utilizar** esse conector em QA futuro. Usar Playwright/TinyFish e testes automatizados quando aplicável, sem inventar resultados.
+
+
 ## A64 — fronteira permanente site/app, autoria e versão (2026-10-13)
 
 **Decisão vigente:** `apps/site` (vitrine) e `apps/admin` (PWA operacional) ficam no mesmo monorepo, porém em **origens/subdomínios e deployments separados**. Endereços concretos pertencem às configurações, não à regra documental. Contrato obrigatório em `docs/site-app-boundaries.md` e `AGENTS.md`; referência adicionada ao `README.md` e índice `docs/README.md`. O botão do site segue para `?install=1` da origem do app; a autorização do navegador/standalone e IndexedDB permanecem exclusivos do app.
