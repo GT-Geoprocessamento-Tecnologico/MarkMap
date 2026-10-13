@@ -42,8 +42,10 @@ const conflictFor = (
   baseVersion: input.baseVersion,
   serverVersion: currentVersion,
   ...(input.operation === "upsert" ? { localPayload: input.payload } : {}),
-  ...(serverPayload ? { serverPayload } : {}),
-  reason: "VERSION_CONFLICT",
+  // The wire contract forbids VERSION_CONFLICT with serverVersion=0.
+  // A missing entity or invalid predecessor cannot disclose a server payload.
+  ...(currentVersion > 0 && serverPayload ? { serverPayload } : {}),
+  reason: currentVersion > 0 ? "VERSION_CONFLICT" : "SCOPE_REJECTED",
 });
 
 const materializeAcceptedOperation = async (
