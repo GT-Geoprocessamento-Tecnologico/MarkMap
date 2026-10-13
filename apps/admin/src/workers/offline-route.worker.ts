@@ -29,12 +29,12 @@ async function load(packageId: string, token: number): Promise<void> {
   activeRouteId = 0;
   try {
     const installed = await offlineMapStore.getActiveRevision(packageId);
-    if (!installed?.manifest.routingGraph) {
+    const ref = installed?.manifest.routingGraph;
+    if (!installed || !ref) {
       if (generation === token) scope.postMessage({ type: 'ready', profiles: [], reason: 'Este mapa nao possui rotas offline.' });
       return;
     }
     const manifest = installed.manifest;
-    const ref = manifest.routingGraph;
     const blob = await offlineMapStore.assetAtRevision(packageId, ref.path, installed.generation);
     if (!blob) {
       if ((await offlineMapStore.getActiveRevision(packageId))?.generation !== installed.generation)
