@@ -222,19 +222,112 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 
 
-/* PWA update prompt: fixed overlay so sticky headers/menus never cover it. */
+/* Desenvolvido por MtsFerreira. Atualização PWA usa os tokens do app. */
 .pwa-update-prompt {
   position: fixed;
-  top: 4.5rem;
-  right: 1rem;
-  z-index: 60;
-  max-width: min(24rem, calc(100vw - 2rem));
-  padding: 0.875rem 1rem;
-  border-radius: 0.75rem;
-  border: 1px solid var(--outline-variant);
-  background: var(--surface-container);
+  top: calc(env(safe-area-inset-top) + 4.75rem);
+  right: max(1rem, env(safe-area-inset-right));
+  z-index: 90;
+  display: grid;
+  gap: .9rem;
+  width: min(25rem, calc(100vw - 2rem));
+  padding: 1.2rem;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 30%, var(--outline-variant));
+  border-radius: 1.15rem;
+  background: radial-gradient(circle at 100% 0, rgba(0, 214, 219, .13), transparent 55%), var(--surface-container);
   color: var(--text-primary);
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 24px 64px rgba(3, 14, 20, .28);
+  overflow: hidden;
+  backdrop-filter: blur(18px);
+}
+.pwa-update-prompt::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: linear-gradient(90deg, #0075d6, #00d6db);
+}
+.pwa-update-prompt__heading { display: flex; align-items: center; gap: .85rem; }
+.pwa-update-prompt__icon {
+  display: grid;
+  flex: 0 0 2.75rem;
+  place-items: center;
+  height: 2.75rem;
+  border: 1px solid rgba(0, 214, 219, .26);
+  border-radius: .85rem;
+  background: rgba(0, 214, 219, .1);
+  color: var(--color-primary);
+}
+.pwa-update-prompt__eyebrow {
+  display: block;
+  margin-bottom: .2rem;
+  color: var(--text-secondary);
+  font-size: .64rem;
+  font-weight: 800;
+  letter-spacing: .13em;
+}
+.pwa-update-prompt__title { display: block; font-size: 1.12rem; line-height: 1.25; }
+.pwa-update-prompt__description {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: .83rem;
+  line-height: 1.55;
+}
+.pwa-update-prompt__actions { display: flex; gap: .55rem; }
+.pwa-update-prompt__actions button {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: .45rem;
+  border-radius: .72rem;
+  padding: .65rem .85rem;
+  font-size: .79rem;
+  font-weight: 750;
+  cursor: pointer;
+  transition: filter .16s ease, background-color .16s ease;
+}
+.pwa-update-prompt__primary {
+  flex: 1;
+  border: 0;
+  background: linear-gradient(115deg, #00b6c7, #00d6db);
+  color: #06131a;
+}
+.pwa-update-prompt__secondary {
+  border: 1px solid var(--outline-variant);
+  background: var(--surface-container-high);
+  color: var(--text-primary);
+}
+.pwa-update-prompt__actions button:hover:not(:disabled) { filter: brightness(.96); }
+.pwa-update-prompt__actions button:disabled { opacity: .7; cursor: wait; }
+.pwa-update-prompt__note { color: var(--text-secondary); font-size: .7rem; text-align: center; }
+.pwa-update-prompt__error {
+  display: flex;
+  align-items: flex-start;
+  gap: .5rem;
+  margin: 0;
+  padding: .7rem;
+  border: 1px solid rgba(249, 115, 22, .4);
+  border-radius: .7rem;
+  background: rgba(249, 115, 22, .09);
+  color: var(--text-primary);
+  font-size: .76rem;
+  line-height: 1.4;
+}
+.pwa-update-prompt__error svg { margin-top: .1rem; flex-shrink: 0; }
+@media (max-width: 640px) {
+  .pwa-update-prompt {
+    top: auto;
+    right: max(.75rem, env(safe-area-inset-right));
+    bottom: calc(5.25rem + env(safe-area-inset-bottom));
+    left: max(.75rem, env(safe-area-inset-left));
+    width: auto;
+    max-height: calc(100dvh - 7rem - env(safe-area-inset-bottom));
+    overflow-y: auto;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .pwa-update-prompt { animation: markmap-surface-in .3s ease-out both; }
 }
 /* PWA install prompt */
 .pwa-install-prompt {

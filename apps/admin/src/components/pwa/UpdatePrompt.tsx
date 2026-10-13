@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { AppIcon } from "../AppIcon";
 
 /** Ask the WAITING worker for protocol information; do not infer it from network status. */
 async function waitingWorkerCompatible(waiting: ServiceWorker): Promise<boolean> {
@@ -185,31 +186,53 @@ export function UpdatePrompt({
     setRegistration(null);
   };
 
+  // Desenvolvido por MtsFerreira. Apenas a apresentação muda; o aceite continua seguro.
   return (
     <aside
       role="status"
       aria-live="polite"
+      aria-busy={busy}
       aria-label="Nova versão do MarkMap disponível."
       className="pwa-update-prompt"
     >
-      <span>Nova versão do MarkMap disponível.</span>
-      {error && <p role="alert" className="text-xs text-red-500">{error}</p>}
-      <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
+      <div className="pwa-update-prompt__heading">
+        <span className="pwa-update-prompt__icon">
+          <AppIcon name="sync" size="lg" />
+        </span>
+        <div>
+          <span className="pwa-update-prompt__eyebrow">ATUALIZAÇÃO DISPONÍVEL</span>
+          <strong className="pwa-update-prompt__title">MarkMap tem novidades</strong>
+        </div>
+      </div>
+      <p className="pwa-update-prompt__description">
+        Uma nova versão está pronta. Verificamos seus dados locais antes de atualizar.
+      </p>
+      {error && (
+        <p role="alert" className="pwa-update-prompt__error">
+          <AppIcon name="info" size="sm" />
+          <span>{error}</span>
+        </p>
+      )}
+      <div className="pwa-update-prompt__actions">
         <button
           type="button"
+          className="pwa-update-prompt__primary"
           onClick={() => void accept()}
           disabled={busy}
         >
+          <AppIcon name={busy ? "loading" : "download"} size="sm" />
           {busy ? "Verificando…" : "Atualizar agora"}
         </button>
         <button
           type="button"
-          onClick={() => handleLater()}
-          style={{ flex: "1" }}
+          className="pwa-update-prompt__secondary"
+          onClick={handleLater}
+          disabled={busy}
         >
           Depois
         </button>
       </div>
+      <span className="pwa-update-prompt__note">Você escolhe quando atualizar.</span>
     </aside>
   );
 }

@@ -101,6 +101,10 @@ describe("UpdatePrompt", () => {
     await waitFor(() =>
       expect(screen.getByRole("status")).toBeInTheDocument()
     );
+    expect(screen.getByText("MarkMap tem novidades")).toBeInTheDocument();
+    expect(screen.getByText(/dados locais antes de atualizar/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Atualizar agora" })).toHaveClass("pwa-update-prompt__primary");
+    expect(screen.getByRole("button", { name: "Depois" })).toHaveClass("pwa-update-prompt__secondary");
   });
 
   it("should not show prompt when no waiting registration", () => {
