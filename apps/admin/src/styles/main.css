@@ -87,11 +87,16 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
     var(--bg-main);
 }
 
+/* The shell respects the selected theme without changing the dark design. */
 .markmap-shell-sidebar {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--bg-sidebar) 97%, var(--color-primary) 3%), var(--bg-sidebar));
+  box-shadow: 22px 0 60px var(--shadow-sm);
+}
+.dark .markmap-shell-sidebar {
   --bg-sidebar: #071820;
   --text-primary: #f5fbff;
   --text-secondary: #8fa7b4;
-  --outline-variant: rgba(255, 255, 255, 0.10);
+  --outline-variant: rgba(255, 255, 255, .10);
   --surface-container: #0b1b23;
   --surface-container-high: #10252e;
   --color-primary: #00d6db;
@@ -99,10 +104,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   --color-primary-ink: #00d6db;
   --color-secondary-ink: #00d6db;
   color-scheme: dark;
-  background:
-    linear-gradient(180deg, rgba(7, 24, 32, .98), rgba(5, 18, 25, .98)),
-    #071820;
-  box-shadow: 22px 0 60px rgba(5, 18, 25, .08);
+  background: linear-gradient(180deg, rgba(7, 24, 32, .98), rgba(5, 18, 25, .98)), #071820;
 }
 
 .markmap-shell-sidebar::before {
@@ -110,18 +112,21 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   position: absolute;
   inset: 0;
   pointer-events: none;
-  opacity: .22;
+  opacity: .1;
   background:
     radial-gradient(circle at 16% 8%, rgba(0, 214, 219, .22), transparent 18%),
     repeating-radial-gradient(ellipse at 120% 40%, transparent 0 42px, rgba(0, 214, 219, .08) 43px 44px);
 }
+
+.dark .markmap-shell-sidebar::before { opacity: .22; }
 
 .markmap-shell-sidebar > * {
   position: relative;
   z-index: 1;
 }
 
-.markmap-shell-header {
+.markmap-shell-header { box-shadow: 0 14px 44px var(--shadow-sm); }
+.dark .markmap-shell-header {
   --bg-header: rgba(6, 19, 26, .90);
   --text-primary: #f5fbff;
   --text-secondary: #91a8b4;
@@ -133,7 +138,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   --color-primary-ink: #00d6db;
   --color-secondary-ink: #00d6db;
   color-scheme: dark;
-  box-shadow: 0 14px 44px rgba(3, 14, 20, .16);
 }
 
 .markmap-shell-header::after {
@@ -146,8 +150,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 
 .markmap-theme-button {
-  border: 1px solid rgba(255,255,255,.10);
-  background: rgba(255,255,255,.035);
+  border: 1px solid var(--outline-variant);
+  background: color-mix(in srgb, var(--surface-container-high) 45%, transparent);
 }
 
 .markmap-app-main {
@@ -157,7 +161,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 
 /* The map canvas stays dark even while the rest of the app is light. */
-.markmap-workspace {
+/* UI and empty/offline canvas adapt; external basemap tiles stay untouched. */
+.markmap-workspace { background: var(--bg-main); }
+.dark .markmap-workspace {
   --text-primary: #f2f7fa;
   --text-secondary: #b2c4cd;
   --color-primary-ink: #74d3ff;
@@ -169,11 +175,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   color-scheme: dark;
   background: #0a1b21;
 }
-.markmap-workspace .text-cyan-700 { color: #a5f3fc; }
+.dark .markmap-workspace .text-cyan-700 { color: #a5f3fc; }
 
-.markmap-workspace .maplibregl-map {
-  background: #0a1b21;
-}
+.markmap-workspace .maplibregl-map { background: var(--bg-main); }
+.dark .markmap-workspace .maplibregl-map { background: #0a1b21; }
 
 .markmap-map-tools {
   box-shadow: 0 18px 46px rgba(3, 14, 20, .24);
@@ -411,8 +416,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 .pwa-install-prompt__primary {
   border: 0;
-  background: linear-gradient(135deg, #0075d6, #00d6db);
-  color: #fff;
+  background: linear-gradient(135deg, #1c98d1, #00d6db);
+  color: #06131a;
 }
 
 .pwa-install-prompt__secondary {
@@ -554,7 +559,7 @@ body {
   }
 
   body {
-    background: #06131a;
+    background: var(--bg-main);
   }
 }
 
@@ -617,7 +622,7 @@ html.dark {
     max(1.25rem, env(safe-area-inset-right))
     max(1.25rem, env(safe-area-inset-bottom))
     max(1.25rem, env(safe-area-inset-left));
-  background: radial-gradient(circle at 60% 15%, rgba(0, 214, 219, .12), transparent 45%), #06131a;
+  background: radial-gradient(circle at 60% 15%, rgba(0, 214, 219, .12), transparent 45%), var(--bg-main);
 }
 .pwa-install-gate .pwa-install-prompt--dialog {
   position: static;

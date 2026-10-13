@@ -81,3 +81,5 @@ jobs:
         run: node --test scripts/pwa-product-boundaries.test.mjs
       - name: Verify theme contrast tokens
         run: node --test scripts/theme-contrast.test.mjs
+      - name: Verify all app surfaces respond to the theme
+        run: node --test scripts/theme-surfaces.test.mjs

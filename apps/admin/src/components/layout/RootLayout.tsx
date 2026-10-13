@@ -8,8 +8,8 @@ import { MobileTabBar } from "./MobileTabBar";
 import { appCredits } from "../../lib/app-credits";
 
 const baseLink = "group flex min-h-[44px] items-center gap-3 rounded-xl border px-3 py-2.5 text-xs font-semibold transition-all duration-200";
-const activeLink = "border-brand-cyan/25 bg-brand-cyan/10 text-brand-cyan shadow-[inset_3px_0_0_#00D6DB]";
-const inactiveLink = "border-transparent text-on-surface-variant hover:border-white/10 hover:bg-white/5 hover:text-on-surface";
+const activeLink = "border-primary/25 bg-primary/10 text-primary shadow-[inset_3px_0_0_#00D6DB]";
+const inactiveLink = "border-transparent text-on-surface-variant hover:border-outline-variant hover:bg-surface-container-high hover:text-on-surface";
 
 export function RootLayout() {
   const [collapsed, setCollapsed] = useState(false);

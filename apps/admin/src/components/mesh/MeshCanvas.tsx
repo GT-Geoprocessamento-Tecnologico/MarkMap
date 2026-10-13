@@ -117,7 +117,14 @@ export function MeshCanvas({ blob, view, onError }: MeshCanvasProps) {
       return;
     }
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setClearColor(0x08121d, 1);
+    // Sync only the WebGL backdrop; never recreate the loaded mesh or camera.
+    const syncBackground = () => {
+      const color = getComputedStyle(document.documentElement)
+        .getPropertyValue("--surface-container-high").trim() || "#0b1b23";
+      renderer.setClearColor(color, 1);
+    };
+    syncBackground();
+    window.addEventListener("geonexo-theme-change", syncBackground);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.25;
@@ -248,6 +255,7 @@ export function MeshCanvas({ blob, view, onError }: MeshCanvasProps) {
     animate();
     return () => {
       disposed = true;
+      window.removeEventListener("geonexo-theme-change", syncBackground);
       cancelAnimationFrame(frame);
       observer.disconnect();
       renderer.domElement.removeEventListener("webglcontextlost", contextLost);

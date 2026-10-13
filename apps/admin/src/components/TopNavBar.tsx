@@ -262,7 +262,7 @@ export function TopNavBar() {
           <div className="flex items-center gap-2 flex-1 min-w-0">
             {/* Hambúrguer — só mobile */}
             <button
-              className="lg:hidden p-2 rounded-lg text-on-surface-variant hover:text-cyan-300 hover:bg-on-surface/5 transition-colors flex-shrink-0"
+              className="lg:hidden p-2 rounded-lg text-on-surface-variant hover:text-primary hover:bg-on-surface/5 transition-colors flex-shrink-0"
               onClick={toggleSidebar}
               aria-label="Abrir menu"
             >
@@ -273,7 +273,7 @@ export function TopNavBar() {
             {canGoBack && (
               <button
                 onClick={handleBack}
-                className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-on-surface-variant hover:text-cyan-300 hover:bg-on-surface/5 transition-colors text-sm flex-shrink-0"
+                className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-on-surface/5 transition-colors text-sm flex-shrink-0"
                 aria-label="Voltar"
               >
                 <AppIcon name="back" size="md" />
@@ -358,7 +358,7 @@ export function TopNavBar() {
 
             {/* Busca — ícone no mobile */}
             <button
-              className="sm:hidden p-2 rounded-lg text-on-surface-variant hover:text-cyan-300 hover:bg-on-surface/5 transition-colors"
+              className="sm:hidden p-2 rounded-lg text-on-surface-variant hover:text-primary hover:bg-on-surface/5 transition-colors"
               aria-label="Buscar"
               onClick={() => setShowMobileSearch(!showMobileSearch)}
             >
@@ -371,7 +371,7 @@ export function TopNavBar() {
             {/* Pill CRS — apenas em telas grandes */}
             <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 bg-on-surface/5 rounded-lg border border-outline-variant/50 text-xs font-mono">
               <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 flex-shrink-0" />
-              <span className="text-cyan-400 font-medium">EPSG:4326</span>
+              <span className="text-primary font-medium">EPSG:4326</span>
               <span className="text-on-surface-variant">WGS 84</span>
             </div>
 
@@ -381,7 +381,7 @@ export function TopNavBar() {
             {/* Tema */}
             <button
               onClick={() => setIsDark(!isDark)}
-              className="markmap-theme-button p-2 rounded-xl text-on-surface-variant hover:text-brand-cyan hover:bg-white/5 transition-colors"
+              className="markmap-theme-button p-2 rounded-xl text-on-surface-variant hover:text-brand-cyan hover:bg-on-surface/5 transition-colors"
               title="Alternar tema"
               aria-label={isDark ? "Ativar tema claro" : "Ativar tema escuro"}
             >
@@ -390,7 +390,7 @@ export function TopNavBar() {
 
             {/* Notificações */}
             <button
-              className="hidden sm:block p-2 rounded-lg text-on-surface-variant hover:text-cyan-300 hover:bg-on-surface/5 transition-colors relative"
+              className="hidden sm:block p-2 rounded-lg text-on-surface-variant hover:text-primary hover:bg-on-surface/5 transition-colors relative"
               onClick={() => setShowNotifications(!showNotifications)}
               title="Notificações"
             >

@@ -206,7 +206,7 @@ export default function MeshStudioPage() {
       {message && (
         <div
           role="alert"
-          className="rounded border border-red-400/40 bg-red-500/10 p-3 text-sm text-red-200"
+          className="rounded border border-red-400/40 bg-red-500/10 p-3 text-sm text-red-500"
         >
           {message}
         </div>
@@ -225,7 +225,7 @@ export default function MeshStudioPage() {
               {meshes.map((item) => (
                 <li key={item.id}>
                   <button
-                    className={`w-full rounded p-2 text-left text-sm ${selected?.id === item.id ? "bg-cyan-500/20 text-cyan-300" : "hover:bg-on-surface/5"}`}
+                    className={`w-full rounded p-2 text-left text-sm ${selected?.id === item.id ? "bg-primary/10 text-primary" : "hover:bg-on-surface/5"}`}
                     onClick={() => {
                       void selectMesh(item);
                     }}
@@ -240,19 +240,19 @@ export default function MeshStudioPage() {
             </ul>
           )}
         </aside>
-        <section className="relative order-first min-h-[360px] min-w-0 overflow-hidden rounded-xl border border-outline-variant bg-[#08121d] lg:order-none">
+        <section className="relative order-first min-h-[360px] min-w-0 overflow-hidden rounded-xl border border-outline-variant bg-surface-container-high lg:order-none">
           {blob && selected ? (
             <MeshCanvas blob={blob} view={view} onError={setMessage} />
           ) : (
-            <div className="flex h-full items-center justify-center p-6 text-center text-sm text-slate-300">
+            <div className="flex h-full items-center justify-center p-6 text-center text-sm text-on-surface-variant">
               Selecione um GLB local para visualizar a geometria.
             </div>
           )}
           {selected && (
-            <div className="absolute bottom-3 left-3 right-3 flex flex-wrap items-center gap-3 rounded-lg bg-black/60 p-3 text-xs backdrop-blur">
+            <div className="absolute bottom-3 left-3 right-3 flex flex-wrap items-center gap-3 rounded-lg border border-outline-variant bg-surface-container/95 p-3 text-xs text-on-surface backdrop-blur">
               <span>{selected.name}</span>
               <button
-                className="ml-auto rounded border border-red-400/40 px-2 py-1 text-red-200"
+                className="ml-auto rounded border border-red-400/40 px-2 py-1 text-red-500"
                 disabled={busy}
                 onClick={() => {
                   void deleteSelected();
