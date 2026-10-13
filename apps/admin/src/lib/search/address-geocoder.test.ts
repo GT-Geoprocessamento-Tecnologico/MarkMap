@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { searchAddressOnline } from "./address-geocoder";
 describe("manual online address search", () => {
   it("uses manual GET without credentials and validates coordinates", async () => {
-    const request = vi.fn(async () => new Response(JSON.stringify([
+    const request = vi.fn(async (_url: RequestInfo | URL, _init?: RequestInit) => new Response(JSON.stringify([
       { place_id: 99, display_name: "Avenida Tocantins, Araguaína", lat: "-7.19", lon: "-48.2" },
       { place_id: 100, display_name: "Invalid", lat: "999", lon: "0" },
     ])));
