@@ -34,8 +34,14 @@ test.describe("GPS on map startup", () => {
     });
     expect(await centered()).toBeLessThan(40);
 
+    // Wait for the PWA shell to own this page before simulating a disconnected restart.
+    await page.evaluate(() => navigator.serviceWorker.ready);
+    if (!(await page.evaluate(() => Boolean(navigator.serviceWorker.controller)))) {
+      await page.reload();
+    }
+    await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller))).toBe(true);
     await context.setOffline(true);
-    await page.reload();
+    await page.reload({ waitUntil: "domcontentloaded" });
     await expect(marker).toBeVisible();
     expect(await centered()).toBeLessThan(40);
   });
