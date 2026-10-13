@@ -4,5 +4,6 @@ import { version } from "../../package.json";
 export const appCredits = {
   author: "MtsFerreira",
   website: "https://mtsferreira.dev",
-  version: `v${version}`,
+  // No rodapé, ocultar apenas o sufixo interno de desenvolvimento.
+  version: `v${version.split(/[+-]/, 1)[0]}`,
 } as const;

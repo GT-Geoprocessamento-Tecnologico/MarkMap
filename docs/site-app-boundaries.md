@@ -24,7 +24,7 @@ O monorepo e os pacotes compartilhados continuam os mesmos, mas **cada frontend 
 ## Padrão do código — Desenvolvido por MtsFerreira
 
 - O crédito público é **Desenvolvido por MtsFerreira**, com link para o site do autor; no app, mostrar **· v[versão]** imediatamente depois.
-- A versão exibida vem de `apps/admin/package.json` (a mesma identidade usada no build), nunca de string digitada em componentes.
+- A versão exibida vem de `apps/admin/package.json`, mas mostra somente `vMAJOR.MINOR.PATCH` (ex.: `v0.2.0`), sem sufixo de desenvolvimento ou build. A versão interna permanece intacta.
 - Código enxuto: funções e componentes pequenos, nomes objetivos, TypeScript tipado, sem duplicações ou arquivos monolíticos novos.
 - Comentar **porquê, decisões, riscos e contratos**; não explicar linhas óbvias, nem gerar comentários repetitivos. Manter cabeçalho de autoria nos módulos de identidade e distribuição e preservar a atribuição existente.
 - Em código legado extenso, **refatorar gradualmente com testes**. Não reformatar ou comentar centenas de arquivos sem necessidade: isso pode esconder mudanças e sobrescrever outros agentes.

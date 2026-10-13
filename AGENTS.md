@@ -17,6 +17,6 @@ This block is written and re-added by `turbo` before repository-scoped commands 
 - A vitrine **não se instala**. Seu botão é um link para a tela `?install=1` do app; só o app apresenta autorização nativa quando disponível e inicia standalone pelo ícone.
 - Não criar proxy/rewrites de JS, CSS, imagens, manifest ou shell do app no domínio do site. Preservar redirecionamentos antigos `/app*` para migração.
 - Preservar `IndexedDB/outbox`, offline, APIs, Capacitor, frontend e identidade da PWA. Não duplicar implementação.
-- O crédito **Desenvolvido por MtsFerreira · v[versão]** deve aparecer no rodapé lateral do app, usando a versão do pacote. Manter a assinatura no código.
+- O crédito **Desenvolvido por MtsFerreira · vMAJOR.MINOR.PATCH** deve aparecer no rodapé lateral do app, derivado do pacote sem sufixos (ex.: `v0.2.0`). Preservar a versão interna e a assinatura no código.
 - Código curto, tipado e comentado **onde há decisão, risco ou contrato**. Não colocar comentários mecânicos em cada linha; não criar arquivos monolíticos nem reescrever legado funcional apenas por estilo.
 - Conferir HEAD e Checklist Mestre, revisar diff e executar testes de fronteira antes de commits. Não declarar QA físico sem executar.

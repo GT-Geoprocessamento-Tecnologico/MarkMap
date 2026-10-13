@@ -22,7 +22,7 @@ import { subscribeRegionCatalogChanges } from '../../lib/storage/region-catalog-
 import { subscribeRegionForeground } from '../../lib/storage/region-foreground-reconcile.mjs';
 import { getRegionInstallDraftUrl, rememberRegionInstallDraftUrl, clearRegionInstallDraftUrl } from '../../lib/storage/region-install-draft.mjs';
 import { rememberRegionSource, forgetRegionSource, getRegionSourceUrl } from '../../lib/storage/region-source-registry';
-import { version as appVersion } from '../../../package.json';
+import { appCredits } from '../../lib/app-credits';
 
 type GpsState = "prompt" | "granted" | "denied";
 const directoryPickerAttributes = {
@@ -564,7 +564,7 @@ export default function SettingsPage() {
       )}
       <div className="rounded-2xl border border-outline-variant bg-surface-container p-5">
         <h2 className="text-lg font-semibold">Aplicativo no dispositivo</h2>
-        <p className="mt-2 text-xs text-on-surface-variant" aria-label="Versão instalada do aplicativo">Versão {appVersion} · PWA</p>
+        <p className="mt-2 text-xs text-on-surface-variant" aria-label="Versão instalada do aplicativo">Versão {appCredits.version} · PWA</p>
         <p className="my-3 text-sm text-on-surface-variant">
           {installState.installed
             ? "Aberto como aplicativo instalado."
