@@ -12,7 +12,7 @@ class SearchWorker {
   onmessage: ((e: MessageEvent) => void) | null = null;
   onerror: (() => void) | null = null;
   records: Array<{ id: string; name: string; normalized: string; lon: number; lat: number; category: string }> = [];
-  postMessage(data: { type: string; requestId?: number; query?: string; records?: typeof this.records }) {
+  postMessage(data: { type: string; requestId?: number; query?: string; records?: SearchWorker["records"] }) {
     if (data.type === "load") this.records = data.records ?? [];
     if (data.type === "search") {
       const text = (data.query ?? "").toLowerCase();
