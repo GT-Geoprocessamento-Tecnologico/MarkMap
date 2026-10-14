@@ -37,6 +37,7 @@ export function RegionDownloadCatalog({
   const [locating, setLocating] = useState(false);
   const [locationMessage, setLocationMessage] = useState("");
   const [autoDownload, setAutoDownload] = useState(false);
+  const [autoSaving, setAutoSaving] = useState(false);
   const [installedReady, setInstalledReady] = useState(false);
   const [online, setOnline] = useState(typeof navigator !== "undefined" && navigator.onLine);
   const autoAttempted = useRef(new Set<string>());
@@ -187,14 +188,14 @@ export function RegionDownloadCatalog({
 
   const suggested = devicePoint ? recommendLocalRegion(regions, devicePoint) : null;
   useEffect(() => {
-    if (!autoDownload || !installedReady || !online || !suggested || disabled ||
+    if (!autoDownload || autoSaving || !installedReady || !online || !suggested || disabled ||
         installed.some(item => item.id === suggested.id)) return;
     // Data-saver protects limited connections. Permission is local and explicit.
     if ((navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData) return;
     if (autoAttempted.current.has(suggested.id)) return;
     autoAttempted.current.add(suggested.id);
     void download(suggested);
-  }, [autoDownload, installedReady, online, suggested, disabled, installed, download]);
+  }, [autoDownload, autoSaving, installedReady, online, suggested, disabled, installed, download]);
   const matches = useMemo(() => {
     const term = normalizeRegionSearch(search.trim());
     return regions.filter((region) =>
@@ -225,14 +226,20 @@ export function RegionDownloadCatalog({
       </p>}
       {locationMessage && <p role="status" className="text-xs text-on-surface-variant">{locationMessage}</p>}
       <label className="flex min-h-[44px] items-center gap-3 text-sm text-on-surface">
-        <input type="checkbox" checked={autoDownload}
+        <input type="checkbox" checked={autoDownload} disabled={autoSaving || disabled}
           aria-label="Baixar automaticamente o mapa da minha região"
           onChange={event => {
             const enabled = event.target.checked;
-            void setAutomaticRegionDownload(enabled).then(() => setAutoDownload(enabled))
-              .catch(() => setLocationMessage("Não foi possível salvar a preferência no aparelho."));
+            setAutoDownload(enabled);
+            setAutoSaving(true);
+            void setAutomaticRegionDownload(enabled)
+              .catch(() => {
+                setAutoDownload(!enabled);
+                setLocationMessage("Não foi possível salvar a preferência no aparelho.");
+              })
+              .finally(() => setAutoSaving(false));
           }}
-          className="h-5 w-5 shrink-0 accent-primary" />
+          className="h-5 w-5 shrink-0 accent-primary disabled:opacity-60" />
         <span>Baixar automaticamente o mapa da minha região quando disponível
           <small className="block text-xs text-on-surface-variant">
             Ativação opcional. Pode consumir dados móveis e espaço no aparelho.
