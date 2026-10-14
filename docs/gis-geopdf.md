@@ -70,7 +70,7 @@ A referência automática só é salva quando todos os critérios passam. Caso c
 - PDF original disponibilizado somente para análise local (16.634.115 bytes, 1 página, gerado em QGIS 3.40.4). **Não incluído no repositório.**
 - Metadados: viewport `/BBox [16.1558, 21.4360, 1672.1258, 1178.8802]`; `/GPTS` em graus de latitude/longitude, apesar de `/GCS` declarar EPSG:3857. `reconcileIsoCrs` já reconhece essa inconsistência na implementação existente.
 - Extensão calculada com transformação afim: oeste -48.230591°, leste -48.208367°, norte -7.194191°, sul -7.209602°; área aproximada 2,45 km × 1,70 km, **não abrange a cidade inteira**.
-- O controle nativo do MapLibre consegue recentralizar por GPS mesmo com incerteza enorme. Em GeoPDF ele fica desabilitado; o botão existente da barra inferior verifica posição recente, precisão e inclusão na carta antes de mover a câmera.
+- O controle GPS nativo do MapLibre informa posição com incerteza fornecida pelo navegador; a etapa A73 o ocultou temporariamente no GeoPDF. A etapa A74 restaura o botão e informa a precisão, sem alterar o georreferenciamento da carta.
 - Não é possível provar a localização física do dispositivo a partir da captura: apenas o sistema operacional do usuário fornece posição/precisão. Sem GPS físico, não declarar alinhamento métrico absoluto.
 
 ## A74 — GeoPDF sobre mapa-base e GPS visível (reversão da regressão)

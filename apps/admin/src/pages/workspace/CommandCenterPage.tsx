@@ -1143,7 +1143,7 @@ export default function CommandCenterPage() {
         locationControlRef.current = null;
       }
       releaseProtocols();
-        geoPdfManualFocusRef.current = false;
+      geoPdfManualFocusRef.current = false;
       const issue = describeOfflineMapFailure(cause);
       if (!issue) return; // Normal cancellation on remount.
       // Do not expose raw file paths or remote URLs in UI/toasts.
@@ -1177,7 +1177,7 @@ export default function CommandCenterPage() {
       mapRef.current = null;
       try { oldMap?.remove(); } catch { /* context may already be lost */ }
       try { geoPdfOverlay?.release(); } catch { /* release continues */ }
-        geoPdfManualFocusRef.current = false;
+      geoPdfManualFocusRef.current = false;
       releaseProtocols();
     };
   }, [toast, updateTelemetry, fitSelection, search.pdfId, activeRegionPackageId, regionalRenderRevision,
