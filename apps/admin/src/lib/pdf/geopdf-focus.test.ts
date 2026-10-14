@@ -30,4 +30,18 @@ describe("GPS alignment within georeferenced GeoPDF footprint", () => {
     expect(evaluateGeoPdfGps({ lon: NaN, lat: -7.2, accuracyM: 8 }, corners).status).toBe("unavailable");
     expect(evaluateGeoPdfGps({ lon: -48.22, lat: -7.2, accuracyM: NaN }, corners).status).toBe("unavailable");
   });
+  it("matches the real QGIS Araguaína GeoPDF footprint rather than the whole city", () => {
+    // Exact map viewport corners independently resolved from the uploaded PDF's
+    // /VP BBox and /LPTS /GPTS. Original imagery is never committed.
+    const actualCorners = [
+      [-48.230591024, -7.194190633],
+      [-48.208366753, -7.194190633],
+      [-48.208366753, -7.209601788],
+      [-48.230591024, -7.209601788],
+    ] as const;
+    expect(evaluateGeoPdfGps({ lon: -48.220, lat: -7.202, accuracyM: 10 }, actualCorners).status).toBe("inside");
+    expect(evaluateGeoPdfGps({ lon: -48.220, lat: -7.190, accuracyM: 10 }, actualCorners).status).toBe("outside");
+    expect(evaluateGeoPdfGps({ lon: -48.240, lat: -7.202, accuracyM: 10 }, actualCorners).status).toBe("outside");
+  });
+
 });

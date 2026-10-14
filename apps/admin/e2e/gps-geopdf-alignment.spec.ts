@@ -35,3 +35,16 @@ test("imprecise desktop geolocation leaves the map positioned by GeoPDF", async 
   await expect(page.getByText(/GPS aproximado \(±3200 m\)/)).toBeVisible();
   await expect(page.locator('[data-geopdf-ready="true"]')).toBeVisible();
 });
+
+test("the GeoPDF toolbar GPS cannot bypass accuracy checks using the native control", async ({ page, context }) => {
+  await context.grantPermissions(["geolocation"]);
+  await context.setGeolocation({ latitude: 10.5, longitude: -69.5, accuracy: 3200 });
+  await openGeoPdf(page);
+  // Native GeolocateControl jumps to inaccurate Wi-Fi coordinates. It must not
+  // be offered while the app is displaying an accurately georeferenced PDF.
+  await expect(page.locator(".maplibregl-ctrl-geolocate")).toHaveCount(0);
+  await page.getByRole("toolbar", { name: "Atalhos do mapa" })
+    .getByRole("button", { name: "Minha localização" }).click();
+  await expect(page.getByText(/GPS aproximado \(±3200 m\)/)).toBeVisible();
+  await expect(page.locator('[data-geopdf-ready="true"]')).toBeVisible();
+});

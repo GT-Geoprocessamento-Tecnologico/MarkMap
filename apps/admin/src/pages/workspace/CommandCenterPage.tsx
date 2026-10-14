@@ -251,6 +251,8 @@ export default function CommandCenterPage() {
   const [geoPdfReady, setGeoPdfReady] = useState(false);
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
+  const geoPdfCoordinatesRef = useRef<GeoPdfOverlay["coordinates"] | null>(null);
+  const geoPdfManualFocusRef = useRef(false);
   const locationControlRef = useRef<MapControls["geolocate"] | null>(null);
   const cancelAutoCenterRef = useRef<(() => void) | null>(null);
   const markersRef = useRef<Marker[]>([]);
@@ -600,6 +602,8 @@ export default function CommandCenterPage() {
     setMapReady(false);
     setGeoPdfReady(false);
     setGeoPdfMessage(null);
+    geoPdfCoordinatesRef.current = null;
+    geoPdfManualFocusRef.current = false;
     fittedKeyRef.current = "";
     let cancelled = false;
     const sceneKey = JSON.stringify([
@@ -632,6 +636,7 @@ export default function CommandCenterPage() {
     // Fitting the image and moving to a reliable GPS point are independent.
     // Never refit after the user has panned or the style merely recovered.
     let geoPdfHasFitted = false;
+    let geoPdfUserMoved = false;
     let pendingGeoPdfGpsCenter: [number, number] | null = null;
     let geoPdfGpsNotice: string | null = null;
     const releaseProtocols = () => {
@@ -819,25 +824,28 @@ export default function CommandCenterPage() {
         releaseProtocols();
         return;
       }
-      locationControlRef.current = geolocate;
+      // The native MapLibre geolocate control recenters unconditionally,
+      // including when desktop GPS is inaccurate by kilometres. GeoPDF uses
+      // the existing "Minha localização" toolbar, guarded by footprint/accuracy.
+      if (geoPdfOverlay) {
+        map.removeControl(geolocate);
+        geoPdfCoordinatesRef.current = geoPdfOverlay.coordinates;
+      }
+      locationControlRef.current = geoPdfOverlay ? null : geolocate;
       mapRef.current = map;
-      // Both GPS buttons persist preference only after the device reports a fix.
-      geolocate.on("geolocate", (position) => {
+      // Normal basemap GPS behavior is unchanged.
+      geolocate.on("geolocate", () => {
         void rememberLocationApproval().catch(() => undefined);
-        if (!geoPdfOverlay) return;
-        const { longitude: lon, latitude: lat, accuracy: accuracyM } = position.coords;
-        // Windows can report kilometre-scale Wi-Fi/IP accuracy. That does not
-        // mean the GeoPDF itself has moved or should be repositioned.
-        geoPdfGpsNotice = describeGeoPdfGps(
-          evaluateGeoPdfGps({ lon, lat, accuracyM }, geoPdfOverlay.coordinates),
-        );
-        setGeoPdfMessage(geoPdfGpsNotice);
       });
       if (geoPdfOverlay || (!search.pdfId && !requestedDatasetRef.current && !fitRef.current.bounds)) {
         let userMoved = false;
         const canvas = map.getCanvas();
         const events = ["pointerdown", "wheel", "keydown"];
-        const markUserMove = () => { userMoved = true; pendingGeoPdfGpsCenter = null; };
+        const markUserMove = () => {
+          userMoved = true;
+          geoPdfUserMoved = true;
+          pendingGeoPdfGpsCenter = null;
+        };
         for (const event of events) canvas.addEventListener(event, markUserMove);
         const cancel = () => {
           markUserMove();
@@ -950,20 +958,24 @@ export default function CommandCenterPage() {
               if (map.getLayer("local-dataset-fill"))
                 map.moveLayer("geopdf-overlay", "local-dataset-fill");
               if (!geoPdfHasFitted) {
-                const lngs = geoPdfOverlay.coordinates.map(([lng]) => lng);
-                const lats = geoPdfOverlay.coordinates.map(([, lat]) => lat);
-                map.fitBounds([
-                  [Math.min(...lngs), Math.min(...lats)],
-                  [Math.max(...lngs), Math.max(...lats)],
-                ], { padding: 32, duration: 0 });
                 geoPdfHasFitted = true;
-                if (pendingGeoPdfGpsCenter) {
-                  map.jumpTo({
-                    center: pendingGeoPdfGpsCenter,
-                    zoom: Math.max(15, map.getZoom()),
-                  });
-                  pendingGeoPdfGpsCenter = null;
-                  cancelAutoCenterRef.current?.();
+                // A person may pan while PDF.js finishes rasterization.
+                // Never snap their camera back just because the image loaded.
+                if (!geoPdfUserMoved && !geoPdfManualFocusRef.current) {
+                  const lngs = geoPdfOverlay.coordinates.map(([lng]) => lng);
+                  const lats = geoPdfOverlay.coordinates.map(([, lat]) => lat);
+                  map.fitBounds([
+                    [Math.min(...lngs), Math.min(...lats)],
+                    [Math.max(...lngs), Math.max(...lats)],
+                  ], { padding: 32, duration: 0 });
+                  if (pendingGeoPdfGpsCenter) {
+                    map.jumpTo({
+                      center: pendingGeoPdfGpsCenter,
+                      zoom: Math.max(15, map.getZoom()),
+                    });
+                    pendingGeoPdfGpsCenter = null;
+                    cancelAutoCenterRef.current?.();
+                  }
                 }
               }
             }
@@ -1130,6 +1142,8 @@ export default function CommandCenterPage() {
         locationControlRef.current = null;
       }
       releaseProtocols();
+      geoPdfCoordinatesRef.current = null;
+      geoPdfManualFocusRef.current = false;
       const issue = describeOfflineMapFailure(cause);
       if (!issue) return; // Normal cancellation on remount.
       // Do not expose raw file paths or remote URLs in UI/toasts.
@@ -1163,6 +1177,8 @@ export default function CommandCenterPage() {
       mapRef.current = null;
       try { oldMap?.remove(); } catch { /* context may already be lost */ }
       try { geoPdfOverlay?.release(); } catch { /* release continues */ }
+      geoPdfCoordinatesRef.current = null;
+      geoPdfManualFocusRef.current = false;
       releaseProtocols();
     };
   }, [toast, updateTelemetry, fitSelection, search.pdfId, activeRegionPackageId, regionalRenderRevision,
@@ -1212,6 +1228,27 @@ export default function CommandCenterPage() {
         description: "Autorize a localização nas configurações do dispositivo.",
         variant: "error",
       });
+      return;
+    }
+    if (search.pdfId) {
+      const map = mapRef.current;
+      const coordinates = geoPdfCoordinatesRef.current;
+      if (!map || !coordinates) {
+        toast({ title: "Mapa PDF não posicionado", description: "Confira o georreferenciamento do arquivo em Dados.", variant: "error" });
+        return;
+      }
+      const fix = await getFreshDevicePosition();
+      if (!fix) {
+        setGeoPdfMessage("Não foi possível obter uma posição GPS recente neste dispositivo.");
+        return;
+      }
+      const evaluated = evaluateGeoPdfGps(fix, coordinates);
+      setGeoPdfMessage(describeGeoPdfGps(evaluated));
+      if (evaluated.status !== "inside") return;
+      geoPdfManualFocusRef.current = true;
+      map.easeTo({ center: evaluated.center, zoom: Math.max(15, map.getZoom()), duration: 350 });
+      updateNavigationPosition(fix, false);
+      void rememberLocationApproval().catch(() => undefined);
       return;
     }
     if (locationControlRef.current) {
