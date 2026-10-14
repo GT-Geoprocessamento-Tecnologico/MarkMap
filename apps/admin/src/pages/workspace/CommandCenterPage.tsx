@@ -981,7 +981,9 @@ export default function CommandCenterPage() {
               }
             }
             setGeoPdfReady(true);
-            setGeoPdfMessage(geoPdfGpsNotice ?? "Mapa PDF disponível offline.");
+            setGeoPdfMessage(geoPdfGpsNotice ?? (fallbackActive
+              ? "GeoPDF disponível offline. Para ver ruas ao redor, conecte-se à internet."
+              : "GeoPDF sobre o mapa-base. Use Minha localização para centralizar."));
           }
           ensureOfflineSourceLayers(map, "draw-preview", {
             type: "geojson", data: drawingPreviewRef.current,
