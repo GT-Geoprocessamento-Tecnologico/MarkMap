@@ -40,11 +40,32 @@ test("the GeoPDF toolbar GPS cannot bypass accuracy checks using the native cont
   await context.grantPermissions(["geolocation"]);
   await context.setGeolocation({ latitude: 10.5, longitude: -69.5, accuracy: 3200 });
   await openGeoPdf(page);
-  // Native GeolocateControl jumps to inaccurate Wi-Fi coordinates. It must not
-  // be offered while the app is displaying an accurately georeferenced PDF.
-  await expect(page.locator(".maplibregl-ctrl-geolocate")).toHaveCount(0);
-  await page.getByRole("toolbar", { name: "Atalhos do mapa" })
-    .getByRole("button", { name: "Minha localização" }).click();
+  // Regression A74: native GPS remains visible and works above the PDF.
+  await expect(page.locator(".maplibregl-ctrl-geolocate")).toBeVisible();
+  await page.locator(".maplibregl-ctrl-geolocate").click();
   await expect(page.getByText(/GPS aproximado \(±3200 m\)/)).toBeVisible();
   await expect(page.locator('[data-geopdf-ready="true"]')).toBeVisible();
+});
+
+test("an online GeoPDF opens over the real surrounding basemap", async ({ page }) => {
+  const requestedStyles: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().startsWith("https://tiles.openfreemap.org/styles/liberty"))
+      requestedStyles.push(request.url());
+  });
+  await openGeoPdf(page);
+  // Previous regression replaced the whole style with a blank offline image
+  // even while connected, and this request was never made.
+  expect(requestedStyles.length).toBeGreaterThan(0);
+  await expect(page.locator(".maplibregl-ctrl-geolocate")).toBeVisible();
+});
+
+test("GPS can show the device outside the PDF instead of refusing to locate", async ({ page, context }) => {
+  await context.grantPermissions(["geolocation"]);
+  await context.setGeolocation({ latitude: 10.5, longitude: -69.9, accuracy: 12 });
+  await openGeoPdf(page);
+  const gpsButton = page.locator(".maplibregl-ctrl-geolocate");
+  await expect(gpsButton).toBeVisible();
+  await gpsButton.click();
+  await expect(page.getByText(/posição fora da área do PDF, visível no mapa-base/)).toBeVisible();
 });

@@ -251,7 +251,6 @@ export default function CommandCenterPage() {
   const [geoPdfReady, setGeoPdfReady] = useState(false);
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
-  const geoPdfCoordinatesRef = useRef<GeoPdfOverlay["coordinates"] | null>(null);
   const geoPdfManualFocusRef = useRef(false);
   const locationControlRef = useRef<MapControls["geolocate"] | null>(null);
   const cancelAutoCenterRef = useRef<(() => void) | null>(null);
@@ -602,7 +601,6 @@ export default function CommandCenterPage() {
     setMapReady(false);
     setGeoPdfReady(false);
     setGeoPdfMessage(null);
-    geoPdfCoordinatesRef.current = null;
     geoPdfManualFocusRef.current = false;
     fittedKeyRef.current = "";
     let cancelled = false;
@@ -664,11 +662,9 @@ export default function CommandCenterPage() {
       }
 
       if (search.pdfId) {
-        fallbackActive = true;
-        basemap = {
-          ...basemap,
-          styleUrl: `data:application/json,${encodeURIComponent(JSON.stringify(createFallbackStyle()))}`,
-        };
+        // GeoPDF is a positioned raster overlay, never a replacement basemap.
+        // Keep online vector streets around the image; offline still uses the
+        // existing fallback when tiles are unavailable.
         const record = await localRepository.getOriginal(search.pdfId);
         if (!record)
           throw new Error("Este PDF não está mais salvo neste dispositivo.");
@@ -824,18 +820,21 @@ export default function CommandCenterPage() {
         releaseProtocols();
         return;
       }
-      // The native MapLibre geolocate control recenters unconditionally,
-      // including when desktop GPS is inaccurate by kilometres. GeoPDF uses
-      // the existing "Minha localização" toolbar, guarded by footprint/accuracy.
-      if (geoPdfOverlay) {
-        map.removeControl(geolocate);
-        geoPdfCoordinatesRef.current = geoPdfOverlay.coordinates;
-      }
-      locationControlRef.current = geoPdfOverlay ? null : geolocate;
+      // Keep the native GPS button visible for PDF and regular maps.
+      // MapLibre shows the browser-reported accuracy circle; we do not
+      // reinterpret approximate desktop geolocation as an exact position.
+      locationControlRef.current = geolocate;
       mapRef.current = map;
-      // Normal basemap GPS behavior is unchanged.
-      geolocate.on("geolocate", () => {
+      geolocate.on("geolocate", (position) => {
         void rememberLocationApproval().catch(() => undefined);
+        if (!geoPdfOverlay || cancelled) return;
+        geoPdfManualFocusRef.current = true;
+        updateNavigationPosition(null, false); // Avoid a duplicate marker from initial auto-center.
+        const { latitude: lat, longitude: lon, accuracy: accuracyM } = position.coords;
+        geoPdfGpsNotice = describeGeoPdfGps(
+          evaluateGeoPdfGps({ lat, lon, accuracyM }, geoPdfOverlay.coordinates),
+        );
+        setGeoPdfMessage(geoPdfGpsNotice);
       });
       if (geoPdfOverlay || (!search.pdfId && !requestedDatasetRef.current && !fitRef.current.bounds)) {
         let userMoved = false;
@@ -909,7 +908,7 @@ export default function CommandCenterPage() {
       });
       map.on("error", (event) => {
         if (cancelled || webglLostRef.current) return;
-        if (offlinePackageSelected || mapSource.neutralActive || Boolean(search.pdfId)) {
+        if (offlinePackageSelected || mapSource.neutralActive || (Boolean(search.pdfId) && fallbackActive)) {
           // Selection changes abort outstanding tiles: cancellation is not corruption.
           const issue = describeOfflineMapFailure(event);
           if (!issue) return;
@@ -1144,8 +1143,7 @@ export default function CommandCenterPage() {
         locationControlRef.current = null;
       }
       releaseProtocols();
-      geoPdfCoordinatesRef.current = null;
-      geoPdfManualFocusRef.current = false;
+        geoPdfManualFocusRef.current = false;
       const issue = describeOfflineMapFailure(cause);
       if (!issue) return; // Normal cancellation on remount.
       // Do not expose raw file paths or remote URLs in UI/toasts.
@@ -1179,8 +1177,7 @@ export default function CommandCenterPage() {
       mapRef.current = null;
       try { oldMap?.remove(); } catch { /* context may already be lost */ }
       try { geoPdfOverlay?.release(); } catch { /* release continues */ }
-      geoPdfCoordinatesRef.current = null;
-      geoPdfManualFocusRef.current = false;
+        geoPdfManualFocusRef.current = false;
       releaseProtocols();
     };
   }, [toast, updateTelemetry, fitSelection, search.pdfId, activeRegionPackageId, regionalRenderRevision,
@@ -1230,32 +1227,6 @@ export default function CommandCenterPage() {
         description: "Autorize a localização nas configurações do dispositivo.",
         variant: "error",
       });
-      return;
-    }
-    if (search.pdfId) {
-      const map = mapRef.current;
-      const coordinates = geoPdfCoordinatesRef.current;
-      if (!map || !coordinates) {
-        toast({ title: "Mapa PDF não posicionado", description: "Confira o georreferenciamento do arquivo em Dados.", variant: "error" });
-        return;
-      }
-      const fix = await getFreshDevicePosition();
-      if (mapRef.current !== map || geoPdfCoordinatesRef.current !== coordinates) return;
-      if (!fix) {
-        updateNavigationPosition(null, false);
-        setGeoPdfMessage("Não foi possível obter uma posição GPS recente neste dispositivo.");
-        return;
-      }
-      const evaluated = evaluateGeoPdfGps(fix, coordinates);
-      setGeoPdfMessage(describeGeoPdfGps(evaluated));
-      if (evaluated.status !== "inside") {
-        updateNavigationPosition(null, false);
-        return;
-      }
-      geoPdfManualFocusRef.current = true;
-      map.easeTo({ center: evaluated.center, zoom: Math.max(15, map.getZoom()), duration: 350 });
-      updateNavigationPosition(fix, false);
-      void rememberLocationApproval().catch(() => undefined);
       return;
     }
     if (locationControlRef.current) {
@@ -1319,7 +1290,7 @@ export default function CommandCenterPage() {
       {geoPdfMessage && (
         <p
           role="status"
-          className="absolute left-4 right-4 top-4 z-30 rounded-lg border border-cyan-500/30 bg-surface-container/95 p-3 text-sm text-on-surface shadow-lg backdrop-blur"
+          className="absolute left-4 right-16 top-4 z-20 rounded-lg border border-cyan-500/30 bg-surface-container/95 p-3 text-sm text-on-surface shadow-lg backdrop-blur"
         >
           {geoPdfMessage}
         </p>

@@ -15,10 +15,12 @@ describe("GPS alignment within georeferenced GeoPDF footprint", () => {
     const result = evaluateGeoPdfGps({ lon: -48.22, lat: -7.20, accuracyM: 3200 }, corners);
     expect(result).toEqual({ status: "imprecise", accuracyM: 3200 });
     expect(describeGeoPdfGps(result)).toMatch(/GPS aproximado.*3200 m/);
+    expect(describeGeoPdfGps(result)).toContain("O ponto mostrado pode estar deslocado");
   });
   it("does not move the PDF to a reliable point outside its actual coverage", () => {
-    expect(evaluateGeoPdfGps({ lon: -48.19, lat: -7.20, accuracyM: 6 }, corners))
-      .toEqual({ status: "outside", accuracyM: 6 });
+    const result = evaluateGeoPdfGps({ lon: -48.19, lat: -7.20, accuracyM: 6 }, corners);
+    expect(result).toEqual({ status: "outside", accuracyM: 6 });
+    expect(describeGeoPdfGps(result)).toContain("visível no mapa-base");
   });
   it("uses the true quadrilateral, not only an axis-aligned bounding box", () => {
     const rotated = [[0, 2], [2, 3], [4, 2], [2, 1]] as const;

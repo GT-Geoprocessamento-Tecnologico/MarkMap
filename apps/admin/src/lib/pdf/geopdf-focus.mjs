@@ -51,10 +51,10 @@ export function describeGeoPdfGps(result) {
     return `GPS ±${Math.round(result.accuracyM)} m: sua posição está na área georreferenciada do PDF.`;
   }
   if (result.status === "outside") {
-    return `GPS ±${Math.round(result.accuracyM)} m: posição fora da área do PDF. Confira a cobertura e a calibração da carta.`;
+    return `GPS ±${Math.round(result.accuracyM)} m: posição fora da área do PDF, visível no mapa-base.`;
   }
   if (result.status === "imprecise") {
-    return `GPS aproximado (±${Math.round(result.accuracyM)} m). Não é seguro centralizar o GeoPDF por esta posição; use GPS mais preciso.`;
+    return `GPS aproximado (±${Math.round(result.accuracyM)} m). O ponto mostrado pode estar deslocado; use GPS mais preciso.`;
   }
   return "Posição GPS indisponível para conferir a carta PDF.";
 }

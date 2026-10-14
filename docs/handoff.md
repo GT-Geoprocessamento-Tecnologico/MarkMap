@@ -1,5 +1,14 @@
 # Handoff de continuidade
 
+## A74 — GeoPDF: restaurar mapa-base e GPS (em validação)
+
+**Causa no HEAD `d46b472`:** a rota com `pdfId` sempre substituía OpenFreeMap por fundo vazio e removia o GeolocateControl nativo. Botão inferior do GPS também recusava posição fora do recorte/imprecisa. Usuário confirmou regressão após deploy A73.
+
+**Correção proposta em PR isolado:** abrir PDF como raster com coordenadas preservadas sobre o estilo online quando conectado; manter botão GPS nativo no canto direito e da barra inferior, com círculo/precisão reportada pelo dispositivo inclusive fora da carta. Avisar quando a localização for aproximada. Offline sem pacote instalado mantém fundo neutro e o PDF, sem simular ruas. Banco, IndexedDB e PDF original intocados.
+
+**QA pendente:** lint, typecheck, unit, build, E2E e verificação física. Merge e deploy não autorizados neste pedido; não declarar publicação até confirmação.
+
+
 ## A73 — GeoPDF real e GPS seguro (2026-10-13)
 
 **Código em validação, NÃO publicado:** PR draft #7 na branch `fix/geopdf-gps-alignment-20261013`; produção preservada em `main@12794cc`. Auditoria do GeoPDF de Araguaína enviado pelo usuário: 16.634.115 bytes, 1 página QGIS, viewport georreferenciada real com oeste -48.230591, leste -48.208367, norte -7.194191 e sul -7.209602 (aprox. 2,45 km × 1,70 km). Embora o arquivo declare EPSG:3857 e guarde GPTS em graus, a reconciliação CRS do MarkMap já cobre esse formato; transformação afim independente testada localmente, resíduos nos controles aproximadamente zero. O PDF não cobre toda Araguaína e a captura mostra grande incerteza GPS, sem evidência suficiente sobre a posição física exata do usuário.
