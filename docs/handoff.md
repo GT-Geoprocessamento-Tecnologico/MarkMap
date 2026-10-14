@@ -1,5 +1,16 @@
 # Handoff de continuidade
 
+## A71.3 — QA no app publicado e correção do checkbox (2026-10-13)
+
+**GitHub:** base `main@0b7ca1cf`, 0 PR aberto. A mudança funcional inclui GPS já autorizado com região sugerida, download automático **opt-in** persistido no IndexedDB, GeoPDF responsivo mantendo PDF original e endereço indexado offline. O catálogo `/maps/catalog.json` continua vazio (não inventar mapas).
+
+**Produção observada:** Vercel `dpl_68z1GX4QqCH7uRJU6o3u3bppZbaM` para `main@834b1925` está **READY, target=production, alias appmarkmap.mtsferreira.dev**; o build monorepo `5/5`, incluindo `admin: tsc --noEmit && vite build`, passou nesse SHA. Commit posterior `58e3ab74` falhou no build por TS2683 em `OfflineSearch.test.tsx`; foi corrigido na `main@fbe822d6` mudando `typeof this.records` para `SearchWorker["records"]`. A mudança adicional `main@a9d40163` dá resposta imediata ao checkbox, mas aguarda persistência bem-sucedida no IndexedDB antes de permitir download; teste correspondente atualizado em `main@0b7ca1cf`. **Esses commits posteriores NÃO têm implantação READY comprovada.** Tentativa de criação manual pelo conector já retornou HTTP 402 `api-deployments-free-per-day`.
+
+**QA executado, separado por fonte:** (1) Sandbox com código GitHub real: **28/28 Vitest PASS** antes dos commits `a9d`/`0b7` (9 PDF/endereço, 11 catálogo/instalador, 2 preferências, 4 interface catálogo, 2 interface busca). Os testes modificados de `a9d`/`0b7` **ainda não foram executados**, sem alegação de gate completo. (2) Navegador Chromium Playwright CLI com app de produção: vista **393×852**: largura do documento 393 px, GeoPDF de teste 2400×1800 com preview **311×233 px** e canvas PDF.js preservado em **4619×3465 px**; zoom abriu raster integral dentro de scroll interno, página permaneceu em 393 px; ajuste restaurou tamanho. Desktop **1366×850**: PDF **737×553 px** sem overflow; importar fixture não alterou o PDF original. No mapa, botão `Buscar locais neste mapa` abriu painel de busca local, sem erros de console naquele acesso; 0 locais sem pacote baixado, com fallback honesto para provedor remoto não configurado. Não se testou GeoPDF real do usuário nem endereço encontrado em pacote real.
+
+**Pendências e segurança:** QA físico Android/Windows e E2E integral de `main@0b7` ainda necessários, assim como mapas regionais reais com licença/manifest/Range e geocodificação contratada. Seis branches históricas têm 0 commits exclusivos e 0 PR aberto, mas permanecem porque conector GitHub não fornece exclusão de refs; só `.eslintignore` comprovadamente redundante foi removido, `REPOSITORIOS MODELOS/` não é versionado. App/site continuam em origens distintas; não foi usado Browser MTS, nem forçada quota, mudada API/Neon/outbox ou efetuada migração destrutiva.
+
+
 ## A71.2 — opção de download automático com aceite e testes (2026-10-13)
 
 **Alteração:** checkbox opcional `Baixar automaticamente o mapa da minha região` (padrão desligado), consentimento booleano guardado apenas no IndexedDB. GPS já autorizado sugere a menor região publicada que contém a posição; depois do aceite, tenta 1 download por região ao abrir o catálogo com rede e sem `saveData`, preservando dados antigos e o instalador verificado. O clique manual permanece disponível. Sem pacote publicado no catálogo vazio, nenhuma região real é baixada.
