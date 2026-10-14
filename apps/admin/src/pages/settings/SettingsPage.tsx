@@ -23,6 +23,7 @@ import { subscribeRegionForeground } from '../../lib/storage/region-foreground-r
 import { getRegionInstallDraftUrl, rememberRegionInstallDraftUrl, clearRegionInstallDraftUrl } from '../../lib/storage/region-install-draft.mjs';
 import { rememberRegionSource, forgetRegionSource, getRegionSourceUrl } from '../../lib/storage/region-source-registry';
 import { appCredits } from '../../lib/app-credits';
+import { requestAppUpdate } from "../../lib/pwa-update-request";
 import { RegionDownloadCatalog } from "../../components/map/RegionDownloadCatalog";
 
 type GpsState = "prompt" | "granted" | "denied";
@@ -46,6 +47,7 @@ export default function SettingsPage() {
     getPwaInstallSnapshot,
     getPwaInstallSnapshot,
   );
+  const [appUpdateBusy, setAppUpdateBusy] = useState(false);
   const [gps, setGps] = useState<GpsState>("prompt");
   const [gpsBusy, setGpsBusy] = useState(false);
   const [dark, setDark] = useState(() => {
@@ -222,6 +224,35 @@ export default function SettingsPage() {
       setError(
         "Não foi possível abrir a instalação. Tente pelo menu do navegador.",
       );
+    }
+  };
+  const updateApp = async () => {
+    if (appUpdateBusy) return;
+    setAppUpdateBusy(true);
+    setError(null);
+    try {
+      const result = await requestAppUpdate();
+      if (result.status === "updating") {
+        toast({
+          title: "Atualização iniciada",
+          description: "A nova versão será aberta automaticamente após a ativação segura.",
+          variant: "success",
+        });
+      } else if (result.status === "current") {
+        toast({ title: "Aplicativo atualizado", description: "Nenhuma atualização disponível no momento." });
+      } else if (result.status === "pending") {
+        toast({ title: "Preparando atualização", description: "A nova versão ainda está sendo baixada. Tente novamente quando terminar." });
+      } else if (result.status === "offline") {
+        toast({ title: "Sem conexão", description: "Conecte-se à internet para procurar atualizações." });
+      } else {
+        const message = result.status === "error"
+          ? result.message
+          : "Atualização automática indisponível neste dispositivo.";
+        setError(message);
+        toast({ title: "Atualização não concluída", description: message, variant: "error" });
+      }
+    } finally {
+      setAppUpdateBusy(false);
     }
   };
   const locate = async () => {
@@ -570,11 +601,14 @@ export default function SettingsPage() {
               : "Adicione à tela inicial para abrir em uma janela própria."}
         </p>
         <button
-          disabled={installState.installed}
-          onClick={() => void install()}
+          type="button"
+          disabled={appUpdateBusy}
+          onClick={() => void (installState.installed ? updateApp() : install())}
           className="rounded-lg bg-gradient-to-r from-brand-blue to-brand-cyan px-4 py-2 font-semibold text-white hover:brightness-110 disabled:opacity-50"
         >
-          {installState.installed ? "Instalado" : "Instalar aplicativo"}
+          {installState.installed
+            ? appUpdateBusy ? "Verificando atualização…" : "Atualizar aplicativo"
+            : "Instalar aplicativo"}
         </button>
       </div>
       <div className="rounded-2xl border border-outline-variant bg-surface-container p-5">
