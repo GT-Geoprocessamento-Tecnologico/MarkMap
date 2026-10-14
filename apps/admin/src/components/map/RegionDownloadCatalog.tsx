@@ -15,6 +15,7 @@ import {
 import { installCatalogRegion } from "../../lib/storage/catalog-region-install";
 import { shouldAutoLocateOnOpen, getFreshDevicePosition, rememberLocationApproval } from "../../lib/location-consent";
 import { ensureLocationPermission } from "../../lib/device-location-permission";
+import { getAutomaticRegionDownload, setAutomaticRegionDownload } from "../../lib/storage/auto-region-download";
 
 type Props = {
   mapCenter?: readonly [number, number];
@@ -35,6 +36,10 @@ export function RegionDownloadCatalog({
   const [devicePoint, setDevicePoint] = useState<readonly [number, number] | null>(null);
   const [locating, setLocating] = useState(false);
   const [locationMessage, setLocationMessage] = useState("");
+  const [autoDownload, setAutoDownload] = useState(false);
+  const [installedReady, setInstalledReady] = useState(false);
+  const [online, setOnline] = useState(typeof navigator !== "undefined" && navigator.onLine);
+  const autoAttempted = useRef(new Set<string>());
   const [loading, setLoading] = useState(true);
   const [catalogError, setCatalogError] = useState("");
   const [revision, setRevision] = useState(0);
@@ -51,6 +56,7 @@ export function RegionDownloadCatalog({
   const refreshInstalled = useCallback(async () => {
     const packages = await offlineMapStore.list();
     setInstalled(packages.map(({ manifest }) => manifest));
+    setInstalledReady(true);
   }, []);
   useEffect(() => {
     void refreshInstalled().catch(() => setNotice("Não foi possível consultar os mapas salvos."));
@@ -70,6 +76,20 @@ export function RegionDownloadCatalog({
     return () => controller.abort();
   }, [revision]);
   useEffect(() => { onBusyChange?.(busyId !== null); }, [busyId, onBusyChange]);
+  useEffect(() => {
+    let active = true;
+    void getAutomaticRegionDownload().then(enabled => {
+      if (active) setAutoDownload(enabled);
+    }).catch(() => undefined);
+    const sync = () => setOnline(navigator.onLine);
+    window.addEventListener("online", sync);
+    window.addEventListener("offline", sync);
+    return () => {
+      active = false;
+      window.removeEventListener("online", sync);
+      window.removeEventListener("offline", sync);
+    };
+  }, []);
   useEffect(() => {
     let active = true;
     // Existing OS grant only: startup must never reopen the permission popup.
@@ -117,7 +137,7 @@ export function RegionDownloadCatalog({
     current.current?.controller.abort();
     current.current?.installer.abortInstall();
   };
-  const download = async (region: PublicRegion, replaceCheckpoint = false) => {
+  const download = useCallback(async (region: PublicRegion, replaceCheckpoint = false) => {
     if (current.current || disabled) return;
     const controller = new AbortController();
     const installer = new ResumableInstaller();
@@ -163,9 +183,18 @@ export function RegionDownloadCatalog({
       setBusyId(null);
       setPercent(null);
     }
-  };
+  }, [disabled, onInstalled, refreshInstalled]);
 
   const suggested = devicePoint ? recommendLocalRegion(regions, devicePoint) : null;
+  useEffect(() => {
+    if (!autoDownload || !installedReady || !online || !suggested || disabled ||
+        installed.some(item => item.id === suggested.id)) return;
+    // Data-saver protects limited connections. Permission is local and explicit.
+    if ((navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData) return;
+    if (autoAttempted.current.has(suggested.id)) return;
+    autoAttempted.current.add(suggested.id);
+    void download(suggested);
+  }, [autoDownload, installedReady, online, suggested, disabled, installed, download]);
   const matches = useMemo(() => {
     const term = normalizeRegionSearch(search.trim());
     return regions.filter((region) =>
@@ -191,11 +220,28 @@ export function RegionDownloadCatalog({
       </button>
       {devicePoint && <p role="status" className="text-xs text-on-surface-variant">
         {suggested
-          ? `Mapa sugerido pelo GPS: ${suggested.label}. Confira o tamanho e toque em Baixar.`
+          ? `Mapa sugerido pelo GPS: ${suggested.label}. ${autoDownload ? "Download automático autorizado." : "Confira o tamanho e toque em Baixar."}`
           : "Localização encontrada. Ainda não há mapa publicado para esta área."}
       </p>}
       {locationMessage && <p role="status" className="text-xs text-on-surface-variant">{locationMessage}</p>}
-      <p className="text-xs text-on-surface-variant">A posição é usada somente neste aparelho. Nenhum download começa sem sua confirmação.</p>
+      <label className="flex min-h-[44px] items-center gap-3 text-sm text-on-surface">
+        <input type="checkbox" checked={autoDownload}
+          aria-label="Baixar automaticamente o mapa da minha região"
+          onChange={event => {
+            const enabled = event.target.checked;
+            void setAutomaticRegionDownload(enabled).then(() => setAutoDownload(enabled))
+              .catch(() => setLocationMessage("Não foi possível salvar a preferência no aparelho."));
+          }}
+          className="h-5 w-5 shrink-0 accent-primary" />
+        <span>Baixar automaticamente o mapa da minha região quando disponível
+          <small className="block text-xs text-on-surface-variant">
+            Ativação opcional. Pode consumir dados móveis e espaço no aparelho.
+          </small>
+        </span>
+      </label>
+      <p className="text-xs text-on-surface-variant">
+        O GPS fica somente neste aparelho. Sem a opção ativada, o download exige o botão Baixar.
+      </p>
     </div>
     <input type="search" value={search} onChange={(event) => setSearch(event.target.value)}
       placeholder="Buscar cidade, estado ou região" aria-label="Buscar mapas disponíveis"
