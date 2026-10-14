@@ -98,13 +98,21 @@ describe("GPS region download UX", () => {
     await waitFor(() => expect(mock.install).toHaveBeenCalledTimes(1));
   });
 
-  it("saves new consent before starting the automatic download", async () => {
+  it("checks immediately but downloads only after consent is durably saved", async () => {
+    let finishSave: (() => void) | undefined;
+    mock.persist.mockReturnValue(new Promise<void>(resolve => {
+      finishSave = resolve;
+    }));
     render(<RegionDownloadCatalog />);
     await screen.findByText(/Mapa sugerido pelo GPS: Araguaína/);
-    fireEvent.click(screen.getByRole("checkbox", {
+    const input = screen.getByRole("checkbox", {
       name: "Baixar automaticamente o mapa da minha região",
-    }));
-    await waitFor(() => expect(mock.persist).toHaveBeenCalledWith(true));
+    }) as HTMLInputElement;
+    fireEvent.click(input);
+    expect(input.checked).toBe(true);
+    expect(mock.persist).toHaveBeenCalledWith(true);
+    expect(mock.install).not.toHaveBeenCalled();
+    finishSave?.();
     await waitFor(() => expect(mock.install).toHaveBeenCalledTimes(1));
   });
 });
