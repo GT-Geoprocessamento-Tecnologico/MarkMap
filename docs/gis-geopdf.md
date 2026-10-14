@@ -70,5 +70,12 @@ A referência automática só é salva quando todos os critérios passam. Caso c
 - PDF original disponibilizado somente para análise local (16.634.115 bytes, 1 página, gerado em QGIS 3.40.4). **Não incluído no repositório.**
 - Metadados: viewport `/BBox [16.1558, 21.4360, 1672.1258, 1178.8802]`; `/GPTS` em graus de latitude/longitude, apesar de `/GCS` declarar EPSG:3857. `reconcileIsoCrs` já reconhece essa inconsistência na implementação existente.
 - Extensão calculada com transformação afim: oeste -48.230591°, leste -48.208367°, norte -7.194191°, sul -7.209602°; área aproximada 2,45 km × 1,70 km, **não abrange a cidade inteira**.
-- O controle nativo do MapLibre consegue recentralizar por GPS mesmo com incerteza enorme. Em GeoPDF ele fica desabilitado; o botão existente da barra inferior verifica posição recente, precisão e inclusão na carta antes de mover a câmera.
+- O controle GPS nativo do MapLibre informa posição com incerteza fornecida pelo navegador; a etapa A73 o ocultou temporariamente no GeoPDF. A etapa A74 restaura o botão e informa a precisão, sem alterar o georreferenciamento da carta.
 - Não é possível provar a localização física do dispositivo a partir da captura: apenas o sistema operacional do usuário fornece posição/precisão. Sem GPS físico, não declarar alinhamento métrico absoluto.
+
+## A74 — GeoPDF sobre mapa-base e GPS visível (reversão da regressão)
+
+- **Causa**: a abertura do PDF forçava `createFallbackStyle()` mesmo conectado. Isso ocultava ruas/cidades ao redor. A correção A73 também executava `map.removeControl(geolocate)`, removendo o botão nativo no canto direito. O botão da barra inferior permanecia, mas recusava mostrar a posição se a precisão fosse >100 m ou se estivesse fora do recorte.
+- **Novo comportamento**: com conexão, renderizar o GeoPDF como imagem georreferenciada sobre o estilo-padrão OpenFreeMap; o botão nativo de localização permanece visível e acionável, independentemente de a posição estar dentro do recorte da carta. Exibir precisão reportada pelo dispositivo e aviso de posição fora/imprecisa, sem deslocar o raster.
+- Sem conexão e sem pacote de ruas previamente disponível, o GeoPDF continua visível no fundo neutro — **não inventar mapa-base offline**. Offline-first, integridade do PDF e IndexedDB/outbox mantidos. No mapa base remoto indisponível, o lifecycle mantém o GeoPDF e os dados locais.
+- QA: verificar a chamada ao estilo online com o PDF aberto; botão `.maplibregl-ctrl-geolocate` visível e clicável; GPS dentro/fora da carta; não afetar visualização fora do PDF; teste real Windows/Android ainda necessário.
