@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { PWA_UPDATE_REQUEST, type AppUpdateRequest, type AppUpdateResult } from "../../lib/pwa-update-request";
 import { AppIcon } from "../AppIcon";
 
 /** Ask the WAITING worker for protocol information; do not infer it from network status. */
@@ -30,6 +31,28 @@ async function waitingWorkerCompatible(waiting: ServiceWorker): Promise<boolean>
 }
 
 
+/** Wait for an in-progress installation before deciding whether an update exists. */
+async function waitForInstallation(registration: ServiceWorkerRegistration): Promise<void> {
+  const installing = registration.installing;
+  if (!installing || ["installed", "activated", "redundant"].includes(installing.state)) return;
+  await new Promise<void>((resolve) => {
+    let finished = false;
+    const done = () => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timeout);
+      installing.removeEventListener("statechange", onStateChange);
+      resolve();
+    };
+    const onStateChange = () => {
+      if (["installed", "activated", "redundant"].includes(installing.state)) done();
+    };
+    const timeout = setTimeout(done, 15000);
+    installing.addEventListener("statechange", onStateChange);
+    onStateChange();
+  });
+}
+
 export interface UpdatePromptProps {
   /** Return true only after IndexedDB transactions and outbox writes are durable. */
   durableWritesReady?: () => boolean | Promise<boolean>;
@@ -48,6 +71,51 @@ export function UpdatePrompt({
   const reloadStarted = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [dismissedVersion, setDismissedVersion] = useState<ServiceWorker | null>(null);
+
+  const accept = useCallback(async (target: ServiceWorkerRegistration): Promise<AppUpdateResult> => {
+    const waiting = target.waiting;
+    if (!waiting) return { status: "current" };
+    setBusy(true);
+    setError(null);
+    try {
+      const [writesReady, appCompatible, workerCompatible] = await Promise.all([
+        durableWritesReady(), compatibilityReady(), waitingWorkerCompatible(waiting),
+      ]);
+      if (!writesReady || !appCompatible) {
+        const message = "Os dados locais ainda não estão prontos. Salve as alterações antes de atualizar.";
+        setError(message);
+        return { status: "error", message };
+      }
+      if (!workerCompatible) {
+        const message = "Esta versão não confirmou compatibilidade dos dados locais. Atualização bloqueada por segurança.";
+        setError(message);
+        return { status: "error", message };
+      }
+      if (target.waiting !== waiting || waiting.state !== "installed") {
+        const message = "A versão disponível mudou. Verifique novamente antes de atualizar.";
+        setError(message);
+        return { status: "error", message };
+      }
+      activationApproved.current = true;
+      try {
+        waiting.postMessage({
+          type: "SKIP_WAITING",
+          durableWritesReady: true,
+          compatibilityVersion: 1,
+        });
+      } catch (cause) {
+        activationApproved.current = false;
+        throw cause;
+      }
+      return { status: "updating" };
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : "Não foi possível ativar a atualização com segurança.";
+      setError(message);
+      return { status: "error", message };
+    } finally {
+      setBusy(false);
+    }
+  }, [durableWritesReady, compatibilityReady]);
 
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return undefined;
@@ -123,6 +191,40 @@ export function UpdatePrompt({
       void checkForUpdate();
     });
 
+    // Settings delegates to this single guarded activation flow, not a second updater.
+    const onManualUpdate = (rawEvent: Event) => {
+      const event = rawEvent as CustomEvent<AppUpdateRequest>;
+      if (typeof event.detail?.respond !== "function") return;
+      event.preventDefault();
+      void (async (): Promise<AppUpdateResult> => {
+        if (!("serviceWorker" in navigator) || !navigator.serviceWorker.controller) {
+          return { status: "unavailable" };
+        }
+        if (!navigator.onLine) return { status: "offline" };
+        const ready = await navigator.serviceWorker.ready;
+        if (disposed || !window.location.href.startsWith(ready.scope) || typeof ready.update !== "function") {
+          return { status: "unavailable" };
+        }
+        try {
+          await ready.update();
+        } catch (cause) {
+          // An already downloaded version can still be activated when another
+          // update check fails; otherwise surface the real network error.
+          if (!ready.waiting) throw cause;
+        }
+        await waitForInstallation(ready);
+        if (disposed) return { status: "unavailable" };
+        if (!ready.waiting) return { status: ready.installing ? "pending" : "current" };
+        setRegistration(ready);
+        return accept(ready);
+      })().then(event.detail.respond, (cause: unknown) => {
+        event.detail.respond({
+          status: "error",
+          message: cause instanceof Error ? cause.message : "Falha ao verificar atualização.",
+        });
+      });
+    };
+    window.addEventListener(PWA_UPDATE_REQUEST, onManualUpdate);
     window.addEventListener("online", goOnline);
     document.addEventListener("visibilitychange", onVisibilityChange);
     startPeriodicCheck();
@@ -130,61 +232,22 @@ export function UpdatePrompt({
     return () => {
       disposed = true;
       navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange);
+      window.removeEventListener(PWA_UPDATE_REQUEST, onManualUpdate);
       window.removeEventListener("online", goOnline);
       document.removeEventListener("visibilitychange", onVisibilityChange);
       if (updateInterval) clearInterval(updateInterval);
     };
-  }, [dismissedVersion]);
-
-  if (!registration?.waiting) return null;
-
-  const accept = async () => {
-    const waiting = registration.waiting;
-    if (!waiting) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const [writesReady, appCompatible, workerCompatible] = await Promise.all([
-        durableWritesReady(), compatibilityReady(), waitingWorkerCompatible(waiting),
-      ]);
-      if (!writesReady || !appCompatible) {
-        setError('Os dados locais ainda não estão prontos. Salve as alterações antes de atualizar.');
-        return;
-      }
-      if (!workerCompatible) {
-        setError('Esta versão não confirmou compatibilidade dos dados locais. Atualização bloqueada por segurança.');
-        return;
-      }
-      // The target must still be the same waiting instance after async checks.
-      if (registration.waiting !== waiting || waiting.state !== "installed") {
-        setError('A versão disponível mudou. Verifique novamente antes de atualizar.');
-        return;
-      }
-      activationApproved.current = true;
-      try {
-        waiting.postMessage({
-          type: "SKIP_WAITING",
-          durableWritesReady: true,
-          compatibilityVersion: 1,
-        });
-      } catch (cause) {
-        activationApproved.current = false;
-        throw cause;
-      }
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Não foi possível ativar a atualização com segurança.');
-    } finally {
-      setBusy(false);
-    }
-  };
+  }, [dismissedVersion, accept]);
 
   const handleLater = () => {
-    if (registration.waiting) {
+    if (registration?.waiting) {
       activationApproved.current = false;
       setDismissedVersion(registration.waiting);
     }
     setRegistration(null);
   };
+
+  if (!registration?.waiting) return null;
 
   // Desenvolvido por MtsFerreira. Apenas a apresentação muda; o aceite continua seguro.
   return (
@@ -217,7 +280,7 @@ export function UpdatePrompt({
         <button
           type="button"
           className="pwa-update-prompt__primary"
-          onClick={() => void accept()}
+          onClick={() => void accept(registration)}
           disabled={busy}
         >
           <AppIcon name={busy ? "loading" : "download"} size="sm" />
