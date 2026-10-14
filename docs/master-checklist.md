@@ -1,5 +1,14 @@
 # MarkMap — Checklist Mestre de Execução
 
+## A71.2 — opção de download automático com aceite e testes (2026-10-13)
+
+**Alteração:** checkbox opcional `Baixar automaticamente o mapa da minha região` (padrão desligado), consentimento booleano guardado apenas no IndexedDB. GPS já autorizado sugere a menor região publicada que contém a posição; depois do aceite, tenta 1 download por região ao abrir o catálogo com rede e sem `saveData`, preservando dados antigos e o instalador verificado. O clique manual permanece disponível. Sem pacote publicado no catálogo vazio, nenhuma região real é baixada.
+
+**QA com evidência:** Vitest isolado (React Testing Library/JSDOM) **28/28 testes PASS** em 7 arquivos (fit PDF 4, índice local 2, provedor endereço 3, catálogo 7, instalador 4, preferência 2, interface catálogo 4, interface busca 2). Compilação sintática TypeScript `transpileModule` em 6 fontes A70/A71 PASS (não substitui typecheck semantic/monorepo). Os testes de interface usaram mocks de GPS/IndexedDB/rede, não dispositivos físicos. O código permaneceu na `main`.
+
+**Bloqueios atuais:** Vercel não permite criar novo deployment (HTTP 402, cota diária >100), então build completo/E2E do código novo, publicação e testes Android/Windows físicos permanecem **pendentes**. Catálogo real de PMTiles licenciados e provedor de endereços remoto continuam não configurados. Seis branches legadas inteiramente integradas à main permanecem sem exclusão, pois não há ferramenta com delete de refs; `REPOSITORIOS MODELOS` é ignorada e não está versionada. **Nunca alegar deploy pronto ou branches apagadas** até ter comprovação.
+
+
 ## A71 — GPS regional, GeoPDF responsivo, endereços locais e higiene segura — 2026-10-13
 
 **Estado base:** auditado `main@421408cb`, Checklist Mestre no Notion e 0 PR aberto. O catálogo A70 ainda está vazio porque não há PMTiles publicados com licença/manifest/Range verificados.

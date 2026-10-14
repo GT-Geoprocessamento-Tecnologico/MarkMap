@@ -87,3 +87,7 @@ pacote não podem escapar do diretório lógico.
 1. No mapa ou em Configurações, abra **Baixar mapas**. Se o dispositivo já permitir localização, o MarkMap sugere o pacote disponível da área. Senão, toque em **Encontrar mapa da minha localização** ou pesquise o nome da região. Toque em **Baixar mapa** para confirmar. Sem cobertura publicada, aparece o aviso correto (não há download fictício).
 2. No mapa, o atalho de **Buscar locais neste mapa** aceita nomes de ruas, lugares e endereços que estejam nos dados já instalados. Funciona sem internet. Busca online só será ativada mediante provedor de geocodificação contratado/configurado; não se utiliza API pública de terceiros como dependência oculta.
 3. Na aba **Conjuntos de dados**, carregue o PDF. A carta aparece ajustada à tela, com **Ampliar para ler** disponível sem perda do arquivo original. Pontos de calibração permanecem na posição correta ao alternar a visualização.
+
+### Download automático com autorização
+
+Na tela **Baixar mapas**, ative **Baixar automaticamente o mapa da minha região** somente se quiser baixar um pacote quando ele estiver disponível. O app usa a permissão GPS já concedida e avisa que pode consumir internet móvel e espaço no aparelho. O aceite fica salvo no dispositivo e pode ser desligado a qualquer momento; a instalação só ocorre com internet e sem modo de economia de dados. Sem essa opção, toque em **Baixar mapa**. Se não há mapa publicado para a região, nada será baixado.
