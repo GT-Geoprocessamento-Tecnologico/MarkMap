@@ -1,5 +1,14 @@
 # Handoff de continuidade
 
+## A73 — GeoPDF real e GPS seguro (2026-10-13)
+
+**Código em validação, NÃO publicado:** PR draft #7 na branch `fix/geopdf-gps-alignment-20261013`; produção preservada em `main@12794cc`. Auditoria do GeoPDF de Araguaína enviado pelo usuário: 16.634.115 bytes, 1 página QGIS, viewport georreferenciada real com oeste -48.230591, leste -48.208367, norte -7.194191 e sul -7.209602 (aprox. 2,45 km × 1,70 km). Embora o arquivo declare EPSG:3857 e guarde GPTS em graus, a reconciliação CRS do MarkMap já cobre esse formato; transformação afim independente testada localmente, resíduos nos controles aproximadamente zero. O PDF não cobre toda Araguaína e a captura mostra grande incerteza GPS, sem evidência suficiente sobre a posição física exata do usuário.
+
+**Correção isolada:** quando o GeoPDF está ativo, impedir o GeolocateControl nativo de reposicionar a carta com coordenadas imprecisas; o botão inferior Minha localização só centraliza com GPS recente, precisão <=100 m e posição dentro da imagem. Na carga inicial, não recentralizar sobre camadas alheias, nem sobrescrever pan manual; preservar referência geográfica, Blob, IndexedDB/outbox e comportamento normal da base MapLibre.
+
+**Evidência/pendência:** 6/6 testes Node isolados de limites/precisão PASS; script Python independente analisou o GeoPDF real e reproduziu os quatro cantos PASS. Vitest/Playwright novos adicionados ao PR, ainda **não executados no monorepo** (GitHub Actions falha antes de publicar logs/etapas). Faltam typecheck, lint, build, E2E e QA com GPS real antes de merge/deploy. Arquivo do usuário não foi publicado nem versionado.
+
+
 ## A71.3 — QA no app publicado e correção do checkbox (2026-10-13)
 
 **GitHub:** base `main@0b7ca1cf`, 0 PR aberto. A mudança funcional inclui GPS já autorizado com região sugerida, download automático **opt-in** persistido no IndexedDB, GeoPDF responsivo mantendo PDF original e endereço indexado offline. O catálogo `/maps/catalog.json` continua vazio (não inventar mapas).

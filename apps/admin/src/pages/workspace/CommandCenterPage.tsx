@@ -848,7 +848,9 @@ export default function CommandCenterPage() {
         };
         for (const event of events) canvas.addEventListener(event, markUserMove);
         const cancel = () => {
-          markUserMove();
+          // Finishing a GPS request is not a gesture on the map. Do not
+          // disable the initial PDF fit when GPS is absent or imprecise.
+          userMoved = true;
           for (const event of events) canvas.removeEventListener(event, markUserMove);
           if (cancelAutoCenterRef.current === cancel) cancelAutoCenterRef.current = null;
         };
@@ -1238,13 +1240,18 @@ export default function CommandCenterPage() {
         return;
       }
       const fix = await getFreshDevicePosition();
+      if (mapRef.current !== map || geoPdfCoordinatesRef.current !== coordinates) return;
       if (!fix) {
+        updateNavigationPosition(null, false);
         setGeoPdfMessage("Não foi possível obter uma posição GPS recente neste dispositivo.");
         return;
       }
       const evaluated = evaluateGeoPdfGps(fix, coordinates);
       setGeoPdfMessage(describeGeoPdfGps(evaluated));
-      if (evaluated.status !== "inside") return;
+      if (evaluated.status !== "inside") {
+        updateNavigationPosition(null, false);
+        return;
+      }
       geoPdfManualFocusRef.current = true;
       map.easeTo({ center: evaluated.center, zoom: Math.max(15, map.getZoom()), duration: 350 });
       updateNavigationPosition(fix, false);
