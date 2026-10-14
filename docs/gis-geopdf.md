@@ -56,3 +56,11 @@ A referência automática só é salva quando todos os critérios passam. Caso c
 ## Visualização responsiva no módulo Dados (A71)
 
 `PdfPreview` continua trabalhando com o Blob original offline. O canvas PDF.js conserva suas dimensões de rasterização (com o orçamento já existente de 16 milhões de pixels), mas a **apresentação** é limitada pela largura e altura do dispositivo, mantendo a proporção, sem cortar a carta. O controle **Ampliar para ler / Ajustar à tela** permite examinar o original com rolagem; a escala CSS não modifica arquivo, metadados, referência geográfica, nem os pontos de calibração, que são posicionados proporcionalmente à imagem exibida.
+
+## Verificação da posição GPS ao abrir GeoPDF (A73)
+
+- A imagem é posicionada exclusivamente pela referência geográfica do próprio PDF ou pela calibração previamente salva. Não ajustar a carta artificialmente para coincidir com uma posição de GPS.
+- Ao abrir com permissão de geolocalização, a centralização automática exige precisão informada pelo dispositivo de até 100 m e posição dentro do quadrilátero rasterizado. O controle GPS continua disponível para consulta manual.
+- GPS de Windows baseado em Wi-Fi ou IP pode indicar incerteza em quilômetros (círculo azul grande). Informar a precisão, não atribuir esse desvio ao PDF automaticamente.
+- O GeoPDF é enquadrado uma única vez por carregamento; a seleção de outras feições não deve sobrescrever esse enquadramento. Movimento manual do usuário cancela recentralização GPS pendente.
+- A posição absoluta e a cobertura da carta **ainda precisam ser conferidas com o GeoPDF real e GPS físico de precisão conhecida**. Testes sintéticos não comprovam alinhamento milimétrico. Offline/IndexedDB/Blob e georreferências salvas permanecem intocados.

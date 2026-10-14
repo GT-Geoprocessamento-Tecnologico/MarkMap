@@ -67,6 +67,7 @@ import { OfflineKnowledge } from "../../components/map/OfflineKnowledge";
 import { OfflineElevation } from "../../components/map/OfflineElevation";
 import { MapOfflinePanel } from "../../components/map/MapOfflinePanel";
 import { RegionDownloadCatalog } from "../../components/map/RegionDownloadCatalog";
+import { evaluateGeoPdfGps, describeGeoPdfGps } from "../../lib/pdf/geopdf-focus.mjs";
 import { MAX_CONTOUR_BYTES, validateRegionalContours, contoursToGeoJSON } from "@geonexo/maps/elevation/contour-package.mjs";
 import { loadRegionalPackageSearch, describeRegionalSearchLoadError } from '../../lib/search/regional-package-search';
 import type { LocalSearchRecord } from '../../lib/search/local-map-search';
@@ -628,6 +629,11 @@ export default function CommandCenterPage() {
     let styleLifecycle: ReturnType<typeof createOfflineStyleLifecycle> | null = null;
     let geoPdfOverlay: GeoPdfOverlay | null = null;
     let regionalContours: GeoJSON.FeatureCollection | null = null;
+    // Fitting the image and moving to a reliable GPS point are independent.
+    // Never refit after the user has panned or the style merely recovered.
+    let geoPdfHasFitted = false;
+    let pendingGeoPdfGpsCenter: [number, number] | null = null;
+    let geoPdfGpsNotice: string | null = null;
     const releaseProtocols = () => {
       const release = releaseProtocolLease;
       releaseProtocolLease = null;
@@ -816,17 +822,25 @@ export default function CommandCenterPage() {
       locationControlRef.current = geolocate;
       mapRef.current = map;
       // Both GPS buttons persist preference only after the device reports a fix.
-      geolocate.on("geolocate", () => {
+      geolocate.on("geolocate", (position) => {
         void rememberLocationApproval().catch(() => undefined);
+        if (!geoPdfOverlay) return;
+        const { longitude: lon, latitude: lat, accuracy: accuracyM } = position.coords;
+        // Windows can report kilometre-scale Wi-Fi/IP accuracy. That does not
+        // mean the GeoPDF itself has moved or should be repositioned.
+        geoPdfGpsNotice = describeGeoPdfGps(
+          evaluateGeoPdfGps({ lon, lat, accuracyM }, geoPdfOverlay.coordinates),
+        );
+        setGeoPdfMessage(geoPdfGpsNotice);
       });
-      if (!search.pdfId && !requestedDatasetRef.current && !fitRef.current.bounds) {
+      if (geoPdfOverlay || (!search.pdfId && !requestedDatasetRef.current && !fitRef.current.bounds)) {
         let userMoved = false;
         const canvas = map.getCanvas();
         const events = ["pointerdown", "wheel", "keydown"];
-        const markUserMove = () => { userMoved = true; };
+        const markUserMove = () => { userMoved = true; pendingGeoPdfGpsCenter = null; };
         for (const event of events) canvas.addEventListener(event, markUserMove);
         const cancel = () => {
-          userMoved = true;
+          markUserMove();
           for (const event of events) canvas.removeEventListener(event, markUserMove);
           if (cancelAutoCenterRef.current === cancel) cancelAutoCenterRef.current = null;
         };
@@ -836,15 +850,35 @@ export default function CommandCenterPage() {
             if (!(await shouldAutoLocateOnOpen())) return;
             const fix = await getFreshDevicePosition();
             if (!fix || cancelled || userMoved || mapRef.current !== map ||
-                fitRef.current.bounds || navigationActiveRef.current ||
-                !isInsideOfflineRegion(fix, offlineBounds)) return;
+                navigationActiveRef.current) return;
+            if (geoPdfOverlay) {
+              const result = evaluateGeoPdfGps(fix, geoPdfOverlay.coordinates);
+              geoPdfGpsNotice = describeGeoPdfGps(result);
+              setGeoPdfMessage(geoPdfGpsNotice);
+              if (result.status !== "inside") return;
+              // GeoPDF source hydration fits the carta first. If GPS wins the
+              // race, keep the requested center until its image is installed.
+              pendingGeoPdfGpsCenter = result.center;
+              updateNavigationPosition(fix, false);
+              if (geoPdfHasFitted && !userMoved) {
+                map.jumpTo({ center: result.center, zoom: Math.max(15, map.getZoom()) });
+                pendingGeoPdfGpsCenter = null;
+              }
+              void rememberLocationApproval().catch(() => undefined);
+              return;
+            }
+            if (fitRef.current.bounds || !isInsideOfflineRegion(fix, offlineBounds)) return;
             map.jumpTo({
               center: [fix.lon, fix.lat],
               zoom: Math.min(Math.max(14, map.getZoom()), offlineMaxZoom),
             });
             updateNavigationPosition(fix, false);
             void rememberLocationApproval().catch(() => undefined);
-          } finally { cancel(); }
+          } finally {
+            // Keep gesture cancellation alive only if the PDF still waits for
+            // its first raster source. A manual pan always takes precedence.
+            if (!pendingGeoPdfGpsCenter) cancel();
+          }
         })().catch(() => undefined); // Revoked sensor permission must not break the map.
       }
       regionReconcilerRef.current?.noteRendered(selectedPackageId, displayedGeneration);
@@ -915,15 +949,26 @@ export default function CommandCenterPage() {
             if (overlay.sourceAdded || overlay.layersAdded) {
               if (map.getLayer("local-dataset-fill"))
                 map.moveLayer("geopdf-overlay", "local-dataset-fill");
-              const lngs = geoPdfOverlay.coordinates.map(([lng]) => lng);
-              const lats = geoPdfOverlay.coordinates.map(([, lat]) => lat);
-              map.fitBounds([
-                [Math.min(...lngs), Math.min(...lats)],
-                [Math.max(...lngs), Math.max(...lats)],
-              ], { padding: 32, duration: 0 });
+              if (!geoPdfHasFitted) {
+                const lngs = geoPdfOverlay.coordinates.map(([lng]) => lng);
+                const lats = geoPdfOverlay.coordinates.map(([, lat]) => lat);
+                map.fitBounds([
+                  [Math.min(...lngs), Math.min(...lats)],
+                  [Math.max(...lngs), Math.max(...lats)],
+                ], { padding: 32, duration: 0 });
+                geoPdfHasFitted = true;
+                if (pendingGeoPdfGpsCenter) {
+                  map.jumpTo({
+                    center: pendingGeoPdfGpsCenter,
+                    zoom: Math.max(15, map.getZoom()),
+                  });
+                  pendingGeoPdfGpsCenter = null;
+                  cancelAutoCenterRef.current?.();
+                }
+              }
             }
             setGeoPdfReady(true);
-            setGeoPdfMessage("Mapa PDF disponível offline.");
+            setGeoPdfMessage(geoPdfGpsNotice ?? "Mapa PDF disponível offline.");
           }
           ensureOfflineSourceLayers(map, "draw-preview", {
             type: "geojson", data: drawingPreviewRef.current,
@@ -960,7 +1005,7 @@ export default function CommandCenterPage() {
               paint: { "line-color": "#dc2626", "line-width": 5, "line-opacity": 0.9 },
               layout: { "line-join": "round", "line-cap": "round" } },
           ]);
-          fitSelection(map);
+          if (!search.pdfId) fitSelection(map);
           setMapEpoch((value) => value + 1);
         };
         styleLifecycle = createOfflineStyleLifecycle({
@@ -1135,8 +1180,8 @@ export default function CommandCenterPage() {
       GeoJSONSource | undefined;
     if (source)
       source.setData(activeGeoJson as unknown as GeoJSON.FeatureCollection);
-    if (mapRef.current && source) fitSelection(mapRef.current);
-  }, [activeGeoJson, selectionKey, mapEpoch, fitSelection]);
+    if (!search.pdfId && mapRef.current && source) fitSelection(mapRef.current);
+  }, [activeGeoJson, selectionKey, mapEpoch, fitSelection, search.pdfId]);
 
   useEffect(() => {
     const source = mapRef.current?.getSource("draw-preview") as
