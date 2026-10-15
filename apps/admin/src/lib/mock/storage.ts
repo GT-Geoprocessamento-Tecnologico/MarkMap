@@ -1,4 +1,4 @@
-import { createSeedDb, mockDbSchema } from './seed';
+import { MOCK_DB_VERSION, mockDbSchema } from './seed';
 import type { MockDb } from './seed';
 
 /** Chave versionada: trocar a versao invalida dados de demonstracao antigos. */
@@ -25,7 +25,7 @@ function writeStored(db: MockDb): void {
   }
 }
 
-/** Db atual, carregado do localStorage ou re-semeado quando ausente/invalido. */
+/** Dados já persistidos permanecem intactos. Perfil novo começa vazio. */
 export function getDb(): MockDb {
   if (cache !== null) return cache;
   const stored = readStored();
@@ -33,7 +33,7 @@ export function getDb(): MockDb {
     cache = stored;
     return cache;
   }
-  return persist(createSeedDb());
+  return persist({ version: MOCK_DB_VERSION, projects: [], layers: [], features: [] });
 }
 
 /** Persiste alteracoes feitas pelos endpoints mock. */

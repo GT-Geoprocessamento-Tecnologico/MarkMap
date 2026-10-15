@@ -28,3 +28,13 @@ This block is written and re-added by `turbo` before repository-scoped commands 
 
 
 - **A71 — mapas, PDF e busca:** a sugestão de região usa somente GPS com autorização real e seleção local; não baixa dados por padrão; download automático só quando o usuário ativa consentimento persistido localmente, houver GPS permitido, conexão e região publicada. Nunca inventar pacotes no catálogo vazio. Preview GeoPDF mantém raster/original e coordenadas sem reprojetar ou comprimir. Pesquisa de endereços opera offline e online só via provedor próprio autorizado; não acoplar Nominatim público diretamente. Os domínios site/app permanecem separados.
+
+## A75 — CONTRATO INALTERÁVEL SEM AUTORIZAÇÃO: GeoPDF + GPS validado em Android/iOS
+
+Em 2026-10-15 o responsável confirmou que **em dispositivos reais Android e iOS o GeoPDF se encaixa corretamente no mapa-base e a posição GPS aparece sobre a carta**. Este é o comportamento esperado: nenhum agente deve alterar, simplificar, "corrigir" ou reposicionar o raster ou GPS sem autorização explícita do responsável.
+
+- **Protegidos:** leitura/CRS/recorte/calibração de GeoPDF e seus quatro cantos; fontes, ordem de camadas e câmera do MapLibre; GeolocateControl no canto superior e botão "Minha localização"; precisão/sensores/permissões Android+iOS; operação offline.
+- **Arquivos sensíveis:** `apps/admin/src/lib/pdf/`, `packages/geo/src/pdf/`, `apps/admin/src/pages/workspace/CommandCenterPage.tsx`, `packages/maps/src/maplibre.ts`, `apps/admin/src/lib/location-consent.ts`, `apps/admin/src/lib/device-location-permission.ts`. Ver `docs/gis-geopdf.md`.
+- Alterações futuras exigem pedido específico, motivo verificado, testes GeoPDF+GPS dentro/fora da carta em Android+iOS, base online e offline, respeito a pan/zoom e integridade IndexedDB/outbox. Nunca forçar o GeoPDF para coincidir com GPS impreciso.
+- CI: `scripts/gis-gps-guard.test.mjs` e Playwright `apps/admin/e2e/gps-geopdf-alignment.spec.ts`. `.github/CODEOWNERS` marca revisão do responsável (obrigatoriedade requer branch protection habilitada).
+- **Primeira instalação vazia:** não carregar exemplos em Projetos, Camadas, Feições, Análises ou CRS cadastrados; exemplos só em testes. EPSG do motor GIS e registros reais previamente armazenados devem ser preservados. Nunca limpar IndexedDB/outbox/Blobs por atualização. CI: `scripts/initial-empty-contract.test.mjs`.

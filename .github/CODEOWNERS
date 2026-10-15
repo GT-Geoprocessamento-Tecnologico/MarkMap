@@ -1,0 +1,9 @@
+# Revisão do responsável para alterações GIS/GPS.
+# Tornar obrigatória exige ativar Require review from Code Owners na branch main.
+/apps/admin/src/lib/pdf/ @mmatteuus
+/packages/geo/src/pdf/ @mmatteuus
+/apps/admin/src/pages/workspace/CommandCenterPage.tsx @mmatteuus
+/packages/maps/src/maplibre.ts @mmatteuus
+/apps/admin/src/lib/location-consent.ts @mmatteuus
+/apps/admin/src/lib/device-location-permission.ts @mmatteuus
+/apps/admin/e2e/gps-geopdf-alignment.spec.ts @mmatteuus

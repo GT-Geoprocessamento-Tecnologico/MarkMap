@@ -79,3 +79,11 @@ A referência automática só é salva quando todos os critérios passam. Caso c
 - **Novo comportamento**: com conexão, renderizar o GeoPDF como imagem georreferenciada sobre o estilo-padrão OpenFreeMap; o botão nativo de localização permanece visível e acionável, independentemente de a posição estar dentro do recorte da carta. Exibir precisão reportada pelo dispositivo e aviso de posição fora/imprecisa, sem deslocar o raster.
 - Sem conexão e sem pacote de ruas previamente disponível, o GeoPDF continua visível no fundo neutro — **não inventar mapa-base offline**. Offline-first, integridade do PDF e IndexedDB/outbox mantidos. No mapa base remoto indisponível, o lifecycle mantém o GeoPDF e os dados locais.
 - QA: verificar a chamada ao estilo online com o PDF aberto; botão `.maplibregl-ctrl-geolocate` visível e clicável; GPS dentro/fora da carta; não afetar visualização fora do PDF; teste real Windows/Android ainda necessário.
+
+## A75 — Referência aprovada no Android e iOS: não alterar GeoPDF/GPS
+
+**Teste físico informado pelo responsável em 2026-10-15:** o GeoPDF encaixa corretamente no mapa-base e a localização GPS é exibida sobre a carta nos dois sistemas. Comportamento protegido: só pode mudar mediante autorização específica e QA de regressão.
+
+- Não deslocar os quatro cantos calculados por `georeferencedRasterWindow` / `pageToLonLat` nem modificar calibração, CRS, corte, raster e sobreposição.
+- Preservar mapa-base ao redor do raster, botões de GPS nativo e "Minha localização", precisão do sensor, enquadramento, pan/zoom, operação offline e IndexedDB/outbox.
+- CODEOWNERS e `scripts/gis-gps-guard.test.mjs` sinalizam alterações em CI; `apps/admin/e2e/gps-geopdf-alignment.spec.ts` cobre os caminhos Android/iOS simulados. **O teste físico foi realizado pelo usuário, não executado pelo agente neste PR.**

@@ -1,5 +1,12 @@
 # Handoff de continuidade
 
+## A75 — GeoPDF/GPS protegidos e primeira instalação sem demonstrações (2026-10-15)
+
+**Resultado real informado pelo responsável:** Android e iOS exibem GeoPDF georreferenciado corretamente sobre o mapa-base, com GPS sobre a carta. NÃO MODIFICAR estes fluxos sem autorização expressa e evidência de QA. Bloqueios preventivos: `AGENTS.md`, `.github/CODEOWNERS`, `scripts/gis-gps-guard.test.mjs` e E2E existente.
+
+**Auditoria de dados iniciais:** `ensureDemoWorkspace` materializava 2 projetos/3 camadas/4 feições em IndexedDB; `mock/storage.ts` semeava o mesmo banco fictício no localStorage; UI de CRS mostrava 5 referências como cadastradas; Análises lia `api-client` mock. Correção proposta: instalações novas vazias, Análises do IndexedDB, CRS da interface sem itens iniciais, motor EPSG intacto. Registros históricos (mesmo demonstrativos já materializados) preservados para evitar exclusão/sync destrutivo. Validar testes e build antes de merge; sem deploy automático pedido nesta tarefa.
+
+
 ## A74 — GeoPDF: restaurar mapa-base e GPS (em validação)
 
 **Causa no HEAD `d46b472`:** a rota com `pdfId` sempre substituía OpenFreeMap por fundo vazio e removia o GeolocateControl nativo. Botão inferior do GPS também recusava posição fora do recorte/imprecisa. Usuário confirmou regressão após deploy A73.

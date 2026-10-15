@@ -79,6 +79,8 @@ jobs:
         run: node --test apps/admin/scripts/sw-update-protocol.test.mjs apps/admin/scripts/sw-navigation-cache.test.mjs apps/admin/scripts/generate-shell-manifest.test.mjs
       - name: Verify site and app boundaries
         run: node --test scripts/pwa-product-boundaries.test.mjs
+      - name: Protect GeoPDF/GPS and a clean initial profile
+        run: node --test scripts/gis-gps-guard.test.mjs scripts/initial-empty-contract.test.mjs
       - name: Verify theme contrast tokens
         run: node --test scripts/theme-contrast.test.mjs
       - name: Verify all app surfaces respond to the theme
