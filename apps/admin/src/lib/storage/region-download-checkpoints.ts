@@ -1,5 +1,6 @@
 import type { ChunkStore } from './verified-range-download.mjs';
 import { isValidCheckpoint, REGION_DOWNLOAD_CHUNK_SIZE, unreferencedSessionHashes } from './checkpoint-rules.mjs';
+import { copyBytes, isBlobPreparationError, waitForTransactionAbort } from './idb-binary-compat.mjs';
 
 /** v1 legacy records have ArrayBuffer; new records store disk-backed Blobs. */
 interface ChunkRow { key: string; sha: string; offset: number; data: ArrayBuffer | Blob; }
@@ -30,6 +31,7 @@ function done(tx: IDBTransaction): Promise<void> {
     tx.onabort = () => reject(tx.error ?? new Error('IndexedDB transaction aborted'));
   });
 }
+const txError = new WeakMap<IDBTransaction, DOMException | null>();
 function chunkLength(data: ChunkRow['data']): number {
   if (data instanceof Blob) return data.size;
   if (data instanceof ArrayBuffer) return data.byteLength;
@@ -80,10 +82,22 @@ export class RegionDownloadCheckpoints implements ChunkStore {
   async put(sha: string, offset: number, bytes: Uint8Array): Promise<void> {
     const db = await this.open();
     // Bounded 1 MiB copy at most. IndexedDB persists the Blob independently.
-    const data = new Blob([bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer]);
-    const tx = db.transaction(STORE_CHUNKS, 'readwrite');
-    tx.objectStore(STORE_CHUNKS).put({ key: `${sha}:${offset}`, sha, offset, data } satisfies ChunkRow);
-    await done(tx);
+    if (bytes.byteLength > REGION_DOWNLOAD_CHUNK_SIZE) throw new Error('Checkpoint chunk exceeds the 1 MiB limit');
+    const binary = copyBytes(bytes);
+    const put = async (data: ChunkRow['data']) => {
+      const tx = db.transaction(STORE_CHUNKS, 'readwrite');
+      const request = tx.objectStore(STORE_CHUNKS).put({ key: `${sha}:${offset}`, sha, offset, data } satisfies ChunkRow);
+      request.onerror = () => { txError.set(tx, request.error); };
+      await waitForTransactionAbort(tx, () => txError.get(tx) ?? null);
+    };
+    try {
+      await put(new Blob([binary]));
+    } catch (error) {
+      // The transaction has already aborted before this catch runs. A single
+      // bounded retry keeps old WebKit alive without masking quota failures.
+      if (!isBlobPreparationError(error)) throw error;
+      await put(binary);
+    }
   }
 
   async deleteAsset(sha: string): Promise<void> {

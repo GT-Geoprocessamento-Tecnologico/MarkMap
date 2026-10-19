@@ -35,7 +35,7 @@ test("brand gradient keeps labels readable at both ends", () => {
 });
 
 test("always-dark map and active mobile navigation use contrast tokens", () => {
-  const map = css.split(".markmap-workspace {")[1].split("}")[0];
+  const map = css.split(".dark .markmap-workspace {")[1].split("}")[0];
   assert.ok(ratio(token(map, "text-primary"), "#0a1b21") >= 4.5);
   assert.match(css, /\.markmap-mobile-tab\.is-active\s*\{\s*color:\s*var\(--color-secondary-ink\)/);
 });

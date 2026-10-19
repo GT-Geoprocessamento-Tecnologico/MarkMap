@@ -16,6 +16,15 @@ const waitFor = async (predicate) => {
   }
 };
 
+function testBlob(text) {
+  const blob = new Blob([text]);
+  if (typeof blob.text !== 'function') Object.defineProperty(blob, 'text', { value: async () => text });
+  if (typeof blob.arrayBuffer !== 'function') Object.defineProperty(blob, 'arrayBuffer', {
+    value: async () => new TextEncoder().encode(text).buffer,
+  });
+  return blob;
+}
+
 function renderComponent(file, exportName, store, otherModules, props) {
   const state = [];
   const effects = [];
@@ -32,6 +41,7 @@ function renderComponent(file, exportName, store, otherModules, props) {
   const imports = {
     react: hooks,
     'react/jsx-runtime': { jsx() { return null; }, jsxs() { return null; }, Fragment: {} },
+    './MapOfflinePanel': { MapOfflinePanel() { return null; } },
     '../../lib/storage/offline-map-store': { offlineMapStore: store },
     ...otherModules,
   };
@@ -54,7 +64,7 @@ function renderComponent(file, exportName, store, otherModules, props) {
 
 const wikiText = JSON.stringify({ articles: [{ id: 'wiki1', title: 'Offline verified article', summary: 'safe' }],
   attribution: 'Publisher', license: 'ODbL' });
-const wiki = new Blob([wikiText]);
+const wiki = testBlob(wikiText);
 const knowledgeManifest = { id: 'regional', bounds: [0, 0, 1, 1], wikipediaPack: {
   path: 'wikipedia.json', blob: { bytes: wiki.size, sha256: sha(wikiText) },
 }};
@@ -64,7 +74,7 @@ const knowledgeDeps = { '@geonexo/maps/content/region-content.mjs': {
 }};
 
 const demText = JSON.stringify({metadata:{source:'srtm',attribution:'Trusted',license:'ODbL',resolutionMeters:30,verticalDatum:'EGM96'},values:[12,12,12,12]});
-const demBlob = new Blob([demText]);
+const demBlob = testBlob(demText);
 const elevationManifest = { id: 'regional', bounds: [0,0,1,1], demGrid: {
   path:'dem.json',blob:{bytes:demBlob.size,sha256:sha(demText)},
 }};
@@ -94,24 +104,24 @@ const revisions = (manifest, blob, options = {}) => {
 test('A34 Wikipedia offline assets are pinned to the selected active generation', async () => {
   const store = revisions(knowledgeManifest,wiki);
   const ui = renderComponent('OfflineKnowledge.tsx','OfflineKnowledge',store,knowledgeDeps,{packageId:'regional'});
-  await waitFor(() => ui.state[2].updates.some(v => v?.articles?.[0]?.title === 'Offline verified article'));
+  await waitFor(() => ui.state[1].updates.some(v => v?.articles?.[0]?.title === 'Offline verified article'));
   assert.deepEqual(store.observed,[['wikipedia.json','old']]);
-  assert.equal(ui.state[2].updates.at(-1)?.articles?.[0]?.title,'Offline verified article');
+  assert.equal(ui.state[1].updates.at(-1)?.articles?.[0]?.title,'Offline verified article');
 });
 
 test('A34 Wikipedia/transport must not surface old data after a region update', async () => {
   const store = revisions(knowledgeManifest,wiki,{changeAfterFirst:true});
   const ui = renderComponent('OfflineKnowledge.tsx','OfflineKnowledge',store,knowledgeDeps,{packageId:'regional'});
-  await waitFor(() => ui.state[3].updates.some(v => /atualizado/i.test(v || '')));
-  assert.equal(ui.state[2].updates.some(v=>v.articles?.length),false);
-  assert.match(ui.state[3].updates.at(-1)||'',/atualizado/i);
+  await waitFor(() => ui.state[2].updates.some(v => /atualizado/i.test(v || '')));
+  assert.equal(ui.state[1].updates.some(v=>v.articles?.length),false);
+  assert.match(ui.state[2].updates.at(-1)||'',/atualizado/i);
 });
 
 test('A34 knowledge errors never expose untrusted IndexedDB secrets in UI', async () => {
   const store = revisions(knowledgeManifest,wiki,{failAsset:'Denied /private/path?token=TOP_SECRET'});
   const ui = renderComponent('OfflineKnowledge.tsx','OfflineKnowledge',store,knowledgeDeps,{packageId:'regional'});
-  await waitFor(() => ui.state[3].updates.some(v => /Conteúdo regional indisponível/.test(v || '')));
-  const error=ui.state[3].updates.at(-1);
+  await waitFor(() => ui.state[2].updates.some(v => /Conteúdo regional indisponível/.test(v || '')));
+  const error=ui.state[2].updates.at(-1);
   assert.match(error,/Conteúdo regional indisponível/);
   assert.doesNotMatch(error,/private|token|secret|path/i);
 });
@@ -119,24 +129,24 @@ test('A34 knowledge errors never expose untrusted IndexedDB secrets in UI', asyn
 test('A34 elevation uses the active revision for checksum-verified local DEM', async () => {
   const store=revisions(elevationManifest,demBlob);
   const ui=renderComponent('OfflineElevation.tsx','OfflineElevation',store,demDeps,{packageId:'regional',route:null});
-  await waitFor(() => ui.state[1].updates.some(v => v?.metadata?.source === 'srtm'));
+  await waitFor(() => ui.state[0].updates.some(v => v?.metadata?.source === 'srtm'));
   assert.deepEqual(store.observed,[['dem.json','old']]);
-  assert.equal(ui.state[1].updates.at(-1)?.metadata?.source,'srtm');
+  assert.equal(ui.state[0].updates.at(-1)?.metadata?.source,'srtm');
 });
 
 test('A34 elevation does not publish a DEM after region generation changes', async () => {
   const store=revisions(elevationManifest,demBlob,{changeAfterFirst:true});
   const ui=renderComponent('OfflineElevation.tsx','OfflineElevation',store,demDeps,{packageId:'regional',route:null});
-  await waitFor(() => ui.state[2].updates.some(v => /atualizado/i.test(v || '')));
-  assert.equal(ui.state[1].updates.some(v=>v?.metadata),false);
-  assert.match(ui.state[2].updates.at(-1)||'',/atualizado/i);
+  await waitFor(() => ui.state[1].updates.some(v => /atualizado/i.test(v || '')));
+  assert.equal(ui.state[0].updates.some(v=>v?.metadata),false);
+  assert.match(ui.state[1].updates.at(-1)||'',/atualizado/i);
 });
 
 test('A34 elevation errors redact accidental storage paths and tokens', async () => {
   const store=revisions(elevationManifest,demBlob,{failAsset:'Error from /private/idb?token=TOP_SECRET'});
   const ui=renderComponent('OfflineElevation.tsx','OfflineElevation',store,demDeps,{packageId:'regional',route:null});
-  await waitFor(() => ui.state[2].updates.some(v => /Dados altimétricos indisponíveis/.test(v || '')));
-  const error=ui.state[2].updates.at(-1);
+  await waitFor(() => ui.state[1].updates.some(v => /Dados altimétricos indisponíveis/.test(v || '')));
+  const error=ui.state[1].updates.at(-1);
   assert.match(error,/Dados altimétricos indisponíveis/);
   assert.doesNotMatch(error,/private|token|secret|path/i);
 });

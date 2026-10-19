@@ -1,9 +1,10 @@
 import type { OfflineMapPackageManifest } from "@geonexo/contracts";
-import { bytesOf, validateOfflinePackage, OFFLINE_PACKAGE_DB, OFFLINE_PACKAGE_VERSION, OFFLINE_PACKAGE_QUOTA, type PackageAssets, type StoredOfflinePackage } from "@geonexo/maps/offline/package";
+import { bytesOf, validateOfflinePackage, OFFLINE_PACKAGE_DB, OFFLINE_PACKAGE_VERSION, OFFLINE_PACKAGE_QUOTA, type PackageAsset, type PackageAssets, type StoredOfflinePackage } from "@geonexo/maps/offline/package";
 
 import { matchesActiveRegionGeneration } from './region-generation-guard.mjs';
 import { notifyRegionCatalogChanged } from './region-catalog-events.mjs';
 import { readActiveGenerationAsset } from './region-generation-asset.mjs';
+import { copyBytes, isBlobPreparationError, waitForTransactionAbort } from './idb-binary-compat.mjs';
 
 export class StaleRegionGenerationError extends Error {
   readonly code = 'stale-active-generation';
@@ -16,7 +17,7 @@ export class StaleRegionGenerationError extends Error {
 const PACKAGES = "packages";
 const ASSETS = "assets";
 type PackageRow = StoredOfflinePackage & { key: string; packageId: string; generation: string; bytes: number };
-type AssetRow = { key: string; packageId: string; path: string; bytes: Blob };
+type AssetRow = { key: string; packageId: string; path: string; bytes: Blob | ArrayBuffer };
 
 function request<T>(req: IDBRequest<T>): Promise<T> { return new Promise((resolve, reject) => { req.onsuccess = () => resolve(req.result); req.onerror = () => reject(req.error ?? new Error("IndexedDB request failed")); }); }
 function transaction(tx: IDBTransaction): Promise<void> { return new Promise((resolve, reject) => { tx.oncomplete = () => resolve(); tx.onabort = () => reject(tx.error ?? new Error("IndexedDB transaction aborted")); tx.onerror = () => reject(tx.error ?? new Error("IndexedDB transaction failed")); }); }
@@ -60,7 +61,7 @@ export class OfflineMapStore {
     return readActiveGenerationAsset(await this.open(), packageId, path, generation);
   }
   async active(): Promise<StoredOfflinePackage | null> { const values = await this.list(); return values.find((v) => v.state === "active") ?? null; }
-  async asset(packageId: string, path: string): Promise<Blob | null> { const db = await this.open(); const rows = await request<PackageRow[]>(db.transaction(PACKAGES, "readonly").objectStore(PACKAGES).getAll()); const active = rows.find((row) => row.packageId === packageId && row.state === "active"); if (!active) return null; const row = await request<AssetRow | undefined>(db.transaction(ASSETS, "readonly").objectStore(ASSETS).get(`${active.generation}:${path}`)); return row?.bytes ?? null; }
+  async asset(packageId: string, path: string): Promise<Blob | null> { const db = await this.open(); const rows = await request<PackageRow[]>(db.transaction(PACKAGES, "readonly").objectStore(PACKAGES).getAll()); const active = rows.find((row) => row.packageId === packageId && row.state === "active"); if (!active) return null; const row = await request<AssetRow | undefined>(db.transaction(ASSETS, "readonly").objectStore(ASSETS).get(`${active.generation}:${path}`)); if (!row) return null; if (row.bytes instanceof Blob) return row.bytes; if (row.bytes instanceof ArrayBuffer) return new Blob([row.bytes]); return null; }
 
   /** Active packages remain counted; obsolete staged generations are reclaimed atomically. */
   async installationBudget(packageId: string): Promise<{ usedBytes: number; availableBytes: number; limitBytes: number }> {
@@ -78,42 +79,45 @@ export class OfflineMapStore {
       (manifest.demGrid?.blob.bytes ?? 0);
     const estimate = typeof navigator !== "undefined" ? await navigator.storage?.estimate?.() : undefined;
     if (estimate?.quota !== undefined && estimate.usage !== undefined && estimate.usage + packageBytes > estimate.quota) throw new Error("offline map storage quota is insufficient");
-    const materialized = new Map<string, Blob>();
-    for (const [path, asset] of [["package.pmtiles", assets.get("package.pmtiles")!], ...[manifest.style, ...manifest.glyphs, ...manifest.sprites, ...(manifest.searchShards ?? []), ...(manifest.routingGraph ? [manifest.routingGraph] : []), ...(manifest.contourLines ? [manifest.contourLines] : []),
-      ...(manifest.wikipediaPack ? [manifest.wikipediaPack] : []),
-      ...(manifest.transitPack ? [manifest.transitPack] : []),
-      ...(manifest.demGrid ? [manifest.demGrid] : [])].map((ref) => [ref.path, assets.get(ref.path)!] as const)] as const) {
-      // Files and remote downloads are already immutable Blobs. Keep their
-      // handles instead of allocating a second full archive ArrayBuffer.
-      materialized.set(path, asset instanceof Blob
-        ? asset : new Blob([await bytesOf(asset) as unknown as ArrayBuffer]));
-    }
+    const entries: ReadonlyArray<readonly [string, PackageAsset]> = [["package.pmtiles", assets.get("package.pmtiles")!], ...[manifest.style, ...manifest.glyphs, ...manifest.sprites, ...(manifest.searchShards ?? []), ...(manifest.routingGraph ? [manifest.routingGraph] : []), ...(manifest.contourLines ? [manifest.contourLines] : []),
+      ...(manifest.wikipediaPack ? [manifest.wikipediaPack] : []), ...(manifest.transitPack ? [manifest.transitPack] : []), ...(manifest.demGrid ? [manifest.demGrid] : [])].map((ref) => [ref.path, assets.get(ref.path)! as PackageAsset] as const)];
+    const fallbackLimit = 10 * 1024 * 1024;
+    const materialize = async (buffers: boolean): Promise<Map<string, Blob | ArrayBuffer>> => {
+      const result = new Map<string, Blob | ArrayBuffer>();
+      for (const [path, asset] of entries) {
+        if (!buffers && asset instanceof Blob) { result.set(path, asset); continue; }
+        const bytes = await bytesOf(asset);
+        result.set(path, buffers ? copyBytes(bytes) : new Blob([bytes as unknown as ArrayBuffer]));
+      }
+      return result;
+    };
+    const materialized = await materialize(false);
     const db = await this.open();
     const generation = crypto.randomUUID();
     const key = `${manifest.id}:${generation}`;
-    const tx = db.transaction([PACKAGES, ASSETS], "readwrite");
-    const packages = tx.objectStore(PACKAGES); const store = tx.objectStore(ASSETS);
-    const current = await request<PackageRow[]>(packages.getAll());
-    // CAS under the same readwrite transaction as staging. Without this check,
-    // stale tabs may silently overwrite the already-updated active generation.
-    if (!matchesActiveRegionGeneration(current, manifest.id, expectedActiveGeneration)) {
-      tx.abort();
-      throw new StaleRegionGenerationError();
+    const attempt = async (records: Map<string, Blob | ArrayBuffer>): Promise<void> => {
+      const tx = db.transaction([PACKAGES, ASSETS], "readwrite");
+      let requestError: DOMException | null = null;
+      const packages = tx.objectStore(PACKAGES); const store = tx.objectStore(ASSETS);
+      const current = await request<PackageRow[]>(packages.getAll());
+      if (!matchesActiveRegionGeneration(current, manifest.id, expectedActiveGeneration)) { tx.abort(); throw new StaleRegionGenerationError(); }
+      const used = accountedBytes(current, manifest.id);
+      if (used + packageBytes > OFFLINE_PACKAGE_QUOTA) { tx.abort(); throw new Error(`A região exige ${Math.ceil(packageBytes / 1048576)} MiB temporários; restam ${Math.floor(Math.max(0, OFFLINE_PACKAGE_QUOTA - used) / 1048576)} MiB no orçamento de mapas.`); }
+      for (const old of current.filter((row) => row.packageId === manifest.id && row.state === "staged")) {
+        packages.delete(old.key);
+        const abandoned = await request<AssetRow[]>(store.index("package").getAll(old.generation));
+        for (const asset of abandoned) store.delete(asset.key);
+      }
+      packages.put({ key, packageId: manifest.id, generation, bytes: packageBytes, manifest, state: "staged", installedAt: new Date().toISOString() } satisfies PackageRow);
+      for (const [path, bytes] of records) { const put = store.put({ key: `${generation}:${path}`, packageId: generation, path, bytes }); put.onerror = () => { requestError = put.error; }; }
+      await waitForTransactionAbort(tx, () => requestError);
+    };
+    try { await attempt(materialized); }
+    catch (error) {
+      if (!isBlobPreparationError(error)) throw error;
+      if (packageBytes > fallbackLimit) throw new Error('IndexedDB não conseguiu serializar este pacote Blob; pacotes acima de 10 MiB não podem usar o fallback sem materialização integral.');
+      await attempt(await materialize(true));
     }
-    const used = accountedBytes(current, manifest.id);
-    if (used + packageBytes > OFFLINE_PACKAGE_QUOTA) {
-      tx.abort();
-      throw new Error(`A região exige ${Math.ceil(packageBytes / 1048576)} MiB temporários; restam ${Math.floor(Math.max(0, OFFLINE_PACKAGE_QUOTA - used) / 1048576)} MiB no orçamento de mapas.`);
-    }
-    // Replace only stale staging for this region, preserving the active generation until activation.
-    for (const old of current.filter((row) => row.packageId === manifest.id && row.state === "staged")) {
-      packages.delete(old.key);
-      const abandoned = await request<AssetRow[]>(store.index("package").getAll(old.generation));
-      for (const asset of abandoned) store.delete(asset.key);
-    }
-    packages.put({ key, packageId: manifest.id, generation, bytes: packageBytes, manifest, state: "staged", installedAt: new Date().toISOString() } satisfies PackageRow);
-    for (const [path, bytes] of materialized) store.put({ key: `${generation}:${path}`, packageId: generation, path, bytes });
-    await transaction(tx);
     return generation;
   }
   async activate(packageId: string, expectedGeneration?: string, expectedActiveGeneration?: string): Promise<void> {

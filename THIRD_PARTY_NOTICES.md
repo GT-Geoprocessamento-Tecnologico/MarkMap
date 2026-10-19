@@ -185,3 +185,21 @@ Hard rules enforced for this initiative:
 - **No Organic Maps data files (`.mwm`, `.bin`) are redistributed.**
 - Each `docs/MM-MAP-*.md` deliverable names its inspiration in a
   "Fontes de Inspiracao (conceitos, nao codigo copiado)" section.
+
+## Araguaína regional basemap (2026-10-19)
+
+The files in `apps/admin/public/offline/araguaina/` contain an authorized urban
+cutout of the official Protomaps daily build `20261019.pmtiles`, produced from
+OpenStreetMap and Natural Earth. Protomaps distributes this basemap as an ODbL
+Produced Work requiring OpenStreetMap attribution:
+<https://docs.protomaps.com/basemaps/downloads> and
+<https://www.openstreetmap.org/copyright>.
+
+- Extractor: `go-pmtiles v1.31.2` (BSD-3-Clause); no extractor binary is distributed.
+- OSM snapshot: `2026-10-19T04:00:00Z`; bounds `[-48.3,-7.3,-48.1,-7.1]`; zooms 0–12.
+- Archive: 473884 bytes, SHA-256 `f0e0c9c8290a7000a563a6b27a95001b4225e9beec493377e6557d48581a807d`.
+- Complete archive/style payload: 474982 bytes. The local geometry-only style
+  omits labels, search, offline routes, glyphs and sprites; those capabilities
+  must not be inferred from this pilot package.
+- Attribution is carried by the manifest and rendered by the existing map engine.
+- No proprietary APK code, branding or assets are included.

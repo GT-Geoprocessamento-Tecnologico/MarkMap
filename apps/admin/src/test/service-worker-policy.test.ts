@@ -69,6 +69,8 @@ class TestCaches {
 interface WorkerEvent {
   request?: TestRequest;
   data?: unknown;
+  source?: { id: string; url: string };
+  ports?: { postMessage(message: unknown): void }[];
   responsePromise?: Promise<Response>;
   waited: Promise<unknown>[];
   waitUntil(promise: Promise<unknown>): void;
@@ -78,6 +80,7 @@ interface WorkerEvent {
 function createWorker(fetchImpl: (request: TestRequest) => Promise<Response>) {
   const caches = new TestCaches();
   const listeners = new Map<string, (event: WorkerEvent) => void>();
+  const client = { id: 'test-client', url: 'https://geonexo.test/' };
   let skipWaitingCalls = 0;
   const self = {
     location: { origin: 'https://geonexo.test' },
@@ -104,6 +107,10 @@ function createWorker(fetchImpl: (request: TestRequest) => Promise<Response>) {
       const event: WorkerEvent = {
         request,
         data,
+        source: client,
+        ports: type === 'message' && (data as { type?: string } | undefined)?.type === 'CHECK_COMPATIBILITY'
+          ? [{ postMessage: () => undefined }]
+          : [],
         waited: [],
         waitUntil(promise) {
           this.waited.push(promise);
@@ -188,6 +195,7 @@ describe('service worker cache policy', () => {
     worker.dispatch('message', undefined, { type: 'SKIP_WAITING' });
     worker.dispatch('message', undefined, { type: 'SKIP_WAITING', durableWritesReady: false, compatibilityVersion: 1 });
     expect(worker.skipWaitingCalls).toBe(0);
+    worker.dispatch('message', undefined, { type: 'CHECK_COMPATIBILITY' });
     worker.dispatch('message', undefined, { type: 'SKIP_WAITING', durableWritesReady: true, compatibilityVersion: 1 });
     expect(worker.skipWaitingCalls).toBe(1);
   });

@@ -102,7 +102,14 @@ describe("local-first repository", () => {
     expect(stored?.blob).toBeInstanceOf(Blob);
     expect(stored?.mediaType).toBe("application/pdf");
     expect(stored?.bytes).toBe(blob.size);
-    const conflict: SyncConflict = { operationId: "22222222-2222-4222-8222-222222222222", entity: "project", entityId: id, baseVersion: 0, serverVersion: 1, reason: "VERSION_CONFLICT", localPayload: project(id, "local"), serverPayload: project(id, "server") };
+    const pending = await repo.mutate({
+      entity: "project",
+      entityId: id,
+      payload: project(id, "local"),
+      operation: "upsert",
+      baseVersion: null,
+    });
+    const conflict: SyncConflict = { operationId: pending.operationId, entity: "project", entityId: id, baseVersion: null, serverVersion: 1, reason: "VERSION_CONFLICT", localPayload: project(id, "local"), serverPayload: project(id, "server") };
     await repo.saveConflict(conflict);
     expect(await repo.listConflicts()).toEqual([conflict]);
   });

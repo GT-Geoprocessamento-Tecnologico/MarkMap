@@ -17,7 +17,8 @@ test("settings shows simple map discovery before advanced file import", async ({
   await expect(page.getByRole("heading", { name: "Mapas offline" })).toBeVisible();
   await expect(page.getByRole("searchbox", { name: "Buscar mapas disponíveis" })).toBeVisible();
   await expect(page.getByText("Região de teste")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Baixar mapa" })).toBeVisible();
+  const regionCard = page.locator("li").filter({ hasText: "Região de teste" }).first();
+  await expect(regionCard.getByRole("button", { name: "Baixar mapa", exact: true })).toBeVisible();
   await expect(page.getByLabel("Selecionar pasta do pacote de mapa offline")).toBeHidden();
   await page.getByText("Opções avançadas — importar um pacote manualmente").click();
   await expect(page.getByLabel("Selecionar pasta do pacote de mapa offline")).toBeAttached();
@@ -36,13 +37,15 @@ test("map shortcut lists regions, filters by name, and closes cleanly", async ({
   await panel.getByRole("searchbox", { name: "Buscar mapas disponíveis" }).fill("inexistente");
   await expect(panel.getByText("Não encontramos uma região com esse nome.")).toBeVisible();
   await panel.getByRole("searchbox", { name: "Buscar mapas disponíveis" }).fill("região");
-  await expect(panel.getByRole("button", { name: "Baixar mapa" })).toBeVisible();
+  const panelRegionCard = panel.locator("li").filter({ hasText: "Região de teste" }).first();
+  await expect(panelRegionCard.getByRole("button", { name: "Baixar mapa", exact: true })).toBeVisible();
   await panel.getByRole("button", { name: "Fechar Baixar mapas" }).click();
   await expect(panel).toHaveCount(0);
   await expect(button).toHaveAttribute("aria-pressed", "false");
 });
 
 test("empty catalog is honest and the installed map UI stays available", async ({ page }) => {
+  await page.route("**/maps/catalog.json", route => route.fulfill({ json: { version: 1, regions: [] } }));
   await page.goto("/settings");
   await expect(page.getByText(/Ainda não há mapas regionais publicados para download/)).toBeVisible();
   await expect(page.getByText("Nenhum pacote offline instalado.")).toBeVisible();

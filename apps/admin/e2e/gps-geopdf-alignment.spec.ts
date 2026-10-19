@@ -62,7 +62,8 @@ test("an online GeoPDF opens over the real surrounding basemap", async ({ page }
 
 test("GPS can show the device outside the PDF instead of refusing to locate", async ({ page, context }) => {
   await context.grantPermissions(["geolocation"]);
-  await context.setGeolocation({ latitude: 10.5, longitude: -69.9, accuracy: 12 });
+  // Fixture spans longitudes -70 to -69; choose an actual outside position.
+  await context.setGeolocation({ latitude: 10.5, longitude: -70.1, accuracy: 12 });
   await openGeoPdf(page);
   const gpsButton = page.locator(".maplibregl-ctrl-geolocate");
   await expect(gpsButton).toBeVisible();

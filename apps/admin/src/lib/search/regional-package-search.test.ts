@@ -2,10 +2,15 @@ import { describe, expect, it } from 'vitest';
 import { loadRegionalPackageSearch } from './regional-package-search';
 import type { OfflineMapStore } from '../storage/offline-map-store';
 const records=[{id:'way:1',name:'Rua Augusta',normalized:'rua augusta',type:'street',category:'road',lon:-46.64,lat:-23.55}];
+function jsonBlob(payload: unknown): Blob {
+  const blob = new Blob([JSON.stringify(payload)]);
+  if (typeof blob.text !== 'function') Object.defineProperty(blob, 'text', { value: async () => JSON.stringify(payload) });
+  return blob;
+}
 function mockStore(payload: unknown, available = true) {
   return {
     getActiveRevision: async () => ({ manifest: { searchShards: [{ path:'search/r1.json' }] }, generation: 'test-revision' }),
-    assetAtRevision: async () => available ? new Blob([JSON.stringify(payload)]) : null,
+    assetAtRevision: async () => available ? jsonBlob(payload) : null,
   } as unknown as Pick<OfflineMapStore,'getActiveRevision'|'assetAtRevision'>;
 }
 describe('active offline OSM index loading',()=>{

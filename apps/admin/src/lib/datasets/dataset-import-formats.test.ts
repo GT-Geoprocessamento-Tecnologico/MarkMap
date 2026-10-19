@@ -14,7 +14,16 @@ describe('dataset imports from GPX and KML', () => {
     expect(dataset.name).toBe('poi.gpx');
     expect(dataset.featuresCount).toBe(1);
     expect(dataset.geojson.features[0]?.geometry).toEqual({ type:'Point', coordinates:[-48.2,-7.2,340] });
-    const exported = JSON.parse(await normalizedGeoJSONBlob(dataset).text());
+    const exportedBlob = normalizedGeoJSONBlob(dataset);
+    const exportedText = typeof exportedBlob.text === 'function'
+      ? await exportedBlob.text()
+      : await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(reader.error);
+        reader.readAsText(exportedBlob);
+      });
+    const exported = JSON.parse(exportedText);
     expect(exported.features[0].properties.name).toBe('POI');
   });
   it('rejects DTD, fake KML and unsupported archives', async () => {

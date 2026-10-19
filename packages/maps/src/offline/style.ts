@@ -24,6 +24,7 @@ export function adaptOfflineStyle(
   }
   for (const key of ["glyphs", "sprite"]) {
     const value = copy[key];
+    if (value === undefined) continue;
     if (typeof value !== "string" || !isSafePackagePath(value.replace(/\{(?:fontstack|range)\}/g, "placeholder"))) throw new Error(`invalid offline ${key} resource`);
     copy[key] = replaceLocal(value, protocolId);
   }

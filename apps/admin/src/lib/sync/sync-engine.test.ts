@@ -14,9 +14,11 @@ const mocks = vi.hoisted(() => ({
   workspaceId: vi.fn(),
   getMeta: vi.fn(),
   setMeta: vi.fn(),
+  saveWorkspaceCapability: vi.fn(),
+  ensureBootstrapIdentity: vi.fn(),
 }));
 
-const { listOutbox, acknowledge, saveConflict, applyServerPage, workspaceId, getMeta, setMeta } =
+const { listOutbox, acknowledge, saveConflict, applyServerPage, workspaceId, getMeta, setMeta, saveWorkspaceCapability, ensureBootstrapIdentity } =
   mocks;
 
 vi.mock("../api-client", () => ({
@@ -139,6 +141,11 @@ const resetMeta = (initial: Record<string, unknown> = {}): void => {
   setMeta.mockImplementation(async (key: string, value: unknown) => {
     meta.set(key, value);
   });
+  saveWorkspaceCapability.mockImplementation(async (value: unknown) => {
+    meta.set("workspaceCapability", value);
+    return value;
+  });
+  ensureBootstrapIdentity.mockImplementation(async (factory: () => unknown) => factory());
 };
 
 const emitStatus = async (): Promise<SyncResult[]> => {
@@ -162,6 +169,8 @@ describe("syncNow", () => {
     listOutbox.mockReset();
     acknowledge.mockReset();
     saveConflict.mockReset();
+    saveWorkspaceCapability.mockReset();
+    ensureBootstrapIdentity.mockReset();
     resetOutbox();
     applyServerPage.mockReset().mockResolvedValue(undefined);
     workspaceId.mockReset().mockResolvedValue(WORKSPACE_ID);

@@ -1,4 +1,19 @@
 {
   "version": 1,
-  "regions": []
+  "regions": [
+    {
+      "sizeBytes": 474982,
+      "bounds": [
+        -48.3,
+        -7.3,
+        -48.1,
+        -7.1
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/araguaina/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "Araguaína — mapa offline",
+      "area": "Araguaína, Tocantins — recorte urbano sem rótulos ou rotas",
+      "id": "br-araguaina"
+    }
+  ]
 }

@@ -37,6 +37,36 @@ export async function sha256(value: PackageAsset): Promise<string> {
   return new IncrementalSha256().update(await bytesOf(value)).digestHex();
 }
 
+function styleUsesResource(style: Record<string, unknown>, key: "text-field" | "icon-image"): boolean {
+  const layers = style.layers;
+  if (!Array.isArray(layers)) return false;
+  return layers.some((layer) => {
+    if (!layer || typeof layer !== "object") return false;
+    const record = layer as Record<string, unknown>;
+    if (record.type !== "symbol" || !record.layout || typeof record.layout !== "object") return false;
+    const value = (record.layout as Record<string, unknown>)[key];
+    return value !== undefined && value !== null && value !== "";
+  });
+}
+
+function hasGlyphTemplate(value: string, refs: ReadonlyArray<{ path: string }>): boolean {
+  const parts = value.split(/(\{fontstack\}|\{range\})/g);
+  if (!parts.includes("{fontstack}") || !parts.includes("{range}")) return false;
+  const pattern = "^" + parts.map((part) => {
+    if (part === "{fontstack}" || part === "{range}") return "[A-Za-z0-9._@-]+";
+    return part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }).join("") + "$";
+  const matcher = new RegExp(pattern);
+  return refs.some((ref) => matcher.test(ref.path));
+}
+
+function hasSpriteBundle(value: string, refs: ReadonlyArray<{ path: string }>): boolean {
+  const paths = new Set(refs.map((ref) => ref.path));
+  const basePair = paths.has(`${value}.json`) && paths.has(`${value}.png`);
+  const retinaJson = paths.has(`${value}@2x.json`);
+  const retinaPng = paths.has(`${value}@2x.png`);
+  return basePair && retinaJson === retinaPng;
+}
 function localRef(value: unknown, pmtiles = false): boolean {
   if (typeof value !== "string" || value.startsWith("//") || value.startsWith("/")) return false;
   if (pmtiles && value === "pmtiles://package.pmtiles") return true;
@@ -85,6 +115,15 @@ export async function validateOfflinePackage(manifestInput: unknown, assets: Pac
       ref.path === 'elevation/contours.json' || ref.path === 'elevation/dem.json' ||
       ref.path.startsWith('search/') || ref.path === 'content/wikipedia.json' ||
       ref.path === 'content/transit.json';
+    const jsonLimit = ref.path === manifest.style.path ? 4 * 1024 * 1024 :
+      ref.path === 'routing/graph.json' ? MAX_GRAPH_BYTES :
+      ref.path === 'elevation/contours.json' ? MAX_CONTOUR_BYTES :
+      ref.path === 'elevation/dem.json' ? MAX_REGIONAL_DEM_BYTES :
+      ref.path.startsWith('search/') ? MAX_REGIONAL_SHARD_BYTES :
+      ref.path === 'content/wikipedia.json' ? MAX_WIKIPEDIA_BYTES :
+      ref.path === 'content/transit.json' ? MAX_TRANSIT_BYTES : 0;
+    if (needsJson && assetSize > jsonLimit)
+      return { ok: false, code: 'json-too-large', detail: 'JSON asset exceeds bounded validation budget' };
     const bytes = needsJson ? await bytesOf(value) : new Uint8Array(0);
     if (ref.path === 'routing/graph.json') {
       if (bytes.byteLength > MAX_GRAPH_BYTES) return { ok: false, code: 'graph-too-large', detail: 'routing graph exceeds local budget' };
@@ -133,9 +172,25 @@ export async function validateOfflinePackage(manifestInput: unknown, assets: Pac
       } catch { return { ok: false, code: 'invalid-content', detail: `invalid licensed regional data: ${ref.path}` }; }
     }
     if (ref.path === manifest.style.path) {
-      let style: { glyphs?: unknown; sprite?: unknown; sources?: Record<string, { url?: unknown; tiles?: unknown[] }> };
-      try { style = JSON.parse(new TextDecoder().decode(bytes)) as typeof style; } catch { return { ok: false, code: "invalid-style", detail: "style is not JSON" }; }
-      if (!localRef(style.glyphs) || !localRef(style.sprite) || !style.sources || Object.values(style.sources).some((s) => (s.url !== undefined && !localRef(s.url, true)) || (s.tiles !== undefined && (!Array.isArray(s.tiles) || s.tiles.some((t) => !localRef(t, true))))))
+      let style: Record<string, unknown>;
+      try { style = JSON.parse(new TextDecoder().decode(bytes)) as Record<string, unknown>; }
+      catch { return { ok: false, code: "invalid-style", detail: "style is not JSON" }; }
+      if (!style || typeof style !== "object" || Array.isArray(style) || !style.sources || typeof style.sources !== "object" || Array.isArray(style.sources))
+        return { ok: false, code: "invalid-style", detail: "style must contain an object sources map" };
+      const glyphs = style.glyphs;
+      const sprite = style.sprite;
+      if (glyphs !== undefined && (typeof glyphs !== "string" || !localRef(glyphs) || (styleUsesResource(style, "text-field") && !hasGlyphTemplate(glyphs, manifest.glyphs))))
+        return { ok: false, code: "invalid-style", detail: "glyphs must be a materialized local package asset" };
+      if (sprite !== undefined && (typeof sprite !== "string" || !localRef(sprite) || (styleUsesResource(style, "icon-image") && !hasSpriteBundle(sprite, manifest.sprites))))
+        return { ok: false, code: "invalid-style", detail: "sprite must be a materialized local package asset" };
+      if (glyphs === undefined && styleUsesResource(style, "text-field"))
+        return { ok: false, code: "invalid-style", detail: "symbol text-field requires local glyphs" };
+      if (sprite === undefined && styleUsesResource(style, "icon-image"))
+        return { ok: false, code: "invalid-style", detail: "symbol icon-image requires local sprite" };
+      const sources = style.sources as Record<string, unknown>;
+      if (Object.values(sources).some((source) => !source || typeof source !== "object" || Array.isArray(source)))
+        return { ok: false, code: "invalid-style", detail: "style sources must contain object values" };
+      if (Object.values(sources).some((source) => ((source as Record<string, unknown>).url !== undefined && !localRef((source as Record<string, unknown>).url, true)) || ((source as Record<string, unknown>).tiles !== undefined && (!Array.isArray((source as Record<string, unknown>).tiles) || ((source as Record<string, unknown>).tiles as unknown[]).some((tile) => !localRef(tile, true))))))
         return { ok: false, code: "external-style-resource", detail: "style contains a non-local resource" };
     }
   }

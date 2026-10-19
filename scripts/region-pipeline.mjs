@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * region-pipeline.mjs — Pipeline regional OSM → MarkMap (M3, MM-MAP-200).
  *
@@ -313,6 +312,19 @@ async function exists(path) {
   }
 }
 
+function isLocalStyleResource(value) {
+  return typeof value === 'string' && value.length > 0 && !/^[A-Za-z][A-Za-z0-9+.-]*:/.test(value) &&
+    !value.startsWith('/') && !value.startsWith('//') && !value.includes('\\') &&
+    value.split('/').every((part) => part && part !== '.' && part !== '..' && /^[A-Za-z0-9._@{}-]+$/.test(part));
+}
+async function readBounded(path, maxBytes, label) {
+  let details;
+  try { details = await stat(path); }
+  catch { throw new PipelineError(`${label} ausente`, "INPUT_MISSING"); }
+  if (!details.isFile() || !Number.isSafeInteger(details.size) || details.size > maxBytes)
+    throw new PipelineError(`${label} excede o limite de ${maxBytes} bytes`, "INPUT_TOO_LARGE");
+  return readFile(path);
+}
 async function writeArtifact(outputDir, relPath, data) {
   const target = join(outputDir, relPath);
   await mkdir(resolve(target, ".."), { recursive: true });
@@ -407,6 +419,17 @@ async function copyPrebuiltPmtiles(source, outputDir, metadata) {
  * otherwise MapLibre may try the network for missing sprite/glyph resources.
  * File names follow the same safe-path restrictions as OfflineMapStore.
  */
+function hasMaterializedGlyphTemplate(ref, artifacts) {
+  if (typeof ref !== 'string') return false;
+  const parts = ref.split(/(\{fontstack\}|\{range\})/g);
+  if (!parts.includes('{fontstack}') || !parts.includes('{range}')) return false;
+  const pattern = '^' + parts.map((part) => {
+    if (part === '{fontstack}' || part === '{range}') return '[A-Za-z0-9._@-]+';
+    return part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }).join('') + '$';
+  const matcher = new RegExp(pattern);
+  return artifacts.some((artifact) => matcher.test(artifact.path));
+}
 async function addLocalStyleSidecars(inputDir, outputDir, styleData, artifacts) {
   const maxFiles = 256;
   const maxFileBytes = 8 * 1024 * 1024;
@@ -447,16 +470,18 @@ async function addLocalStyleSidecars(inputDir, outputDir, styleData, artifacts) 
   if (typeof styleData.sprite === 'string') {
     const prefix = styleData.sprite;
     if (!/^sprites\/[A-Za-z0-9._@-]+$/.test(prefix) ||
-        !['.json', '.png'].every((ext) => artifacts.some((a) => a.path === prefix + ext)))
+        !['.json', '.png'].every((ext) => artifacts.some((a) => a.path === prefix + ext)) ||
+        (artifacts.some((a) => a.path === prefix + '@2x.json') !== artifacts.some((a) => a.path === prefix + '@2x.png')))
       throw new PipelineError('style.sprite precisa de sprite JSON e PNG locais empacotados',
         'MISSING_SPRITES');
   }
   const needsGlyphs = Array.isArray(styleData.layers) && styleData.layers.some(
-    (layer) => layer?.type === 'symbol' && layer.layout?.['text-field'] !== undefined,
+    (layer) => layer?.type === 'symbol' && layer.layout?.['text-field'] !== undefined &&
+      layer.layout?.['text-field'] !== null && layer.layout?.['text-field'] !== '',
   );
   if (needsGlyphs && (
     styleData.glyphs !== 'glyphs/{fontstack}/{range}.pbf' ||
-    !artifacts.some((a) => a.path.startsWith('glyphs/'))
+    !hasMaterializedGlyphTemplate(styleData.glyphs, artifacts)
   )) throw new PipelineError('Rótulos requerem glyphs/*.pbf locais e template seguro no estilo',
     'MISSING_GLYPHS');
 }
@@ -501,8 +526,8 @@ async function buildPipelineInto({ input, output, dryRun = false, now = new Date
   let metadata;
   let styleData;
   try {
-    metadata = JSON.parse(await readFile(metadataPath, "utf8"));
-    styleData = await exists(stylePath) ? JSON.parse(await readFile(stylePath, "utf8")) : defaultOfflineStyle();
+    metadata = JSON.parse((await readBounded(metadataPath, PIPELINE_LIMITS.maxMetadataBytes, "region.json")).toString("utf8"));
+    styleData = await exists(stylePath) ? JSON.parse((await readBounded(stylePath, PIPELINE_LIMITS.maxStyleBytes, "style.json")).toString("utf8")) : defaultOfflineStyle();
   } catch {
     throw new PipelineError("region.json ou style.json invalido", "INVALID_JSON");
   }
@@ -523,10 +548,22 @@ async function buildPipelineInto({ input, output, dryRun = false, now = new Date
     throw new PipelineError('style.json deve usar apenas a fonte local pmtiles://package.pmtiles',
       'EXTERNAL_STYLE_SOURCE');
   }
-  if (styleData.glyphs !== 'glyphs/{fontstack}/{range}.pbf' ||
-      typeof styleData.sprite !== 'string' || !/^sprites\/[A-Za-z0-9._@-]+$/.test(styleData.sprite))
-    throw new PipelineError('style.json exige glyphs e sprites locais com paths seguros',
-      'EXTERNAL_STYLE_RESOURCE');
+  if (styleData.glyphs !== undefined && !isLocalStyleResource(styleData.glyphs))
+    throw new PipelineError('style.glyphs contém referência externa ou caminho inseguro', 'EXTERNAL_STYLE_RESOURCE');
+  if (styleData.sprite !== undefined && !isLocalStyleResource(styleData.sprite))
+    throw new PipelineError('style.sprite contém referência externa ou caminho inseguro', 'EXTERNAL_STYLE_RESOURCE');
+  const needsGlyphs = Array.isArray(styleData.layers) && styleData.layers.some(
+    (layer) => layer?.type === 'symbol' && layer.layout?.['text-field'] !== undefined &&
+      layer.layout?.['text-field'] !== null && layer.layout?.['text-field'] !== '',
+  );
+  const needsSprite = Array.isArray(styleData.layers) && styleData.layers.some(
+    (layer) => layer?.type === 'symbol' && layer.layout?.['icon-image'] !== undefined &&
+      layer.layout?.['icon-image'] !== null && layer.layout?.['icon-image'] !== '',
+  );
+  if (needsGlyphs && (styleData.glyphs !== 'glyphs/{fontstack}/{range}.pbf'))
+    throw new PipelineError('rótulos requerem template glyphs local', 'MISSING_GLYPHS');
+  if (needsSprite && typeof styleData.sprite !== 'string')
+    throw new PipelineError('ícones requerem sprite local', 'MISSING_SPRITES');
   if (hasBasemap) {
     const packed = await copyPrebuiltPmtiles(basemapPath, outputDir, metadata);
     artifacts.push(packed.artifact);

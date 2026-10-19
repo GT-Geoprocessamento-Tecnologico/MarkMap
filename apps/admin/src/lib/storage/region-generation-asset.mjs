@@ -16,6 +16,8 @@ export async function readActiveGenerationAsset(db, packageId, path, generation)
   const [region, asset] = await Promise.all([asPromise(packageRequest), asPromise(assetRequest)]);
   if (!region || region.state !== 'active' || region.packageId !== packageId ||
       region.generation !== generation || !asset || asset.packageId !== generation ||
-      asset.path !== path || !(asset.bytes instanceof Blob)) return null;
-  return asset.bytes;
+      asset.path !== path) return null;
+  if (asset.bytes instanceof Blob) return asset.bytes;
+  if (asset.bytes instanceof ArrayBuffer) return new Blob([asset.bytes]);
+  return null;
 }
