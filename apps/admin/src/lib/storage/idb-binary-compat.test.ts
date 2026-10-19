@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { copyBytes, isBlobPreparationError, settleTransaction } from './idb-binary-compat.mjs';
+import { copyBytes, isBlobPreparationError, settleTransaction, shouldMaterializeSmallPackage, SMALL_PACKAGE_BINARY_LIMIT } from './idb-binary-compat.mjs';
 
 type TestTransaction = { error: DOMException | null; abort: ReturnType<typeof vi.fn>; oncomplete: (() => void) | null; onerror: ((event?: Event) => void) | null; onabort: (() => void) | null };
 const testTransaction = (): TestTransaction => ({ error: null, abort: vi.fn(), oncomplete: null, onerror: null, onabort: null });
@@ -11,6 +11,13 @@ describe('IndexedDB Blob compatibility error classification', () => {
     expect(isBlobPreparationError({ name: 'QuotaExceededError', message: 'Error preparing Blob/File data to be stored in object store' })).toBe(false);
     expect(isBlobPreparationError({ name: 'UnknownError', message: 'Quota exceeded' })).toBe(false);
     expect(isBlobPreparationError(new Error('Error preparing Blob/File data to be stored in object store'))).toBe(false);
+  });
+
+  it('selects bounded ArrayBuffer representation only at the 10 MiB package limit', () => {
+    expect(shouldMaterializeSmallPackage(1)).toBe(true);
+    expect(shouldMaterializeSmallPackage(SMALL_PACKAGE_BINARY_LIMIT)).toBe(true);
+    expect(shouldMaterializeSmallPackage(SMALL_PACKAGE_BINARY_LIMIT + 1)).toBe(false);
+    expect(shouldMaterializeSmallPackage(0)).toBe(false);
   });
 
   it('does not settle on transaction error before abort, and preserves a subarray range', async () => {

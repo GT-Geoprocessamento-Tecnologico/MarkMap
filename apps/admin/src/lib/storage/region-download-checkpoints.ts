@@ -1,8 +1,8 @@
 import type { ChunkStore } from './verified-range-download.mjs';
 import { isValidCheckpoint, REGION_DOWNLOAD_CHUNK_SIZE, unreferencedSessionHashes } from './checkpoint-rules.mjs';
-import { copyBytes, isBlobPreparationError, settleTransaction } from './idb-binary-compat.mjs';
+import { copyBytes, settleTransaction } from './idb-binary-compat.mjs';
 
-/** v1 legacy records have ArrayBuffer; new records store disk-backed Blobs. */
+/** v1 records may be ArrayBuffers; readers normalize them to Blobs when needed. */
 interface ChunkRow { key: string; sha: string; offset: number; data: ArrayBuffer | Blob; }
 export interface ExpectedRegionAsset { sha256: string; size: number; }
 interface SessionRow {
@@ -84,7 +84,7 @@ export class RegionDownloadCheckpoints implements ChunkStore {
 
   async put(sha: string, offset: number, bytes: Uint8Array): Promise<void> {
     const db = await this.open();
-    // Bounded 1 MiB copy at most. IndexedDB persists the Blob independently.
+    // Bounded 1 MiB ArrayBuffer copy; readers remain Blob-compatible.
     if (bytes.byteLength > REGION_DOWNLOAD_CHUNK_SIZE) throw new Error('Checkpoint chunk exceeds the 1 MiB limit');
     const binary = copyBytes(bytes);
     const put = async (data: ChunkRow['data']) => {
@@ -93,14 +93,9 @@ export class RegionDownloadCheckpoints implements ChunkStore {
       request.onerror = () => { if (!txError.has(tx)) txError.set(tx, request.error); try { tx.abort(); } catch { /* already aborting */ } };
       await settleTransaction(tx, () => txError.get(tx) ?? null);
     };
-    try {
-      await put(new Blob([binary]));
-    } catch (error) {
-      // The transaction has already aborted before this catch runs. A single
-      // bounded retry keeps old WebKit alive without masking quota failures.
-      if (!isBlobPreparationError(error)) throw error;
-      await put(binary);
-    }
+    // Checkpoints are always bounded ArrayBuffers; readers normalize legacy
+    // records to Blob only after a successful durable write.
+    await put(binary);
   }
 
   async deleteAsset(sha: string): Promise<void> {

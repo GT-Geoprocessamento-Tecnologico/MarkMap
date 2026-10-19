@@ -7,6 +7,11 @@ export function isBlobPreparationError(error) {
     error?.message === 'Error preparing Blob/File data to be stored in object store';
 }
 
+export const SMALL_PACKAGE_BINARY_LIMIT = 10 * 1024 * 1024;
+export function shouldMaterializeSmallPackage(totalBytes) {
+  return Number.isSafeInteger(totalBytes) && totalBytes > 0 && totalBytes <= SMALL_PACKAGE_BINARY_LIMIT;
+}
+
 /**
  * Settle a transaction without allowing WebKit's early onerror to strand it.
  * The timeout is armed only after an error; healthy writes have no timer.

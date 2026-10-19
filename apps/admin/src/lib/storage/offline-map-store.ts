@@ -4,7 +4,7 @@ import { bytesOf, validateOfflinePackage, OFFLINE_PACKAGE_DB, OFFLINE_PACKAGE_VE
 import { matchesActiveRegionGeneration } from './region-generation-guard.mjs';
 import { notifyRegionCatalogChanged } from './region-catalog-events.mjs';
 import { readActiveGenerationAsset } from './region-generation-asset.mjs';
-import { copyBytes, isBlobPreparationError, settleTransaction } from './idb-binary-compat.mjs';
+import { copyBytes, isBlobPreparationError, settleTransaction, shouldMaterializeSmallPackage, SMALL_PACKAGE_BINARY_LIMIT } from './idb-binary-compat.mjs';
 
 export class StaleRegionGenerationError extends Error {
   readonly code = 'stale-active-generation';
@@ -81,7 +81,7 @@ export class OfflineMapStore {
     if (estimate?.quota !== undefined && estimate.usage !== undefined && estimate.usage + packageBytes > estimate.quota) throw new Error("offline map storage quota is insufficient");
     const entries: ReadonlyArray<readonly [string, PackageAsset]> = [["package.pmtiles", assets.get("package.pmtiles")!], ...[manifest.style, ...manifest.glyphs, ...manifest.sprites, ...(manifest.searchShards ?? []), ...(manifest.routingGraph ? [manifest.routingGraph] : []), ...(manifest.contourLines ? [manifest.contourLines] : []),
       ...(manifest.wikipediaPack ? [manifest.wikipediaPack] : []), ...(manifest.transitPack ? [manifest.transitPack] : []), ...(manifest.demGrid ? [manifest.demGrid] : [])].map((ref) => [ref.path, assets.get(ref.path)! as PackageAsset] as const)];
-    const fallbackLimit = 10 * 1024 * 1024;
+    const fallbackLimit = SMALL_PACKAGE_BINARY_LIMIT;
     const materialize = async (buffers: boolean): Promise<Map<string, Blob | ArrayBuffer>> => {
       const result = new Map<string, Blob | ArrayBuffer>();
       for (const [path, asset] of entries) {
@@ -91,7 +91,11 @@ export class OfflineMapStore {
       }
       return result;
     };
-    const materialized = await materialize(false);
+    // Some WebKit backends cannot serialize Blob representations. Small
+    // packages use bounded ArrayBuffers from the first transaction; large
+    // packages retain Blob handles and never materialize the archive.
+    const binaryFirst = shouldMaterializeSmallPackage(packageBytes);
+    const materialized = await materialize(binaryFirst);
     const db = await this.open();
     const generation = crypto.randomUUID();
     const key = `${manifest.id}:${generation}`;
@@ -117,6 +121,7 @@ export class OfflineMapStore {
     };
     try { await attempt(materialized); }
     catch (error) {
+      if (binaryFirst) throw error;
       if (!isBlobPreparationError(error)) throw error;
       if (packageBytes > fallbackLimit) throw new Error('IndexedDB não conseguiu serializar este pacote Blob; pacotes acima de 10 MiB não podem usar o fallback sem materialização integral.');
       await attempt(await materialize(true));

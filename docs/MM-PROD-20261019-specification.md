@@ -306,3 +306,68 @@ WebKit real com pacote pequeno, confirmando instalação, reload, uso offline e
 preservação do mapa anterior em falha. O builder não altera UI, catálogo,
 GeoPDF, GPS, service worker, outbox, schema ou contratos de importação. O gate
 de produção permanece pendente até evidência WebKit após a correção.
+
+## MM-FIX6-SPEC — representação ArrayBuffer para escrita WebKit
+
+**Status: SPECIFICATION GATE — DONE; implementação pendente.** O probe WebKit
+headless com origem pública e bancos isolados confirmou a limitação: Blob novo,
+Blob lido de uma gravação, Blob composto e Blob normalizado com
+`await blob.arrayBuffer()` falharam ao persistir aproximadamente 474 KB com
+`Error preparing Blob/File data to be stored in object store`. O mesmo payload
+como `ArrayBuffer` concluiu `asset-request-success` e `transaction complete` em
+aproximadamente 221 ms. A correção deve partir dessa evidência, sem repetir uma
+transação Blob condenada para pacotes elegíveis.
+
+### Escopo e representação
+
+- **Builder storage** possui exclusivamente
+  `apps/admin/src/lib/storage/offline-map-store.ts`,
+  `apps/admin/src/lib/storage/region-download-checkpoints.ts`,
+  `apps/admin/src/lib/storage/idb-binary-compat.mjs/.d.mts` e testes desses
+  módulos. O chamador mantém a API pública e os leitores Blob/ArrayBuffer
+  legados.
+- Para instalação inicial de pacote já validado cujo total agregado seja no
+  máximo 10 MiB, materializar cada asset aprovado uma vez como ArrayBuffer
+  limitado antes de abrir a transação `readwrite`; escrever esses buffers desde
+  o primeiro `put`. Não iniciar Blob-first para esse caminho elegível.
+- Para assets acima do limite, manter Blob streaming e falhar explicitamente
+  quando o backend não conseguir serializar, sem materialização integral. O
+  checkpoint continua limitado a 1 MiB por bloco e deve usar ArrayBuffer para a
+  escrita bounded, mantendo Blob nos leitores quando suportado.
+- Preservar schema e versão dos bancos, chaves, geração, locks/CAS,
+  staging/activate, rollback, quota e leitores de registros antigos. Nenhuma
+  alteração de UI, GIS, estilo, API, service worker ou contrato de catálogo.
+- O orçamento de memória deve ser explícito: no máximo o agregado aprovado de
+  10 MiB para pacote pequeno e um bloco de 1 MiB para checkpoint. Em erro,
+  cancelamento ou quota, não ativar geração parcial e preservar o mapa ativo.
+  Não usar user agent sniffing, fallback silencioso ou timer para limitar
+  escrita saudável.
+
+### Testes e verificação obrigatória
+
+Cobrir materialização bounded antes da transação; pacote geometry-only pequeno
+com múltiplos assets; pacote acima do limite sem cópia integral; checkpoint
+1 MiB; leitura de ArrayBuffer legado e Blob existente; erro de quota/cancelamento
+com rollback; CAS e ativação atômica; e preservação do ativo anterior.
+
+O QA independente deve executar suíte storage, typecheck/lint e o probe WebKit
+headless real contra a origem pública, confirmando que o pacote pequeno conclui
+e que não existe `Error preparing Blob/File data`. O root deve então repetir o
+fluxo no Chrome nativo instalado, incluindo download, reload, modo offline e
+preservação de dados. O gate não passa por build, teste unitário ou probe
+isolado sem ambas as evidências de runtime.
+
+### Revisão e validação local atualizadas
+
+A implementação MM-FIX6 foi revisada independentemente sem findings. A
+validação local registrada no resumo QA corrigido passou com 181 testes em 46
+arquivos, typecheck, lint, build e `git diff --check`; os artefatos estão
+associados aos fingerprints atuais `405174...` e `DAFE462...` conforme o
+registro QA. A autorização existente do usuário cobre push e deploy quando o
+root concluir os gates.
+
+O runtime de produção WebKit permanece **PENDENTE**. A validação nativa já
+confirmou importações reais, rejeição de arquivo inválido, exportação/hash,
+reload de 14 datasets, 3 PDFs, 3 meshes e criação de projeto com 3 camadas.
+Analytics confirmou 4 projetos e 9 camadas; a confirmação final do CSV de 547 B
+e a instalação/reload offline após MM-FIX6 ainda pertencem ao gate de runtime.
