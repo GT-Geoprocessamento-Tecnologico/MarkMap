@@ -1,0 +1,68 @@
+{
+  "id": "br-city-2111300",
+  "version": "1.0.0-brazil.20261019",
+  "label": "São Luís — mapa offline",
+  "bounds": [
+    -44.41,
+    -2.7992,
+    -44.1618,
+    -2.4739
+  ],
+  "minZoom": 0,
+  "maxZoom": 12,
+  "archive": {
+    "id": "d6813884-671c-4aaa-889f-7ae677697fe3",
+    "sha256": "d6813884671caaaa489f7ae677697fe3620408b56407d3ce111fe43af3f13dc0",
+    "bytes": 997364,
+    "mediaType": "application/vnd.pmtiles"
+  },
+  "style": {
+    "path": "style.json",
+    "blob": {
+      "id": "caa3a941-410e-4826-897d-87cc78e83ef4",
+      "sha256": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",
+      "bytes": 1098,
+      "mediaType": "application/json"
+    }
+  },
+  "glyphs": [],
+  "sprites": [],
+  "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+  "createdAt": "2026-10-19T22:47:55.593Z",
+  "packageVersion": "1.0.0-brazil.20261019",
+  "osmDataDate": "2026-10-19T04:00:00.000Z",
+  "capabilities": [
+    "basemap"
+  ],
+  "checksums": {
+    "archive": "d6813884671caaaa489f7ae677697fe3620408b56407d3ce111fe43af3f13dc0",
+    "style": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",
+    "glyphs": [],
+    "sprites": []
+  },
+  "totalBytes": 998462,
+  "sources": {
+    "osm": "OpenStreetMap + Natural Earth via Protomaps Basemap 4.15.2",
+    "attributions": [
+      {
+        "name": "OpenStreetMap contributors",
+        "url": "https://www.openstreetmap.org/copyright"
+      },
+      {
+        "name": "Protomaps Basemap",
+        "url": "https://docs.protomaps.com/basemaps/downloads"
+      }
+    ]
+  },
+  "optionalComponents": {
+    "search": {},
+    "routing": {
+      "walk": false,
+      "bicycle": false,
+      "car": false
+    },
+    "elevation": false,
+    "contours": false
+  },
+  "minimumCompatibleVersion": "0.2.0-dev.0"
+}

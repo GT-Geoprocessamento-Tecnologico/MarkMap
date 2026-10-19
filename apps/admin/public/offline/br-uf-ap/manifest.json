@@ -1,0 +1,68 @@
+{
+  "id": "br-uf-ap",
+  "version": "1.0.0-brazil.20261019",
+  "label": "Amapá — mapa offline",
+  "bounds": [
+    -54.8723,
+    -1.215,
+    -49.8817,
+    4.5088
+  ],
+  "minZoom": 0,
+  "maxZoom": 9,
+  "archive": {
+    "id": "2102a4b9-072e-4cf8-8a39-5bbc61853af1",
+    "sha256": "2102a4b9072eecf8ea395bbc61853af16c9f995ff979e845cda41e83366827db",
+    "bytes": 2103776,
+    "mediaType": "application/vnd.pmtiles"
+  },
+  "style": {
+    "path": "style.json",
+    "blob": {
+      "id": "caa3a941-410e-4826-897d-87cc78e83ef4",
+      "sha256": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",
+      "bytes": 1098,
+      "mediaType": "application/json"
+    }
+  },
+  "glyphs": [],
+  "sprites": [],
+  "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+  "createdAt": "2026-10-19T22:45:46.625Z",
+  "packageVersion": "1.0.0-brazil.20261019",
+  "osmDataDate": "2026-10-19T04:00:00.000Z",
+  "capabilities": [
+    "basemap"
+  ],
+  "checksums": {
+    "archive": "2102a4b9072eecf8ea395bbc61853af16c9f995ff979e845cda41e83366827db",
+    "style": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",
+    "glyphs": [],
+    "sprites": []
+  },
+  "totalBytes": 2104874,
+  "sources": {
+    "osm": "OpenStreetMap + Natural Earth via Protomaps Basemap 4.15.2",
+    "attributions": [
+      {
+        "name": "OpenStreetMap contributors",
+        "url": "https://www.openstreetmap.org/copyright"
+      },
+      {
+        "name": "Protomaps Basemap",
+        "url": "https://docs.protomaps.com/basemaps/downloads"
+      }
+    ]
+  },
+  "optionalComponents": {
+    "search": {},
+    "routing": {
+      "walk": false,
+      "bicycle": false,
+      "car": false
+    },
+    "elevation": false,
+    "contours": false
+  },
+  "minimumCompatibleVersion": "0.2.0-dev.0"
+}

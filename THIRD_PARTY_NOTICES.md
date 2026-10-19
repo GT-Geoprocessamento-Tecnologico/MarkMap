@@ -203,3 +203,8 @@ Produced Work requiring OpenStreetMap attribution:
   must not be inferred from this pilot package.
 - Attribution is carried by the manifest and rendered by the existing map engine.
 - No proprietary APK code, branding or assets are included.
+
+
+## Brazil regional offline packages (2026-10-19)
+
+The regional PMTiles packages under apps/admin/public/offline/br-uf-* and br-city-* are ODbL Produced Works derived from the Protomaps Basemap 4.15.2 snapshot (OSM replication 2026-10-19T04:00:00Z). OpenStreetMap attribution is required: https://www.openstreetmap.org/copyright. Source and extraction documentation: https://docs.protomaps.com/basemaps/downloads and https://build.protomaps.com/20261019.pmtiles. Geographic clipping bounds and state/municipality identifiers come from the IBGE Malhas v3 API; package provenance and checksums are in docs/region-package-provenance.json. The packages intentionally use a geometry-only local style and do not promise labels, glyphs, sprites, routes, search, or elevation.

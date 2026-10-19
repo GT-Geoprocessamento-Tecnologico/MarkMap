@@ -1,0 +1,68 @@
+{
+  "id": "br-city-1100205",
+  "version": "1.0.0-brazil.20261019",
+  "label": "Porto Velho — mapa offline",
+  "bounds": [
+    -66.8103,
+    -10.0004,
+    -62.2385,
+    -7.9759
+  ],
+  "minZoom": 0,
+  "maxZoom": 12,
+  "archive": {
+    "id": "b708e079-aef1-4aed-8aac-30c3f1d9354f",
+    "sha256": "b708e079aef13aed4aac30c3f1d9354f0d67478eb6a0529202e69df8b6050eed",
+    "bytes": 3944260,
+    "mediaType": "application/vnd.pmtiles"
+  },
+  "style": {
+    "path": "style.json",
+    "blob": {
+      "id": "caa3a941-410e-4826-897d-87cc78e83ef4",
+      "sha256": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",
+      "bytes": 1098,
+      "mediaType": "application/json"
+    }
+  },
+  "glyphs": [],
+  "sprites": [],
+  "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+  "createdAt": "2026-10-19T22:50:42.282Z",
+  "packageVersion": "1.0.0-brazil.20261019",
+  "osmDataDate": "2026-10-19T04:00:00.000Z",
+  "capabilities": [
+    "basemap"
+  ],
+  "checksums": {
+    "archive": "b708e079aef13aed4aac30c3f1d9354f0d67478eb6a0529202e69df8b6050eed",
+    "style": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",
+    "glyphs": [],
+    "sprites": []
+  },
+  "totalBytes": 3945358,
+  "sources": {
+    "osm": "OpenStreetMap + Natural Earth via Protomaps Basemap 4.15.2",
+    "attributions": [
+      {
+        "name": "OpenStreetMap contributors",
+        "url": "https://www.openstreetmap.org/copyright"
+      },
+      {
+        "name": "Protomaps Basemap",
+        "url": "https://docs.protomaps.com/basemaps/downloads"
+      }
+    ]
+  },
+  "optionalComponents": {
+    "search": {},
+    "routing": {
+      "walk": false,
+      "bicycle": false,
+      "car": false
+    },
+    "elevation": false,
+    "contours": false
+  },
+  "minimumCompatibleVersion": "0.2.0-dev.0"
+}

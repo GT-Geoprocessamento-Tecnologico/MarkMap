@@ -16,6 +16,8 @@ import { installCatalogRegion } from "../../lib/storage/catalog-region-install";
 import { shouldAutoLocateOnOpen, getFreshDevicePosition, rememberLocationApproval } from "../../lib/location-consent";
 import { ensureLocationPermission } from "../../lib/device-location-permission";
 import { getAutomaticRegionDownload, setAutomaticRegionDownload } from "../../lib/storage/auto-region-download";
+import { fetchRegionLocationIndex, filterRegionsByLocation, type RegionLocation } from "../../lib/storage/region-location-index";
+import { runCatalogDownloadQueue } from "../../lib/storage/catalog-download-queue";
 
 type Props = {
   mapCenter?: readonly [number, number];
@@ -31,6 +33,10 @@ export function RegionDownloadCatalog({
   mapCenter, showInstalled = true, disabled = false, onBusyChange, onInstalled, onSelected,
 }: Props) {
   const [regions, setRegions] = useState<PublicRegion[]>([]);
+  const [locations, setLocations] = useState<RegionLocation[]>([]);
+  const [stateCode, setStateCode] = useState("");
+  const [locationKind, setLocationKind] = useState<"all" | "state" | "city">("all");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [installed, setInstalled] = useState<OfflineMapPackageManifest[]>([]);
   const [search, setSearch] = useState("");
   const [devicePoint, setDevicePoint] = useState<readonly [number, number] | null>(null);
@@ -48,6 +54,7 @@ export function RegionDownloadCatalog({
   const [stage, setStage] = useState<InstallerStatus | "checking">("checking");
   const [percent, setPercent] = useState<number | null>(null);
   const [notice, setNotice] = useState("");
+  const [queueProgress, setQueueProgress] = useState<{ total: number; completed: number; index: number; currentId: string } | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const current = useRef<{ controller: AbortController; installer: ResumableInstaller } | null>(null);
   const selectedId = useSyncExternalStore(
@@ -69,7 +76,11 @@ export function RegionDownloadCatalog({
     const controller = new AbortController();
     setLoading(true);
     setCatalogError("");
-    void fetchPublicRegionCatalog(controller.signal).then(setRegions).catch(() => {
+    void fetchPublicRegionCatalog(controller.signal).then(async nextRegions => {
+      setRegions(nextRegions);
+      try { setLocations(await fetchRegionLocationIndex(nextRegions, controller.signal)); }
+      catch { setLocations([]); }
+    }).catch(() => {
       if (!controller.signal.aborted) setCatalogError(
         "Não foi possível consultar novos mapas. Seus mapas baixados continuam disponíveis.",
       );
@@ -186,26 +197,103 @@ export function RegionDownloadCatalog({
     }
   }, [disabled, onInstalled, refreshInstalled]);
 
+  const downloadSelected = useCallback(async () => {
+    if (current.current || disabled || selectedIds.size === 0) return;
+    const controller = new AbortController();
+    const queueRegions = regions.filter(region => selectedIds.has(region.id));
+    current.current = { controller, installer: new ResumableInstaller() };
+    setBusyId("queue"); setStage("checking"); setPercent(null); setQueueProgress(null); setNotice("");
+    let stopMessage = "";
+    try {
+      const result = await runCatalogDownloadQueue(queueRegions, {
+        signal: controller.signal,
+        installedIds: new Set(installed.map(item => item.id)),
+        install: async (region) => {
+          const installer = new ResumableInstaller();
+          current.current = { controller, installer };
+          try {
+            const outcome = await installCatalogRegion(region, installer, {
+              signal: controller.signal,
+              onProgress: progress => {
+                if (!controller.signal.aborted) { setStage(progress.status); setPercent(progress.percent); }
+              },
+            });
+            if (outcome.kind === "installed") {
+              rememberRegionSource(outcome.manifest.id, region.manifestUrl);
+              return "installed";
+            }
+            if (outcome.kind === "confirm") {
+              setConfirmId(region.id);
+              stopMessage = "Este mapa tem uma nova versão. Confirme a nova versão no cartão para continuar.";
+              setNotice(stopMessage);
+              return "confirm";
+            }
+            if (outcome.code === "outdated-checkpoint") setConfirmId(region.id);
+            stopMessage = describeRegionInstallError(outcome.code).message;
+          } catch (cause) {
+            if (!controller.signal.aborted) {
+              stopMessage = cause instanceof Error && cause.name !== "TypeError" && cause.name !== "ZodError"
+                ? cause.message
+                : "Não foi possível baixar este mapa. Verifique a conexão e tente novamente.";
+            }
+          }
+          if (stopMessage) setNotice(stopMessage);
+          return "error";
+        },
+        onProgress: progress => {
+          setBusyId("queue");
+          setQueueProgress(progress);
+          setStage("checking");
+          setPercent(Math.round((progress.completed / progress.total) * 100));
+        },
+      });
+      if (result.status === "completed" && result.installedIds[0]) {
+        setSelectedOfflineMapId(result.installedIds[0]);
+        await refreshInstalled(); onInstalled?.();
+        setNotice("Mapas selecionados baixados e prontos para uso sem internet.");
+        setSelectedIds(previous => new Set([...previous].filter(id => !result.installedIds.includes(id))));
+      } else {
+        if (result.installedIds.length) {
+          await refreshInstalled(); onInstalled?.();
+          setSelectedIds(previous => new Set([...previous].filter(id => !result.installedIds.includes(id))));
+        }
+        if (result.status === "cancelled") setNotice("Fila interrompida. Os mapas concluídos foram preservados; você poderá retomar os demais depois.");
+        else if (result.status === "stopped") setNotice(stopMessage || "A fila foi interrompida; mapas já baixados foram preservados.");
+      }
+    } catch (cause) {
+      if (!controller.signal.aborted) setNotice(cause instanceof Error ? cause.message : "Não foi possível concluir a fila.");
+    } finally {
+      if (current.current?.controller === controller) current.current = null;
+      setBusyId(null); setPercent(null); setQueueProgress(null);
+    }
+  }, [disabled, installed, onInstalled, refreshInstalled, regions, selectedIds]);
+
   const suggested = devicePoint ? recommendLocalRegion(regions, devicePoint) : null;
   useEffect(() => {
-    if (!autoDownload || autoSaving || !installedReady || !online || !suggested || disabled ||
+    if (!autoDownload || autoSaving || !installedReady || !online || !suggested || disabled || busyId !== null || current.current ||
         installed.some(item => item.id === suggested.id)) return;
     // Data-saver protects limited connections. Permission is local and explicit.
     if ((navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData) return;
     if (autoAttempted.current.has(suggested.id)) return;
     autoAttempted.current.add(suggested.id);
     void download(suggested);
-  }, [autoDownload, autoSaving, installedReady, online, suggested, disabled, installed, download]);
+  }, [autoDownload, autoSaving, installedReady, online, suggested, disabled, installed, download, busyId]);
   const matches = useMemo(() => {
     const term = normalizeRegionSearch(search.trim());
-    return regions.filter((region) =>
+    const located = locations.length
+      ? filterRegionsByLocation(regions, locations, stateCode, locationKind)
+      : regions;
+    return located.filter((region) =>
       normalizeRegionSearch(`${region.label} ${region.area}`).includes(term),
     ).sort((a, b) =>
       Number(regionCoversPoint(b, devicePoint ?? mapCenter)) -
         Number(regionCoversPoint(a, devicePoint ?? mapCenter)) ||
       a.label.localeCompare(b.label, "pt-BR"),
     );
-  }, [devicePoint, mapCenter, regions, search]);
+  }, [devicePoint, locationKind, locations, mapCenter, regions, search, stateCode]);
+  const locationStates = useMemo(() => [...new Map(locations.map(item => [item.stateCode, item.stateName]))]
+    .sort(([, first], [, second]) => first.localeCompare(second, "pt-BR")), [locations]);
+  const selectedRegions = regions.filter(region => selectedIds.has(region.id) && !installed.some(item => item.id === region.id));
 
   return <div className="min-w-0 space-y-4 text-on-surface">
     <div>
@@ -214,7 +302,8 @@ export function RegionDownloadCatalog({
         Encontre a região desejada e toque em Baixar. Depois, o mapa funciona sem internet.
       </p>
     </div>
-    <div className="space-y-2 rounded-xl border border-outline-variant p-3 text-sm">
+    <details className="space-y-2 rounded-xl border border-outline-variant p-3 text-sm">
+      <summary className="min-h-[44px] cursor-pointer py-2 font-semibold">Opções de localização</summary>
       <button type="button" onClick={() => void findMyRegion()} disabled={locating || disabled}
         className="min-h-[44px] w-full rounded-lg border border-primary/50 px-3 font-semibold text-on-surface disabled:opacity-50">
         {locating ? "Localizando região…" : "Encontrar mapa da minha localização"}
@@ -249,10 +338,44 @@ export function RegionDownloadCatalog({
       <p className="text-xs text-on-surface-variant">
         O GPS fica somente neste aparelho. Sem a opção ativada, o download exige o botão Baixar.
       </p>
-    </div>
+    </details>
     <input type="search" value={search} onChange={(event) => setSearch(event.target.value)}
       placeholder="Buscar cidade, estado ou região" aria-label="Buscar mapas disponíveis"
       className="min-h-[44px] w-full rounded-xl border border-outline-variant bg-background px-3 text-sm text-on-surface placeholder:text-on-surface-variant" />
+    {locations.length > 0 && <div className="grid gap-2 sm:grid-cols-2">
+      <label className="text-xs text-on-surface-variant">Estado
+        <select value={stateCode} onChange={event => setStateCode(event.target.value)}
+          disabled={busyId !== null || disabled} aria-label="Filtrar por estado"
+          className="mt-1 min-h-[44px] w-full rounded-lg border border-outline-variant bg-background px-2 text-sm text-on-surface">
+          <option value="">Todos os estados</option>
+          {locationStates.map(([code, name]) => <option key={code} value={code}>{name} ({code})</option>)}
+        </select>
+      </label>
+      <label className="text-xs text-on-surface-variant">Tipo de região
+        <select value={locationKind} onChange={event => setLocationKind(event.target.value as typeof locationKind)}
+          disabled={busyId !== null || disabled} aria-label="Filtrar por tipo de região"
+          className="mt-1 min-h-[44px] w-full rounded-lg border border-outline-variant bg-background px-2 text-sm text-on-surface">
+          <option value="all">Todos</option><option value="city">Cidades</option><option value="state">Estados</option>
+        </select>
+      </label>
+    </div>}
+    {(selectedRegions.length > 0 || busyId === "queue") && <div className="space-y-2 rounded-xl border border-primary/40 bg-primary/5 p-3 text-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span>{selectedRegions.length} mapa(s) selecionado(s) · {sizeLabel(selectedRegions.reduce((total, region) => total + region.sizeBytes, 0))}</span>
+      <button type="button" onClick={() => void downloadSelected()} disabled={disabled || busyId !== null}
+        className="min-h-[44px] rounded-lg bg-primary px-3 font-semibold text-on-primary disabled:opacity-50">
+        Baixar selecionados
+      </button>
+      </div>
+      {queueProgress && <div role="status" aria-live="polite" className="space-y-2 text-xs text-on-surface-variant">
+        <p>Baixando {queueProgress.index} de {queueProgress.total}: {regions.find(item => item.id === queueProgress.currentId)?.label ?? queueProgress.currentId}</p>
+        <progress aria-label="Progresso da fila de mapas" value={percent ?? 0} max={100} className="w-full" />
+        <button type="button" onClick={cancel} disabled={stage === "activating"}
+          className="min-h-[44px] rounded-lg border border-outline-variant px-3 text-on-surface disabled:opacity-50">
+          Cancelar fila
+        </button>
+      </div>}
+    </div>}
     {loading && <p role="status" className="text-sm text-on-surface-variant">Procurando mapas disponíveis…</p>}
     {catalogError && <div role="status" className="space-y-2 text-sm text-on-surface-variant">
       <p>{catalogError}</p>
@@ -270,11 +393,13 @@ export function RegionDownloadCatalog({
         const saved = installed.some(item => item.id === region.id);
         const active = selectedId === region.id;
         const downloading = busyId === region.id;
+        const selected = selectedIds.has(region.id);
+        const location = locations.find(item => item.regionId === region.id);
         return <li key={region.id} className="space-y-2 rounded-xl border border-outline-variant bg-surface-container-high p-3">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div className="min-w-0">
               <p className="font-semibold">{region.label}</p>
-              <p className="text-xs text-on-surface-variant">{region.area} · {sizeLabel(region.sizeBytes)}</p>
+              <p className="text-xs text-on-surface-variant">{location && `${location.cityName ?? location.stateName} · `}{region.area} · {sizeLabel(region.sizeBytes)}</p>
               <p className="mt-1 text-xs text-on-surface-variant">{region.attribution}</p>
             </div>
             {suggested?.id === region.id
@@ -283,6 +408,15 @@ export function RegionDownloadCatalog({
                 ? <span className="rounded-full bg-primary/10 px-2 py-1 text-xs text-primary">Área exibida</span>
                 : null}
           </div>
+          {!saved && <label className="flex min-h-[44px] items-center gap-3 text-sm text-on-surface">
+            <input type="checkbox" checked={selected} disabled={disabled || busyId !== null}
+              aria-label={`Selecionar ${region.label}`} onChange={event => setSelectedIds(previous => {
+                const next = new Set(previous);
+                if (event.target.checked) next.add(region.id); else next.delete(region.id);
+                return next;
+              })} className="h-5 w-5 shrink-0 accent-primary disabled:opacity-60" />
+            <span>Selecionar para baixar em fila</span>
+          </label>}
           {saved
             ? <button type="button" disabled={disabled || busyId !== null}
                 onClick={() => chooseInstalled(region.id)}

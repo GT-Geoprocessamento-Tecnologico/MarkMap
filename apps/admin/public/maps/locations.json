@@ -1,0 +1,363 @@
+{
+  "version": 1,
+  "locations": [
+    {
+      "regionId": "br-uf-ac",
+      "stateCode": "AC",
+      "stateName": "Acre",
+      "kind": "state"
+    },
+    {
+      "regionId": "br-city-1200401",
+      "stateCode": "AC",
+      "stateName": "Acre",
+      "kind": "city",
+      "cityName": "Rio Branco"
+    },
+    {
+      "regionId": "br-uf-al",
+      "stateCode": "AL",
+      "stateName": "Alagoas",
+      "kind": "state"
+    },
+    {
+      "regionId": "br-city-2704302",
+      "stateCode": "AL",
+      "stateName": "Alagoas",
+      "kind": "city",
+      "cityName": "Maceió"
+    },
+    {
+      "regionId": "br-uf-am",
+      "stateCode": "AM",
+      "stateName": "Amazonas",
+      "kind": "state"
+    },
+    {
+      "regionId": "br-city-1302603",
+      "stateCode": "AM",
+      "stateName": "Amazonas",
+      "kind": "city",
+      "cityName": "Manaus"
+    },
+    {
+      "regionId": "br-uf-ap",
+      "stateCode": "AP",
+      "stateName": "Amapá",
+      "kind": "state"
+    },
+    {
+      "regionId": "br-city-1600303",
+      "stateCode": "AP",
+      "stateName": "Amapá",
+      "kind": "city",
+      "cityName": "Macapá"
+    },
+    {
+      "regionId": "br-uf-ba",
+      "stateCode": "BA",
+      "stateName": "Bahia",
+      "kind": "state"
+    },
+    {
+      "regionId": "br-city-2927408",
+      "stateCode": "BA",
+      "stateName": "Bahia",
+      "kind": "city",
+      "cityName": "Salvador"
+    },
+    {
+      "regionId": "br-uf-ce",
+      "stateCode": "CE",
+      "stateName": "Ceará",
+      "kind": "state"
+    },
+    {
+      "regionId": "br-city-2304400",
+      "stateCode": "CE",
+      "stateName": "Ceará",
+      "kind": "city",
+      "cityName": "Fortaleza"
+    },
+    {
+      "regionId": "br-uf-df",
+      "stateCode": "DF",
+      "stateName": "Distrito Federal",
+      "kind": "state"
+    },
+    {
+      "regionId": "br-city-5300108",
+      "stateCode": "DF",
+      "stateName": "Distrito Federal",
+      "kind": "city",
+      "cityName": "Brasília"
+    },
+    {
+      "regionId": "br-uf-es",
+      "stateCode": "ES",
+      "stateName": "Espírito Santo",
+      "kind": "state"
+    },
+    {
+      "regionId": "br-city-3205309",
+      "stateCode": "ES",
+      "stateName": "Espírito Santo",
+      "kind": "city",
+      "cityName": "Vitória"
+    },
+    {
+      "regionId": "br-uf-go",
+      "stateCode": "GO",
+      "stateName": "Goiás",
+      "kind": "state"
+    },
+    {
+      "regionId": "br-city-5208707",
+      "stateCode": "GO",
+      "stateName": "Goiás",
+      "kind": "city",
+      "cityName": "Goiânia"
+    },
+    {
+      "regionId": "br-uf-ma",
+      "stateCode": "MA",
+      "stateName": "Maranhão",
+      "kind": "state"
+    },
+    {
+      "regionId": "br-city-2111300",
+      "stateCode": "MA",
+      "stateName": "Maranhão",
+      "kind": "city",
+      "cityName": "São Luís"
+    },
+    {
+      "regionId": "br-uf-mg",
+      "stateCode": "MG",
+      "stateName": "Minas Gerais",
+      "kind": "state"
+    },
+    {
+      "regionId": "br-city-3106200",
+      "stateCode": "MG",
+      "stateName": "Minas Gerais",
+      "kind": "city",
+      "cityName": "Belo Horizonte"
+    },
+    {
+      "regionId": "br-uf-ms",
+      "stateCode": "MS",
+      "stateName": "Mato Grosso do Sul",
+      "kind": "state"
+    },
+    {
+      "regionId": "br-city-5002704",
+      "stateCode": "MS",
+      "stateName": "Mato Grosso do Sul",
+      "kind": "city",
+      "cityName": "Campo Grande"
+    },
+    {
+      "regionId": "br-uf-mt",
+      "stateCode": "MT",
+      "stateName": "Mato Grosso",
+      "kind": "state"
+    },
+    {
+      "regionId": "br-city-5103403",
+      "stateCode": "MT",
+      "stateName": "Mato Grosso",
+      "kind": "city",
+      "cityName": "Cuiabá"
+    },
+    {
+      "regionId": "br-uf-pa",
+      "stateCode": "PA",
+      "stateName": "Pará",
+      "kind": "state"
+    },
+    {
+      "regionId": "br-city-1501402",
+      "stateCode": "PA",
+      "stateName": "Pará",
+      "kind": "city",
+      "cityName": "Belém"
+    },
+    {
+      "regionId": "br-uf-pb",
+      "stateCode": "PB",
+      "stateName": "Paraíba",
+      "kind": "state"
+    },
+    {
+      "regionId": "br-city-2507507",
+      "stateCode": "PB",
+      "stateName": "Paraíba",
+      "kind": "city",
+      "cityName": "João Pessoa"
+    },
+    {
+      "regionId": "br-uf-pe",
+      "stateCode": "PE",
+      "stateName": "Pernambuco",
+      "kind": "state"
+    },
+    {
+      "regionId": "br-city-2611606",
+      "stateCode": "PE",
+      "stateName": "Pernambuco",
+      "kind": "city",
+      "cityName": "Recife"
+    },
+    {
+      "regionId": "br-uf-pi",
+      "stateCode": "PI",
+      "stateName": "Piauí",
+      "kind": "state"
+    },
+    {
+      "regionId": "br-city-2211001",
+      "stateCode": "PI",
+      "stateName": "Piauí",
+      "kind": "city",
+      "cityName": "Teresina"
+    },
+    {
+      "regionId": "br-uf-pr",
+      "stateCode": "PR",
+      "stateName": "Paraná",
+      "kind": "state"
+    },
+    {
+      "regionId": "br-city-4106902",
+      "stateCode": "PR",
+      "stateName": "Paraná",
+      "kind": "city",
+      "cityName": "Curitiba"
+    },
+    {
+      "regionId": "br-uf-rj",
+      "stateCode": "RJ",
+      "stateName": "Rio de Janeiro",
+      "kind": "state"
+    },
+    {
+      "regionId": "br-city-3304557",
+      "stateCode": "RJ",
+      "stateName": "Rio de Janeiro",
+      "kind": "city",
+      "cityName": "Rio de Janeiro"
+    },
+    {
+      "regionId": "br-uf-rn",
+      "stateCode": "RN",
+      "stateName": "Rio Grande do Norte",
+      "kind": "state"
+    },
+    {
+      "regionId": "br-city-2408102",
+      "stateCode": "RN",
+      "stateName": "Rio Grande do Norte",
+      "kind": "city",
+      "cityName": "Natal"
+    },
+    {
+      "regionId": "br-uf-ro",
+      "stateCode": "RO",
+      "stateName": "Rondônia",
+      "kind": "state"
+    },
+    {
+      "regionId": "br-city-1100205",
+      "stateCode": "RO",
+      "stateName": "Rondônia",
+      "kind": "city",
+      "cityName": "Porto Velho"
+    },
+    {
+      "regionId": "br-uf-rr",
+      "stateCode": "RR",
+      "stateName": "Roraima",
+      "kind": "state"
+    },
+    {
+      "regionId": "br-city-1400100",
+      "stateCode": "RR",
+      "stateName": "Roraima",
+      "kind": "city",
+      "cityName": "Boa Vista"
+    },
+    {
+      "regionId": "br-uf-rs",
+      "stateCode": "RS",
+      "stateName": "Rio Grande do Sul",
+      "kind": "state"
+    },
+    {
+      "regionId": "br-city-4314902",
+      "stateCode": "RS",
+      "stateName": "Rio Grande do Sul",
+      "kind": "city",
+      "cityName": "Porto Alegre"
+    },
+    {
+      "regionId": "br-uf-sc",
+      "stateCode": "SC",
+      "stateName": "Santa Catarina",
+      "kind": "state"
+    },
+    {
+      "regionId": "br-city-4205407",
+      "stateCode": "SC",
+      "stateName": "Santa Catarina",
+      "kind": "city",
+      "cityName": "Florianópolis"
+    },
+    {
+      "regionId": "br-uf-se",
+      "stateCode": "SE",
+      "stateName": "Sergipe",
+      "kind": "state"
+    },
+    {
+      "regionId": "br-city-2800308",
+      "stateCode": "SE",
+      "stateName": "Sergipe",
+      "kind": "city",
+      "cityName": "Aracaju"
+    },
+    {
+      "regionId": "br-uf-sp",
+      "stateCode": "SP",
+      "stateName": "São Paulo",
+      "kind": "state"
+    },
+    {
+      "regionId": "br-city-3550308",
+      "stateCode": "SP",
+      "stateName": "São Paulo",
+      "kind": "city",
+      "cityName": "São Paulo"
+    },
+    {
+      "regionId": "br-uf-to",
+      "stateCode": "TO",
+      "stateName": "Tocantins",
+      "kind": "state"
+    },
+    {
+      "regionId": "br-city-1721000",
+      "stateCode": "TO",
+      "stateName": "Tocantins",
+      "kind": "city",
+      "cityName": "Palmas"
+    },
+    {
+      "regionId": "br-araguaina",
+      "stateCode": "TO",
+      "stateName": "Tocantins",
+      "kind": "city",
+      "cityName": "Araguaína"
+    }
+  ]
+}

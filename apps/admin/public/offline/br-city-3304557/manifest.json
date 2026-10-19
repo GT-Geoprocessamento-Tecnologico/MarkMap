@@ -1,0 +1,68 @@
+{
+  "id": "br-city-3304557",
+  "version": "1.0.0-brazil.20261019",
+  "label": "Rio de Janeiro — mapa offline",
+  "bounds": [
+    -43.796,
+    -23.0607,
+    -43.1502,
+    -22.7846
+  ],
+  "minZoom": 0,
+  "maxZoom": 12,
+  "archive": {
+    "id": "41fc725d-62e6-4a3e-817c-a8cd2eddbd9d",
+    "sha256": "41fc725d62e6da3e517ca8cd2eddbd9d862aba2c514170ed34db7810fe1eb73f",
+    "bytes": 2600290,
+    "mediaType": "application/vnd.pmtiles"
+  },
+  "style": {
+    "path": "style.json",
+    "blob": {
+      "id": "caa3a941-410e-4826-897d-87cc78e83ef4",
+      "sha256": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",
+      "bytes": 1098,
+      "mediaType": "application/json"
+    }
+  },
+  "glyphs": [],
+  "sprites": [],
+  "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+  "createdAt": "2026-10-19T22:50:03.181Z",
+  "packageVersion": "1.0.0-brazil.20261019",
+  "osmDataDate": "2026-10-19T04:00:00.000Z",
+  "capabilities": [
+    "basemap"
+  ],
+  "checksums": {
+    "archive": "41fc725d62e6da3e517ca8cd2eddbd9d862aba2c514170ed34db7810fe1eb73f",
+    "style": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",
+    "glyphs": [],
+    "sprites": []
+  },
+  "totalBytes": 2601388,
+  "sources": {
+    "osm": "OpenStreetMap + Natural Earth via Protomaps Basemap 4.15.2",
+    "attributions": [
+      {
+        "name": "OpenStreetMap contributors",
+        "url": "https://www.openstreetmap.org/copyright"
+      },
+      {
+        "name": "Protomaps Basemap",
+        "url": "https://docs.protomaps.com/basemaps/downloads"
+      }
+    ]
+  },
+  "optionalComponents": {
+    "search": {},
+    "routing": {
+      "walk": false,
+      "bicycle": false,
+      "car": false
+    },
+    "elevation": false,
+    "contours": false
+  },
+  "minimumCompatibleVersion": "0.2.0-dev.0"
+}

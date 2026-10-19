@@ -14,6 +14,762 @@
       "label": "Araguaína — mapa offline",
       "area": "Araguaína, Tocantins — recorte urbano sem rótulos ou rotas",
       "id": "br-araguaina"
+    },
+    {
+      "sizeBytes": 2108216,
+      "bounds": [
+        -73.9833,
+        -11.1456,
+        -66.6269,
+        -7.1118
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-uf-ac/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "Acre — mapa offline",
+      "area": "Acre — visão estadual, sem nomes ou rotas",
+      "id": "br-uf-ac"
+    },
+    {
+      "sizeBytes": 1090864,
+      "bounds": [
+        -69.3638,
+        -10.4853,
+        -67.4822,
+        -9.5052
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-city-1200401/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "Rio Branco — mapa offline",
+      "area": "Rio Branco, Acre — área municipal, sem nomes ou rotas",
+      "id": "br-city-1200401"
+    },
+    {
+      "sizeBytes": 847817,
+      "bounds": [
+        -38.2376,
+        -10.4969,
+        -35.1527,
+        -8.8211
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-uf-al/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "Alagoas — mapa offline",
+      "area": "Alagoas — visão estadual, sem nomes ou rotas",
+      "id": "br-uf-al"
+    },
+    {
+      "sizeBytes": 995555,
+      "bounds": [
+        -35.8144,
+        -9.7112,
+        -35.5585,
+        -9.371
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-city-2704302/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "Maceió — mapa offline",
+      "area": "Maceió, Alagoas — área municipal, sem nomes ou rotas",
+      "id": "br-city-2704302"
+    },
+    {
+      "sizeBytes": 9891675,
+      "bounds": [
+        -73.8016,
+        -9.818,
+        -56.0987,
+        2.244
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-uf-am/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "Amazonas — mapa offline",
+      "area": "Amazonas — visão estadual, sem nomes ou rotas",
+      "id": "br-uf-am"
+    },
+    {
+      "sizeBytes": 2318707,
+      "bounds": [
+        -60.8027,
+        -3.2171,
+        -59.1953,
+        -1.9545
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-city-1302603/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "Manaus — mapa offline",
+      "area": "Manaus, Amazonas — área municipal, sem nomes ou rotas",
+      "id": "br-city-1302603"
+    },
+    {
+      "sizeBytes": 2104874,
+      "bounds": [
+        -54.8723,
+        -1.215,
+        -49.8817,
+        4.5088
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-uf-ap/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "Amapá — mapa offline",
+      "area": "Amapá — visão estadual, sem nomes ou rotas",
+      "id": "br-uf-ap"
+    },
+    {
+      "sizeBytes": 2051618,
+      "bounds": [
+        -51.4931,
+        -0.0975,
+        -49.8831,
+        1.2403
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-city-1600303/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "Macapá — mapa offline",
+      "area": "Macapá, Amapá — área municipal, sem nomes ou rotas",
+      "id": "br-city-1600303"
+    },
+    {
+      "sizeBytes": 4717551,
+      "bounds": [
+        -46.5599,
+        -18.3372,
+        -37.3411,
+        -8.5475
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-uf-ba/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "Bahia — mapa offline",
+      "area": "Bahia — visão estadual, sem nomes ou rotas",
+      "id": "br-uf-ba"
+    },
+    {
+      "sizeBytes": 1352336,
+      "bounds": [
+        -38.6986,
+        -13.0149,
+        -38.3043,
+        -12.7339
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-city-2927408/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "Salvador — mapa offline",
+      "area": "Salvador, Bahia — área municipal, sem nomes ou rotas",
+      "id": "br-city-2927408"
+    },
+    {
+      "sizeBytes": 1273620,
+      "bounds": [
+        -41.4144,
+        -7.8576,
+        -37.2527,
+        -2.8034
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-uf-ce/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "Ceará — mapa offline",
+      "area": "Ceará — visão estadual, sem nomes ou rotas",
+      "id": "br-uf-ce"
+    },
+    {
+      "sizeBytes": 991999,
+      "bounds": [
+        -38.6379,
+        -3.8882,
+        -38.4018,
+        -3.6964
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-city-2304400/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "Fortaleza — mapa offline",
+      "area": "Fortaleza, Ceará — área municipal, sem nomes ou rotas",
+      "id": "br-city-2304400"
+    },
+    {
+      "sizeBytes": 968576,
+      "bounds": [
+        -48.2818,
+        -16.05,
+        -47.3085,
+        -15.5019
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-uf-df/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "Distrito Federal — mapa offline",
+      "area": "Distrito Federal — visão estadual, sem nomes ou rotas",
+      "id": "br-uf-df"
+    },
+    {
+      "sizeBytes": 3701988,
+      "bounds": [
+        -48.2818,
+        -16.05,
+        -47.3085,
+        -15.5018
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-city-5300108/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "Brasília — mapa offline",
+      "area": "Brasília, Distrito Federal — área municipal, sem nomes ou rotas",
+      "id": "br-city-5300108"
+    },
+    {
+      "sizeBytes": 3405273,
+      "bounds": [
+        -41.8747,
+        -21.3011,
+        -39.6678,
+        -17.8919
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-uf-es/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "Espírito Santo — mapa offline",
+      "area": "Espírito Santo — visão estadual, sem nomes ou rotas",
+      "id": "br-uf-es"
+    },
+    {
+      "sizeBytes": 1446263,
+      "bounds": [
+        -40.3616,
+        -20.3269,
+        -40.2149,
+        -20.2374
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-city-3205309/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "Vitória — mapa offline",
+      "area": "Vitória, Espírito Santo — área municipal, sem nomes ou rotas",
+      "id": "br-city-3205309"
+    },
+    {
+      "sizeBytes": 4175585,
+      "bounds": [
+        -53.242,
+        -19.4733,
+        -45.9072,
+        -12.3954
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-uf-go/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "Goiás — mapa offline",
+      "area": "Goiás — visão estadual, sem nomes ou rotas",
+      "id": "br-uf-go"
+    },
+    {
+      "sizeBytes": 2015516,
+      "bounds": [
+        -49.4446,
+        -16.8319,
+        -49.078,
+        -16.4538
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-city-5208707/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "Goiânia — mapa offline",
+      "area": "Goiânia, Goiás — área municipal, sem nomes ou rotas",
+      "id": "br-city-5208707"
+    },
+    {
+      "sizeBytes": 2404931,
+      "bounds": [
+        -48.7552,
+        -10.2585,
+        -41.7967,
+        -1.0528
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-uf-ma/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "Maranhão — mapa offline",
+      "area": "Maranhão — visão estadual, sem nomes ou rotas",
+      "id": "br-uf-ma"
+    },
+    {
+      "sizeBytes": 998462,
+      "bounds": [
+        -44.41,
+        -2.7992,
+        -44.1618,
+        -2.4739
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-city-2111300/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "São Luís — mapa offline",
+      "area": "São Luís, Maranhão — área municipal, sem nomes ou rotas",
+      "id": "br-city-2111300"
+    },
+    {
+      "sizeBytes": 13283096,
+      "bounds": [
+        -51.0382,
+        -22.9052,
+        -39.8568,
+        -14.2532
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-uf-mg/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "Minas Gerais — mapa offline",
+      "area": "Minas Gerais — visão estadual, sem nomes ou rotas",
+      "id": "br-uf-mg"
+    },
+    {
+      "sizeBytes": 1513777,
+      "bounds": [
+        -44.0629,
+        -20.0567,
+        -43.862,
+        -19.7772
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-city-3106200/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "Belo Horizonte — mapa offline",
+      "area": "Belo Horizonte, Minas Gerais — área municipal, sem nomes ou rotas",
+      "id": "br-city-3106200"
+    },
+    {
+      "sizeBytes": 3657142,
+      "bounds": [
+        -58.1686,
+        -24.0682,
+        -50.9306,
+        -17.1714
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-uf-ms/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "Mato Grosso do Sul — mapa offline",
+      "area": "Mato Grosso do Sul — visão estadual, sem nomes ou rotas",
+      "id": "br-uf-ms"
+    },
+    {
+      "sizeBytes": 1527295,
+      "bounds": [
+        -54.922,
+        -21.5805,
+        -53.6051,
+        -20.1717
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-city-5002704/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "Campo Grande — mapa offline",
+      "area": "Campo Grande, Mato Grosso do Sul — área municipal, sem nomes ou rotas",
+      "id": "br-city-5002704"
+    },
+    {
+      "sizeBytes": 5347587,
+      "bounds": [
+        -61.6283,
+        -18.0404,
+        -50.2248,
+        -7.3561
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-uf-mt/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "Mato Grosso — mapa offline",
+      "area": "Mato Grosso — visão estadual, sem nomes ou rotas",
+      "id": "br-uf-mt"
+    },
+    {
+      "sizeBytes": 2631964,
+      "bounds": [
+        -56.302,
+        -16.5293,
+        -55.1408,
+        -15.074
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-city-5103403/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "Cuiabá — mapa offline",
+      "area": "Cuiabá, Mato Grosso — área municipal, sem nomes ou rotas",
+      "id": "br-city-5103403"
+    },
+    {
+      "sizeBytes": 5419540,
+      "bounds": [
+        -58.8955,
+        -9.8412,
+        -46.0634,
+        2.5837
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-uf-pa/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "Pará — mapa offline",
+      "area": "Pará — visão estadual, sem nomes ou rotas",
+      "id": "br-uf-pa"
+    },
+    {
+      "sizeBytes": 1168213,
+      "bounds": [
+        -48.6244,
+        -1.5266,
+        -48.3018,
+        -1.0194
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-city-1501402/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "Belém — mapa offline",
+      "area": "Belém, Pará — área municipal, sem nomes ou rotas",
+      "id": "br-city-1501402"
+    },
+    {
+      "sizeBytes": 1219985,
+      "bounds": [
+        -38.7652,
+        -8.299201,
+        -34.8027,
+        -6.0285
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-uf-pb/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "Paraíba — mapa offline",
+      "area": "Paraíba — visão estadual, sem nomes ou rotas",
+      "id": "br-uf-pb"
+    },
+    {
+      "sizeBytes": 761905,
+      "bounds": [
+        -34.9706,
+        -7.2445,
+        -34.7932,
+        -7.056
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-city-2507507/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "João Pessoa — mapa offline",
+      "area": "João Pessoa, Paraíba — área municipal, sem nomes ou rotas",
+      "id": "br-city-2507507"
+    },
+    {
+      "sizeBytes": 1307295,
+      "bounds": [
+        -41.3583,
+        -9.4829,
+        -34.828,
+        -7.2742
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-uf-pe/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "Pernambuco — mapa offline",
+      "area": "Pernambuco — visão estadual, sem nomes ou rotas",
+      "id": "br-uf-pe"
+    },
+    {
+      "sizeBytes": 1336708,
+      "bounds": [
+        -35.0167,
+        -8.1551,
+        -34.8605,
+        -7.9292
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-city-2611606/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "Recife — mapa offline",
+      "area": "Recife, Pernambuco — área municipal, sem nomes ou rotas",
+      "id": "br-city-2611606"
+    },
+    {
+      "sizeBytes": 2030684,
+      "bounds": [
+        -46.0124,
+        -10.919,
+        -40.3705,
+        -2.7573
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-uf-pi/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "Piauí — mapa offline",
+      "area": "Piauí — visão estadual, sem nomes ou rotas",
+      "id": "br-uf-pi"
+    },
+    {
+      "sizeBytes": 998333,
+      "bounds": [
+        -42.9707,
+        -5.5866,
+        -42.599,
+        -4.7863
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-city-2211001/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "Teresina — mapa offline",
+      "area": "Teresina, Piauí — área municipal, sem nomes ou rotas",
+      "id": "br-city-2211001"
+    },
+    {
+      "sizeBytes": 6492480,
+      "bounds": [
+        -54.6191,
+        -26.7171,
+        -48.0961,
+        -22.5269
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-uf-pr/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "Paraná — mapa offline",
+      "area": "Paraná — visão estadual, sem nomes ou rotas",
+      "id": "br-uf-pr"
+    },
+    {
+      "sizeBytes": 2336605,
+      "bounds": [
+        -49.3835,
+        -25.6432,
+        -49.1852,
+        -25.3495
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-city-4106902/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "Curitiba — mapa offline",
+      "area": "Curitiba, Paraná — área municipal, sem nomes ou rotas",
+      "id": "br-city-4106902"
+    },
+    {
+      "sizeBytes": 2579317,
+      "bounds": [
+        -44.8826,
+        -23.3676,
+        -40.961,
+        -20.7659
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-uf-rj/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "Rio de Janeiro — mapa offline",
+      "area": "Rio de Janeiro — visão estadual, sem nomes ou rotas",
+      "id": "br-uf-rj"
+    },
+    {
+      "sizeBytes": 2601388,
+      "bounds": [
+        -43.796,
+        -23.0607,
+        -43.1502,
+        -22.7846
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-city-3304557/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "Rio de Janeiro — mapa offline",
+      "area": "Rio de Janeiro, Rio de Janeiro — área municipal, sem nomes ou rotas",
+      "id": "br-city-3304557"
+    },
+    {
+      "sizeBytes": 912054,
+      "bounds": [
+        -38.5704,
+        -6.9282,
+        -34.9685,
+        -4.8314
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-uf-rn/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "Rio Grande do Norte — mapa offline",
+      "area": "Rio Grande do Norte — visão estadual, sem nomes ou rotas",
+      "id": "br-uf-rn"
+    },
+    {
+      "sizeBytes": 843021,
+      "bounds": [
+        -35.2913,
+        -5.8998,
+        -35.1541,
+        -5.704
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-city-2408102/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "Natal — mapa offline",
+      "area": "Natal, Rio Grande do Norte — área municipal, sem nomes ou rotas",
+      "id": "br-city-2408102"
+    },
+    {
+      "sizeBytes": 2085536,
+      "bounds": [
+        -66.8103,
+        -13.693,
+        -59.7794,
+        -7.9759
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-uf-ro/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "Rondônia — mapa offline",
+      "area": "Rondônia — visão estadual, sem nomes ou rotas",
+      "id": "br-uf-ro"
+    },
+    {
+      "sizeBytes": 3945358,
+      "bounds": [
+        -66.8103,
+        -10.0004,
+        -62.2385,
+        -7.9759
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-city-1100205/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "Porto Velho — mapa offline",
+      "area": "Porto Velho, Rondônia — área municipal, sem nomes ou rotas",
+      "id": "br-city-1100205"
+    },
+    {
+      "sizeBytes": 2404347,
+      "bounds": [
+        -64.810501,
+        -1.579,
+        -58.8955,
+        5.2718
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-uf-rr/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "Roraima — mapa offline",
+      "area": "Roraima — visão estadual, sem nomes ou rotas",
+      "id": "br-uf-rr"
+    },
+    {
+      "sizeBytes": 1167138,
+      "bounds": [
+        -61.0006,
+        2.4377,
+        -60.2858,
+        3.5813
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-city-1400100/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "Boa Vista — mapa offline",
+      "area": "Boa Vista, Roraima — área municipal, sem nomes ou rotas",
+      "id": "br-city-1400100"
+    },
+    {
+      "sizeBytes": 3951823,
+      "bounds": [
+        -57.5941,
+        -33.7439,
+        -49.7031,
+        -27.0931
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-uf-rs/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "Rio Grande do Sul — mapa offline",
+      "area": "Rio Grande do Sul — visão estadual, sem nomes ou rotas",
+      "id": "br-uf-rs"
+    },
+    {
+      "sizeBytes": 1374703,
+      "bounds": [
+        -51.3032,
+        -30.2596,
+        -51.0119,
+        -29.9352
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-city-4314902/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "Porto Alegre — mapa offline",
+      "area": "Porto Alegre, Rio Grande do Sul — área municipal, sem nomes ou rotas",
+      "id": "br-city-4314902"
+    },
+    {
+      "sizeBytes": 3288627,
+      "bounds": [
+        -53.8371,
+        -29.3551,
+        -48.3706,
+        -25.9768
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-uf-sc/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "Santa Catarina — mapa offline",
+      "area": "Santa Catarina — visão estadual, sem nomes ou rotas",
+      "id": "br-uf-sc"
+    },
+    {
+      "sizeBytes": 1261979,
+      "bounds": [
+        -48.6133,
+        -27.844,
+        -48.3736,
+        -27.3783
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-city-4205407/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "Florianópolis — mapa offline",
+      "area": "Florianópolis, Santa Catarina — área municipal, sem nomes ou rotas",
+      "id": "br-city-4205407"
+    },
+    {
+      "sizeBytes": 811633,
+      "bounds": [
+        -38.2383,
+        -11.5686,
+        -36.3959,
+        -9.515
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-uf-se/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "Sergipe — mapa offline",
+      "area": "Sergipe — visão estadual, sem nomes ou rotas",
+      "id": "br-uf-se"
+    },
+    {
+      "sizeBytes": 719705,
+      "bounds": [
+        -37.1737,
+        -11.1616,
+        -37.0339,
+        -10.8631
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-city-2800308/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "Aracaju — mapa offline",
+      "area": "Aracaju, Sergipe — área municipal, sem nomes ou rotas",
+      "id": "br-city-2800308"
+    },
+    {
+      "sizeBytes": 9913248,
+      "bounds": [
+        -53.1052,
+        -25.3089,
+        -44.1656,
+        -19.7862
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-uf-sp/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "São Paulo — mapa offline",
+      "area": "São Paulo — visão estadual, sem nomes ou rotas",
+      "id": "br-uf-sp"
+    },
+    {
+      "sizeBytes": 5132738,
+      "bounds": [
+        -46.8233,
+        -24.0016,
+        -46.3664,
+        -23.3633
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-city-3550308/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "São Paulo — mapa offline",
+      "area": "São Paulo, São Paulo — área municipal, sem nomes ou rotas",
+      "id": "br-city-3550308"
+    },
+    {
+      "sizeBytes": 1804153,
+      "bounds": [
+        -50.7389,
+        -13.4682,
+        -45.6993,
+        -5.1684
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-uf-to/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "Tocantins — mapa offline",
+      "area": "Tocantins — visão estadual, sem nomes ou rotas",
+      "id": "br-uf-to"
+    },
+    {
+      "sizeBytes": 687826,
+      "bounds": [
+        -48.4219,
+        -10.4601,
+        -47.7938,
+        -9.9234
+      ],
+      "manifestUrl": "https://appmarkmap.mtsferreira.dev/offline/br-city-1721000/manifest.json",
+      "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+      "label": "Palmas — mapa offline",
+      "area": "Palmas, Tocantins — área municipal, sem nomes ou rotas",
+      "id": "br-city-1721000"
     }
   ]
 }

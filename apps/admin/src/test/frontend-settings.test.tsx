@@ -22,12 +22,13 @@ describe('functional device settings', () => {
     expect(screen.getByRole('button', { name: 'Proteger dados' })).toBeEnabled();
   });
 
-  it('changes and persists the actual theme', () => {
+  it('preserves the saved theme without duplicate appearance settings', () => {
     localStorage.setItem('theme', 'light');
     render(<SettingsPage />);
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Tema escuro' }));
-    expect(document.documentElement).toHaveClass('dark');
-    expect(localStorage.getItem('theme')).toBe('dark');
+    expect(screen.queryByRole('checkbox', { name: 'Tema escuro' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Aparência' })).not.toBeInTheDocument();
+    expect(document.documentElement).not.toHaveClass('dark');
+    expect(localStorage.getItem('theme')).toBe('light');
   });
 });
 

@@ -1,0 +1,573 @@
+{
+  "retrievedAt": "2026-10-19T22:37:18.204Z",
+  "source": "IBGE Localidades API v1 / Malhas v3 simplified",
+  "entries": [
+    {
+      "uf": "AC",
+      "stateName": "Acre",
+      "stateIbge": 12,
+      "stateBounds": [
+        -73.9833,
+        -11.1456,
+        -66.6269,
+        -7.1118
+      ],
+      "cityName": "Rio Branco",
+      "cityIbge": 1200401,
+      "cityBounds": [
+        -69.3638,
+        -10.4853,
+        -67.4822,
+        -9.5052
+      ],
+      "stateSource": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima",
+      "citySource": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/1200401?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    },
+    {
+      "uf": "AL",
+      "stateName": "Alagoas",
+      "stateIbge": 27,
+      "stateBounds": [
+        -38.2376,
+        -10.4969,
+        -35.1527,
+        -8.8211
+      ],
+      "cityName": "Maceió",
+      "cityIbge": 2704302,
+      "cityBounds": [
+        -35.8144,
+        -9.7112,
+        -35.5585,
+        -9.371
+      ],
+      "stateSource": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima",
+      "citySource": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/2704302?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    },
+    {
+      "uf": "AM",
+      "stateName": "Amazonas",
+      "stateIbge": 13,
+      "stateBounds": [
+        -73.8016,
+        -9.818,
+        -56.0987,
+        2.244
+      ],
+      "cityName": "Manaus",
+      "cityIbge": 1302603,
+      "cityBounds": [
+        -60.8027,
+        -3.2171,
+        -59.1953,
+        -1.9545
+      ],
+      "stateSource": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima",
+      "citySource": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/1302603?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    },
+    {
+      "uf": "AP",
+      "stateName": "Amapá",
+      "stateIbge": 16,
+      "stateBounds": [
+        -54.8723,
+        -1.215,
+        -49.8817,
+        4.5088
+      ],
+      "cityName": "Macapá",
+      "cityIbge": 1600303,
+      "cityBounds": [
+        -51.4931,
+        -0.0975,
+        -49.8831,
+        1.2403
+      ],
+      "stateSource": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima",
+      "citySource": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/1600303?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    },
+    {
+      "uf": "BA",
+      "stateName": "Bahia",
+      "stateIbge": 29,
+      "stateBounds": [
+        -46.5599,
+        -18.3372,
+        -37.3411,
+        -8.5475
+      ],
+      "cityName": "Salvador",
+      "cityIbge": 2927408,
+      "cityBounds": [
+        -38.6986,
+        -13.0149,
+        -38.3043,
+        -12.7339
+      ],
+      "stateSource": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima",
+      "citySource": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/2927408?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    },
+    {
+      "uf": "CE",
+      "stateName": "Ceará",
+      "stateIbge": 23,
+      "stateBounds": [
+        -41.4144,
+        -7.8576,
+        -37.2527,
+        -2.8034
+      ],
+      "cityName": "Fortaleza",
+      "cityIbge": 2304400,
+      "cityBounds": [
+        -38.6379,
+        -3.8882,
+        -38.4018,
+        -3.6964
+      ],
+      "stateSource": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima",
+      "citySource": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/2304400?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    },
+    {
+      "uf": "DF",
+      "stateName": "Distrito Federal",
+      "stateIbge": 53,
+      "stateBounds": [
+        -48.2818,
+        -16.05,
+        -47.3085,
+        -15.5019
+      ],
+      "cityName": "Brasília",
+      "cityIbge": 5300108,
+      "cityBounds": [
+        -48.2818,
+        -16.05,
+        -47.3085,
+        -15.5018
+      ],
+      "stateSource": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima",
+      "citySource": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/5300108?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    },
+    {
+      "uf": "ES",
+      "stateName": "Espírito Santo",
+      "stateIbge": 32,
+      "stateBounds": [
+        -41.8747,
+        -21.3011,
+        -39.6678,
+        -17.8919
+      ],
+      "cityName": "Vitória",
+      "cityIbge": 3205309,
+      "cityBounds": [
+        -40.3616,
+        -20.3269,
+        -40.2149,
+        -20.2374
+      ],
+      "stateSource": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima",
+      "citySource": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/3205309?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    },
+    {
+      "uf": "GO",
+      "stateName": "Goiás",
+      "stateIbge": 52,
+      "stateBounds": [
+        -53.242,
+        -19.4733,
+        -45.9072,
+        -12.3954
+      ],
+      "cityName": "Goiânia",
+      "cityIbge": 5208707,
+      "cityBounds": [
+        -49.4446,
+        -16.8319,
+        -49.078,
+        -16.4538
+      ],
+      "stateSource": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima",
+      "citySource": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/5208707?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    },
+    {
+      "uf": "MA",
+      "stateName": "Maranhão",
+      "stateIbge": 21,
+      "stateBounds": [
+        -48.7552,
+        -10.2585,
+        -41.7967,
+        -1.0528
+      ],
+      "cityName": "São Luís",
+      "cityIbge": 2111300,
+      "cityBounds": [
+        -44.41,
+        -2.7992,
+        -44.1618,
+        -2.4739
+      ],
+      "stateSource": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima",
+      "citySource": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/2111300?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    },
+    {
+      "uf": "MG",
+      "stateName": "Minas Gerais",
+      "stateIbge": 31,
+      "stateBounds": [
+        -51.0382,
+        -22.9052,
+        -39.8568,
+        -14.2532
+      ],
+      "cityName": "Belo Horizonte",
+      "cityIbge": 3106200,
+      "cityBounds": [
+        -44.0629,
+        -20.0567,
+        -43.862,
+        -19.7772
+      ],
+      "stateSource": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima",
+      "citySource": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/3106200?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    },
+    {
+      "uf": "MS",
+      "stateName": "Mato Grosso do Sul",
+      "stateIbge": 50,
+      "stateBounds": [
+        -58.1686,
+        -24.0682,
+        -50.9306,
+        -17.1714
+      ],
+      "cityName": "Campo Grande",
+      "cityIbge": 5002704,
+      "cityBounds": [
+        -54.922,
+        -21.5805,
+        -53.6051,
+        -20.1717
+      ],
+      "stateSource": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima",
+      "citySource": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/5002704?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    },
+    {
+      "uf": "MT",
+      "stateName": "Mato Grosso",
+      "stateIbge": 51,
+      "stateBounds": [
+        -61.6283,
+        -18.0404,
+        -50.2248,
+        -7.3561
+      ],
+      "cityName": "Cuiabá",
+      "cityIbge": 5103403,
+      "cityBounds": [
+        -56.302,
+        -16.5293,
+        -55.1408,
+        -15.074
+      ],
+      "stateSource": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima",
+      "citySource": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/5103403?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    },
+    {
+      "uf": "PA",
+      "stateName": "Pará",
+      "stateIbge": 15,
+      "stateBounds": [
+        -58.8955,
+        -9.8412,
+        -46.0634,
+        2.5837
+      ],
+      "cityName": "Belém",
+      "cityIbge": 1501402,
+      "cityBounds": [
+        -48.6244,
+        -1.5266,
+        -48.3018,
+        -1.0194
+      ],
+      "stateSource": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima",
+      "citySource": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/1501402?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    },
+    {
+      "uf": "PB",
+      "stateName": "Paraíba",
+      "stateIbge": 25,
+      "stateBounds": [
+        -38.7652,
+        -8.299201,
+        -34.8027,
+        -6.0285
+      ],
+      "cityName": "João Pessoa",
+      "cityIbge": 2507507,
+      "cityBounds": [
+        -34.9706,
+        -7.2445,
+        -34.7932,
+        -7.056
+      ],
+      "stateSource": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima",
+      "citySource": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/2507507?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    },
+    {
+      "uf": "PE",
+      "stateName": "Pernambuco",
+      "stateIbge": 26,
+      "stateBounds": [
+        -41.3583,
+        -9.4829,
+        -34.828,
+        -7.2742
+      ],
+      "cityName": "Recife",
+      "cityIbge": 2611606,
+      "cityBounds": [
+        -35.0167,
+        -8.1551,
+        -34.8605,
+        -7.9292
+      ],
+      "stateSource": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima",
+      "citySource": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/2611606?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    },
+    {
+      "uf": "PI",
+      "stateName": "Piauí",
+      "stateIbge": 22,
+      "stateBounds": [
+        -46.0124,
+        -10.919,
+        -40.3705,
+        -2.7573
+      ],
+      "cityName": "Teresina",
+      "cityIbge": 2211001,
+      "cityBounds": [
+        -42.9707,
+        -5.5866,
+        -42.599,
+        -4.7863
+      ],
+      "stateSource": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima",
+      "citySource": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/2211001?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    },
+    {
+      "uf": "PR",
+      "stateName": "Paraná",
+      "stateIbge": 41,
+      "stateBounds": [
+        -54.6191,
+        -26.7171,
+        -48.0961,
+        -22.5269
+      ],
+      "cityName": "Curitiba",
+      "cityIbge": 4106902,
+      "cityBounds": [
+        -49.3835,
+        -25.6432,
+        -49.1852,
+        -25.3495
+      ],
+      "stateSource": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima",
+      "citySource": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/4106902?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    },
+    {
+      "uf": "RJ",
+      "stateName": "Rio de Janeiro",
+      "stateIbge": 33,
+      "stateBounds": [
+        -44.8826,
+        -23.3676,
+        -40.961,
+        -20.7659
+      ],
+      "cityName": "Rio de Janeiro",
+      "cityIbge": 3304557,
+      "cityBounds": [
+        -43.796,
+        -23.0607,
+        -43.1502,
+        -22.7846
+      ],
+      "stateSource": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima",
+      "citySource": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/3304557?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    },
+    {
+      "uf": "RN",
+      "stateName": "Rio Grande do Norte",
+      "stateIbge": 24,
+      "stateBounds": [
+        -38.5704,
+        -6.9282,
+        -34.9685,
+        -4.8314
+      ],
+      "cityName": "Natal",
+      "cityIbge": 2408102,
+      "cityBounds": [
+        -35.2913,
+        -5.8998,
+        -35.1541,
+        -5.704
+      ],
+      "stateSource": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima",
+      "citySource": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/2408102?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    },
+    {
+      "uf": "RO",
+      "stateName": "Rondônia",
+      "stateIbge": 11,
+      "stateBounds": [
+        -66.8103,
+        -13.693,
+        -59.7794,
+        -7.9759
+      ],
+      "cityName": "Porto Velho",
+      "cityIbge": 1100205,
+      "cityBounds": [
+        -66.8103,
+        -10.0004,
+        -62.2385,
+        -7.9759
+      ],
+      "stateSource": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima",
+      "citySource": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/1100205?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    },
+    {
+      "uf": "RR",
+      "stateName": "Roraima",
+      "stateIbge": 14,
+      "stateBounds": [
+        -64.810501,
+        -1.579,
+        -58.8955,
+        5.2718
+      ],
+      "cityName": "Boa Vista",
+      "cityIbge": 1400100,
+      "cityBounds": [
+        -61.0006,
+        2.4377,
+        -60.2858,
+        3.5813
+      ],
+      "stateSource": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima",
+      "citySource": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/1400100?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    },
+    {
+      "uf": "RS",
+      "stateName": "Rio Grande do Sul",
+      "stateIbge": 43,
+      "stateBounds": [
+        -57.5941,
+        -33.7439,
+        -49.7031,
+        -27.0931
+      ],
+      "cityName": "Porto Alegre",
+      "cityIbge": 4314902,
+      "cityBounds": [
+        -51.3032,
+        -30.2596,
+        -51.0119,
+        -29.9352
+      ],
+      "stateSource": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima",
+      "citySource": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/4314902?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    },
+    {
+      "uf": "SC",
+      "stateName": "Santa Catarina",
+      "stateIbge": 42,
+      "stateBounds": [
+        -53.8371,
+        -29.3551,
+        -48.3706,
+        -25.9768
+      ],
+      "cityName": "Florianópolis",
+      "cityIbge": 4205407,
+      "cityBounds": [
+        -48.6133,
+        -27.844,
+        -48.3736,
+        -27.3783
+      ],
+      "stateSource": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima",
+      "citySource": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/4205407?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    },
+    {
+      "uf": "SE",
+      "stateName": "Sergipe",
+      "stateIbge": 28,
+      "stateBounds": [
+        -38.2383,
+        -11.5686,
+        -36.3959,
+        -9.515
+      ],
+      "cityName": "Aracaju",
+      "cityIbge": 2800308,
+      "cityBounds": [
+        -37.1737,
+        -11.1616,
+        -37.0339,
+        -10.8631
+      ],
+      "stateSource": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima",
+      "citySource": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/2800308?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    },
+    {
+      "uf": "SP",
+      "stateName": "São Paulo",
+      "stateIbge": 35,
+      "stateBounds": [
+        -53.1052,
+        -25.3089,
+        -44.1656,
+        -19.7862
+      ],
+      "cityName": "São Paulo",
+      "cityIbge": 3550308,
+      "cityBounds": [
+        -46.8233,
+        -24.0016,
+        -46.3664,
+        -23.3633
+      ],
+      "stateSource": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima",
+      "citySource": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/3550308?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    },
+    {
+      "uf": "TO",
+      "stateName": "Tocantins",
+      "stateIbge": 17,
+      "stateBounds": [
+        -50.7389,
+        -13.4682,
+        -45.6993,
+        -5.1684
+      ],
+      "cityName": "Palmas",
+      "cityIbge": 1721000,
+      "cityBounds": [
+        -48.4219,
+        -10.4601,
+        -47.7938,
+        -9.9234
+      ],
+      "stateSource": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima",
+      "citySource": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/1721000?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    }
+  ]
+}

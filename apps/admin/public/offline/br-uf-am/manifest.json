@@ -1,0 +1,68 @@
+{
+  "id": "br-uf-am",
+  "version": "1.0.0-brazil.20261019",
+  "label": "Amazonas — mapa offline",
+  "bounds": [
+    -73.8016,
+    -9.818,
+    -56.0987,
+    2.244
+  ],
+  "minZoom": 0,
+  "maxZoom": 9,
+  "archive": {
+    "id": "5e551a9a-84fe-4b1f-8e7b-eab7052228c1",
+    "sha256": "5e551a9a84fe8b1ffe7beab7052228c19617639ad6013b81617e00c4c8f738b2",
+    "bytes": 9890577,
+    "mediaType": "application/vnd.pmtiles"
+  },
+  "style": {
+    "path": "style.json",
+    "blob": {
+      "id": "caa3a941-410e-4826-897d-87cc78e83ef4",
+      "sha256": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",
+      "bytes": 1098,
+      "mediaType": "application/json"
+    }
+  },
+  "glyphs": [],
+  "sprites": [],
+  "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+  "createdAt": "2026-10-19T22:45:34.474Z",
+  "packageVersion": "1.0.0-brazil.20261019",
+  "osmDataDate": "2026-10-19T04:00:00.000Z",
+  "capabilities": [
+    "basemap"
+  ],
+  "checksums": {
+    "archive": "5e551a9a84fe8b1ffe7beab7052228c19617639ad6013b81617e00c4c8f738b2",
+    "style": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",
+    "glyphs": [],
+    "sprites": []
+  },
+  "totalBytes": 9891675,
+  "sources": {
+    "osm": "OpenStreetMap + Natural Earth via Protomaps Basemap 4.15.2",
+    "attributions": [
+      {
+        "name": "OpenStreetMap contributors",
+        "url": "https://www.openstreetmap.org/copyright"
+      },
+      {
+        "name": "Protomaps Basemap",
+        "url": "https://docs.protomaps.com/basemaps/downloads"
+      }
+    ]
+  },
+  "optionalComponents": {
+    "search": {},
+    "routing": {
+      "walk": false,
+      "bicycle": false,
+      "car": false
+    },
+    "elevation": false,
+    "contours": false
+  },
+  "minimumCompatibleVersion": "0.2.0-dev.0"
+}

@@ -1,0 +1,68 @@
+{
+  "id": "br-uf-pr",
+  "version": "1.0.0-brazil.20261019",
+  "label": "Paraná — mapa offline",
+  "bounds": [
+    -54.6191,
+    -26.7171,
+    -48.0961,
+    -22.5269
+  ],
+  "minZoom": 0,
+  "maxZoom": 9,
+  "archive": {
+    "id": "8c536fd7-8cae-48b4-813b-a85474922cc9",
+    "sha256": "8c536fd78cae08b4b13ba85474922cc917d0f3b8fd0437a43e49822e3e3bdeef",
+    "bytes": 6491382,
+    "mediaType": "application/vnd.pmtiles"
+  },
+  "style": {
+    "path": "style.json",
+    "blob": {
+      "id": "caa3a941-410e-4826-897d-87cc78e83ef4",
+      "sha256": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",
+      "bytes": 1098,
+      "mediaType": "application/json"
+    }
+  },
+  "glyphs": [],
+  "sprites": [],
+  "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+  "createdAt": "2026-10-19T22:49:45.016Z",
+  "packageVersion": "1.0.0-brazil.20261019",
+  "osmDataDate": "2026-10-19T04:00:00.000Z",
+  "capabilities": [
+    "basemap"
+  ],
+  "checksums": {
+    "archive": "8c536fd78cae08b4b13ba85474922cc917d0f3b8fd0437a43e49822e3e3bdeef",
+    "style": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",
+    "glyphs": [],
+    "sprites": []
+  },
+  "totalBytes": 6492480,
+  "sources": {
+    "osm": "OpenStreetMap + Natural Earth via Protomaps Basemap 4.15.2",
+    "attributions": [
+      {
+        "name": "OpenStreetMap contributors",
+        "url": "https://www.openstreetmap.org/copyright"
+      },
+      {
+        "name": "Protomaps Basemap",
+        "url": "https://docs.protomaps.com/basemaps/downloads"
+      }
+    ]
+  },
+  "optionalComponents": {
+    "search": {},
+    "routing": {
+      "walk": false,
+      "bicycle": false,
+      "car": false
+    },
+    "elevation": false,
+    "contours": false
+  },
+  "minimumCompatibleVersion": "0.2.0-dev.0"
+}
