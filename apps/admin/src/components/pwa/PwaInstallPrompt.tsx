@@ -46,7 +46,7 @@ export function PwaInstallPrompt({ fullScreen = false }: { fullScreen?: boolean 
         aria-labelledby="markmap-install-title"
       >
         {showFullScreen && (
-          <img className="pwa-install-prompt__icon" src="/icons/icon-192x192.png" alt="" />
+          <img className="pwa-install-prompt__icon" src="/icons/icon-192x192-652c2c29.png" alt="" />
         )}
         <div className="pwa-install-prompt__copy">
           <strong id="markmap-install-title">{title}</strong>

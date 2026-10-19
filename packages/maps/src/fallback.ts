@@ -21,7 +21,7 @@ export interface FallbackStyle {
 export function createFallbackStyle(color: string = FALLBACK_BACKGROUND_COLOR): FallbackStyle {
   return {
     version: 8,
-    name: 'GeoNexo fallback (offline)',
+    name: 'MarkMap fallback (offline)',
     sources: {},
     layers: [
       {

@@ -45,7 +45,7 @@ export default function AnalyticsPage() {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = "geonexo-camadas.csv";
+    anchor.download = "markmap-camadas.csv";
     anchor.click();
     setTimeout(() => URL.revokeObjectURL(url), 0);
   };

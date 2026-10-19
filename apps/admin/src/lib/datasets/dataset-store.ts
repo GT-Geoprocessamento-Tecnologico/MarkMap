@@ -122,7 +122,7 @@ export async function parseGeoJSON(file: File): Promise<DatasetRecord> {
   const sourceEpsg = parseGeoJsonCrsEpsg(declaredCrs) ?? EPSG_WGS84;
   if (sourceEpsg !== EPSG_WGS84 && !isReprojectableEpsg(sourceEpsg))
     throw new Error(
-      `O arquivo declara EPSG:${sourceEpsg}, que o GeoNexo não sabe reprojetar para WGS 84.`,
+      `O arquivo declara EPSG:${sourceEpsg}, que o MarkMap não sabe reprojetar para WGS 84.`,
     );
   const features = (parsed as { features?: unknown }).features;
   if (!Array.isArray(features))

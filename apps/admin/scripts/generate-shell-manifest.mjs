@@ -45,7 +45,7 @@ export async function generateShellManifest(distDirectory) {
     appVersion, buildSha, buildTime, shellProtocolVersion: 1,
     localSchemaVersion: 1, regionPackageSchemaVersion: 2,
     minimumCompatibleVersion: '0.2.0-dev.0',
-    releaseNotes: 'Melhorias de mapas offline e instalacao PWA.',
+    releaseNotes: 'Melhorias de mapas offline e instalação do aplicativo.',
   }, null, 2) + '\n');
   const assets = await collectShellAssets(distDirectory);
   if (!assets.includes('/index.html')) throw new Error('shell manifest requires index.html');
