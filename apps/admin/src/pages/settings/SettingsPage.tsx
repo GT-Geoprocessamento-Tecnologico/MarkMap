@@ -50,13 +50,6 @@ export default function SettingsPage() {
   const [appUpdateBusy, setAppUpdateBusy] = useState(false);
   const [gps, setGps] = useState<GpsState>("prompt");
   const [gpsBusy, setGpsBusy] = useState(false);
-  const [dark, setDark] = useState(() => {
-    try {
-      return localStorage.getItem("theme") !== "light";
-    } catch {
-      return document.documentElement.classList.contains("dark");
-    }
-  });
   const [storage, setStorage] = useState<{
     usage?: number;
     quota?: number;
@@ -168,9 +161,6 @@ export default function SettingsPage() {
   useEffect(() => {
     let disposed = false;
     let permission: PermissionStatus | undefined;
-    const themeChanged = () =>
-      setDark(document.documentElement.classList.contains("dark"));
-    window.addEventListener("geonexo-theme-change", themeChanged);
     const permissionChanged = () => {
       if (!disposed && permission) setGps(permission.state);
     };
@@ -190,7 +180,6 @@ export default function SettingsPage() {
     return () => {
       disposed = true;
       permission?.removeEventListener("change", permissionChanged);
-      window.removeEventListener("geonexo-theme-change", themeChanged);
     };
   }, []);
   const install = async () => {
@@ -301,16 +290,6 @@ export default function SettingsPage() {
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
     );
-  };
-  const changeTheme = (next: boolean) => {
-    try {
-      localStorage.setItem("theme", next ? "dark" : "light");
-      document.documentElement.classList.toggle("dark", next);
-      setDark(next);
-      window.dispatchEvent(new Event("geonexo-theme-change"));
-    } catch {
-      setError("Não foi possível salvar a preferência de tema.");
-    }
   };
   const preserveStorage = async () => {
     try {
@@ -579,7 +558,7 @@ export default function SettingsPage() {
           Configurações do Aplicativo & Dispositivo
         </h1>
         <p className="mt-1 text-sm text-on-surface-variant">
-          Aparência, instalação, localização e dados deste dispositivo.
+          Instalação, localização e dados deste dispositivo.
         </p>
       </header>
       {error && (
@@ -610,17 +589,6 @@ export default function SettingsPage() {
             ? appUpdateBusy ? "Verificando atualização…" : "Atualizar aplicativo"
             : "Instalar aplicativo"}
         </button>
-      </div>
-      <div className="rounded-2xl border border-outline-variant bg-surface-container p-5">
-        <h2 className="text-lg font-semibold">Aparência</h2>
-        <label className="mt-3 flex min-h-[44px] items-center gap-3">
-          <input
-            type="checkbox"
-            checked={dark}
-            onChange={(event) => changeTheme(event.target.checked)}
-          />
-          Tema escuro
-        </label>
       </div>
       <div className="rounded-2xl border border-outline-variant bg-surface-container p-5">
         <h2 className="text-lg font-semibold">Localização</h2>
