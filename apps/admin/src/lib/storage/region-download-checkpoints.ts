@@ -31,6 +31,9 @@ function done(tx: IDBTransaction): Promise<void> {
     tx.onabort = () => reject(tx.error ?? new Error('IndexedDB transaction aborted'));
   });
 }
+export function deleteKeyCursorEntry(store: Pick<IDBObjectStore, 'delete'>, cursor: Pick<IDBCursor, 'primaryKey'>): IDBRequest {
+  return store.delete(cursor.primaryKey);
+}
 const txError = new WeakMap<IDBTransaction, DOMException | null>();
 function chunkLength(data: ChunkRow['data']): number {
   if (data instanceof Blob) return data.size;
@@ -140,7 +143,8 @@ export class RegionDownloadCheckpoints implements ChunkStore {
       const rows = await request<SessionRow[]>(sessions.getAll());
       const staleHashes = unreferencedSessionHashes(packageId, rows);
       sessions.delete(packageId);
-      const index = tx.objectStore(STORE_CHUNKS).index('sha');
+      const chunkStore = tx.objectStore(STORE_CHUNKS);
+      const index = chunkStore.index('sha');
       // Queue all cursors while the transaction is active. Sequentially awaiting
       // between cursors can let WebKit auto-commit before the next request.
       const removals = staleHashes.map((sha) => new Promise<void>((resolve, reject) => {
@@ -148,8 +152,15 @@ export class RegionDownloadCheckpoints implements ChunkStore {
         cursor.onsuccess = () => {
           const row = cursor.result;
           if (!row) { resolve(); return; }
-          row.delete();
-          row.continue();
+          try {
+            // A key cursor has no delete() method in WebKit. Delete by the
+            // primary key while keeping the cursor value out of memory.
+            const deletion = deleteKeyCursorEntry(chunkStore, row);
+            deletion.onerror = () => reject(deletion.error ?? new Error('IndexedDB checkpoint cleanup failed'));
+            row.continue();
+          } catch (error) {
+            reject(error);
+          }
         };
         cursor.onerror = () => reject(cursor.error ?? new Error('IndexedDB checkpoint cleanup failed'));
       }));
