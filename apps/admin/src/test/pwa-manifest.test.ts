@@ -58,7 +58,7 @@ describe("PWA manifest installability", () => {
       const png = readFileSync(resolve(process.cwd(), "public", icon.src.slice(1)));
       expect(png.subarray(0, 8).toString("hex")).toBe("89504e470d0a1a0a");
       expect(`${png.readUInt32BE(16)}x${png.readUInt32BE(20)}`).toBe(icon.sizes);
-      expect(png[25], "supplied opaque artwork must remain opaque RGB").toBe(2);
+      expect(png[25], "regular icons keep alpha; maskable icons use an opaque platform background").toBe(icon.purpose === "maskable" ? 2 : 6);
     }
   });
 });

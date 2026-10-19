@@ -93,3 +93,34 @@ inspeção estática ou build isolado.
 - Dependências locais foram restauradas com pnpm 9.15.9 e lockfile congelado, sem alteração de versões ou lockfile, após detectar materialização incompleta de node_modules.
 - O arquivo iOS existente foi atualizado; isso prepara o asset de fonte, sem alegar build/publicação de aplicativo nativo em loja.
 - Publicação e confirmação na instalação Windows serão registradas no relatório externo de QA `branding/brand-final-report.md`, com o SHA do deployment e as evidências de ícone, CSV, mensagens e retenção dos dados. Não apagar dados nem reinstalar para trocar o ícone.
+
+## Emenda vigente — marca transparente sem checkerboard
+
+A fonte visual vigente passa a ser exclusivamente
+`D:\MATEUS\Dowloads\NOVO ICONE MARKMAP SEM FUNDO.jpg`, um JPEG RGB 2048px com
+checkerboard incorporado e sem alpha. Fingerprint da fonte:
+`F5FE719CC0E69D97DB1FA36FEC39487AB330747321E017CA2DA4F411228B1D03`.
+
+Antes de novos assets, o Root deve gerar uma cópia com alpha real usando a
+ferramenta aprovada de remoção de fundo, preservando geometria, cores e
+contorno. Inspecionar cantos, furos e área colorida: transparência somente no
+fundo, sem apagar partes da marca. O hash da saída define as novas URLs
+versionadas; não publicar o JPEG com checkerboard como ícone final.
+
+Assets web normais, favicon e `MarkMapBrand` usam a versão transparente. Ícone
+maskable e conjuntos nativos iOS usam composição opaca somente onde a
+plataforma exigir, com fundo escuro `#07131f`, nunca branco, preservando safe
+zone e legibilidade. O app não ganha novo App ID nem projeto nativo.
+
+Os testes devem substituir a expectativa RGB opaca por RGBA com alpha
+verificável nos assets web, mantendo dimensões e assinatura PNG; validar safe
+zone maskable, ícones iOS opacos e referências versionadas. CSV, textos sem PWA,
+identidade do manifest, storage, aliases antigos e importações permanecem
+inalterados. Este gate de especificação continua DONE, mas novos edits de
+produto aguardam a inspeção dos PNGs transparentes gerados.
+
+### Fonte transparente final
+
+O usuário substituiu a imagem branca pela referência `NOVO ICONE MARKMAP SEM FUNDO.jpg`. Como o JPEG contém o quadriculado incorporado, a remoção de fundo foi executada com image_gen e inspecionada sobre fundos claro/escuro nos tamanhos de uso. Master PNG RGBA: SHA-256 `CF74C7B01B3BBD797B780F97CBA0A25F3FDDEE09315EB29DFCCCC7DBEDBB3BC5`, preservado em `apps/admin/branding/markmap-logo-transparent.png` para permitir futuras derivações sem depender do JPEG. Não usar os candidatos intermediários rejeitados.
+
+Ícones regulares, favicon e marca na interface usam alpha real. Maskable e o asset iOS recebem somente o fundo opaco compatível `#07131f`; não há fundo branco. Maskable mantém margem de 4% adicional para proteger o recorte do sistema. Os novos URLs usam `cf74c7b0`; aliases sem fingerprint continuam disponíveis e os arquivos versionados anteriores permanecem para compatibilidade. CSV e remoção dos termos visíveis permanecem iguais ao commit já validado `2f396ede65f8032aec53e76c75d4f650b2b32a97`.
