@@ -198,3 +198,67 @@ registradas como limitações da CLI instalada. Esses comandos não são
 suportados nesse ambiente e não constituem falha do aplicativo. Os passos
 restantes permanecem `PENDING` até nova evidência nativa; nenhum resultado é
 inferido de build, HTTP ou teste headless.
+
+## MM-FIX4-SPEC — camadas reais na página de projeto
+
+**Status: SPECIFICATION GATE — DONE.** O objetivo é corrigir a página de
+projeto que exibe sempre `Ainda não há camadas...`, embora o projeto QA
+`638f3665-e4f9-4088-94d8-855674bee070` possua camadas observadas no Analytics.
+A correção deve renderizar o estado real consultando o contrato local já
+validado, sem introduzir API, schema, dependência ou alteração de URL.
+
+### Objetivo, escopo e risco
+
+- Fonte de dados obrigatória: `useProjectLayers(projectId)` em
+  `apps/admin/src/lib/hooks/layers.ts`, respeitando `isLoading`, `isError`,
+  `data.items`, `nextCursor` e o limite existente de 100 itens.
+- Arquivo de UI previsto: `apps/admin/src/pages/projects/ProjectPage.tsx`.
+  Arquivo de teste focado previsto: `apps/admin/src/pages/projects/ProjectPage.test.tsx`
+  (ou o teste de página existente equivalente, se já houver um contrato local).
+- Preservar layout, classes, botões, navegação, mensagem de projeto salvo e o
+  fluxo atual de importação/mapa. Não alterar APIs, schema, IndexedDB,
+  `useProjectLayers`, busca, `URLSearchParams`, frontend protegido, GPS,
+  GeoPDF, service worker ou site.
+- Risco principal: confundir ausência de camadas com carregamento/erro ou
+  exibir somente uma amostra sem informar truncamento. A renderização deve
+  manter honestidade para até 100 itens e sinalizar quando `nextCursor` existir.
+
+### Implementação e grafo de dependências
+
+1. **Builder/UI** — importar e chamar `useProjectLayers(projectId)` na página;
+   derivar estados loading, erro, vazio e populado sem duplicar leitura local.
+2. **Builder/UI** — no estado populado, renderizar as camadas reais em uma
+   lista/tabela compacta dentro da seção existente, preservando os dois botões
+   e a navegação atuais; se houver `nextCursor`, exibir texto honesto de que a
+   lista está limitada a 100 itens, sem inventar paginação.
+3. **Builder/teste** — cobrir: camadas reais renderizadas; mensagem vazia
+   somente quando `items.length === 0`; erro não apresentado como vazio; loading
+   mantém estado transitório acessível. Reusar fixtures e mocks existentes,
+   sem fake IndexedDB gigante ou novo serviço.
+4. **QA admin independente** — executar typecheck, lint e teste focado junto
+   da suíte administrativa aplicável; revisar que o diff só toca a página e o
+   teste aprovado.
+5. **QA nativa/integrador** — após novo push/deploy autorizado, abrir o projeto
+   QA real, clicar a navegação de projeto e confirmar a linha das camadas,
+   vazio/erro quando aplicável, sem regressão em importação, Analytics ou
+   retenção local.
+
+### Aceitação, evidência e permissões
+
+- PASS local exige evidência terminal dos testes focados, typecheck, lint e
+  `git diff --check`; o teste deve provar estados real, vazio e erro.
+- PASS independente exige revisão técnica do diff e confirmação de que não há
+  nova API, schema, dependência, URL ou alteração nas áreas protegidas.
+- PASS de produção exige SHA remoto, deployment correspondente e clique real
+  no projeto QA após o novo deploy, com screenshot/log fora do repositório.
+- O escopo autoriza a correção, push e deploy subsequentes ao integrador; este
+  gate autoriza somente o início da implementação após a especificação.
+
+### Stop conditions
+
+Parar e retornar `BLOCKED` se a fonte local não puder ser lida pelo hook
+existente, se o projeto/estado depender de API nova, se houver necessidade de
+alterar schema/URL/serviço, se a lista real não puder ser distinguida de vazio,
+ou se qualquer regressão aparecer em importação, Analytics, GPS, GeoPDF,
+IndexedDB, SW, outbox ou navegação. Não declarar PASS por snapshot estático,
+build isolado ou dados inventados.
