@@ -172,3 +172,29 @@ Checkpoints já possuem representação legada ArrayBuffer e blocos limitados a 
 - Revisão independente de mapas, pipeline, storage e harness concluída; findings corrigidos e reavaliados. Nenhuma mudança no frontend, GPS, GeoPDF, site, manifest ou SW de produção.
 - Secret-pattern scan dos candidatos sem achados e `git diff --check` aprovado. Logs fora do repositório em `TEMP/markmap-production-qa-20261019`.
 - Push, deploy e teste interativo no domínio real ainda são critérios pendentes deste gate local.
+
+## QA nativa Windows — estado e aceite
+
+Esta matriz é executada somente com a instalação PWA real e o atalho Chrome
+exato do app. O estado de produção observado é `bac2 READY`; o primeiro
+GeoJSON nativo foi confirmado. Os demais passos continuam pendentes e não são
+promovidos a PASS sem evidência correspondente.
+
+Critérios de aceite para fechar a matriz Windows:
+
+- iniciar pelo atalho Chrome instalado exato e registrar a indicação de modo
+  instalado;
+- usar os inputs reais e o seletor nativo de arquivos para GeoJSON, GPX, KML,
+  KMZ, PDF e GLB, registrando a linha principal da UI e confirmando que não há
+  diálogo de arquivo pertencente ao app após a seleção;
+- recarregar e confirmar persistência dos dados e do projeto;
+- executar a atualização real e confirmar preservação dos dados locais;
+- após o deploy, verificar a correção do Analytics e registrar console/rede;
+- manter a cobertura existente de frontend, GPS, GeoPDF, IndexedDB, offline e
+  outbox; a qualificação física de iOS permanece não verificada.
+
+As tentativas de usar `ui yield` ou busca `--type` no instalador Windows foram
+registradas como limitações da CLI instalada. Esses comandos não são
+suportados nesse ambiente e não constituem falha do aplicativo. Os passos
+restantes permanecem `PENDING` até nova evidência nativa; nenhum resultado é
+inferido de build, HTTP ou teste headless.

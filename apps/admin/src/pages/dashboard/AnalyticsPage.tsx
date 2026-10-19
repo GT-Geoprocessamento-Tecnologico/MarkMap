@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useProjects } from "../../lib/hooks/projects";
-import { listProjectLayers } from "../../lib/api-client";
+import { listLocalLayersPage } from "../../lib/hooks/layers";
 
 const csvCell = (value: string) =>
   `"${(/^[=+@-]/.test(value) ? "'" + value : value).replaceAll('"', '""')}"`;
@@ -14,10 +14,11 @@ export default function AnalyticsPage() {
   );
   const layers = useQuery({
     queryKey: ["analytics-layers", ids, "bounded", 100],
-    queryFn: async ({ signal }) => {
-      const pages = await Promise.all(
-        ids.map((id) => listProjectLayers(id, { limit: 100, signal })),
-      );
+    queryFn: async () => {
+      const pages = await Promise.all(ids.map(async (id) => {
+        const page = await listLocalLayersPage(id, 100);
+        return { items: page.items, nextCursor: page.truncated ? "100" : null };
+      }));
       return {
         rows: pages.flatMap((page) => page.items),
         truncated: pages.some((page) => page.nextCursor !== null),
