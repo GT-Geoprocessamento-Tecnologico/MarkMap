@@ -3,7 +3,7 @@
 **Status: SPECIFICATION GATE — DONE (bounded first slice; publication QA remains).** O app
 já permite buscar e baixar regiões publicadas por nome e reutiliza
 `RegionDownloadCatalog`, `installCatalogRegion`, `ResumableInstaller` e o
-`OfflineMapStore`. O catálogo atual contém somente Araguaína; não há base
+`OfflineMapStore`. No início desta tarefa, o catálogo continha somente Araguaína; não há base
 licenciada suficiente para prometer todos os estados/cidades do Brasil.
 
 ## Objetivo delimitado
@@ -24,9 +24,9 @@ instalação ativa somente um pacote por operação e preserva os anteriores.
    com zoom e tamanho limitados. A viabilidade foi comprovada no artefato
    `QAroot/catalog-feasibility/catalog-feasibility.json`: TO z9 possui 1.803.055
    bytes, SHA-256
-   `2F677AAE53B86E6E6400F66F06B3F3043F1B7BD3C6B004D7CFCB03EACD93517`, e
+   `2F677AAE53B86E6E6400F66F06B3F3043F1B7BD3C6B004D7CFCB03EACD935176`, e
    Palmas z12 possui 686.728 bytes, SHA-256
-   `96B3304DC00ECA9E1F85097A0DB52516CB96BAA0BBABA46909315F11073554EC95`.
+   `96B3304DC00ECA9E1F85097A0DB52516CB96BAA0BBABA46909315F11073554EC`.
    A lista final continua limitada a pacotes cuja fonte, licença, bounds e
    materialização foram verificadas; não gerar uma lista sem pacote.
 2. **UI catalog builder** — adicionar estado/cidade derivados das entradas do
