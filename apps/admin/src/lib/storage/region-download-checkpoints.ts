@@ -1,6 +1,6 @@
 import type { ChunkStore } from './verified-range-download.mjs';
 import { isValidCheckpoint, REGION_DOWNLOAD_CHUNK_SIZE, unreferencedSessionHashes } from './checkpoint-rules.mjs';
-import { copyBytes, isBlobPreparationError, waitForTransactionAbort } from './idb-binary-compat.mjs';
+import { copyBytes, isBlobPreparationError, settleTransaction } from './idb-binary-compat.mjs';
 
 /** v1 legacy records have ArrayBuffer; new records store disk-backed Blobs. */
 interface ChunkRow { key: string; sha: string; offset: number; data: ArrayBuffer | Blob; }
@@ -90,8 +90,8 @@ export class RegionDownloadCheckpoints implements ChunkStore {
     const put = async (data: ChunkRow['data']) => {
       const tx = db.transaction(STORE_CHUNKS, 'readwrite');
       const request = tx.objectStore(STORE_CHUNKS).put({ key: `${sha}:${offset}`, sha, offset, data } satisfies ChunkRow);
-      request.onerror = () => { txError.set(tx, request.error); };
-      await waitForTransactionAbort(tx, () => txError.get(tx) ?? null);
+      request.onerror = () => { if (!txError.has(tx)) txError.set(tx, request.error); try { tx.abort(); } catch { /* already aborting */ } };
+      await settleTransaction(tx, () => txError.get(tx) ?? null);
     };
     try {
       await put(new Blob([binary]));

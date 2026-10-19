@@ -262,3 +262,47 @@ alterar schema/URL/serviço, se a lista real não puder ser distinguida de vazio
 ou se qualquer regressão aparecer em importação, Analytics, GPS, GeoPDF,
 IndexedDB, SW, outbox ou navegação. Não declarar PASS por snapshot estático,
 build isolado ou dados inventados.
+
+## MM-FIX5-SPEC — preparação Blob no IndexedDB em WebKit
+
+**Status: SPECIFICATION GATE — DONE; implementação pendente.** O diagnóstico
+WebKit real reproduziu a falha durante a instalação do pacote Araguaína: a
+transação `readwrite` iniciou a gravação após aproximadamente 5,5 s, duas
+gravações Blob foram iniciadas, e uma requisição de asset falhou com
+`UnknownError` de preparação Blob. O evento de erro da transação foi observado
+sem `tx.error`, `abort` ou `complete` até o limite do diagnóstico; leituras
+`readonly` ficaram bloqueadas atrás dela. Nenhum pacote parcial foi ativado e o
+mapa ativo permaneceu preservado.
+
+### Escopo exclusivo e contrato
+
+- **Builder storage**: `apps/admin/src/lib/storage/idb-binary-compat.mjs`, seu
+  `.d.mts`, testes de compatibilidade e o chamador mínimo em
+  `offline-map-store.ts` somente quando necessário.
+- Manter schema, versão do banco, gerações, CAS, quota, staging, ativação
+  atômica e rollback. A correção é de representação do record, não migração.
+- Em `request.onerror` de preparação/serialização Blob, preservar o erro
+  original, solicitar `tx.abort()` explicitamente e aguardar limite definido
+  pelo helper para `abort`/settlement. Se WebKit não emitir `abort`, rejeitar
+  com erro acionável de transação inconclusiva; não iniciar fallback enquanto a
+  transação antiga puder estar ativa.
+- O retry continua único, somente para o erro exato de Blob já protegido pelo
+  teto agregado de 10 MiB. Quota, erro desconhecido, dados não Blob e
+  transação saudável não fazem fallback. Não usar user agent nem timer para
+  limitar gravações normais.
+- Preservar `request.onerror` original mesmo com listeners de diagnóstico;
+  observar eventos sem substituir semântica nativa.
+
+### Testes e gate de aceitação
+
+Provar: erro Blob causa abort explícito antes do retry; ausência de `abort`
+termina em falha limitada e acionável; transação normal chega a `complete` sem
+fallback; quota e erro não Blob não fazem retry; e o registro ativo anterior
+permanece intacto quando staging falha. Incluir erro de requisição antes de
+listeners tardios sem transformar falha em sucesso.
+
+QA independente deve executar storage, typecheck/lint aplicáveis e diagnóstico
+WebKit real com pacote pequeno, confirmando instalação, reload, uso offline e
+preservação do mapa anterior em falha. O builder não altera UI, catálogo,
+GeoPDF, GPS, service worker, outbox, schema ou contratos de importação. O gate
+de produção permanece pendente até evidência WebKit após a correção.

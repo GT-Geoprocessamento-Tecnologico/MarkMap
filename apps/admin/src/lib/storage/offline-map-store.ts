@@ -4,7 +4,7 @@ import { bytesOf, validateOfflinePackage, OFFLINE_PACKAGE_DB, OFFLINE_PACKAGE_VE
 import { matchesActiveRegionGeneration } from './region-generation-guard.mjs';
 import { notifyRegionCatalogChanged } from './region-catalog-events.mjs';
 import { readActiveGenerationAsset } from './region-generation-asset.mjs';
-import { copyBytes, isBlobPreparationError, waitForTransactionAbort } from './idb-binary-compat.mjs';
+import { copyBytes, isBlobPreparationError, settleTransaction } from './idb-binary-compat.mjs';
 
 export class StaleRegionGenerationError extends Error {
   readonly code = 'stale-active-generation';
@@ -109,8 +109,11 @@ export class OfflineMapStore {
         for (const asset of abandoned) store.delete(asset.key);
       }
       packages.put({ key, packageId: manifest.id, generation, bytes: packageBytes, manifest, state: "staged", installedAt: new Date().toISOString() } satisfies PackageRow);
-      for (const [path, bytes] of records) { const put = store.put({ key: `${generation}:${path}`, packageId: generation, path, bytes }); put.onerror = () => { requestError = put.error; }; }
-      await waitForTransactionAbort(tx, () => requestError);
+      for (const [path, bytes] of records) {
+        const put = store.put({ key: `${generation}:${path}`, packageId: generation, path, bytes });
+        put.onerror = () => { requestError ??= put.error; try { tx.abort(); } catch { /* already aborting */ } };
+      }
+      await settleTransaction(tx, () => requestError);
     };
     try { await attempt(materialized); }
     catch (error) {
