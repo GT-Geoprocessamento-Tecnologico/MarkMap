@@ -36,7 +36,7 @@ export function collectVisibleMapSearch(
   for (const sourceId of sourceIds) {
     for (const layer of LAYERS) {
       const features = map.querySourceFeatures(sourceId, {
-        sourceLayer: layer, filter: ['any', ['has', 'name'], ['has', 'name:pt']],
+        sourceLayer: layer, filter: ['any', ['has', 'name'], ['has', 'name:pt'], ['has', 'addr:postcode'], ['has', 'postcode'], ['has', 'postal_code'], ['has', 'postalcode'], ['has', 'cep']],
       });
       for (const feature of features) {
         if (++scanned > MAX_SCANNED_FEATURES || records.length >= MAX_VISIBLE_MAP_RECORDS) return records;
@@ -49,7 +49,7 @@ export function collectVisibleMapSearch(
         if (!coordinates || !bounds.contains(coordinates)) continue;
         const record = buildLocalMapSearchRecords([{
           geometry: { type: 'Point', coordinates },
-          properties: { name, city: regionLabel },
+          properties: { ...properties, name, city: regionLabel },
         }])[0];
         if (!record) continue;
         const key = `${sourceId}:${layer}:${record.normalized}`;

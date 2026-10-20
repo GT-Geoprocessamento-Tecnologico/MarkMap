@@ -2,6 +2,23 @@
 
 Fonte da versão do aplicativo: `apps/admin/package.json`. Todos os agentes seguem [a política de versionamento](docs/versioning.md). O [histórico documental anterior](docs/changelog.md) permanece preservado.
 
+## [0.4.0] - 2026-10-20
+
+### Alterações
+
+- Unifica a pesquisa do mapa em um único campo/botão para nomes, endereços e CEPs, com busca local imediata e complemento online automático ao pesquisar.
+- Reconhece CEP com ou sem separadores em feições locais e índices regionais; adapta o classificador de códigos postais do Organic Maps, com licença e atribuição preservadas.
+- Disponibiliza a rota própria de pesquisa com BrasilAPI CEP v2 e Photon, validação de coordenadas reais, limites de consulta/resposta, cancelamento e prazo de resposta.
+- Salva até 200 consultas com resultado por 90 dias no armazenamento local existente para reutilização sem internet, sem alterar schemas, projetos ou outbox. A cobertura offline depende dos dados baixados/importados e das buscas salvas.
+
+### Validação
+
+- 263 testes da aplicação e 163 testes do pacote de mapas aprovados; nove regressões do cache verificam persistência, CEP, busca por nome salvo, validade, limites e recuperação após armazenamento travado. Onze testes do serviço online e onze verificações de fronteira e temas aprovados.
+- Revisão independente identificou e orientou a correção da concorrência entre o debounce local e a resposta online, dos limites de payload e das atribuições por fonte.
+- Verificação final do painel e cliente: 19 testes aprovados, incluindo resposta atrasada do worker, cancelamento e falha de rede com resultado local. TypeScript, lint sem erros (cinco avisos preexistentes), build e guardas de versão/artefatos aprovados.
+- Fluxos reais em Chrome: CEP local e CEP consultado online continuam disponíveis após reload offline; endereço de Araguaína retorna coordenadas reais pela rota própria. WebKit móvel emulado confirmou a busca local sem rede; reload offline tem limitação do motor de automação. Aparelhos físicos iOS/Android não estavam conectados.
+- Playwright no artefato final: seis cenários aprovados em Chrome e WebKit, incluindo CEP importado, busca online real e reuso do CEP salvo sem importação prévia.
+
 ## [0.3.2] - 2026-10-20
 
 ### Alterações

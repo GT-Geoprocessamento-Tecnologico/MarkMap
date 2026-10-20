@@ -21,6 +21,7 @@ export interface PipelineRecord {
   lon: number;
   lat: number;
   description?: string;
+  postalCodes?: string[];
 }
 
 export interface SearchShard {
@@ -93,6 +94,7 @@ export interface RunPipelineOptions {
 
 export function sha256(bytes: Uint8Array | string): string;
 export function normalizeName(name: unknown): string;
+export function normalizePostalCode(value: unknown): string | null;
 export function getShardId(normalized: string): string;
 export function buildSearchShards(
   records: unknown,

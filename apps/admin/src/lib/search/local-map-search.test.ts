@@ -21,4 +21,9 @@ describe('offline indexed feature search', () => {
     expect(list[1]?.lon).toBe(-48.1);
     expect(list[1]?.normalized).toBe('trilha do centro');
   });
+  it('keeps explicit CEP aliases as metadata', () => {
+    const [record] = buildLocalMapSearchRecords([{ id: 'cep', geometry: { type: 'Point', coordinates: [-48.2, -7.2] },
+      properties: { name: 'Local', 'addr:postcode': '77800-000', postal_code: '77800000', cep: '77800' } }]);
+    expect(record?.postalCodes).toEqual(['77800000']);
+  });
 });

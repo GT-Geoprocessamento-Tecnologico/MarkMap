@@ -2,6 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { OfflineSearch } from "./OfflineSearch";
 
+type OnlineResult = { id: string; label: string; lat: number; lon: number; source?: string };
+const onlineSearch = vi.fn(async (_query: string, _signal?: AbortSignal): Promise<OnlineResult[]> => []);
+vi.mock("../../lib/search/address-geocoder", () => ({
+  configuredAddressSearchEndpoint: () => "/api/address-search",
+  searchAddressOnline: (query: string, signal?: AbortSignal) => onlineSearch(query, signal),
+}));
+
 vi.mock("./MapOfflinePanel", () => ({
   MapOfflinePanel: ({ open, title, children }: {
     open: boolean; title: string; children: React.ReactNode;
@@ -36,9 +43,19 @@ class PendingSearchWorker extends SearchWorker {
   }
 }
 
+class DelayedSearchWorker extends SearchWorker {
+  postMessage(data: Parameters<SearchWorker["postMessage"]>[0]) {
+    if (data.type === "load") this.records = data.records ?? [];
+    if (data.type === "search") setTimeout(() => {
+      const text = (data.query ?? "").toLowerCase();
+      this.onmessage?.({ data: { requestId: data.requestId, results: this.records.filter(item => item.normalized.includes(text)) } } as MessageEvent);
+    }, 220);
+  }
+}
+
 describe("address search panel", () => {
   beforeEach(() => vi.stubGlobal("Worker", SearchWorker));
-  afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+  afterEach(() => { cleanup(); onlineSearch.mockClear(); vi.unstubAllGlobals(); });
 
   it("finds locally saved street addresses without network requests", async () => {
     const onChoose = vi.fn();
@@ -50,7 +67,7 @@ describe("address search panel", () => {
     fireEvent.change(screen.getByRole("searchbox", { name: "Pesquisar feições offline" }), {
       target: { value: "Rua das Flores 200" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Pesquisar no mapa offline" }));
+    fireEvent.click(screen.getByRole("button", { name: "Pesquisar" }));
     await waitFor(() => expect(screen.getByRole("button", {
       name: "Rua das Flores, 200",
     })).toBeTruthy());
@@ -58,9 +75,78 @@ describe("address search panel", () => {
     expect(onChoose).toHaveBeenCalledWith(expect.objectContaining({ lon: -48.1, lat: -7.2 }));
   });
 
-  it("does not expose an online search button without a licensed provider", () => {
+  it("keeps one submit control and does not expose a separate online button", () => {
     render(<OfflineSearch open onClose={vi.fn()} onChoose={vi.fn()} records={[]} />);
     expect(screen.queryByRole("button", { name: "Buscar endereço na internet" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Pesquisar" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Organic Maps Project" })).toBeTruthy();
+  });
+
+  it("enriches local search automatically on one submit", async () => {
+    onlineSearch.mockResolvedValueOnce([{ id: "remote-1", label: "Avenida Online, Araguaína", lat: -7.19, lon: -48.2, source: "BrasilAPI" }]);
+    render(<OfflineSearch open onClose={vi.fn()} onChoose={vi.fn()} records={[]} />);
+    const input = screen.getByRole("searchbox", { name: "Pesquisar feições offline" });
+    fireEvent.change(input, { target: { value: "77800-000" } });
+    fireEvent.click(screen.getByRole("button", { name: "Pesquisar" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Avenida Online, Araguaína" })).toBeTruthy());
+    expect(onlineSearch).toHaveBeenCalledTimes(1);
+    expect(screen.getByText(/BrasilAPI/)).toBeTruthy();
+    expect(screen.queryByText(/Photon/)).toBeNull();
+  });
+
+  it("keeps local hits while a slow online submit outlives the local debounce", async () => {
+    let resolveOnline!: (value: OnlineResult[]) => void;
+    onlineSearch.mockImplementationOnce(() => new Promise(resolve => { resolveOnline = resolve; }));
+    render(<OfflineSearch open onClose={vi.fn()} onChoose={vi.fn()} records={[{
+      id: "local-slow", name: "Rua Local, 1", normalized: "rua local 1", type: "Point", category: "address", lon: -48, lat: -7,
+    }]} />);
+    const input = screen.getByRole("searchbox", { name: "Pesquisar feições offline" });
+    fireEvent.change(input, { target: { value: "Rua Local" } });
+    fireEvent.click(screen.getByRole("button", { name: "Pesquisar" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Rua Local, 1" })).toBeTruthy());
+    await new Promise(resolve => setTimeout(resolve, 220));
+    resolveOnline([{ id: "remote-slow", label: "Rua Remota, 2", lat: -7.2, lon: -48.2 }]);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Rua Remota, 2" })).toBeTruthy());
+    expect(screen.getByRole("button", { name: "Rua Local, 1" })).toBeTruthy();
+    expect(onlineSearch).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores a delayed worker reply for a query that was edited", async () => {
+    vi.stubGlobal("Worker", DelayedSearchWorker);
+    render(<OfflineSearch open onClose={vi.fn()} onChoose={vi.fn()} records={[{
+      id: "old", name: "Rua Antiga", normalized: "rua antiga", type: "Point", category: "address", lon: -48, lat: -7,
+    }, {
+      id: "new", name: "Rua Nova", normalized: "rua nova", type: "Point", category: "address", lon: -48.1, lat: -7.1,
+    }]} />);
+    const input = screen.getByRole("searchbox", { name: "Pesquisar feições offline" });
+    fireEvent.change(input, { target: { value: "Antiga" } });
+    await new Promise(resolve => setTimeout(resolve, 180));
+    fireEvent.change(input, { target: { value: "Nova" } });
+    await new Promise(resolve => setTimeout(resolve, 260));
+    expect(screen.queryByRole("button", { name: "Rua Antiga" })).toBeNull();
+  });
+
+  it("keeps local hits visible when online enrichment fails", async () => {
+    onlineSearch.mockRejectedValueOnce(new Error("Sem internet. Use os locais do mapa baixado."));
+    render(<OfflineSearch open onClose={vi.fn()} onChoose={vi.fn()} records={[{
+      id: "local-error", name: "Rua Local", normalized: "rua local", type: "Point", category: "address", lon: -48, lat: -7,
+    }]} />);
+    const input = screen.getByRole("searchbox", { name: "Pesquisar feições offline" });
+    fireEvent.change(input, { target: { value: "Rua Local" } });
+    fireEvent.click(screen.getByRole("button", { name: "Pesquisar" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Rua Local" })).toBeTruthy());
+    expect(screen.queryByText("Sem internet. Use os locais do mapa baixado.")).toBeNull();
+  });
+
+  it("aborts online enrichment when unmounted", async () => {
+    let receivedSignal!: AbortSignal;
+    onlineSearch.mockImplementationOnce((_query, signal) => { receivedSignal = signal!; return new Promise<OnlineResult[]>(() => undefined); });
+    const view = render(<OfflineSearch open onClose={vi.fn()} onChoose={vi.fn()} records={[]} />);
+    fireEvent.change(screen.getByRole("searchbox", { name: "Pesquisar feições offline" }), { target: { value: "Rua Longe" } });
+    fireEvent.click(screen.getByRole("button", { name: "Pesquisar" }));
+    await waitFor(() => expect(receivedSignal).toBeTruthy());
+    view.unmount();
+    expect(receivedSignal.aborted).toBe(true);
   });
 
   it("explains when the active map has no offline search index", async () => {
@@ -82,7 +168,7 @@ describe("address search panel", () => {
     fireEvent.change(screen.getByRole("searchbox", { name: "Pesquisar feições offline" }), {
       target: { value: "Tocantins" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Pesquisar no mapa offline" }));
+    fireEvent.click(screen.getByRole("button", { name: "Pesquisar" }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Avenida Tocantins, 20" })).toBeTruthy());
   });
 
@@ -91,7 +177,7 @@ describe("address search panel", () => {
       id: "house3", name: "Rua Central, 4", normalized: "rua central 4", type: "Point", category: "address", lon: -48, lat: -7,
     }]} />);
     fireEvent.change(screen.getByRole("searchbox", { name: "Pesquisar feições offline" }), { target: { value: "Praça inexistente" } });
-    fireEvent.click(screen.getByRole("button", { name: "Pesquisar no mapa offline" }));
+    fireEvent.click(screen.getByRole("button", { name: "Pesquisar" }));
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Nenhum local encontrado"));
   });
 
@@ -101,7 +187,7 @@ describe("address search panel", () => {
       id: "house4", name: "Rua Palmas, 8", normalized: "rua palmas 8", type: "Point", category: "address", lon: -48, lat: -7,
     }]} />);
     fireEvent.change(screen.getByRole("searchbox", { name: "Pesquisar feições offline" }), { target: { value: "Palmas" } });
-    fireEvent.click(screen.getByRole("button", { name: "Pesquisar no mapa offline" }));
+    fireEvent.click(screen.getByRole("button", { name: "Pesquisar" }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Rua Palmas, 8" })).toBeTruthy());
   });
 
@@ -121,9 +207,9 @@ describe("address search panel", () => {
     }]} />);
     const input = screen.getByRole("searchbox", { name: "Pesquisar feições offline" });
     fireEvent.change(input, { target: { value: "Palmas" } });
-    fireEvent.click(screen.getByRole("button", { name: "Pesquisar no mapa offline" }));
+    fireEvent.click(screen.getByRole("button", { name: "Pesquisar" }));
     view.rerender(<OfflineSearch open onClose={vi.fn()} onChoose={vi.fn()} records={[]} />);
-    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Não há nomes disponíveis"));
-    expect(screen.getByRole("button", { name: "Pesquisar no mapa offline" })).not.toBeDisabled();
+    await waitFor(() => expect(screen.getByText("Não há nomes disponíveis na área exibida. Aproxime ou mova o mapa para carregar mais ruas.")).toBeTruthy());
+    expect(screen.getByRole("button", { name: "Pesquisar" })).not.toBeDisabled();
   });
 });

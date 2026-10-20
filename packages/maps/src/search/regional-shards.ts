@@ -1,4 +1,4 @@
-import { getPipelineShardId, normalizeName, type SearchRecord } from './index.js';
+import { getPipelineShardId, normalizeName, normalizePostalCode, type SearchRecord } from './index.js';
 
 export const MAX_REGIONAL_SEARCH_RECORDS = 25_000;
 export const MAX_REGIONAL_SHARD_BYTES = 2 * 1024 * 1024;
@@ -24,6 +24,8 @@ export function parseRegionalShard(payload: unknown, expectedPath: string): Regi
         typeof record.normalized !== 'string' ||
         typeof record.type !== 'string' || record.type.length > 60 ||
         typeof record.category !== 'string' || record.category.length > 60 ||
+        (record.postalCodes !== undefined && (!Array.isArray(record.postalCodes) ||
+          record.postalCodes.length > 16 || record.postalCodes.some((code) => typeof code !== 'string' || normalizePostalCode(code) !== code))) ||
         (record.description !== undefined && (typeof record.description !== 'string' || record.description.length > 500)) ||
         typeof record.lon !== 'number' || record.lon < -180 || record.lon > 180 ||
         typeof record.lat !== 'number' || record.lat < -90 || record.lat > 90 ||

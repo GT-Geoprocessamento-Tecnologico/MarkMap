@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   normalizeName,
+  normalizePostalCode,
   getShardId,
   partitionByFirstLetter,
   binarySearchPrefix,
@@ -36,6 +37,14 @@ describe("normalizeName", () => {
 
   it("trims whitespace", () => {
     expect(normalizeName("  Test  ")).toBe("test");
+  });
+});
+
+describe("normalizePostalCode", () => {
+  it("accepts formatted and unformatted CEPs only when eight digits remain", () => {
+    expect(normalizePostalCode("12345-678")).toBe("12345678");
+    expect(normalizePostalCode("12345678")).toBe("12345678");
+    expect(normalizePostalCode("12345")).toBeNull();
   });
 });
 
@@ -175,6 +184,13 @@ describe("searchIndex", () => {
   it("measures elapsed time", () => {
     const response = searchIndex(records, { query: "rua" });
     expect(response.took).toBeGreaterThanOrEqual(0);
+  });
+
+  it("finds exact indexed CEPs in both display forms", () => {
+    const record = { ...makeRecord("cep", "Rua Augusta"), postalCodes: ["12345678"] };
+    expect(searchIndex([record], { query: "12345-678" }).results[0]?.id).toBe("cep");
+    expect(searchIndex([record], { query: "12345678" }).results[0]?.id).toBe("cep");
+    expect(searchIndex([record], { query: "12345" }).results).toHaveLength(0);
   });
 });
 

@@ -88,6 +88,12 @@ describe("region-pipeline (MM-MAP-200)", () => {
     }
   });
 
+  it("indexes only exact eight-digit CEP aliases", () => {
+    const shards = buildSearchShards([{ id: "cep", name: "Rua Augusta", lon: -46.6, lat: -23.5,
+      "addr:postcode": "12345-678", postal_code: "12345678", cep: "12345" }]);
+    expect(shards[0]?.records[0]?.postalCodes).toEqual(["12345678"]);
+  });
+
   it("rejects malformed places", () => {
     expect(() => buildSearchShards("nope")).toThrow(PipelineError);
     expect(() => buildSearchShards([{ id: "x" }])).toThrow(PipelineError);

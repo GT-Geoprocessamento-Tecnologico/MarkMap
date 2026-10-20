@@ -42,4 +42,10 @@ describe('searching names already decoded from local PMTiles', () => {
     const map = mapFixture(Array.from({ length: MAX_VISIBLE_MAP_RECORDS + 10 }, (_, i) => point(`Rua ${i}`)));
     expect(collectVisibleMapSearch(map as unknown as SearchableMap, 'br-araguaina')).toHaveLength(MAX_VISIBLE_MAP_RECORDS);
   });
+  it('passes an explicit tile CEP through with its real feature position', () => {
+    const map = mapFixture([{ ...point('Local'), properties: { name: 'Local', cep: '77800000' } }]);
+    const record = collectVisibleMapSearch(map as unknown as SearchableMap, 'br-araguaina')[0];
+    expect(record?.postalCodes).toEqual(['77800000']);
+    expect([record?.lon, record?.lat]).toEqual([-48.2, -7.2]);
+  });
 });

@@ -67,6 +67,22 @@ export function normalizeName(name) {
     .trim();
 }
 
+export function normalizePostalCode(value) {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (!trimmed || !/^[0-9][0-9 .-]*$/.test(trimmed)) return null;
+  const digits = trimmed.replace(/[\- .]/g, '');
+  return /^\d{8}$/.test(digits) ? digits : null;
+}
+
+function postalCodesFromRecord(raw) {
+  if (Array.isArray(raw.postalCodes) && raw.postalCodes.length > 16)
+    throw new PipelineError('postalCodes excede o limite de 16 valores', 'INVALID_RECORD');
+  const values = [raw.postalCodes, raw['addr:postcode'], raw.postcode, raw.postal_code, raw.postalcode, raw.cep];
+  return [...new Set(values.flatMap((value) => Array.isArray(value) ? value : [value])
+    .map(normalizePostalCode).filter(Boolean))].slice(0, 16);
+}
+
 /** Mesmo shard da busca offline em packages/maps/src/search. */
 export function getShardId(normalized) {
   const first = normalized.charAt(0);
@@ -122,6 +138,8 @@ export function buildSearchShards(records, shardsPerLetter = PIPELINE_LIMITS.sha
 
     const record = { id, name, normalized, type: String(type ?? ""), category: String(category ?? ""), lon, lat };
     if (typeof description === "string") record.description = description;
+    const postalCodes = postalCodesFromRecord(raw);
+    if (postalCodes.length) record.postalCodes = postalCodes;
 
     const list = shards.get(key) ?? [];
     list.push(record);

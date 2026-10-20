@@ -21,6 +21,19 @@ const BICYCLE_DEFAULT = new Set([
   'primary', 'primary_link',
 ]);
 
+function normalizePostalCode(value) {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (!trimmed || !/^[0-9][0-9 .-]*$/.test(trimmed)) return null;
+  const digits = trimmed.replace(/[\- .]/g, '');
+  return /^\d{8}$/.test(digits) ? digits : null;
+}
+
+function postalCodes(tags) {
+  const values = [tags['addr:postcode'], tags.postcode, tags.postal_code, tags.postalcode, tags.cep];
+  return [...new Set(values.map(normalizePostalCode).filter(Boolean))].slice(0, 16);
+}
+
 function distanceM(a, b) {
   const dLat = (b[1] - a[1]) * RADIANS;
   const dLon = (b[0] - a[0]) * RADIANS;
@@ -149,12 +162,13 @@ export function makeSmallOsmPlaces(state, bounds) {
       ? (tags.amenity || tags.tourism || tags.shop || tags.place || tags.natural || 'other')
       : 'address';
     if (typeof category !== 'string' || category.length > 60) return;
+    const codes = postalCodes(tags);
     places.push({ id: `osm-node-${point.id}`, name, type, category,
-      lon: point.point[0], lat: point.point[1] });
+      lon: point.point[0], lat: point.point[1], ...(codes.length ? { postalCodes: codes } : {}) });
     if (placeName && address && address !== placeName && address.length <= 200 &&
         places.length < MAX_AUTO_PLACES) {
       places.push({ id: `osm-address-node-${point.id}`, name: address,
-        type: 'address', category: 'address', lon: point.point[0], lat: point.point[1] });
+        type: 'address', category: 'address', lon: point.point[0], lat: point.point[1], ...(codes.length ? { postalCodes: codes } : {}) });
     }
   }
 
@@ -185,8 +199,9 @@ export function makeSmallOsmPlaces(state, bounds) {
       }
     }
     if (!best) continue;
+    const codes = postalCodes(tags);
     places.push({ id: `osm-way-${id}`, name, type, category,
-      lon: best[0], lat: best[1] });
+      lon: best[0], lat: best[1], ...(codes.length ? { postalCodes: codes } : {}) });
   }
 
   while (pointCursor < state.points.length && places.length < MAX_AUTO_PLACES) {

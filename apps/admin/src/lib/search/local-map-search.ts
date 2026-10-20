@@ -1,3 +1,5 @@
+import { normalizePostalCode } from '@geonexo/maps/search';
+
 /** Small, serializable index for maps already present on this device. */
 export interface LocalSearchRecord {
   id: string;
@@ -7,6 +9,14 @@ export interface LocalSearchRecord {
   category: string;
   lon: number;
   lat: number;
+  postalCodes?: string[];
+}
+
+function explicitPostalCodes(properties: Record<string, unknown>): string[] {
+  const values = ['addr:postcode', 'postcode', 'postal_code', 'postalcode', 'cep']
+    .map((key) => properties[key])
+    .filter((value): value is string => typeof value === 'string');
+  return [...new Set(values.map(normalizePostalCode).filter((value): value is string => value !== null))];
 }
 
 function firstPosition(value: unknown, depth = 0): [number, number] | null {
@@ -49,8 +59,9 @@ export function buildLocalMapSearchRecords(features: readonly unknown[]): LocalS
       .toLowerCase().replace(/[ºª]/g, '').replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim();
     if (!normalized) continue;
     const kind = typeof geometry.type === 'string' ? geometry.type : 'feature';
+    const postalCodes = explicitPostalCodes(properties);
     result.push({ id: `${index}:${String(feature.id ?? index)}`, name: label.slice(0, 200),
-      normalized, type: kind, category: kind, lon: coords[0], lat: coords[1] });
+      normalized, type: kind, category: kind, lon: coords[0], lat: coords[1], ...(postalCodes.length ? { postalCodes } : {}) });
   }
   return result;
 }

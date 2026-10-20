@@ -164,7 +164,7 @@ Station/line overlays are packaged per region from open transit feeds.
   `attribution`.
 - No transit feed is vendored in this repository.
 
-### Inspired code — concepts only, no code copied
+### Historical inspiration — concepts only
 
 The following projects were reviewed for **concepts only**. No source file was
 copied. Anything reimplemented was rewritten from scratch under this
@@ -185,6 +185,31 @@ Hard rules enforced for this initiative:
 - **No Organic Maps data files (`.mwm`, `.bin`) are redistributed.**
 - Each `docs/MM-MAP-*.md` deliverable names its inspiration in a
   "Fontes de Inspiracao (conceitos, nao codigo copiado)" section.
+
+### CEP search adaptation (2026-10-20)
+
+`packages/maps/src/search/postal-code.ts` adapts the small postcode character-shape
+matcher from Organic Maps `libs/indexer/postcodes_matcher.cpp` (lines 24–40,
+95–105) to the Brazilian eight-digit CEP format. The inspected local source has
+SHA-256 `eb337d67fe01e6eec17f149d341aefa9e2b93dd4521e860e937e58cef1bc7fbc`.
+Its root `LICENSE` points to Apache-2.0, as does `NOTICE`; the earlier conceptual
+inventory above does not describe this source snapshot's license.
+
+Copyright 2020 My.com B.V. (Mail.Ru Group).
+Copyright 2020–2026 Organic Maps Contributors.
+Source: <https://github.com/organicmaps/organicmaps/blob/master/libs/indexer/postcodes_matcher.cpp>.
+The adapted TypeScript module is modified for exact Brazilian CEP matching;
+no `.mwm` files, Qt libraries, icons or other map application assets are included.
+The upstream Apache license and NOTICE are distributed at
+`apps/admin/public/licenses/organic-maps/Apache-2.0.txt` and `NOTICE.txt`.
+The search panel credits and links the [Organic Maps Project](https://organicmaps.app).
+
+Online address data is obtained only for submitted human queries through the
+same-origin route: [BrasilAPI CEP v2](https://brasilapi.com.br/docs) and
+[Photon/Komoot](https://github.com/komoot/photon). Photon results are derived
+from OpenStreetMap and require © OpenStreetMap contributors attribution
+(ODbL). These public services have usage limits and no availability guarantee;
+there is no autocomplete, bulk harvesting or direct public Nominatim request.
 
 ## Araguaína regional basemap (2026-10-19)
 

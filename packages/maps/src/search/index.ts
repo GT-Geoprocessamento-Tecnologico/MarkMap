@@ -7,6 +7,7 @@ export interface SearchRecord {
   lon: number;
   lat: number;
   description?: string;
+  postalCodes?: string[];
 }
 
 export interface SearchShard {
@@ -54,6 +55,9 @@ export interface SearchResponse {
   took: number;
 }
 
+export { formatPostalCode, normalizePostalCode } from './postal-code.js';
+import { normalizePostalCode } from './postal-code.js';
+
 export function normalizeName(name: string): string {
   return name
     .toLowerCase()
@@ -94,6 +98,8 @@ export function searchRegionalShards(shards: readonly RegionalSearchShard[], que
       if (!record || typeof record.id !== 'string' || typeof record.name !== 'string' ||
           typeof record.normalized !== 'string' || !Number.isFinite(record.lon) || !Number.isFinite(record.lat)) continue;
       if (getPipelineShardId(record.normalized) !== shard.id || seen.has(record.id)) continue;
+      if (record.postalCodes !== undefined && (!Array.isArray(record.postalCodes) ||
+          record.postalCodes.length > 16 || record.postalCodes.some((code) => normalizePostalCode(code) !== code))) continue;
       seen.add(record.id);
       records.push(record);
     }
@@ -211,14 +217,20 @@ export function searchIndex(
 ): SearchResponse {
   const start = performance.now();
   const queryNormalized = normalizeName(query.query).slice(0, 128);
+  const queryPostalCode = normalizePostalCode(query.query);
   const limit = Number.isFinite(query.limit) ? Math.max(1, Math.min(50, Math.trunc(query.limit!))) : 20;
   const maxEditDistance = 2;
-  if (!queryNormalized) return { results: [], total: 0, query: query.query, took: 0 };
+  if (!queryNormalized && !queryPostalCode) return { results: [], total: 0, query: query.query, took: 0 };
 
   // Search every token, not only the first letter of each record. This lets
   // "Augusta" find "Rua Augusta" and "Sé" find "Praça da Sé" offline.
   const candidates: SearchRecord[] = [];
   for (const record of records) {
+    if (queryPostalCode && record.postalCodes?.includes(queryPostalCode)) {
+      candidates.push(record);
+      continue;
+    }
+    if (queryPostalCode) continue;
     const normalized = record.normalized || normalizeName(record.name);
     const words = normalized.split(/\s+/);
     if (words.some((word) => word.startsWith(queryNormalized)) || normalized.startsWith(queryNormalized)) {
