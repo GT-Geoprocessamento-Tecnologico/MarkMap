@@ -124,7 +124,6 @@ export default function ImportsPage() {
       <div className="relative mb-6 flex min-h-40 flex-col items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-outline-variant bg-surface-container p-6 text-center">
         <input
           type="file"
-          accept=".geojson,.json,.gpx,.kml,.kmz,.pdf,.glb,application/pdf"
           onChange={handleUpload}
           disabled={isUploading}
           className="absolute inset-0 z-10 cursor-pointer opacity-0"

@@ -218,10 +218,10 @@ export async function parseDatasetFile(file: File): Promise<DatasetRecord> {
   const format = /\.gpx$/i.test(file.name) ? 'GPX' : /\.kmz$/i.test(file.name) ? 'KMZ' : 'KML';
   if (!(format === 'GPX' ? /<(?:[\w-]+:)?gpx\b/i : /<(?:[\w-]+:)?kml\b/i).test(raw))
     throw new Error('XML incompatível com o formato informado.');
-  const imported = format === 'GPX' ? parseGpx(raw) : parseKml(raw);
+  const imported = format === 'GPX' ? parseGpx(raw) : parseKml(raw, { strict: true });
   const collection = tracksToGeoJSON(imported);
   if (collection.features.length === 0)
-    throw new Error('O arquivo não contém pontos ou linhas compatíveis.');
+    throw new Error('O arquivo não contém pontos, linhas ou áreas compatíveis.');
   if (collection.features.length > MAX_DATASET_FEATURES)
     throw new Error(`O arquivo excede o limite de ${MAX_DATASET_FEATURES} feições.`);
   // Reuse the same CRS, geometry, feature-count and properties validation as GeoJSON.

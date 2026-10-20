@@ -5,6 +5,9 @@ export interface TrackPoint {
   timestamp?: Date | null;
 }
 
+export type KmlScalar = string | number | boolean | null;
+export type KmlProperties = Record<string, KmlScalar>;
+
 export interface Segment {
   id: string;
   points: TrackPoint[];
@@ -15,6 +18,7 @@ export interface Track {
   name: string;
   description?: string | null;
   color?: string;
+  properties?: KmlProperties;
   segments: Segment[];
 }
 
@@ -25,6 +29,7 @@ export interface Waypoint {
   latitude: number;
   longitude: number;
   elevation?: number | null;
+  properties?: KmlProperties;
 }
 
 export interface RoutePoint {
@@ -46,6 +51,7 @@ export interface KmlPolygon {
   name: string;
   description?: string | null;
   rings: TrackPoint[][];
+  properties?: KmlProperties;
 }
 
 export interface GpxImport {
