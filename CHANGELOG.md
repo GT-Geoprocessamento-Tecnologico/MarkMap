@@ -2,6 +2,18 @@
 
 Fonte da versão do aplicativo: `apps/admin/package.json`. Todos os agentes seguem [a política de versionamento](docs/versioning.md). O [histórico documental anterior](docs/changelog.md) permanece preservado.
 
+## [0.4.2] - 2026-10-20
+
+### Alterações
+
+- Esclarece que a contagem exibida na busca corresponde aos dados do mapa, enquanto as consultas salvas também podem ser pesquisadas sem internet.
+- Preserva a busca unificada por CEP/endereço, o cache, os controles e o layout da versão `0.4.1`.
+
+### Validação
+
+- A versão anterior passou em 268 testes da aplicação, 163 testes de mapas, doze testes do serviço e seis cenários reais no domínio oficial. O app Windows consultou CEP e endereço e manteve os arquivos da lista, incluindo o KML de teste.
+- A revisão visual no aplicativo instalado identificou a ambiguidade da contagem que motivou esta correção de texto.
+
 ## [0.4.1] - 2026-10-20
 
 ### Alterações

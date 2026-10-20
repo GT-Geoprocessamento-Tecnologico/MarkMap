@@ -3,7 +3,7 @@
 Status: SPECIFICATION GATE — DONE. Upstreams e hosting first-party estão
 fixados; builders podem iniciar pelas tarefas do grafo abaixo.
 
-Versão funcional inicial: **0.4.0** (MINOR). Candidato corrigido reservado pelo coordenador: **0.4.1** (PATCH), sobre
+Versão funcional inicial: **0.4.0** (MINOR). Entrega atual reservada pelo coordenador: **0.4.2** (PATCH), incluindo a correção de conexão da `0.4.1` e o esclarecimento da contagem de locais, sobre
 `0efd0a53a004ce7a05153cf0588de2ef26feecc0` / pacote `0.3.2`.
 
 ## Objetivo e limites
@@ -169,7 +169,7 @@ domínio do site.
    1; não requer segredo versionado.
 6. **MM-SEARCH-QA** — revisão e testes independentes; exige 2–4 e, para o
    cenário online, 5 com endpoint real autorizado.
-7. **MM-SEARCH-RELEASE** — typecheck, lint, build, guard da versão `0.4.1`,
+7. **MM-SEARCH-RELEASE** — typecheck, lint, build, guard da versão `0.4.2`,
    changelog e QA de browser. Nenhum deploy sem aprovação explícita.
 
 ## Aceitação

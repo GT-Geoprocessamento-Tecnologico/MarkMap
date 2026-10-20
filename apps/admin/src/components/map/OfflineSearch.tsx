@@ -150,8 +150,8 @@ export function OfflineSearch({ open, onClose, records, regionalCount = 0, mapRe
         </button>
       </form>
       <p className="text-xs text-on-surface-variant">Pesquise nomes de ruas, CEPs e lugares no mapa exibido ou nos dados adicionados ao projeto.</p>
-      <p className="text-xs text-on-surface-variant">{records.length} locais disponíveis sem internet ({displayedMapCount} no mapa exibido, {regionalCount} do índice regional)</p>
-      <p className="text-xs text-on-surface-variant">Busca local na área exibida; a busca online usa somente o texto enviado ao serviço autorizado.</p>
+      <p className="text-xs text-on-surface-variant">Dados do mapa: {records.length} locais ({displayedMapCount} no mapa exibido, {regionalCount} do índice regional).</p>
+      <p className="text-xs text-on-surface-variant">Consultas salvas também podem ser pesquisadas sem internet. A busca online envia somente o texto pesquisado.</p>
       {(error || warning) && <p role="alert" className="text-xs text-red-500">{error || warning}</p>}
       {localNotice && combined.length === 0 && <p role="status" className="text-xs text-on-surface-variant">{localNotice}</p>}
       {remoteNotice && combined.length === 0 && <p role="status" className="text-xs text-on-surface-variant">{remoteNotice}</p>}
