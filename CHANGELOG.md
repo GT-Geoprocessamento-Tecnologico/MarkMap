@@ -2,7 +2,22 @@
 
 Fonte da versão do aplicativo: `apps/admin/package.json`. Todos os agentes seguem [a política de versionamento](docs/versioning.md). O [histórico documental anterior](docs/changelog.md) permanece preservado.
 
+## [0.4.1] - 2026-10-20
+
+### Alterações
+
+- Inclui a busca unificada por CEP, endereço e nome, com reuso offline dos mapas/dados locais e das pesquisas salvas, descrita no candidato `0.4.0`.
+- Identifica as consultas do MarkMap aos serviços autorizados e solicita respostas em português; registra falhas somente por identificador, tipo, código e duração, sem endereço digitado ou IP.
+- Apresenta falhas de conexão e tempo de resposta em português, preservando cancelamentos e resultados locais.
+
+### Validação
+
+- Doze testes do serviço e 21 testes focados do painel/cliente aprovados; TypeScript e lint dos módulos alterados aprovados.
+- A prévia `0.4.0` comprovou CEP real, mas encontrou indisponibilidade no serviço de texto livre; foi preservada sem promoção para produção. O candidato seguinte incrementa a versão antes de uma nova verificação em nuvem.
+
 ## [0.4.0] - 2026-10-20
+
+Candidato de prévia; não promovido ao domínio oficial.
 
 ### Alterações
 

@@ -12,6 +12,11 @@ const UPSTREAM_LIMIT = 30;
 const UPSTREAM_CONCURRENCY = 4;
 const CACHE_MAX = 128;
 const CACHE_TTLS = { cep: 24 * 60 * 60_000, address: 60 * 60_000 };
+const UPSTREAM_HEADERS = {
+  Accept: "application/json",
+  "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.7",
+  "User-Agent": "MarkMap (+https://appmarkmap.mtsferreira.dev; address-search)",
+};
 
 const cache = new Map();
 const clients = new Map();
@@ -131,7 +136,7 @@ async function providerFetch(url, deadline, fetcher) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), Math.min(PROVIDER_TIMEOUT_MS, Math.max(1, deadline - Date.now())));
   try {
-    const response = await fetcher(url, { method: "GET", redirect: "error", headers: { Accept: "application/json" }, signal: controller.signal });
+    const response = await fetcher(url, { method: "GET", redirect: "error", headers: UPSTREAM_HEADERS, signal: controller.signal });
     if (!response.ok) {
       const cancelled = response.body?.cancel?.();
       if (cancelled?.catch) await cancelled.catch(() => {});
@@ -248,7 +253,12 @@ export async function handleAddressSearch(req, res, { fetcher = fetch, now = () 
     cachePut(cacheKey, results, CACHE_TTLS[kind]);
     return json(res, 200, results, requestId);
   } catch (error) {
-    const code = error?.message === "UPSTREAM_RATE_LIMIT" ? "RATE_LIMITED" : "UPSTREAM_UNAVAILABLE";
+    const code = error?.message === "UPSTREAM_RATE_LIMIT"
+      ? "RATE_LIMITED"
+      : error?.message === "UPSTREAM_TIMEOUT"
+        ? "UPSTREAM_TIMEOUT"
+        : "UPSTREAM_UNAVAILABLE";
+    console.warn(JSON.stringify({ requestId, kind, code, elapsedMs: Math.max(0, now() - (deadline - REQUEST_DEADLINE_MS)) }));
     return json(res, code === "RATE_LIMITED" ? 429 : 502, { error: { code, message: "Busca online indisponível." } }, requestId);
   }
 }

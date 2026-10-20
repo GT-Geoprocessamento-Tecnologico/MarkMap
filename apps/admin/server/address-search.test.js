@@ -49,8 +49,10 @@ test("supports Araguaína CEP and rejects unusable BrasilAPI coordinates", async
 });
 
 test("uses Photon for submitted free-form query and preserves attribution", async () => {
-  const result = await invoke("/api/address-search?q=Avenida%20Paulista&limit=1", async (url) => {
+  const result = await invoke("/api/address-search?q=Avenida%20Paulista&limit=1", async (url, init) => {
     assert.match(String(url), /^https:\/\/photon\.komoot\.io\/api\/\?q=/);
+    assert.equal(init.headers["User-Agent"], "MarkMap (+https://appmarkmap.mtsferreira.dev; address-search)");
+    assert.equal(init.headers["Accept-Language"], "pt-BR,pt;q=0.9,en;q=0.7");
     return response(200, { type: "FeatureCollection", features: [{ geometry: { type: "Point", coordinates: [-46.6556, -23.5618] }, properties: { name: "MASP", street: "Av. Paulista", housenumber: "1578", city: "São Paulo", postcode: "01310-200" } }] });
   });
   assert.equal(result.statusCode, 200);
@@ -68,6 +70,22 @@ test("rejects cross-site browser requests without calling upstream", async () =>
 test("caps oversized upstream bodies", async () => {
   const result = await invoke("/api/address-search?q=Rua%20Augusta", async () => new Response(new ReadableStream({ start(controller) { controller.enqueue(new Uint8Array(129 * 1024)); controller.close(); } }), { status: 200 }));
   assert.equal(result.statusCode, 502);
+});
+
+test("classifies timeout without logging query or upstream URL", async () => {
+  const warnings = [];
+  const originalWarn = console.warn;
+  console.warn = (line) => warnings.push(String(line));
+  try {
+    const result = await invoke("/api/address-search?q=Segredo%20Rua%20Tocantins", async () => { throw new DOMException("aborted", "AbortError"); });
+    assert.equal(result.statusCode, 502);
+    assert.equal(result.json.error.code, "UPSTREAM_TIMEOUT");
+    assert.equal(warnings.length, 1);
+    assert.doesNotMatch(warnings[0], /Segredo|Tocantins|photon|brasilapi|https?:/i);
+    assert.match(warnings[0], /requestId|kind|code|elapsedMs/);
+  } finally {
+    console.warn = originalWarn;
+  }
 });
 
 test("rejects partial numeric CEP without calling Photon", async () => {

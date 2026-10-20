@@ -27,3 +27,12 @@ upstream concurrency to four. The adapter allows up to 6 seconds per provider
 and 8 seconds total; the Vercel function must remain within a 10-second
 platform budget. These are process-local protections in a serverless
 deployment, not a distributed quota or availability guarantee.
+
+Upstream requests identify the application with a stable MarkMap User-Agent
+and send `Accept-Language: pt-BR,pt;q=0.9,en;q=0.7`. Failure telemetry is
+sanitized to request id, provider kind, stable error code, and elapsed time;
+it never logs query text, client address, provider URL, or response payload.
+Photon's maintainers document abuse protection and collateral blocking on the
+public demo, so the User-Agent change is a controlled compatibility candidate,
+not a reliability guarantee. A deployed runtime check remains required before
+online free-form search is promoted.

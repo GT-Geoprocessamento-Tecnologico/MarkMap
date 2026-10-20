@@ -56,4 +56,19 @@ describe("configured online address search", () => {
     const oversized = vi.fn(async () => new Response(JSON.stringify(["x".repeat(130 * 1024)])));
     await expect(searchAddressOnline("Rua Grande", undefined, oversized as typeof fetch, "/api/address-search")).rejects.toThrow("muito grande");
   });
+
+  it("maps network rejection to a safe Portuguese message", async () => {
+    const request = vi.fn(async () => { throw new TypeError("fetch failed: secret host"); });
+    await expect(searchAddressOnline("Rua Falha", undefined, request as typeof fetch, "/api/address-search")).rejects.toThrow("Busca online indisponível. Tente mais tarde.");
+  });
+
+  it("preserves an external abort signal instead of converting it to a network notice", async () => {
+    const controller = new AbortController();
+    const request = vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
+      controller.abort();
+      if (init?.signal?.aborted) throw new DOMException("Aborted", "AbortError");
+      return new Response("[]");
+    });
+    await expect(searchAddressOnline("Rua Cancelada", controller.signal, request as typeof fetch, "/api/address-search")).rejects.toMatchObject({ name: "AbortError" });
+  });
 });

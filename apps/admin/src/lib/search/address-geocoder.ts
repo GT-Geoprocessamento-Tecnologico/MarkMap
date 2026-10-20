@@ -46,7 +46,14 @@ export async function searchAddressOnline(query: string, signal?: AbortSignal, f
       return [result];
     });
     if (hits.length) { throwIfAborted(signal); await addressSearchCache.write(normalizedTerm, endpoint, hits); throwIfAborted(signal); }
+    throwIfAborted(signal);
     return hits;
+  } catch (cause) {
+    if (signal?.aborted) throw cause;
+    if (controller.signal.aborted) throw new Error("A pesquisa demorou mais que o esperado. Tente novamente.");
+    if (cause instanceof TypeError || (cause instanceof DOMException && cause.name === "AbortError"))
+      throw new Error("Busca online indisponível. Tente mais tarde.");
+    throw cause;
   } finally {
     clearTimeout(timeout); signal?.removeEventListener("abort", onAbort);
   }
