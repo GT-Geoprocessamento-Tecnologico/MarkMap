@@ -4,6 +4,12 @@
 
 Este checklist complementa o Checklist Mestre operacional no Notion.
 
+## Versionamento — obrigatório em cada publicação
+
+- [ ] Coordenador reservou versão numérica superior à publicada e atualizou `apps/admin/package.json` e `CHANGELOG.md`, conforme [versioning.md](versioning.md).
+- [ ] Guard, build e concordância de `version.json` aprovados no candidato; rodapé/Configurações e domínio oficial confirmados após publicação.
+- [ ] Versão, SHA, resultados e preservação dos dados registrados; sufixo/hash não foi usado como substituto do incremento.
+
 ## Código e qualidade — validação do HEAD atual
 
 > **Não homologado:** os workflows da PR #5 em 2026-10-13 não iniciaram jobs por bloqueio de cobrança/limite de gastos informado pelo GitHub Actions. Nenhum lint, typecheck, build, Vitest, Playwright, PostGIS ou teste de segurança passou nesta rodada. Marcas antigas não validam o HEAD atual.

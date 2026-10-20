@@ -19,7 +19,8 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "test:e2e": "turbo run test:e2e",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "verify:version": "node scripts/version-release-guard.mjs"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^7.2.0",

@@ -50,6 +50,7 @@ Os namespaces internos `@geonexo/*`, nomes históricos de infraestrutura e ident
 
 ## Regras importantes
 
+- Toda atualização publicada do app deve incrementar a versão numérica em `apps/admin/package.json` e registrar a entrega em [CHANGELOG.md](CHANGELOG.md). Todos os agentes seguem [AGENTS.md](AGENTS.md) e a [política de versionamento](docs/versioning.md); `pnpm verify:version` verifica o candidato.
 - offline-first continua sendo requisito central;
 - não introduzir arquitetura paralela de offline/sync/GIS;
 - não colocar credenciais privilegiadas no cliente;

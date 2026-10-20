@@ -10,6 +10,30 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  version-policy:
+    name: App version policy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Test release version guard
+        run: node --test scripts/version-release-guard.test.mjs
+      - name: Validate candidate version and changelog
+        env:
+          RELEASE_BASE_REF: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [ -n "$RELEASE_BASE_REF" ] && [ "$RELEASE_BASE_REF" != "0000000000000000000000000000000000000000" ]; then
+            node scripts/version-release-guard.mjs --base-ref "$RELEASE_BASE_REF"
+          else
+            node scripts/version-release-guard.mjs
+          fi
+
   lint:
     name: Lint
     runs-on: ubuntu-latest

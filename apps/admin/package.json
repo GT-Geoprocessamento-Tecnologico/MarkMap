@@ -1,13 +1,14 @@
 {
   "name": "admin",
   "private": true,
-  "version": "0.2.0-dev.0",
+  "version": "0.3.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
+    "verify:version": "node ../../scripts/version-release-guard.mjs",
     "test": "vitest run",
     "lint": "eslint .",
     "test:e2e": "playwright test"
