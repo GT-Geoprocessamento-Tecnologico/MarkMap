@@ -72,6 +72,7 @@ import { MAX_CONTOUR_BYTES, validateRegionalContours, contoursToGeoJSON } from "
 import { loadRegionalPackageSearch, describeRegionalSearchLoadError } from '../../lib/search/regional-package-search';
 import type { LocalSearchRecord } from '../../lib/search/local-map-search';
 import { buildLocalMapSearchRecords } from "../../lib/search/local-map-search";
+import { useVisibleMapSearch } from "../../lib/search/use-visible-map-search";
 
 // ---------------------------------------------------------------------------
 // Tipos
@@ -277,6 +278,9 @@ export default function CommandCenterPage() {
   }, []);
 
   const [sidePanel, setSidePanel] = useState<SidePanel>("none");
+  const sidePanelRef = useRef(sidePanel);
+  sidePanelRef.current = sidePanel;
+  const [elevationBounds, setElevationBounds] = useState<[number, number, number, number] | undefined>();
   const [telemetry, setTelemetry] = useState<TelemetryData>({
     lat: -15.785,
     lng: -47.92,
@@ -287,6 +291,9 @@ export default function CommandCenterPage() {
   const [measuring, setMeasuring] = useState(false);
   const [measurePoints, setMeasurePoints] = useState<MeasurePoint[]>([]);
   const [totalDistance, setTotalDistance] = useState(0);
+  const elevationCenter = useMemo<[number, number]>(() => [telemetry.lng, telemetry.lat], [telemetry.lng, telemetry.lat]);
+  const elevationGeometry = useMemo(() => measurePoints.length >= 2
+    ? measurePoints.map(point => [point.lng, point.lat] as [number, number]) : undefined, [measurePoints]);
   const [drawingSession, setDrawingSession] = useState<DrawingSession | null>(null);
   const drawingSessionRef = useRef<DrawingSession | null>(null);
   const drawLayerIdRef = useRef<string | null>(null);
@@ -334,9 +341,14 @@ export default function CommandCenterPage() {
       .catch((cause) => { if (!cancelled) { setRegionalSearchRecords([]); setRegionalSearchError(describeRegionalSearchLoadError(cause)); } });
     return () => { cancelled = true; };
   }, [activeRegionPackageId, regionalRenderRevision]);
+  const [searchRegionLabel, setSearchRegionLabel] = useState('');
+  const visibleMapSearchRecords = useVisibleMapSearch(
+    mapRef, mapSource.regionId, regionalRenderRevision, mapEpoch, mapReady,
+    sidePanel === 'busca-offline' && regionalSearchRecords.length === 0, searchRegionLabel,
+  );
   const combinedSearchRecords = useMemo(
-    () => [...regionalSearchRecords, ...localSearchRecords],
-    [regionalSearchRecords, localSearchRecords],
+    () => [...regionalSearchRecords, ...localSearchRecords, ...visibleMapSearchRecords],
+    [regionalSearchRecords, localSearchRecords, visibleMapSearchRecords],
   );
   const activeGeoJson = useMemo(
     () => ({
@@ -586,6 +598,12 @@ export default function CommandCenterPage() {
 
   const updateTelemetry = useCallback((map: MapLibreMap) => {
     const center = map.getCenter();
+    const bounds = map.getBounds();
+    const area: [number, number, number, number] = [
+      Math.max(-180, bounds.getWest()), Math.max(-85.051128, bounds.getSouth()),
+      Math.min(180, bounds.getEast()), Math.min(85.051128, bounds.getNorth()),
+    ];
+    setElevationBounds(area[0] < area[2] && area[1] < area[3] ? area : undefined);
     setTelemetry({
       lat: center.lat,
       lng: center.lng,
@@ -599,6 +617,7 @@ export default function CommandCenterPage() {
   useEffect(() => {
     if (!mapContainer.current || mapRef.current) return;
     setMapReady(false);
+    setSearchRegionLabel('');
     setGeoPdfReady(false);
     setGeoPdfMessage(null);
     geoPdfManualFocusRef.current = false;
@@ -712,6 +731,7 @@ export default function CommandCenterPage() {
           throw new Error("O mapa selecionado foi removido ou não está disponível. Selecione outro em Configurações.");
         }
         displayedGeneration = installed.generation;
+        setSearchRegionLabel(installed.manifest.label.replace(/\s*—\s*mapa offline\s*$/i, ""));
         const [archive, styleBlob] = await Promise.all([
           offlineMapStore.assetAtRevision(selectedPackageId, "package.pmtiles", installed.generation),
           offlineMapStore.assetAtRevision(selectedPackageId, installed.manifest.style.path, installed.generation),
@@ -825,6 +845,11 @@ export default function CommandCenterPage() {
       // reinterpret approximate desktop geolocation as an exact position.
       locationControlRef.current = geolocate;
       mapRef.current = map;
+      // Show the downloaded region at a useful scale; explicit project/data bounds still take precedence.
+      if (offlineBounds && !fitRef.current.bounds && !search.pdfId) {
+        map.fitBounds([[offlineBounds[0], offlineBounds[1]], [offlineBounds[2], offlineBounds[3]]],
+          { padding: 48, maxZoom: offlineMaxZoom, duration: 0 });
+      }
       geolocate.on("geolocate", (position) => {
         void rememberLocationApproval().catch(() => undefined);
         if (!geoPdfOverlay || cancelled) return;
@@ -1036,6 +1061,7 @@ export default function CommandCenterPage() {
               mapErrorRef.current = remainingError;
               setMapError(remainingError);
             }
+            updateTelemetry(map);
             setMapReady(true);
             setAppliedCount(activeGeoJsonRef.current.features.length);
           },
@@ -1109,7 +1135,11 @@ export default function CommandCenterPage() {
             setRoutingPickMode(null);
             return;
           }
-          if (!measuringRef.current) return;
+          if (!measuringRef.current) {
+            // Altitude uses the visible center; a tap selects that point without recording a GPS trail.
+            if (sidePanelRef.current === 'altitude-offline') map.panTo(e.lngLat, { duration: 0 });
+            return;
+          }
           const newPoint: MeasurePoint = {
             lng: e.lngLat.lng,
             lat: e.lngLat.lat,
@@ -1358,7 +1388,7 @@ export default function CommandCenterPage() {
         data-testid="map-canvas"
       />
 
-      <OfflineSearch key={`search:${activeRegionPackageId ?? 'none'}:${regionalRenderRevision}`} open={sidePanel === "busca-offline"} onClose={() => setSidePanel("none")} records={combinedSearchRecords} regionalCount={regionalSearchRecords.length} warning={regionalSearchError} onChoose={(place) => {
+      <OfflineSearch key={`search:${activeRegionPackageId ?? 'none'}:${regionalRenderRevision}`} open={sidePanel === "busca-offline"} onClose={() => setSidePanel("none")} records={combinedSearchRecords} regionalCount={regionalSearchRecords.length} mapRecordCount={visibleMapSearchRecords.length} warning={regionalSearchError} onChoose={(place) => {
         const map = mapRef.current;
         if (map) map.flyTo({ center: [place.lon, place.lat], zoom: Math.max(15, map.getZoom()) });
       }} />
@@ -1368,7 +1398,7 @@ export default function CommandCenterPage() {
         if (map) map.flyTo({ center: [lon, lat], zoom: Math.max(15, map.getZoom()) });
       }} />
 
-      <OfflineElevation key={`elevation:${activeRegionPackageId ?? 'none'}:${regionalRenderRevision}`} open={sidePanel === "altitude-offline"} onClose={() => setSidePanel("none")} packageId={activeRegionPackageId} route={plannedRoute} />
+      <OfflineElevation key={`elevation:${activeRegionPackageId ?? 'none'}:${regionalRenderRevision}`} open={sidePanel === "altitude-offline"} onClose={() => setSidePanel("none")} packageId={activeRegionPackageId} route={plannedRoute} center={elevationCenter} viewportBounds={elevationBounds} profileGeometry={elevationGeometry} />
 
       <OfflineRouting key={`routing:${activeRegionPackageId ?? 'none'}:${regionalRenderRevision}`} packageId={activeRegionPackageId}
         open={sidePanel === "navegacao-offline"} onClose={() => setSidePanel("none")}
@@ -1437,7 +1467,7 @@ export default function CommandCenterPage() {
         <ToolBtn active={sidePanel === "lugares-offline"}
           onClick={() => togglePanel("lugares-offline")} icon="map" label="Lugares e transporte offline" color="blue" />
         <ToolBtn active={sidePanel === "altitude-offline"}
-          onClick={() => togglePanel("altitude-offline")} icon="analytics" label="Altitude offline" color="emerald" />
+          onClick={() => togglePanel("altitude-offline")} icon="analytics" label="Altitude" color="emerald" />
         <ToolBtn active={sidePanel === "navegacao-offline"}
           onClick={() => togglePanel("navegacao-offline")} icon="coordinates" label="Navegação GPS offline" color="amber" />
         {/* Separador */}

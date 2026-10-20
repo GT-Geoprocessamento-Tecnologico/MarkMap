@@ -21,6 +21,21 @@ export interface RegionalDemGrid {
   values: number[];
 }
 
+export interface DemSampleGrid {
+  values: number[];
+  metadata: {
+    width: number;
+    height: number;
+    bounds: [number, number, number, number];
+    noDataValue?: number;
+    resolutionMeters: number;
+    verticalDatum: string;
+    attribution: string;
+    license: string;
+    sourceUrl: string;
+  };
+}
+
 export interface RegionalElevationSample {
   distanceMeters: number;
   elevationMeters: number | null;
@@ -37,7 +52,7 @@ export interface RegionalElevationProfile {
 }
 
 export function validateRegionalDem(value: unknown, regionId: string, expectedBounds?: number[]): RegionalDemGrid;
-export function sampleRegionalDem(grid: RegionalDemGrid, lon: number, lat: number): number | null;
+export function sampleRegionalDem(grid: RegionalDemGrid | DemSampleGrid, lon: number, lat: number): number | null;
 export function computeRegionalElevationProfile(
-  geometry: Array<[number, number]>, grid: RegionalDemGrid, maxSamples?: number,
+  geometry: Array<[number, number]>, grid: RegionalDemGrid | DemSampleGrid, maxSamples?: number,
 ): RegionalElevationProfile | null;

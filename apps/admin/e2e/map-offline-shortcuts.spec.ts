@@ -4,7 +4,7 @@ import { expect, test } from "@playwright/test";
 const offlineTools = [
   "Buscar locais neste mapa",
   "Lugares e transporte offline",
-  "Altitude offline",
+  "Altitude",
   "Navegação GPS offline",
 ] as const;
 

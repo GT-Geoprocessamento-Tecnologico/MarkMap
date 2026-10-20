@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { MapOfflinePanel } from './MapOfflinePanel';
-import type { WikipediaArticle, TransitNetwork } from '@geonexo/contracts';
+import type { WikipediaArticle, TransitNetwork, OfflineMapPackageManifest } from '@geonexo/contracts';
 import { offlineMapStore } from '../../lib/storage/offline-map-store';
 import { validateRegionalWikipedia, validateRegionalTransit, MAX_TRANSIT_BYTES, MAX_WIKIPEDIA_BYTES } from '@geonexo/maps/content/region-content.mjs';
 
 type Station = TransitNetwork['stations'][number];
 type ContentState = { articles: WikipediaArticle[]; stations: Station[]; attribution: string[] };
 const empty: ContentState = { articles: [], stations: [], attribution: [] };
+export function hasOfflineKnowledge(manifest: Pick<OfflineMapPackageManifest, 'wikipediaPack' | 'transitPack'>): boolean {
+  return Boolean(manifest.wikipediaPack || manifest.transitPack);
+}
 
 const KNOWN_CONTENT_ERRORS = new Set([
   'Dados locais ausentes ou incompletos. Reinstale a região.',
@@ -44,11 +47,13 @@ export function OfflineKnowledge({ packageId, open, onClose, onStation, onTransi
   const [data, setData] = useState<ContentState>(empty);
   const [error, setError] = useState('');
   const [selectedArticle, setSelectedArticle] = useState<WikipediaArticle | null>(null);
+  const [contentAvailable, setContentAvailable] = useState(false);
   useEffect(() => {
     let current = true;
     setData(empty);
     setSelectedArticle(null);
     setError('');
+    setContentAvailable(false);
     onTransit(null);
     if (!packageId) return () => { current = false; };
     void (async () => {
@@ -56,6 +61,11 @@ export function OfflineKnowledge({ packageId, open, onClose, onStation, onTransi
         const installed = await offlineMapStore.getActiveRevision(packageId);
         if (!installed) return;
         const m = installed.manifest;
+        if (!hasOfflineKnowledge(m)) {
+          if (current) setError('Este mapa não inclui artigos ou transporte local. Instale uma região com conteúdo opcional.');
+          return;
+        }
+        setContentAvailable(true);
         const next: ContentState = { articles: [], stations: [], attribution: [] };
         let verifiedTransit: TransitNetwork | null = null;
         if (m.wikipediaPack) {
@@ -90,7 +100,7 @@ export function OfflineKnowledge({ packageId, open, onClose, onStation, onTransi
     <div className="space-y-2 text-sm">
       <p className="text-xs text-on-surface-variant">{data.articles.length} artigos · {data.stations.length} estações instaladas neste mapa.</p>
       {error && <p role="alert" className="text-xs text-red-500">{error}</p>}
-      <input type="search" value={query} onChange={e => { setQuery(e.target.value); setSelectedArticle(null); }} placeholder="Buscar artigo ou estação" aria-label="Buscar conteúdo regional offline" className="w-full rounded-lg border bg-background px-3 py-2" />
+      <input type="search" value={query} disabled={!contentAvailable} onChange={e => { setQuery(e.target.value); setSelectedArticle(null); }} placeholder="Buscar artigo ou estação" aria-label="Buscar conteúdo regional offline" className="w-full rounded-lg border bg-background px-3 py-2 disabled:opacity-50" />
       {matches.articles.map(a => <button type="button" key={`a-${a.id}`} onClick={() => setSelectedArticle(a)} className="block min-h-[40px] w-full rounded-lg px-2 py-2 text-left hover:bg-primary/10">{a.title} <span className="text-xs">({a.language})</span></button>)}
       {matches.stations.map(s => <button type="button" key={`s-${s.id}`} onClick={() => onStation(s.lon, s.lat)} className="block min-h-[40px] w-full rounded-lg px-2 py-2 text-left hover:bg-primary/10">Estação: {s.name}</button>)}
       {selectedArticle && <article className="rounded-lg bg-primary/10 p-2">

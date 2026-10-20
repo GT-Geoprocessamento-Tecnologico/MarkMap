@@ -87,7 +87,7 @@ export default function ProjectPage() {
           <Link to="/imports">
             <Button variant="primary">Importar dados</Button>
           </Link>
-          <Link to="/workspace">
+          <Link to="/projects/$projectId/map" params={{ projectId }}>
             <Button variant="secondary">Abrir mapa</Button>
           </Link>
         </div>

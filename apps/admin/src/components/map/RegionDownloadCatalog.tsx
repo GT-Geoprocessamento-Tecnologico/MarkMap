@@ -49,6 +49,7 @@ export function RegionDownloadCatalog({
   const autoAttempted = useRef(new Set<string>());
   const [loading, setLoading] = useState(true);
   const [catalogError, setCatalogError] = useState("");
+  const [locationIndexError, setLocationIndexError] = useState(false);
   const [revision, setRevision] = useState(0);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [stage, setStage] = useState<InstallerStatus | "checking">("checking");
@@ -74,18 +75,56 @@ export function RegionDownloadCatalog({
   }, [refreshInstalled]);
   useEffect(() => {
     const controller = new AbortController();
+    let catalogTimer: number | undefined;
+    let catalogTimedOut = false;
+    let locationController: AbortController | null = null;
+    let locationTimer: number | undefined;
     setLoading(true);
     setCatalogError("");
+    setLocationIndexError(false);
+    catalogTimer = window.setTimeout(() => {
+      catalogTimedOut = true;
+      controller.abort();
+    }, 15000);
     void fetchPublicRegionCatalog(controller.signal).then(async nextRegions => {
+      if (controller.signal.aborted) return;
       setRegions(nextRegions);
-      try { setLocations(await fetchRegionLocationIndex(nextRegions, controller.signal)); }
-      catch { setLocations([]); }
+      setLoading(false);
+      if (catalogTimer !== undefined) {
+        window.clearTimeout(catalogTimer);
+        catalogTimer = undefined;
+      }
+      const locationRequestController = new AbortController();
+      locationController = locationRequestController;
+      const abortLocation = () => locationRequestController.abort();
+      controller.signal.addEventListener("abort", abortLocation, { once: true });
+      locationTimer = window.setTimeout(() => locationRequestController.abort(), 5000);
+      try { setLocations(await fetchRegionLocationIndex(nextRegions, locationRequestController.signal)); }
+      catch {
+        if (!controller.signal.aborted) {
+          setLocations([]);
+          setLocationIndexError(true);
+        }
+      } finally {
+        if (locationTimer !== undefined) window.clearTimeout(locationTimer);
+        controller.signal.removeEventListener("abort", abortLocation);
+      }
     }).catch(() => {
-      if (!controller.signal.aborted) setCatalogError(
-        "Não foi possível consultar novos mapas. Seus mapas baixados continuam disponíveis.",
+      if (!controller.signal.aborted || catalogTimedOut) setCatalogError(
+        catalogTimedOut
+          ? "A consulta de novos mapas demorou mais que o esperado. Tente novamente; seus mapas baixados continuam disponíveis."
+          : "Não foi possível consultar novos mapas. Seus mapas baixados continuam disponíveis.",
       );
-    }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
-    return () => controller.abort();
+    }).finally(() => {
+      if (catalogTimer !== undefined) window.clearTimeout(catalogTimer);
+      if (!controller.signal.aborted || catalogTimedOut) setLoading(false);
+    });
+    return () => {
+      controller.abort();
+      locationController?.abort();
+      if (catalogTimer !== undefined) window.clearTimeout(catalogTimer);
+      if (locationTimer !== undefined) window.clearTimeout(locationTimer);
+    };
   }, [revision]);
   useEffect(() => { onBusyChange?.(busyId !== null); }, [busyId, onBusyChange]);
   useEffect(() => {
@@ -286,14 +325,17 @@ export function RegionDownloadCatalog({
     return located.filter((region) =>
       normalizeRegionSearch(`${region.label} ${region.area}`).includes(term),
     ).sort((a, b) =>
+      Number(installed.some(item => item.id === a.id)) - Number(installed.some(item => item.id === b.id)) ||
       Number(regionCoversPoint(b, devicePoint ?? mapCenter)) -
         Number(regionCoversPoint(a, devicePoint ?? mapCenter)) ||
       a.label.localeCompare(b.label, "pt-BR"),
     );
-  }, [devicePoint, locationKind, locations, mapCenter, regions, search, stateCode]);
+  }, [devicePoint, installed, locationKind, locations, mapCenter, regions, search, stateCode]);
   const locationStates = useMemo(() => [...new Map(locations.map(item => [item.stateCode, item.stateName]))]
     .sort(([, first], [, second]) => first.localeCompare(second, "pt-BR")), [locations]);
   const selectedRegions = regions.filter(region => selectedIds.has(region.id) && !installed.some(item => item.id === region.id));
+  const availableCount = regions.filter(region => !installed.some(item => item.id === region.id)).length;
+  const hasFilters = search.trim() !== "" || stateCode !== "" || locationKind !== "all";
 
   return <div className="min-w-0 space-y-4 text-on-surface">
     <div>
@@ -342,6 +384,11 @@ export function RegionDownloadCatalog({
     <input type="search" value={search} onChange={(event) => setSearch(event.target.value)}
       placeholder="Buscar cidade, estado ou região" aria-label="Buscar mapas disponíveis"
       className="min-h-[44px] w-full rounded-xl border border-outline-variant bg-background px-3 text-sm text-on-surface placeholder:text-on-surface-variant" />
+    {!loading && !catalogError && <div role="status" className="flex flex-wrap items-center justify-between gap-2 text-xs text-on-surface-variant">
+      <span>{availableCount} mapa(s) disponível(is) para baixar · {installed.length} no aparelho</span>
+      {hasFilters && <button type="button" onClick={() => { setSearch(""); setStateCode(""); setLocationKind("all"); }}
+        className="min-h-[36px] rounded-lg border border-outline-variant px-2 font-semibold text-on-surface">Limpar filtros</button>}
+    </div>}
     {locations.length > 0 && <div className="grid gap-2 sm:grid-cols-2">
       <label className="text-xs text-on-surface-variant">Estado
         <select value={stateCode} onChange={event => setStateCode(event.target.value)}
@@ -382,13 +429,19 @@ export function RegionDownloadCatalog({
       <button type="button" onClick={() => setRevision(value => value + 1)}
         className="min-h-[44px] rounded-lg border border-outline-variant px-3 text-on-surface">Tentar novamente</button>
     </div>}
+    {locationIndexError && !catalogError && <p role="status" className="text-xs text-on-surface-variant">
+      Os filtros de estado e cidade estão temporariamente indisponíveis. A lista geral de mapas continua disponível.
+    </p>}
     {!loading && !catalogError && matches.length === 0 &&
       <p role="status" className="rounded-xl border border-dashed border-outline-variant bg-surface-container-high p-4 text-sm text-on-surface-variant">
         {regions.length === 0
           ? "Ainda não há mapas regionais publicados para download. Os mapas aparecerão aqui quando estiverem disponíveis."
           : "Não encontramos uma região com esse nome."}
       </p>}
-    <ul className="space-y-2">
+    {!loading && !catalogError && matches.length > 6 && <p className="text-xs text-on-surface-variant">
+      Role dentro da lista para ver todos os {matches.length} mapas.
+    </p>}
+    <ul className="max-h-[min(60vh,42rem)] space-y-2 overflow-y-auto pr-1">
       {matches.map((region) => {
         const saved = installed.some(item => item.id === region.id);
         const active = selectedId === region.id;

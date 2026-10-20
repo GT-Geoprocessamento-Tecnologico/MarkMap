@@ -43,8 +43,8 @@ function validateGeography(geography) {
 const geography = JSON.parse(await readFile(geographyPath, 'utf8'));
 validateGeography(geography);
 const targets = geography.entries.flatMap(entry => [
-  { id: `br-uf-${entry.uf.toLowerCase()}`, kind: 'state', label: `${entry.stateName} — mapa offline`, area: `${entry.stateName} — visão estadual, sem nomes ou rotas`, bounds: entry.stateBounds, maxZoom: 9, sourceUrl: entry.stateSource, entry },
-  { id: `br-city-${entry.cityIbge}`, kind: 'city', label: `${entry.cityName} — mapa offline`, area: `${entry.cityName}, ${entry.stateName} — área municipal, sem nomes ou rotas`, bounds: entry.cityBounds, maxZoom: 12, sourceUrl: entry.citySource, entry },
+  { id: `br-uf-${entry.uf.toLowerCase()}`, kind: 'state', label: `${entry.stateName} — mapa offline`, area: `${entry.stateName} — visão estadual, sem rótulos ou rotas`, bounds: entry.stateBounds, maxZoom: 9, sourceUrl: entry.stateSource, entry },
+  { id: `br-city-${entry.cityIbge}`, kind: 'city', label: `${entry.cityName} — mapa offline`, area: `${entry.cityName}, ${entry.stateName} — área municipal, sem rótulos ou rotas`, bounds: entry.cityBounds, maxZoom: 12, sourceUrl: entry.citySource, entry },
 ]);
 
 async function sha256(path) { const hash = createHash('sha256'); hash.update(await readFile(path)); return hash.digest('hex'); }

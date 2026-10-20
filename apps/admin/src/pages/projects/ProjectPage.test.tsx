@@ -8,7 +8,9 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@tanstack/react-router", () => ({
-  Link: ({ children, ...props }: { children: React.ReactNode; [key: string]: unknown }) => <a {...props}>{children}</a>,
+  Link: ({ children, to, params, ...props }: { children: React.ReactNode; to: string; params?: { projectId?: string }; [key: string]: unknown }) => (
+    <a href={params?.projectId ? to.replace("$projectId", params.projectId) : to} {...props}>{children}</a>
+  ),
   useParams: () => ({ projectId: "project-1" }),
 }));
 vi.mock("@geonexo/ui", () => ({
@@ -54,6 +56,7 @@ describe("ProjectPage local layers", () => {
     expect(screen.getByRole("list", { name: "Camadas locais do projeto" })).toHaveTextContent("Pontos");
     expect(screen.getByText("Resumo parcial: até 100 camadas deste projeto.", { exact: true })).toBeInTheDocument();
     expect(screen.queryByText(/Ainda não há camadas/)).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Abrir mapa" })).toHaveAttribute("href", "/projects/project-1/map");
   });
 
   it("shows the empty message only after a successful empty response", () => {

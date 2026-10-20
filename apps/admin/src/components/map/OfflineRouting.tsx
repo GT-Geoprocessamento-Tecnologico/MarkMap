@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { MapOfflinePanel } from './MapOfflinePanel';
-import type { Route, RoutingProfile } from '@geonexo/contracts';
+import type { Route, RoutingProfile, OfflineMapPackageManifest } from '@geonexo/contracts';
 import { generateTtsText, getDistanceText } from '@geonexo/maps/routing';
 import { ensureLocationPermission } from '../../lib/device-location-permission';
 import {
@@ -15,6 +15,9 @@ export interface NavigationMapPosition { lon: number; lat: number; accuracyM: nu
 const formatPoint = (point: Point | null) => point ? `${point[1].toFixed(5)}, ${point[0].toFixed(5)}` : 'Nao definido';
 const REROUTE_DELAY_MS = 30_000;
 const OFF_ROUTE_FIXES = 3;
+export function hasOfflineRouting(manifest: Pick<OfflineMapPackageManifest, 'routingGraph'>): boolean {
+  return Boolean(manifest.routingGraph);
+}
 
 type WorkerMessage =
   | { type: 'ready'; profiles: RoutingProfile[]; reason?: string }
@@ -355,10 +358,10 @@ export function OfflineRouting({ packageId, pickedPoint, onRequestPick, onRoute,
           </select>
         </label>
         <p className="text-xs">Origem: {formatPoint(origin)}</p>
-        <div className="flex flex-wrap gap-2"><button type="button" onClick={locate} className="min-h-[40px] rounded-lg border px-3" disabled={navigationActive.current}>Usar GPS</button>
-          <button type="button" onClick={() => onRequestPick('origin')} className="min-h-[40px] rounded-lg border px-3" disabled={navigationActive.current}>Origem no mapa</button></div>
+        <div className="flex flex-wrap gap-2"><button type="button" onClick={locate} className="min-h-[40px] rounded-lg border px-3" disabled={!profiles.length || navigationActive.current}>Usar GPS</button>
+          <button type="button" onClick={() => onRequestPick('origin')} className="min-h-[40px] rounded-lg border px-3" disabled={!profiles.length || navigationActive.current}>Origem no mapa</button></div>
         <p className="text-xs">Destino: {formatPoint(destination)}</p>
-        <button type="button" onClick={() => onRequestPick('destination')} className="min-h-[40px] rounded-lg border px-3" disabled={navigationActive.current}>Destino no mapa</button>
+        <button type="button" onClick={() => onRequestPick('destination')} className="min-h-[40px] rounded-lg border px-3" disabled={!profiles.length || navigationActive.current}>Destino no mapa</button>
         {busy && <p role="status" className="text-xs">{rerouting.current ? 'Recalculando localmente...' : 'Calculando rota no dispositivo...'}</p>}
         {route && <div className="rounded-lg bg-primary/10 p-2 space-y-2">
           <p className="font-semibold">{(route.distance / 1000).toFixed(2)} km - {Math.ceil(route.duration / 60)} min (planejado)</p>

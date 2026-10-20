@@ -139,6 +139,55 @@ describe("GPS region download UX", () => {
     fireEvent.click(screen.getByRole("button", { name: "Baixar selecionados" }));
     await waitFor(() => expect(mock.install).toHaveBeenCalledTimes(2));
   });
+
+  it("shows availability counts and puts uninstalled maps before installed maps", async () => {
+    const maps = ["Araguaína", "Palmas", "Belém", "Recife", "Curitiba"].map((label, index) => ({
+      ...region, id: `map-${index}`, label, area: "Brasil",
+    }));
+    mock.catalog.mockResolvedValue(maps);
+    mock.list.mockResolvedValue(maps.slice(2, 5).map(item => ({ manifest: { id: item.id, label: item.label } })));
+    const view = render(<RegionDownloadCatalog />);
+    await screen.findByText("Araguaína");
+    expect(screen.getByText("2 mapa(s) disponível(is) para baixar · 3 no aparelho")).toBeTruthy();
+    const firstList = view.container.querySelector("ul");
+    expect(firstList?.textContent?.indexOf("Araguaína")).toBeLessThan(firstList?.textContent?.indexOf("Belém") ?? -1);
+    expect(firstList?.textContent?.indexOf("Palmas")).toBeLessThan(firstList?.textContent?.indexOf("Curitiba") ?? -1);
+  });
+
+  it("clears search and location filters after a no-results state", async () => {
+    mock.catalog.mockResolvedValue([region]);
+    render(<RegionDownloadCatalog />);
+    await screen.findByText("Araguaína");
+    fireEvent.change(screen.getByRole("searchbox", { name: "Buscar mapas disponíveis" }), { target: { value: "inexistente" } });
+    await screen.findByText("Não encontramos uma região com esse nome.");
+    fireEvent.click(screen.getByRole("button", { name: "Limpar filtros" }));
+    await screen.findByText("Araguaína");
+  });
+
+  it("keeps the catalog usable when the location index is unavailable", async () => {
+    mock.catalog.mockResolvedValue([region]);
+    mock.locations.mockRejectedValue(new Error("index unavailable"));
+    render(<RegionDownloadCatalog />);
+    await screen.findByText("Araguaína");
+    await screen.findByText(/filtros de estado e cidade estão temporariamente indisponíveis/);
+    expect(screen.getByText("Araguaína")).toBeTruthy();
+  });
+
+  it("shows a retry after a stalled catalog request and recovers", async () => {
+    vi.useFakeTimers();
+    mock.catalog.mockImplementationOnce((_signal: AbortSignal) => new Promise((_resolve, reject) => {
+      _signal.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")), { once: true });
+    })).mockResolvedValueOnce([region]);
+    try {
+      render(<RegionDownloadCatalog />);
+      await vi.advanceTimersByTimeAsync(15000);
+      expect(screen.getByText(/A consulta de novos mapas demorou mais que o esperado/)).toBeTruthy();
+      fireEvent.click(screen.getByRole("button", { name: "Tentar novamente" }));
+      await vi.waitFor(() => expect(screen.getByText("Araguaína")).toBeTruthy());
+    } finally {
+      vi.useRealTimers();
+    }
+  });
   it("keeps the complete download count when selected maps are hidden by a filter", async () => {
     const second = { ...region, id: "sao-paulo", label: "São Paulo", area: "São Paulo" };
     mock.catalog.mockResolvedValue([region, second]);

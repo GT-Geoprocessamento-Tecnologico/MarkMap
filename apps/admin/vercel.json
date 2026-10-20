@@ -11,5 +11,20 @@
       "source": "/((?!assets/|icons/|fonts/|api/|manifest.json|sw.js|favicon.ico).*)",
       "destination": "/index.html"
     }
+  ],
+  "headers": [
+    {
+      "source": "/offline/:path*",
+      "headers": [
+        {
+          "value": "*",
+          "key": "Access-Control-Allow-Origin"
+        },
+        {
+          "value": "Content-Length, Content-Range, Accept-Ranges, ETag, Last-Modified",
+          "key": "Access-Control-Expose-Headers"
+        }
+      ]
+    }
   ]
 }
