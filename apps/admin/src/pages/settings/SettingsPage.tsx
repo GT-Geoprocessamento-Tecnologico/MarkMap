@@ -572,13 +572,13 @@ export default function SettingsPage() {
       <div className="rounded-2xl border border-outline-variant bg-surface-container p-5">
         <h2 className="text-lg font-semibold">Aplicativo no dispositivo</h2>
         <p className="mt-2 text-xs text-on-surface-variant" aria-label="Versão instalada do aplicativo">Versão {appCredits.version}</p>
-        <p className="my-3 text-sm text-on-surface-variant">
-          {installState.installed
-            ? "Aberto como aplicativo instalado."
-            : installState.available
+        {!installState.installed && (
+          <p className="my-3 text-sm text-on-surface-variant">
+            {installState.available
               ? "Pronto para instalar neste dispositivo."
               : "Adicione à tela inicial para abrir em uma janela própria."}
-        </p>
+          </p>
+        )}
         <button
           type="button"
           disabled={appUpdateBusy}

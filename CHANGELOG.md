@@ -2,6 +2,19 @@
 
 Fonte da versão do aplicativo: `apps/admin/package.json`. Todos os agentes seguem [a política de versionamento](docs/versioning.md). O [histórico documental anterior](docs/changelog.md) permanece preservado.
 
+## [0.3.2] - 2026-10-20
+
+### Alterações
+
+- Retira a frase “Aberto como aplicativo instalado.” de Configurações → Aplicativo no dispositivo, preservando a versão e o botão de atualizar.
+- Mantém as orientações e o botão de instalação quando o aplicativo é aberto no navegador.
+
+### Validação
+
+- Quatro testes existentes de configurações e quatro verificações de fronteira entre site e aplicativo aprovados; lint do componente sem erros, com um aviso preexistente de dependência de hook.
+- Revisão técnica independente confirmou a alteração pontual, sem mudanças nos handlers de instalação/atualização ou armazenamento.
+- TypeScript, build Vite e guardas de versão e artefatos aprovados. QA de navegador confirmou os estados instalado e não instalado em `0.3.2`, sem a frase, sem parágrafos vazios e com ações/orientações preservadas.
+
 ## [0.3.1] - 2026-10-20
 
 ### Alterações
