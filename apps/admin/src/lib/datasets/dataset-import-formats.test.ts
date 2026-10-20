@@ -98,14 +98,24 @@ describe('dataset imports from GPX and KML', () => {
       const normalized = JSON.parse(await blobText(normalizedGeoJSONBlob(dataset)));
       expect(normalized.features).toHaveLength(2);
 
-      const anchor = { click: vi.fn(), href: '', download: '' };
-      vi.spyOn(document, 'createElement').mockReturnValue(anchor as unknown as HTMLElement);
+      const anchor = document.createElement('a');
+      const click = vi.spyOn(anchor, 'click').mockImplementation(() => {
+        // WebKit must be able to consume a connected Blob link asynchronously.
+        expect(anchor.isConnected).toBe(true);
+      });
+      vi.spyOn(document, 'createElement').mockReturnValue(anchor);
       vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:dataset');
-      vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+      const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+      vi.useFakeTimers();
       await exportDataset(dataset.id);
       expect(anchor.download).toBe('area.kml');
-      expect(anchor.click).toHaveBeenCalledOnce();
+      expect(click).toHaveBeenCalledOnce();
+      expect(anchor.isConnected).toBe(false);
+      expect(revoke).not.toHaveBeenCalled();
+      vi.runOnlyPendingTimers();
+      expect(revoke).toHaveBeenCalledWith('blob:dataset');
     } finally {
+      vi.useRealTimers();
       vi.restoreAllMocks();
     }
   });

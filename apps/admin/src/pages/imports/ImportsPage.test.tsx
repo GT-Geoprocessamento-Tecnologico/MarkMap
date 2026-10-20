@@ -1,10 +1,12 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ImportsPage from './ImportsPage';
-import { parseDatasetFile, saveDataset } from '../../lib/datasets/dataset-store';
+import { exportDataset, exportDatasetGeoJSON, listDatasets, parseDatasetFile, saveDataset } from '../../lib/datasets/dataset-store';
+
+const { toast } = vi.hoisted(() => ({ toast: vi.fn() }));
 
 vi.mock('@geonexo/ui', () => ({
-  useToast: () => ({ toast: vi.fn() }),
+  useToast: () => ({ toast }),
 }));
 vi.mock('../../components/AppIcon', () => ({ AppIcon: () => <span aria-hidden="true" /> }));
 vi.mock('../../components/elevation/TrackElevationProfile', () => ({ TrackElevationProfile: () => null }));
@@ -34,7 +36,10 @@ function file(name: string, contents = '<kml/>') {
 }
 
 describe('ImportsPage mobile file selection', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(listDatasets).mockResolvedValue([]);
+  });
 
   it('leaves OS file filtering open and validates unsupported files through the parser', async () => {
     vi.mocked(parseDatasetFile).mockRejectedValueOnce(new Error('Formato não suportado.'));
@@ -54,5 +59,20 @@ describe('ImportsPage mobile file selection', () => {
     const input = screen.getByLabelText('Selecionar GeoJSON, GPX, KML, KMZ, PDF ou GLB');
     fireEvent.change(input, { target: { files: [file('route.kml')] } });
     await waitFor(() => expect(saveDataset).toHaveBeenCalledWith(validDataset));
+  });
+
+  it.each([
+    ['Exportar GeoJSON', exportDatasetGeoJSON],
+    ['Exportar arquivo original', exportDataset],
+  ] as const)('reports a failed %s without an unhandled rejection', async (label, exporter) => {
+    vi.mocked(listDatasets).mockResolvedValue([validDataset as never]);
+    vi.mocked(exporter).mockRejectedValueOnce(new Error('Armazenamento indisponível.'));
+    render(<ImportsPage />);
+    fireEvent.click(await screen.findByRole('button', { name: label }));
+    await waitFor(() => expect(toast).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Exportação não concluída',
+      description: 'Armazenamento indisponível.',
+      variant: 'error',
+    })));
   });
 });

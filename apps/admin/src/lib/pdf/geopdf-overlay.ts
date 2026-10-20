@@ -1,5 +1,4 @@
-import * as pdfjs from "pdfjs-dist";
-import workerUrl from "pdfjs-dist/build/pdf.worker.mjs?url";
+import { pdfjs } from "./pdf-runtime";
 import {
   inspectPdf,
   resolveIsoMeasure,
@@ -9,8 +8,6 @@ import {
 } from "@geonexo/geo/pdf";
 import { readBlobBytes } from "../blob-bytes";
 import { georeferencedRasterWindow } from "./geopdf-window";
-
-pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
 export type GeoPdfOverlay = {
   url: string;

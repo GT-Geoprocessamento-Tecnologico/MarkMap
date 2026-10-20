@@ -7,10 +7,11 @@
  *
  * Este módulo é o MM-MAP-100 da sequência Maps Engine v2 offline.
  *
- * Observação sobre Capacitor: a Storage Manager API (`navigator.storage`) está
- * disponível dentro do WebView do Capacitor, portanto o caminho nativo usa as
- * mesmas APIs web. A persistência (`navigator.storage.persist()`) é concedida
- * pelo sistema operacional em Android/iOS quando o app é usado com frequência.
+ * Observação sobre Capacitor: quando disponível, a Storage Manager API
+ * (`navigator.storage`) pode ser usada dentro do WebView do Capacitor, portanto
+ * o caminho nativo tenta as mesmas APIs web. Em versões anteriores ao Safari
+ * 17/iOS 17 essas APIs podem estar ausentes ou ter suporte parcial; a
+ * persistência é apenas uma otimização e nunca uma garantia contra evicção.
  */
 
 import { getStorageBreakdown, StorageBreakdown } from "./storage-management";
@@ -58,8 +59,9 @@ const categoryMap: Record<string, StorageCategory> = {
 /**
  * Obtém o perfil completo de storage do dispositivo.
  *
- * Usa `navigator.storage.estimate()` e a Storage Manager API, disponíveis
- * tanto em Web/PWA quanto dentro do WebView do Capacitor.
+ * Tenta `navigator.storage.estimate()` e a Storage Manager API quando
+ * disponíveis em Web/PWA ou dentro do WebView do Capacitor. Fallbacks mantêm
+ * o perfil utilizável quando o navegador não expõe essas APIs.
  *
  * @returns DeviceStorageProfile preenchido com dados reais
  */
@@ -204,8 +206,9 @@ export function formatBytes(bytes: number): string {
 /**
  * Verifica se o usuário tem permission persistente para storage.
  *
- * Usa a Storage Manager API (`navigator.storage.persisted()`), que funciona
- * em Web/PWA e dentro do WebView do Capacitor.
+ * Usa a Storage Manager API (`navigator.storage.persisted()`) quando exposta;
+ * Safari/iOS anterior ao suporte completo pode retornar `false` por ausência
+ * ou indisponibilidade da API.
  */
 export async function isPersistentStorageGranted(): Promise<boolean> {
   if (typeof navigator !== "undefined" && navigator.storage?.persisted) {
@@ -220,7 +223,7 @@ export async function isPersistentStorageGranted(): Promise<boolean> {
 }
 
 /**
- * Solicita persistência de storage ao navegador/SO.
+ * Solicita persistência de storage ao navegador/SO quando essa API existe.
  *
  * @returns True se a persistência foi concedida
  */

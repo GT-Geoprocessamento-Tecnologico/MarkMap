@@ -9,12 +9,11 @@ initializePwaInstall();
 // Registra o Service Worker cedo para que a instalação PWA possa ficar elegível
 // na primeira navegação de produção.
 if ("serviceWorker" in navigator && import.meta.env.PROD) {
-  void navigator.serviceWorker.register("/sw.js").then(
-    (registration) => registration.update(),
-    (err) => {
-      console.warn("Falha no registro do PWA ServiceWorker:", err);
-    },
-  );
+  void navigator.serviceWorker.register("/sw.js")
+    .then((registration) => registration?.update())
+    .catch((err) => {
+      console.warn("Não foi possível registrar ou verificar a atualização do aplicativo:", err);
+    });
 }
 
 const container = document.getElementById("root");

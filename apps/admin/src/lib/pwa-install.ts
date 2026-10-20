@@ -26,13 +26,26 @@ export function isPwaStandalone(): boolean {
   );
 }
 
-function detectIosSafari(): boolean {
+/**
+ * Detect the Safari install flow without treating desktop Safari as iPadOS.
+ * iPadOS desktop browsing deliberately sends a macOS-like user agent, so the
+ * touch-capable MacIntel combination is the only additional iPad signal used.
+ */
+export function detectIosSafari(): boolean {
   if (typeof navigator === "undefined") return false;
   const userAgent = navigator.userAgent;
+  const navigatorWithTouch = navigator as Navigator & {
+    maxTouchPoints?: number;
+  };
+  const classicIos = /iPad|iPhone|iPod/.test(userAgent);
+  const desktopModeIpad =
+    navigator.platform === "MacIntel" &&
+    (navigatorWithTouch.maxTouchPoints ?? 0) > 1;
   return (
-    /iPad|iPhone|iPod/.test(userAgent) &&
+    (classicIos || desktopModeIpad) &&
     /WebKit/.test(userAgent) &&
-    !/CriOS|FxiOS|EdgiOS/.test(userAgent)
+    /Safari\//.test(userAgent) &&
+    !/CriOS|FxiOS|EdgiOS|OPiOS|GSA\//.test(userAgent)
   );
 }
 

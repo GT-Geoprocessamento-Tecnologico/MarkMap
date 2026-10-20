@@ -5,6 +5,7 @@ type RequestLike<T> = IDBRequest<T>;
 
 function clone<T>(value: T): T {
   if (value instanceof Blob) return value;
+  if (value instanceof ArrayBuffer) return value.slice(0) as T;
   if (Array.isArray(value)) return value.map((item) => clone(item)) as T;
   if (value && typeof value === "object")
     return Object.fromEntries(

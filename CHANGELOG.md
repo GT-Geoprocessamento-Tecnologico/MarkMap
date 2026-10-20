@@ -2,6 +2,24 @@
 
 Fonte da versão do aplicativo: `apps/admin/package.json`. Todos os agentes seguem [a política de versionamento](docs/versioning.md). O [histórico documental anterior](docs/changelog.md) permanece preservado.
 
+## [0.4.3] - 2026-10-20
+
+### Alterações
+
+- Usa o runtime legado do PDF.js já instalado com worker correspondente e compatibilidade para a API de promises ausente no Safari do iPhone X; mantém a validação e o posicionamento do GeoPDF.
+- Corrige a falha de gravação de PDF do WebKit armazenando os bytes já validados; continua lendo os arquivos antigos sem migração do banco e preserva hash, nome e conteúdo original.
+- Reconhece Safari no iPadOS em modo desktop para mostrar as instruções de instalação corretas.
+- Acrescenta leitura de tiles de altitude por imagem/canvas quando ImageBitmap não estiver disponível ou falhar, com validação e liberação dos recursos.
+- Mantém as URLs de exportação disponíveis durante o processamento do download pelo Safari e trata erros de exportação sem rejeições não capturadas; preserva nomes e conteúdo dos arquivos.
+- Trata também falhas ao verificar a atualização do service worker sem interromper a inicialização.
+- Documenta o alvo iPhone X com iOS 16.7 e posteriores e distingue testes WebKit de validação física; não altera identidade instalada, schemas ou pisos de compatibilidade de dados.
+
+### Validação
+
+- Auditoria independente de PDF, importação, mapas, instalação e armazenamento realizada sobre a versão `0.4.2`. Uma regressão de exportação reproduziu a falha do link desconectado antes da correção e passou depois dela.
+- 284 testes da aplicação aprovados, TypeScript/build/guardas aprovados e lint sem erros, com cinco avisos anteriores. Revisão técnica independente aprovou as correções e a leitura dos registros PDF legados.
+- WebKit e Chrome renderizaram o PDF sintético com worker real, inclusive com APIs recentes removidas da página e do worker; o GeoPDF foi aplicado sobre o mapa e reaberto a partir do armazenamento local. Importação GeoJSON/KML/KMZ/GPX, exportação de original/GeoJSON, GLB e altitude com tile sintético foram exercitados em viewport iPhone X. Validação em aparelho iOS físico permanece separada.
+
 ## [0.4.2] - 2026-10-20
 
 ### Alterações

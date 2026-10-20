@@ -23,6 +23,19 @@ import { readBlobBytes } from "../blob-bytes";
 
 type BootstrapIdentity = { installationId: string; bootstrapProof: string };
 
+// Older installations stored Blob directly. New records use the bytes already
+// validated below, avoiding WebKit's Blob preparation failure without a migration.
+type StoredOriginal = Omit<OriginalRecord, 'blob'> & { blob?: Blob; originalBytes?: ArrayBuffer };
+
+function restoreOriginal(record: StoredOriginal): OriginalRecord {
+  const { originalBytes, ...metadata } = record;
+  const blob = record.blob instanceof Blob ? record.blob
+    : originalBytes instanceof ArrayBuffer ? new Blob([originalBytes], { type: record.mediaType }) : null;
+  if (!blob || blob.size !== record.bytes || blob.size < 1 || blob.size > 25 * 1024 * 1024)
+    throw new Error('Os bytes do PDF original não estão disponíveis ou estão incompletos.');
+  return { ...metadata, blob };
+}
+
 const now = () => new Date().toISOString();
 
 function read<T>(request: IDBRequest<T>): Promise<T> {
@@ -593,19 +606,20 @@ export class LocalRepository {
   async saveOriginal(
     input: Omit<OriginalRecord, "key" | "workspaceId" | "createdAt">,
   ): Promise<void> {
+    const { blob, ...metadata } = input;
     if (input.mediaType !== "application/pdf")
       throw new Error("O original local deve ser um PDF.");
     if (
-      !(input.blob instanceof Blob) ||
-      input.blob.size < 1 ||
-      input.blob.size > 25 * 1024 * 1024
+      !(blob instanceof Blob) ||
+      blob.size < 1 ||
+      blob.size > 25 * 1024 * 1024
     )
       throw new Error("O PDF original excede o limite de 25 MiB ou está vazio.");
-    if (input.bytes !== input.blob.size)
+    if (input.bytes !== blob.size)
       throw new Error("O tamanho declarado do PDF não corresponde ao Blob.");
     if (!/^[a-f0-9]{64}$/i.test(input.sha256))
       throw new Error("SHA-256 inválido.");
-    const bytes = await readBlobBytes(input.blob);
+    const bytes = await readBlobBytes(blob);
     const digest = await crypto.subtle.digest(
       "SHA-256",
       new Uint8Array(bytes),
@@ -616,14 +630,15 @@ export class LocalRepository {
     if (actualHash.toLowerCase() !== input.sha256.toLowerCase())
       throw new Error("SHA-256 do PDF original não confere.");
     const workspaceId = await this.workspaceId();
-    const record: OriginalRecord = {
-      ...input,
+    const record: StoredOriginal = {
+      ...metadata,
+      originalBytes: bytes,
       key: originalKey(workspaceId, input.blobId),
       workspaceId,
       createdAt: now(),
     };
     await this.db.transact(["originals"], "readwrite", async (tx) => {
-      const current = await read<OriginalRecord | undefined>(
+      const current = await read<StoredOriginal | undefined>(
         tx.store("originals").get(record.key),
       );
       if (current) {
@@ -646,20 +661,22 @@ export class LocalRepository {
     workspaceId?: string,
   ): Promise<OriginalRecord | null> {
     workspaceId ??= await this.workspaceId();
-    return this.db.transact(["originals"], "readonly", (tx) =>
-      read(
+    const record = await this.db.transact(["originals"], "readonly", (tx) =>
+      read<StoredOriginal | undefined>(
         tx.store("originals").get(originalKey(workspaceId as string, blobId)),
       ),
     );
+    return record ? restoreOriginal(record) : null;
   }
 
   async listOriginals(workspaceId?: string): Promise<OriginalRecord[]> {
     workspaceId ??= await this.workspaceId();
-    return this.db.transact(["originals"], "readonly", (tx) =>
-      read<OriginalRecord[]>(
+    const records = await this.db.transact(["originals"], "readonly", (tx) =>
+      read<StoredOriginal[]>(
         tx.store("originals").index("workspace").getAll(workspaceId),
       ),
     );
+    return records.map(restoreOriginal);
   }
 
   async saveConflict(conflict: SyncConflict): Promise<void> {

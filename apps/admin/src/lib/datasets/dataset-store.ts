@@ -10,6 +10,7 @@ import {
   extractKmzKml,
 } from "@geonexo/geo";
 import { offlineDB } from "../storage/offline-db";
+import { downloadBlob } from "../file-download";
 
 export const MAX_DATASET_BYTES = 25 * 1024 * 1024;
 export const MAX_DATASET_FEATURES = 10_000;
@@ -242,15 +243,7 @@ export async function exportDatasetGeoJSON(id: string): Promise<void> {
   const dataset = await getDataset(id);
   if (!dataset) throw new Error('Dataset não encontrado.');
   const blob = normalizedGeoJSONBlob(dataset);
-  const url = URL.createObjectURL(blob);
-  try {
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = dataset.name.replace(/\.[^.]+$/, '') + '.geojson';
-    anchor.click();
-  } finally {
-    URL.revokeObjectURL(url);
-  }
+  downloadBlob(blob, dataset.name.replace(/\.[^.]+$/, '') + '.geojson');
 }
 
 export async function saveDataset(dataset: DatasetRecord): Promise<void> {
@@ -289,11 +282,5 @@ export async function removeDataset(id: string): Promise<void> {
 export async function exportDataset(id: string): Promise<void> {
   const dataset = await getDataset(id);
   if (!dataset) throw new Error("Dataset não encontrado.");
-  const blob = dataset.originalBlob;
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = dataset.name;
-  anchor.click();
-  URL.revokeObjectURL(url);
+  downloadBlob(dataset.originalBlob, dataset.name);
 }

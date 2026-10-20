@@ -5,8 +5,7 @@ import {
   useState,
   type MouseEvent as ReactMouseEvent,
 } from "react";
-import * as pdfjs from "pdfjs-dist";
-import workerUrl from "pdfjs-dist/build/pdf.worker.mjs?url";
+import { pdfjs } from "./pdf-runtime";
 import { geoReferenceSchema, type GeoReference } from "@geonexo/contracts";
 import {
   autoCalibrateFromText,
@@ -25,8 +24,6 @@ import {
 } from "../local-repositories";
 import { resolveEmbeddedGeoReference } from "./geopdf-overlay";
 import { fitPdfToViewport } from "./pdf-fit";
-
-pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
 export const PDF_MAX_BYTES = 25 * 1024 * 1024;
 export const PDF_MAX_PAGES = 100;

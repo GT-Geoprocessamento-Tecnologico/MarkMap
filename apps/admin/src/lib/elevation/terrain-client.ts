@@ -37,6 +37,7 @@ const LICENSE = 'Open data; attribution requirements vary by source provider. Se
 const VERTICAL_DATUM = 'Referência vertical varia conforme a fonte; consulte a atribuição.';
 const NO_DATA = -32768;
 const tileMemory = new Map<string, DecodedTile>();
+const IMAGE_DECODE_TIMEOUT_MS = 15_000;
 
 type DecodedTile = { z: number; x: number; y: number; rgba: Uint8ClampedArray };
 
@@ -119,8 +120,8 @@ async function readResponse(response: Response, signal: AbortSignal): Promise<Bl
   return new Blob([bytes], { type: response.headers.get('content-type') ?? 'image/png' });
 }
 
-async function decodePng(blob: Blob): Promise<Uint8ClampedArray> {
-  if (typeof createImageBitmap !== 'function') throw new Error('Decodificador de imagem indisponível.');
+async function decodePng(blob: Blob, signal?: AbortSignal): Promise<Uint8ClampedArray> {
+  throwIfAborted(signal);
   const header = new Uint8Array(await blob.slice(0, 32).arrayBuffer());
   if (header.length < 24 || header[0] !== 0x89 || header[1] !== 0x50 || header[2] !== 0x4e || header[3] !== 0x47 ||
       header[4] !== 0x0d || header[5] !== 0x0a || header[6] !== 0x1a || header[7] !== 0x0a ||
@@ -128,18 +129,67 @@ async function decodePng(blob: Blob): Promise<Uint8ClampedArray> {
       new DataView(header.buffer).getUint32(16) !== TILE_SIZE || new DataView(header.buffer).getUint32(20) !== TILE_SIZE) {
     throw new Error('Cabeçalho PNG de terreno inválido.');
   }
-  const bitmap = await createImageBitmap(blob, { colorSpaceConversion: 'none', premultiplyAlpha: 'none' });
+  if (typeof createImageBitmap === 'function') {
+    try {
+      const bitmap = await createImageBitmap(blob, { colorSpaceConversion: 'none', premultiplyAlpha: 'none' });
+      try {
+        throwIfAborted(signal);
+        if (bitmap.width !== TILE_SIZE || bitmap.height !== TILE_SIZE) throw new Error('Dimensão PNG inválida.');
+        return pixelsFromBitmap(bitmap);
+      } finally { bitmap.close(); }
+    } catch (error) {
+      if (signal?.aborted) throw signal.reason ?? new DOMException('Abortado', 'AbortError');
+      if (error instanceof Error && error.message === 'Dimensão PNG inválida.') throw error;
+      // Older WebKit may expose ImageBitmap but reject decoding options or its
+      // 2D canvas; retry with the bounded DOM image path below.
+    }
+  }
+  return pixelsFromDomImage(blob, signal);
+}
+
+function pixelsFromBitmap(bitmap: ImageBitmap): Uint8ClampedArray {
+  const canvas = typeof OffscreenCanvas === 'function'
+    ? new OffscreenCanvas(TILE_SIZE, TILE_SIZE)
+    : typeof document !== 'undefined' ? document.createElement('canvas') : null;
+  if (!canvas) throw new Error('Canvas de terreno indisponível.');
+  canvas.width = TILE_SIZE; canvas.height = TILE_SIZE;
+  const context = canvas.getContext('2d', { willReadFrequently: true });
+  if (!context) throw new Error('Canvas de terreno indisponível.');
+  context.drawImage(bitmap, 0, 0);
+  return context.getImageData(0, 0, TILE_SIZE, TILE_SIZE).data;
+}
+
+async function pixelsFromDomImage(blob: Blob, signal?: AbortSignal): Promise<Uint8ClampedArray> {
+  if (typeof document === 'undefined' || typeof URL.createObjectURL !== 'function') throw new Error('Decodificador de imagem indisponível.');
+  throwIfAborted(signal);
+  const image = document.createElement('img');
+  const objectUrl = URL.createObjectURL(blob);
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
-    if (bitmap.width !== TILE_SIZE || bitmap.height !== TILE_SIZE) throw new Error('Dimensão PNG inválida.');
-    const canvas = typeof OffscreenCanvas === 'function' ? new OffscreenCanvas(TILE_SIZE, TILE_SIZE) : document.createElement('canvas');
+    await new Promise<void>((resolve, reject) => {
+      const fail = (message: string) => { cleanup(); reject(new Error(message)); };
+      const abort = () => { cleanup(); reject(signal?.reason ?? new DOMException('Abortado', 'AbortError')); };
+      const cleanup = () => { if (timer !== undefined) clearTimeout(timer); image.onload = null; image.onerror = null; signal?.removeEventListener('abort', abort); };
+      image.onload = () => { cleanup(); resolve(); };
+      image.onerror = () => fail('Não foi possível decodificar o tile de terreno.');
+      timer = setTimeout(() => fail('Tempo limite ao decodificar o tile de terreno.'), IMAGE_DECODE_TIMEOUT_MS);
+      if (signal?.aborted) { abort(); return; }
+      signal?.addEventListener('abort', abort, { once: true });
+      image.src = objectUrl;
+    });
+    throwIfAborted(signal);
+    if (image.naturalWidth !== TILE_SIZE || image.naturalHeight !== TILE_SIZE) throw new Error('Dimensão PNG inválida.');
+    const canvas = document.createElement('canvas');
     canvas.width = TILE_SIZE; canvas.height = TILE_SIZE;
     const context = canvas.getContext('2d', { willReadFrequently: true });
     if (!context) throw new Error('Canvas de terreno indisponível.');
-    context.drawImage(bitmap, 0, 0);
+    context.drawImage(image, 0, 0);
     return context.getImageData(0, 0, TILE_SIZE, TILE_SIZE).data;
-  } finally {
-    bitmap.close();
-  }
+  } finally { URL.revokeObjectURL(objectUrl); }
+}
+
+function throwIfAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) throw signal.reason ?? new DOMException('Abortado', 'AbortError');
 }
 
 function makeTimeoutSignal(parent: AbortSignal | undefined, timeoutMs = REQUEST_TIMEOUT_MS): { signal: AbortSignal; abort: (reason?: unknown) => void; dispose: () => void } {
@@ -158,7 +208,7 @@ async function fetchTile(z: number, x: number, y: number, parent?: AbortSignal):
   const timeout = makeTimeoutSignal(parent);
   try {
     const response = await fetch(tileUrl(z, x, y), { signal: timeout.signal, mode: 'cors', credentials: 'omit', redirect: 'error' });
-    const rgba = await decodePng(await readResponse(response, timeout.signal));
+    const rgba = await decodePng(await readResponse(response, timeout.signal), timeout.signal);
     if (timeout.signal.aborted) throw timeout.signal.reason ?? new DOMException('Abortado', 'AbortError');
     const tile = { z, x, y, rgba };
     tileMemory.set(key, tile);

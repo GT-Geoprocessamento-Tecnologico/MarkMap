@@ -109,6 +109,18 @@ export default function ImportsPage() {
       });
     }
   };
+  const handleExport = async (dataset: DatasetRecord, original = false) => {
+    try {
+      if (original) await exportDataset(dataset.id);
+      else await exportDatasetGeoJSON(dataset.id);
+    } catch (cause) {
+      toast({
+        title: "Exportação não concluída",
+        description: cause instanceof Error ? cause.message : "Não foi possível exportar o arquivo.",
+        variant: "error",
+      });
+    }
+  };
 
   return (
     <div className="flex h-full min-w-0 flex-col overflow-y-auto bg-background p-4 text-on-surface md:p-6">
@@ -232,7 +244,7 @@ export default function ImportsPage() {
                       </a>
                       <button
                         type="button"
-                        onClick={() => void exportDatasetGeoJSON(dataset.id)}
+                        onClick={() => void handleExport(dataset)}
                         title="Exportar GeoJSON"
                         aria-label="Exportar GeoJSON"
                         className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-outline-variant px-3 py-2 text-xs font-medium text-on-surface-variant lg:px-2"
@@ -246,7 +258,7 @@ export default function ImportsPage() {
                         Elevação
                       </button>
                       {dataset.format !== "GeoJSON" && (
-                        <button type="button" onClick={() => void exportDataset(dataset.id)}
+                        <button type="button" onClick={() => void handleExport(dataset, true)}
                           title="Exportar arquivo original" aria-label="Exportar arquivo original"
                           className="inline-flex min-h-[44px] items-center rounded-lg border border-outline-variant px-3 py-2 text-xs text-on-surface-variant">
                           Original
