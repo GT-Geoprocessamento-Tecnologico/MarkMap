@@ -1,5 +1,5 @@
 {
-  "name": "@geonexo/contracts",
+  "name": "@markmap/contracts",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -25,7 +25,7 @@
     "zod": "^3.23.0"
   },
   "devDependencies": {
-    "@geonexo/config": "workspace:*",
+    "@markmap/config": "workspace:*",
     "@types/node": "^20.14.0",
     "typescript": "^5.5.0",
     "vitest": "^4.1.11"
