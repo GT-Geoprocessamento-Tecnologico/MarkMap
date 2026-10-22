@@ -1,4 +1,4 @@
-import type { BBox } from '@markmap/geo';
+import type { BBox, MarkMapFeature } from '@markmap/geo';
 
 /**
  * Public types of @markmap/maps. Pages consume only these plus the factory
@@ -20,7 +20,7 @@ export type DrawChangeType = 'create' | 'update' | 'delete';
 /** Stable GeoJSON payload emitted for every draw change. */
 export interface DrawChangeEvent {
   type: DrawChangeType;
-  features: GeoNexoFeature[];
+  features: MarkMapFeature[];
   ids: string[];
 }
 
@@ -49,4 +49,6 @@ export interface FitBoundsOptions {
   maxZoom?: number;
 }
 
-export type { BBox, GeoNexoFeature };
+export type { BBox, MarkMapFeature };
+/** Compatibility alias for persisted callers using the pre-rebrand type name. */
+export type GeoNexoFeature = MarkMapFeature;

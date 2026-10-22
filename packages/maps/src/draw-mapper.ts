@@ -63,7 +63,7 @@ export function snapshotToFeatures(snapshot: unknown): MarkMapFeature[] {
   if (!Array.isArray(snapshot)) {
     return [];
   }
-  const out: GeoNexoFeature[] = [];
+  const out: MarkMapFeature[] = [];
   for (const item of snapshot) {
     const feature = toGeoNexoFeature(item);
     if (feature !== null) {

@@ -1,4 +1,5 @@
 const CACHE_PREFIX = 'markmap-';
+const LEGACY_CACHE_PREFIX = 'geonexo-';
 const SHELL_ASSETS = typeof __MARKMAP_SHELL_MANIFEST__ === 'undefined' ? [] : __MARKMAP_SHELL_MANIFEST__;
 const SHELL_VERSION = typeof __MARKMAP_SHELL_VERSION__ === 'undefined' ? 'v2' : __MARKMAP_SHELL_VERSION__;
 const STATIC_ASSETS = SHELL_ASSETS.length ? SHELL_ASSETS : [
@@ -123,7 +124,7 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   const activationWork = caches.keys().then((cacheNames) => Promise.all(
     cacheNames
-      .filter((cacheName) => cacheName.startsWith(CACHE_PREFIX) && cacheName !== CACHE_NAME && !cacheName.includes('-installing-'))
+      .filter((cacheName) => (cacheName.startsWith(CACHE_PREFIX) || cacheName.startsWith(LEGACY_CACHE_PREFIX)) && cacheName !== CACHE_NAME && !cacheName.includes('-installing-'))
       .map((cacheName) => caches.delete(cacheName)),
   ));
   event.waitUntil(Promise.all([activationWork, Promise.resolve(self.clients.claim())]));
