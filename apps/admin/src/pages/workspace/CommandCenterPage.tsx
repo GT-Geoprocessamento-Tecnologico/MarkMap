@@ -1225,8 +1225,10 @@ export default function CommandCenterPage() {
   useEffect(() => {
     const source = mapRef.current?.getSource("local-dataset") as
       GeoJSONSource | undefined;
-    if (source)
+    if (source) {
       source.setData(activeGeoJson as unknown as GeoJSON.FeatureCollection);
+      setAppliedCount(activeGeoJson.features.length);
+    }
     if (!search.pdfId && mapRef.current && source) fitSelection(mapRef.current);
   }, [activeGeoJson, selectionKey, mapEpoch, fitSelection, search.pdfId]);
 

@@ -47,14 +47,14 @@ describe("catalog download security and consent", () => {
   });
   it("rejects mismatched size, bounds and identity before writing", async () => {
     const installer = fake();
-    for (const bad of [
-      { ...manifest, id: "another-region" },
-      { ...manifest, totalBytes: 2048 },
-      { ...manifest, bounds: [-48, -8, -47, -6] },
-    ]) {
+    for (const [bad, message] of [
+      [{ ...manifest, id: "another-region" }, "não corresponde"],
+      [{ ...manifest, totalBytes: 2048 }, "totalBytes"],
+      [{ ...manifest, bounds: [-48, -8, -47, -6] }, "não corresponde"],
+    ] as const) {
       await expect(installCatalogRegion(region, installer, {
         signal: new AbortController().signal, fetcher: remote(bad) as typeof fetch,
-      })).rejects.toThrow("não corresponde");
+      })).rejects.toThrow(message);
     }
     expect(installer.startInstall).not.toHaveBeenCalled();
   });

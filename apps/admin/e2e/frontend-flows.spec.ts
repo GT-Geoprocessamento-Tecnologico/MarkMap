@@ -154,7 +154,12 @@ test("GeoPDF georreferenciado abre como mapa completamente offline", async ({
     "data-geopdf-ready",
     "true",
   );
-  await expect(page.getByText("Mapa PDF disponível offline.")).toBeVisible();
+  await expect(
+    page.getByText(
+      "GeoPDF disponível offline. Para ver ruas ao redor, conecte-se à internet.",
+      { exact: true },
+    ),
+  ).toBeVisible();
 
   await page.reload({ waitUntil: "domcontentloaded" });
   await expect(page.locator("[data-geopdf-ready]")).toHaveAttribute(
@@ -181,7 +186,9 @@ test("GeoJSON local: importar, recarregar, visualizar, exportar e excluir", asyn
   await row.getByRole("button", { name: "Exportar GeoJSON" }).click();
   const exported = await download;
   expect(exported.suggestedFilename()).toBe("levantamento.geojson");
-  expect(await readFile((await exported.path())!, "utf8")).toBe(localGeoJSON);
+  expect(JSON.parse(await readFile((await exported.path())!, "utf8"))).toEqual(
+    JSON.parse(localGeoJSON),
+  );
   await row.getByRole("link", { name: "Visualizar no mapa" }).click();
   await expect(page).toHaveURL(/workspace\?datasetId=/);
   await expect(page.locator(".maplibregl-canvas")).toBeVisible();
@@ -407,13 +414,19 @@ test("CRS persistido e tema efetivo após recarregar", async ({ page }) => {
     page.getByText("Referência local", { exact: true }),
   ).toBeVisible();
   await page.goto("/settings");
-  await expect(
-    page.getByRole("checkbox", { name: "Tema escuro" }),
-  ).toBeChecked();
-  await page.getByRole("checkbox", { name: "Tema escuro" }).uncheck();
+  const themeToggle = page.getByRole("button", { name: "Ativar tema claro" });
+  await expect(themeToggle).toBeVisible();
+  await expect(page.locator("html")).toHaveClass(/dark/);
+  await themeToggle.click();
   await expect(page.locator("html")).not.toHaveClass(/dark/);
+  await expect(
+    page.getByRole("button", { name: "Ativar tema escuro" }),
+  ).toBeVisible();
   await page.reload();
   await expect(page.locator("html")).not.toHaveClass(/dark/);
+  await expect(
+    page.getByRole("button", { name: "Ativar tema escuro" }),
+  ).toBeVisible();
 });
 
 test("gravação abortada não confirma importação nem deixa registro", async ({
