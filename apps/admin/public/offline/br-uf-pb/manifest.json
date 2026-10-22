@@ -1,0 +1,68 @@
+{
+  "id": "br-uf-pb",
+  "version": "1.0.0-brazil.20261019",
+  "label": "Paraíba — mapa offline",
+  "bounds": [
+    -38.7652,
+    -8.299201,
+    -34.8027,
+    -6.0285
+  ],
+  "minZoom": 0,
+  "maxZoom": 9,
+  "archive": {
+    "id": "ecf7cfe0-940c-41de-865d-2f235d170a46",
+    "sha256": "ecf7cfe0940c61de265d2f235d170a46d31b520f371c2a41b34a11cc394104bb",
+    "bytes": 1218887,
+    "mediaType": "application/vnd.pmtiles"
+  },
+  "style": {
+    "path": "style.json",
+    "blob": {
+      "id": "caa3a941-410e-4826-897d-87cc78e83ef4",
+      "sha256": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",
+      "bytes": 1098,
+      "mediaType": "application/json"
+    }
+  },
+  "glyphs": [],
+  "sprites": [],
+  "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+  "createdAt": "2026-10-19T22:49:09.140Z",
+  "packageVersion": "1.0.0-brazil.20261019",
+  "osmDataDate": "2026-10-19T04:00:00.000Z",
+  "capabilities": [
+    "basemap"
+  ],
+  "checksums": {
+    "archive": "ecf7cfe0940c61de265d2f235d170a46d31b520f371c2a41b34a11cc394104bb",
+    "style": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",
+    "glyphs": [],
+    "sprites": []
+  },
+  "totalBytes": 1219985,
+  "sources": {
+    "osm": "OpenStreetMap + Natural Earth via Protomaps Basemap 4.15.2",
+    "attributions": [
+      {
+        "name": "OpenStreetMap contributors",
+        "url": "https://www.openstreetmap.org/copyright"
+      },
+      {
+        "name": "Protomaps Basemap",
+        "url": "https://docs.protomaps.com/basemaps/downloads"
+      }
+    ]
+  },
+  "optionalComponents": {
+    "search": {},
+    "routing": {
+      "walk": false,
+      "bicycle": false,
+      "car": false
+    },
+    "elevation": false,
+    "contours": false
+  },
+  "minimumCompatibleVersion": "0.2.0-dev.0"
+}

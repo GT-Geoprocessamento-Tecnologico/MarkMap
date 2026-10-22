@@ -21,7 +21,6 @@ const API_PATH_PREFIXES = [
   '/storage',
   '/health',
 ];
-const RESERVED_API_PATH_PREFIXES = ['/api', '/storage', '/health'];
 
 function isSameOrigin(request) {
   return new URL(request.url).origin === self.location.origin;
@@ -40,8 +39,11 @@ function isNavigation(request) {
 }
 
 function isAppNavigationPath(pathname) {
+  // The same SPA may be mounted under /app without changing its route tree.
+  const route = pathname === '/app' ? '/' : pathname.startsWith('/app/') ? pathname.slice(4) : pathname;
   return [
     /^\/$/,
+    /^\/mesh$/,
     /^\/imports$/,
     /^\/projects(?:\/[^/]+(?:\/(?:map|mesh))?)?$/,
     /^\/settings$/,
@@ -49,11 +51,7 @@ function isAppNavigationPath(pathname) {
     /^\/coordinate-systems$/,
     /^\/telemetry$/,
     /^\/workspace$/,
-  ].some((pattern) => pattern.test(pathname));
-}
-
-function isReservedApiPath(pathname) {
-  return RESERVED_API_PATH_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+  ].some((pattern) => pattern.test(route));
 }
 
 function isInterceptableStaticRequest(request) {
@@ -71,10 +69,11 @@ async function fetchAndCache(request, event, cache) {
 
 const SHELL_MATCH = { ignoreVary: true };
 
-async function handleNavigation(request, event, cache) {
+async function handleNavigation(request, cache) {
   const cachedShell = await cache.match('/', SHELL_MATCH) || await cache.match('/index.html', SHELL_MATCH);
   try {
-    return await fetchAndCache(request, event, cache);
+    // Navigation is network-first, but never persisted: it may carry private HTML.
+    return await fetch(request);
   } catch {
     return cachedShell || Response.error();
   }
@@ -141,8 +140,9 @@ self.addEventListener('fetch', (event) => {
     return;
   }
   if (isNavigation(request)) {
-    if (isReservedApiPath(url.pathname) && !isAppNavigationPath(url.pathname)) return;
-    event.respondWith(caches.open(CACHE_NAME).then((cache) => handleNavigation(request, event, cache)));
+    // Do not intercept or cache arbitrary same-origin documents or API responses.
+    if (!isAppNavigationPath(url.pathname)) return;
+    event.respondWith(caches.open(CACHE_NAME).then((cache) => handleNavigation(request, cache)));
     return;
   }
 
@@ -153,10 +153,31 @@ self.addEventListener('fetch', (event) => {
   }
 });
 
-// Listen for update messages from main thread
+// Only a same-origin window client can complete a short-lived handshake.
+// A postMessage flag alone must not activate a worker without compatibility negotiation.
+const pendingUpgradeClients = new Map();
 self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'SKIP_WAITING' &&
+  const client = event.source;
+  if (!client || typeof client.id !== 'string' || typeof client.url !== 'string') return;
+  let clientUrl;
+  try { clientUrl = new URL(client.url); } catch { return; }
+  if (clientUrl.origin !== self.location.origin) return;
+
+  if (event.data?.type === 'CHECK_COMPATIBILITY') {
+    if (!event.ports?.[0]) return;
+    pendingUpgradeClients.set(client.id, Date.now());
+    event.ports[0].postMessage({
+      type: 'MARKMAP_COMPATIBILITY', shellProtocolVersion: 1,
+      localSchemaVersion: 1, regionPackageSchemaVersion: 2,
+    });
+    return;
+  }
+  if (event.data?.type === 'SKIP_WAITING' &&
       event.data.durableWritesReady === true && event.data.compatibilityVersion === 1) {
-    self.skipWaiting();
+    const requestedAt = pendingUpgradeClients.get(client.id);
+    pendingUpgradeClients.delete(client.id);
+    if (typeof requestedAt === 'number' && Date.now() - requestedAt < 15000) {
+      event.waitUntil(self.skipWaiting());
+    }
   }
 });

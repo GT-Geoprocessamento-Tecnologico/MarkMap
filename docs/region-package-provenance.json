@@ -1,0 +1,769 @@
+{
+  "generatedAt": "2026-10-19T23:04:47.268Z",
+  "sourceArchive": "https://build.protomaps.com/20261019.pmtiles",
+  "sourceDate": "2026-10-19T04:00:00.000Z",
+  "license": "ODbL Produced Work; OpenStreetMap attribution required",
+  "geometrySource": "https://servicodados.ibge.gov.br/api/v3/malhas/",
+  "packageCount": 54,
+  "totalBytes": 145378629,
+  "targetCount": 55,
+  "tool": "go-pmtiles 1.31.2",
+  "packages": [
+    {
+      "id": "br-uf-ac",
+      "bounds": [
+        -73.9833,
+        -11.1456,
+        -66.6269,
+        -7.1118
+      ],
+      "minZoom": 0,
+      "maxZoom": 9,
+      "bytes": 2108216,
+      "archiveSha256": "4a7bffa75dd99ea4c160c69e51a5553ebc3e814e977783c55dc03c66ef5524e0",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima"
+    },
+    {
+      "id": "br-city-1200401",
+      "bounds": [
+        -69.3638,
+        -10.4853,
+        -67.4822,
+        -9.5052
+      ],
+      "minZoom": 0,
+      "maxZoom": 12,
+      "bytes": 1090864,
+      "archiveSha256": "7d0d52598818d1fee664b21ae22abec003798374779fc4b2c80e89db9c8b7d27",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/1200401?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    },
+    {
+      "id": "br-uf-al",
+      "bounds": [
+        -38.2376,
+        -10.4969,
+        -35.1527,
+        -8.8211
+      ],
+      "minZoom": 0,
+      "maxZoom": 9,
+      "bytes": 847817,
+      "archiveSha256": "85292f73f10df9e891ed1df63768f2c2e18848632060528671f0aafde726fec0",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima"
+    },
+    {
+      "id": "br-city-2704302",
+      "bounds": [
+        -35.8144,
+        -9.7112,
+        -35.5585,
+        -9.371
+      ],
+      "minZoom": 0,
+      "maxZoom": 12,
+      "bytes": 995555,
+      "archiveSha256": "30a0749acbae7bf96a49f026b27bcb0699bb97d7b16f320a5f81eec6cf4bd0db",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/2704302?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    },
+    {
+      "id": "br-uf-am",
+      "bounds": [
+        -73.8016,
+        -9.818,
+        -56.0987,
+        2.244
+      ],
+      "minZoom": 0,
+      "maxZoom": 9,
+      "bytes": 9891675,
+      "archiveSha256": "5e551a9a84fe8b1ffe7beab7052228c19617639ad6013b81617e00c4c8f738b2",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima"
+    },
+    {
+      "id": "br-city-1302603",
+      "bounds": [
+        -60.8027,
+        -3.2171,
+        -59.1953,
+        -1.9545
+      ],
+      "minZoom": 0,
+      "maxZoom": 12,
+      "bytes": 2318707,
+      "archiveSha256": "db479b464944136aefa11c4a0a054b73d04d3bcda3b62f1857bdabefd56c8c0e",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/1302603?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    },
+    {
+      "id": "br-uf-ap",
+      "bounds": [
+        -54.8723,
+        -1.215,
+        -49.8817,
+        4.5088
+      ],
+      "minZoom": 0,
+      "maxZoom": 9,
+      "bytes": 2104874,
+      "archiveSha256": "2102a4b9072eecf8ea395bbc61853af16c9f995ff979e845cda41e83366827db",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima"
+    },
+    {
+      "id": "br-city-1600303",
+      "bounds": [
+        -51.4931,
+        -0.0975,
+        -49.8831,
+        1.2403
+      ],
+      "minZoom": 0,
+      "maxZoom": 12,
+      "bytes": 2051618,
+      "archiveSha256": "93c7f8abecd00dbba52dd52a81840e7b30d2aa733142a406d8846b15b7f3ce1c",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/1600303?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    },
+    {
+      "id": "br-uf-ba",
+      "bounds": [
+        -46.5599,
+        -18.3372,
+        -37.3411,
+        -8.5475
+      ],
+      "minZoom": 0,
+      "maxZoom": 9,
+      "bytes": 4717551,
+      "archiveSha256": "f4acddd5886cd83e4e1faa9d76285499c0f8a85c2e930b032585113787a007c2",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima"
+    },
+    {
+      "id": "br-city-2927408",
+      "bounds": [
+        -38.6986,
+        -13.0149,
+        -38.3043,
+        -12.7339
+      ],
+      "minZoom": 0,
+      "maxZoom": 12,
+      "bytes": 1352336,
+      "archiveSha256": "0fc33cf266b265cf09a8771ecae719211e62df399531a770b5e4d464160d4630",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/2927408?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    },
+    {
+      "id": "br-uf-ce",
+      "bounds": [
+        -41.4144,
+        -7.8576,
+        -37.2527,
+        -2.8034
+      ],
+      "minZoom": 0,
+      "maxZoom": 9,
+      "bytes": 1273620,
+      "archiveSha256": "5bb59ff5eeaf653065955073dfc8573965dafdfc07c36bc42fb5cffbcef815cb",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima"
+    },
+    {
+      "id": "br-city-2304400",
+      "bounds": [
+        -38.6379,
+        -3.8882,
+        -38.4018,
+        -3.6964
+      ],
+      "minZoom": 0,
+      "maxZoom": 12,
+      "bytes": 991999,
+      "archiveSha256": "762b478bfd0c319468d26bb738dbcc28df4a30cc8bd3c9477effd3b67a98f7ea",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/2304400?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    },
+    {
+      "id": "br-uf-df",
+      "bounds": [
+        -48.2818,
+        -16.05,
+        -47.3085,
+        -15.5019
+      ],
+      "minZoom": 0,
+      "maxZoom": 9,
+      "bytes": 968576,
+      "archiveSha256": "71b6cb2e35cc9454d07bcd6a719ebe5de042dbe4acd31207e2677b6b45176ca0",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima"
+    },
+    {
+      "id": "br-city-5300108",
+      "bounds": [
+        -48.2818,
+        -16.05,
+        -47.3085,
+        -15.5018
+      ],
+      "minZoom": 0,
+      "maxZoom": 12,
+      "bytes": 3701988,
+      "archiveSha256": "5f68da5c338b3018edd8898e76c2187f06a3c5e5ad8edfaea17ae068decc49b0",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/5300108?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    },
+    {
+      "id": "br-uf-es",
+      "bounds": [
+        -41.8747,
+        -21.3011,
+        -39.6678,
+        -17.8919
+      ],
+      "minZoom": 0,
+      "maxZoom": 9,
+      "bytes": 3405273,
+      "archiveSha256": "05dbf3a7f029622a1ab2def45b441992fb5d091270ff4c1677d321651795db13",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima"
+    },
+    {
+      "id": "br-city-3205309",
+      "bounds": [
+        -40.3616,
+        -20.3269,
+        -40.2149,
+        -20.2374
+      ],
+      "minZoom": 0,
+      "maxZoom": 12,
+      "bytes": 1446263,
+      "archiveSha256": "f63493b0b27ebe6b3b2d37b5aa9de36f641797dd7e5dfc9d6351a26359f2880c",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/3205309?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    },
+    {
+      "id": "br-uf-go",
+      "bounds": [
+        -53.242,
+        -19.4733,
+        -45.9072,
+        -12.3954
+      ],
+      "minZoom": 0,
+      "maxZoom": 9,
+      "bytes": 4175585,
+      "archiveSha256": "a2d2af49d950243807333ec7260f995c8ea868bc130410b3b0dafe79585d395b",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima"
+    },
+    {
+      "id": "br-city-5208707",
+      "bounds": [
+        -49.4446,
+        -16.8319,
+        -49.078,
+        -16.4538
+      ],
+      "minZoom": 0,
+      "maxZoom": 12,
+      "bytes": 2015516,
+      "archiveSha256": "85bc3c5068036bb260ba5bdcc016cf00a00a70c16c74d72ee2d9fff85e3ac138",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/5208707?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    },
+    {
+      "id": "br-uf-ma",
+      "bounds": [
+        -48.7552,
+        -10.2585,
+        -41.7967,
+        -1.0528
+      ],
+      "minZoom": 0,
+      "maxZoom": 9,
+      "bytes": 2404931,
+      "archiveSha256": "526f0dac4c747dd896cac502469faefe20a879fbdbd1086205e0db4316af7cb2",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima"
+    },
+    {
+      "id": "br-city-2111300",
+      "bounds": [
+        -44.41,
+        -2.7992,
+        -44.1618,
+        -2.4739
+      ],
+      "minZoom": 0,
+      "maxZoom": 12,
+      "bytes": 998462,
+      "archiveSha256": "d6813884671caaaa489f7ae677697fe3620408b56407d3ce111fe43af3f13dc0",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/2111300?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    },
+    {
+      "id": "br-uf-mg",
+      "bounds": [
+        -51.0382,
+        -22.9052,
+        -39.8568,
+        -14.2532
+      ],
+      "minZoom": 0,
+      "maxZoom": 9,
+      "bytes": 13283096,
+      "archiveSha256": "338ef4500b4d1dd16cfa1c72353ff02d63ff708c0fd983a272b1ca4cca8538ac",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima"
+    },
+    {
+      "id": "br-city-3106200",
+      "bounds": [
+        -44.0629,
+        -20.0567,
+        -43.862,
+        -19.7772
+      ],
+      "minZoom": 0,
+      "maxZoom": 12,
+      "bytes": 1513777,
+      "archiveSha256": "058d20b458f5f13f2b59b1cffcffe60664e9f8b98b56ffeb46f127b88814d0e3",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/3106200?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    },
+    {
+      "id": "br-uf-ms",
+      "bounds": [
+        -58.1686,
+        -24.0682,
+        -50.9306,
+        -17.1714
+      ],
+      "minZoom": 0,
+      "maxZoom": 9,
+      "bytes": 3657142,
+      "archiveSha256": "f36bb66a75c94ed72884295af1f0725d9d8a8ccd279532ec93e3cfb23b577971",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima"
+    },
+    {
+      "id": "br-city-5002704",
+      "bounds": [
+        -54.922,
+        -21.5805,
+        -53.6051,
+        -20.1717
+      ],
+      "minZoom": 0,
+      "maxZoom": 12,
+      "bytes": 1527295,
+      "archiveSha256": "124ad05e8f0a7ef69a68e20ded919302607bb31c6c7f2ea5b2ec059949d81177",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/5002704?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    },
+    {
+      "id": "br-uf-mt",
+      "bounds": [
+        -61.6283,
+        -18.0404,
+        -50.2248,
+        -7.3561
+      ],
+      "minZoom": 0,
+      "maxZoom": 9,
+      "bytes": 5347587,
+      "archiveSha256": "ba44b2c4350516ce243d3a7df9ac398e2caa497821402fca8eda20c01d231918",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima"
+    },
+    {
+      "id": "br-city-5103403",
+      "bounds": [
+        -56.302,
+        -16.5293,
+        -55.1408,
+        -15.074
+      ],
+      "minZoom": 0,
+      "maxZoom": 12,
+      "bytes": 2631964,
+      "archiveSha256": "c4fd4737ea3cbd386baa5a1bd930820704e297d02aa101db470ba40029e420a6",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/5103403?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    },
+    {
+      "id": "br-uf-pa",
+      "bounds": [
+        -58.8955,
+        -9.8412,
+        -46.0634,
+        2.5837
+      ],
+      "minZoom": 0,
+      "maxZoom": 9,
+      "bytes": 5419540,
+      "archiveSha256": "2a983461262d76d9ad4cc526b312c394b988ee6dadc20101338e248116794b20",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima"
+    },
+    {
+      "id": "br-city-1501402",
+      "bounds": [
+        -48.6244,
+        -1.5266,
+        -48.3018,
+        -1.0194
+      ],
+      "minZoom": 0,
+      "maxZoom": 12,
+      "bytes": 1168213,
+      "archiveSha256": "3689277761e828ab619a400f129febbcb6604c321978701cadfa417cdfe375dd",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/1501402?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    },
+    {
+      "id": "br-uf-pb",
+      "bounds": [
+        -38.7652,
+        -8.299201,
+        -34.8027,
+        -6.0285
+      ],
+      "minZoom": 0,
+      "maxZoom": 9,
+      "bytes": 1219985,
+      "archiveSha256": "ecf7cfe0940c61de265d2f235d170a46d31b520f371c2a41b34a11cc394104bb",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima"
+    },
+    {
+      "id": "br-city-2507507",
+      "bounds": [
+        -34.9706,
+        -7.2445,
+        -34.7932,
+        -7.056
+      ],
+      "minZoom": 0,
+      "maxZoom": 12,
+      "bytes": 761905,
+      "archiveSha256": "eba270f5dd92b4d488421bd0e6044d8ab4c7b50bd5fc63cab1d3a0a683c8efbe",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/2507507?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    },
+    {
+      "id": "br-uf-pe",
+      "bounds": [
+        -41.3583,
+        -9.4829,
+        -34.828,
+        -7.2742
+      ],
+      "minZoom": 0,
+      "maxZoom": 9,
+      "bytes": 1307295,
+      "archiveSha256": "2c9c4f91c4f97b4fd661ded4c6c2ef754a87633a27b8d33dbc49606fed4764e3",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima"
+    },
+    {
+      "id": "br-city-2611606",
+      "bounds": [
+        -35.0167,
+        -8.1551,
+        -34.8605,
+        -7.9292
+      ],
+      "minZoom": 0,
+      "maxZoom": 12,
+      "bytes": 1336708,
+      "archiveSha256": "f25177d77b0eeebb6e89b3e5bc5ad3390adf8fe64dff0b511f1b71ed6f425be3",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/2611606?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    },
+    {
+      "id": "br-uf-pi",
+      "bounds": [
+        -46.0124,
+        -10.919,
+        -40.3705,
+        -2.7573
+      ],
+      "minZoom": 0,
+      "maxZoom": 9,
+      "bytes": 2030684,
+      "archiveSha256": "c0c8924aec3d356d6a6484c6dd9b7530bf3378045fbffb20e640b1f92771ac84",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima"
+    },
+    {
+      "id": "br-city-2211001",
+      "bounds": [
+        -42.9707,
+        -5.5866,
+        -42.599,
+        -4.7863
+      ],
+      "minZoom": 0,
+      "maxZoom": 12,
+      "bytes": 998333,
+      "archiveSha256": "4f2799630657f157e6f142b215d94465989d00801ebc6e306908575c0e08daa6",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/2211001?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    },
+    {
+      "id": "br-uf-pr",
+      "bounds": [
+        -54.6191,
+        -26.7171,
+        -48.0961,
+        -22.5269
+      ],
+      "minZoom": 0,
+      "maxZoom": 9,
+      "bytes": 6492480,
+      "archiveSha256": "8c536fd78cae08b4b13ba85474922cc917d0f3b8fd0437a43e49822e3e3bdeef",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima"
+    },
+    {
+      "id": "br-city-4106902",
+      "bounds": [
+        -49.3835,
+        -25.6432,
+        -49.1852,
+        -25.3495
+      ],
+      "minZoom": 0,
+      "maxZoom": 12,
+      "bytes": 2336605,
+      "archiveSha256": "88390e9c7f449137b92251c97a981298cd84202c6961e5e7d175d335c26db74a",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/4106902?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    },
+    {
+      "id": "br-uf-rj",
+      "bounds": [
+        -44.8826,
+        -23.3676,
+        -40.961,
+        -20.7659
+      ],
+      "minZoom": 0,
+      "maxZoom": 9,
+      "bytes": 2579317,
+      "archiveSha256": "c75d6c76ad9fd78b9ba2b188e9c96ec09699dfc826132e5306dec4113f9fc50d",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima"
+    },
+    {
+      "id": "br-city-3304557",
+      "bounds": [
+        -43.796,
+        -23.0607,
+        -43.1502,
+        -22.7846
+      ],
+      "minZoom": 0,
+      "maxZoom": 12,
+      "bytes": 2601388,
+      "archiveSha256": "41fc725d62e6da3e517ca8cd2eddbd9d862aba2c514170ed34db7810fe1eb73f",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/3304557?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    },
+    {
+      "id": "br-uf-rn",
+      "bounds": [
+        -38.5704,
+        -6.9282,
+        -34.9685,
+        -4.8314
+      ],
+      "minZoom": 0,
+      "maxZoom": 9,
+      "bytes": 912054,
+      "archiveSha256": "4709cd802ba8a255d38d33bce0d7ba0904ac84a5634117ffa776c204e8c7028d",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima"
+    },
+    {
+      "id": "br-city-2408102",
+      "bounds": [
+        -35.2913,
+        -5.8998,
+        -35.1541,
+        -5.704
+      ],
+      "minZoom": 0,
+      "maxZoom": 12,
+      "bytes": 843021,
+      "archiveSha256": "1e5ddb5097f78a1003a04f1b16c7e94f5ada215ea2e4228d78822a5f9f821f5e",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/2408102?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    },
+    {
+      "id": "br-uf-ro",
+      "bounds": [
+        -66.8103,
+        -13.693,
+        -59.7794,
+        -7.9759
+      ],
+      "minZoom": 0,
+      "maxZoom": 9,
+      "bytes": 2085536,
+      "archiveSha256": "12408ea42fbb929a81b06c93fa6592b3916c2ba47b39a7518059de62fb75f845",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima"
+    },
+    {
+      "id": "br-city-1100205",
+      "bounds": [
+        -66.8103,
+        -10.0004,
+        -62.2385,
+        -7.9759
+      ],
+      "minZoom": 0,
+      "maxZoom": 12,
+      "bytes": 3945358,
+      "archiveSha256": "b708e079aef13aed4aac30c3f1d9354f0d67478eb6a0529202e69df8b6050eed",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/1100205?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    },
+    {
+      "id": "br-uf-rr",
+      "bounds": [
+        -64.810501,
+        -1.579,
+        -58.8955,
+        5.2718
+      ],
+      "minZoom": 0,
+      "maxZoom": 9,
+      "bytes": 2404347,
+      "archiveSha256": "08829d7beb79be32c3ac19473ab455980695ac2e2a56bd864df44365b291cc95",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima"
+    },
+    {
+      "id": "br-city-1400100",
+      "bounds": [
+        -61.0006,
+        2.4377,
+        -60.2858,
+        3.5813
+      ],
+      "minZoom": 0,
+      "maxZoom": 12,
+      "bytes": 1167138,
+      "archiveSha256": "30d41b52027f0a1d47e9bca319743997368bdc572362071ca39c810c5fe641a2",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/1400100?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    },
+    {
+      "id": "br-uf-rs",
+      "bounds": [
+        -57.5941,
+        -33.7439,
+        -49.7031,
+        -27.0931
+      ],
+      "minZoom": 0,
+      "maxZoom": 9,
+      "bytes": 3951823,
+      "archiveSha256": "54e7fe701ed4751d55ebd63d5ecf2e03586e0a78822ab4271db19c037cbf7521",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima"
+    },
+    {
+      "id": "br-city-4314902",
+      "bounds": [
+        -51.3032,
+        -30.2596,
+        -51.0119,
+        -29.9352
+      ],
+      "minZoom": 0,
+      "maxZoom": 12,
+      "bytes": 1374703,
+      "archiveSha256": "c14c774674dbd0da4569f4fbd4e2fd4376ae5ec016f6ae80567e8f8f773bedec",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/4314902?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    },
+    {
+      "id": "br-uf-sc",
+      "bounds": [
+        -53.8371,
+        -29.3551,
+        -48.3706,
+        -25.9768
+      ],
+      "minZoom": 0,
+      "maxZoom": 9,
+      "bytes": 3288627,
+      "archiveSha256": "c8b773a7603ce96920a06581a215f2f816de891ed983c583b640cb749701bb26",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima"
+    },
+    {
+      "id": "br-city-4205407",
+      "bounds": [
+        -48.6133,
+        -27.844,
+        -48.3736,
+        -27.3783
+      ],
+      "minZoom": 0,
+      "maxZoom": 12,
+      "bytes": 1261979,
+      "archiveSha256": "3c86c0e2d3ea003e8c3c148a3b20038da4c7dec4bbce99aa20d7d92b0b92cddc",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/4205407?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    },
+    {
+      "id": "br-uf-se",
+      "bounds": [
+        -38.2383,
+        -11.5686,
+        -36.3959,
+        -9.515
+      ],
+      "minZoom": 0,
+      "maxZoom": 9,
+      "bytes": 811633,
+      "archiveSha256": "311b3b18bddeaaf78c8953848d568ad198420c4afdd3a2976c3d7d8064260ab0",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima"
+    },
+    {
+      "id": "br-city-2800308",
+      "bounds": [
+        -37.1737,
+        -11.1616,
+        -37.0339,
+        -10.8631
+      ],
+      "minZoom": 0,
+      "maxZoom": 12,
+      "bytes": 719705,
+      "archiveSha256": "548a99de902180b6dd075802f41cbe4de2b027bdc8a3c19a4cb45ccf1bb8c603",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/2800308?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    },
+    {
+      "id": "br-uf-sp",
+      "bounds": [
+        -53.1052,
+        -25.3089,
+        -44.1656,
+        -19.7862
+      ],
+      "minZoom": 0,
+      "maxZoom": 9,
+      "bytes": 9913248,
+      "archiveSha256": "8f4b5751961f3c5971ee1d99cac1c3ef2327207eed1c62999a2858a1238d6a42",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima"
+    },
+    {
+      "id": "br-city-3550308",
+      "bounds": [
+        -46.8233,
+        -24.0016,
+        -46.3664,
+        -23.3633
+      ],
+      "minZoom": 0,
+      "maxZoom": 12,
+      "bytes": 5132738,
+      "archiveSha256": "3901b0d6c537ce9c396de24c9f3d6ab6c6c593c796322b056ee8b8432808ca31",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/3550308?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    },
+    {
+      "id": "br-uf-to",
+      "bounds": [
+        -50.7389,
+        -13.4682,
+        -45.6993,
+        -5.1684
+      ],
+      "minZoom": 0,
+      "maxZoom": 9,
+      "bytes": 1804153,
+      "archiveSha256": "2f677aae53b86e6e6400f66f06b3f3043f1b7bd3c6b004d7cfcb03eacd935176",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo%2Bjson&intrarregiao=UF&qualidade=minima"
+    },
+    {
+      "id": "br-city-1721000",
+      "bounds": [
+        -48.4219,
+        -10.4601,
+        -47.7938,
+        -9.9234
+      ],
+      "minZoom": 0,
+      "maxZoom": 12,
+      "bytes": 687826,
+      "archiveSha256": "96b3304dc00eca9e1f85097a0db52516cb96baa0bbaba46909315f11073554ec",
+      "sourceUrl": "https://servicodados.ibge.gov.br/api/v3/malhas/municipios/1721000?formato=application/vnd.geo%2Bjson&qualidade=minima"
+    }
+  ]
+}

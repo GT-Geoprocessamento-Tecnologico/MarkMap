@@ -1,9 +1,5 @@
-import { useSyncExternalStore, type ReactNode } from "react";
-import {
-  getAppInstallSnapshot,
-  requestAppInstall,
-  subscribeAppInstall,
-} from "../lib/app-install";
+import type { ReactNode } from "react";
+import { siteConfig } from "../site-config";
 
 interface InstallAppButtonProps {
   className?: string;
@@ -11,34 +7,20 @@ interface InstallAppButtonProps {
   onRequest?: () => void;
 }
 
+/** Desenvolvido por MtsFerreira. Site só encaminha; instalação acontece no app. */
 export function InstallAppButton({
   className = "",
   children,
   onRequest,
 }: InstallAppButtonProps) {
-  const installState = useSyncExternalStore(
-    subscribeAppInstall,
-    getAppInstallSnapshot,
-    getAppInstallSnapshot,
-  );
-
-  const handleClick = async () => {
-    onRequest?.();
-    await requestAppInstall();
-  };
-
   return (
-    <button
-      type="button"
+    <a
+      href={siteConfig.appDownloadUrl}
       className={className}
-      onClick={() => void handleClick()}
-      aria-label={
-        installState.installed
-          ? "MarkMap já instalado"
-          : "Baixar e instalar app MarkMap"
-      }
+      onClick={onRequest}
+      aria-label="Abrir o aplicativo MarkMap para instalar"
     >
       {children ?? "Baixar app"}
-    </button>
+    </a>
   );
 }

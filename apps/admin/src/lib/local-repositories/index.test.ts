@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { SyncConflict } from "@geonexo/contracts";
 import { MemoryLocalDb } from "../local-db/memory";
 import { LocalRepository } from "./index";
+import { readBlobBytes } from "../blob-bytes";
+import { originalKey, requestValue } from "../local-db";
 
 const project = (id: string, name: string) => ({
   entity: "project" as const,
@@ -10,6 +12,41 @@ const project = (id: string, name: string) => ({
 const id = "11111111-1111-4111-8111-111111111111";
 
 describe("local-first repository", () => {
+  it("persists PDF bytes without serializing a Blob and restores the exact original after reopening", async () => {
+    const db = new MemoryLocalDb();
+    const repo = new LocalRepository(db);
+    const source = new TextEncoder().encode('%PDF-1.4\noriginal bytes\n%%EOF');
+    const blob = new Blob([source], { type: 'application/pdf' });
+    const digest = await crypto.subtle.digest('SHA-256', source);
+    const sha256 = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+    const input = { blobId: 'ios-pdf', blob, mediaType: 'application/pdf', bytes: blob.size, sha256, originalName: 'ios-original.pdf' };
+    await repo.saveOriginal(input);
+    const key = originalKey(await repo.workspaceId(), input.blobId);
+    const raw = await db.transact(['originals'], 'readonly', tx => requestValue(tx.store('originals').get(key)));
+    expect(raw.blob).toBeUndefined();
+    expect(Array.from(new Uint8Array(raw.originalBytes))).toEqual(Array.from(source));
+    const reopened = new LocalRepository(db);
+    const restored = await reopened.getOriginal(input.blobId);
+    expect(restored).toMatchObject({ sha256, originalName: input.originalName, bytes: source.length });
+    expect(Array.from(new Uint8Array(await readBlobBytes(restored!.blob)))).toEqual(Array.from(source));
+    expect((await reopened.listOriginals())[0]?.blob).toBeInstanceOf(Blob);
+    await reopened.saveOriginal(input);
+    expect(await reopened.listOriginals()).toHaveLength(1);
+  });
+
+  it("keeps legacy PDF Blob records readable without rewriting them", async () => {
+    const db = new MemoryLocalDb();
+    const repo = new LocalRepository(db);
+    const workspaceId = await repo.workspaceId();
+    const blob = new Blob(['legacy PDF'], { type: 'application/pdf' });
+    const record = { key: originalKey(workspaceId, 'legacy'), workspaceId, blobId: 'legacy', blob, mediaType: 'application/pdf', bytes: blob.size, sha256: 'a'.repeat(64), originalName: 'legacy.pdf', createdAt: '2026-10-19T00:00:00Z' };
+    await db.transact(['originals'], 'readwrite', tx => { tx.store('originals').add(record); });
+    expect((await repo.getOriginal('legacy'))?.blob).toBe(blob);
+    expect((await repo.listOriginals())[0]?.blob).toBe(blob);
+    const raw = await db.transact(['originals'], 'readonly', tx => requestValue(tx.store('originals').get(record.key)));
+    expect(raw.originalBytes).toBeUndefined();
+  });
+
   it("commits entity and immutable outbox atomically", async () => {
     const db = new MemoryLocalDb();
     const repo = new LocalRepository(db);
@@ -102,7 +139,14 @@ describe("local-first repository", () => {
     expect(stored?.blob).toBeInstanceOf(Blob);
     expect(stored?.mediaType).toBe("application/pdf");
     expect(stored?.bytes).toBe(blob.size);
-    const conflict: SyncConflict = { operationId: "22222222-2222-4222-8222-222222222222", entity: "project", entityId: id, baseVersion: 0, serverVersion: 1, reason: "VERSION_CONFLICT", localPayload: project(id, "local"), serverPayload: project(id, "server") };
+    const pending = await repo.mutate({
+      entity: "project",
+      entityId: id,
+      payload: project(id, "local"),
+      operation: "upsert",
+      baseVersion: null,
+    });
+    const conflict: SyncConflict = { operationId: pending.operationId, entity: "project", entityId: id, baseVersion: null, serverVersion: 1, reason: "VERSION_CONFLICT", localPayload: project(id, "local"), serverPayload: project(id, "server") };
     await repo.saveConflict(conflict);
     expect(await repo.listConflicts()).toEqual([conflict]);
   });

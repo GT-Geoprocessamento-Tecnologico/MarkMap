@@ -1,5 +1,4 @@
-import * as pdfjs from "pdfjs-dist";
-import workerUrl from "pdfjs-dist/build/pdf.worker.mjs?url";
+import { pdfjs } from "./pdf-runtime";
 import {
   inspectPdf,
   resolveIsoMeasure,
@@ -8,8 +7,7 @@ import {
   type GeoReference,
 } from "@markmap/geo/pdf";
 import { readBlobBytes } from "../blob-bytes";
-
-pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
+import { georeferencedRasterWindow } from "./geopdf-window";
 
 export type GeoPdfOverlay = {
   url: string;
@@ -107,6 +105,7 @@ export async function renderGeoPdfOverlay(
     verbosity: 0,
   });
   let canvas: HTMLCanvasElement | null = null;
+  let cutCanvas: HTMLCanvasElement | null = null;
   try {
     const pdfDocument = await loadingTask.promise;
     const page = await pdfDocument.getPage(reference.pageIndex + 1);
@@ -126,40 +125,50 @@ export async function renderGeoPdfOverlay(
     const context = canvas.getContext("2d", { alpha: false });
     if (!context) throw new Error("Canvas 2D indisponível neste dispositivo.");
 
-    const task = page.render({ canvas, canvasContext: context, viewport });
-    await task.promise;
-
-    const image = await canvasBlob(canvas);
-    const url = URL.createObjectURL(image);
-    const canvasCorners = [
-      [0, 0],
-      [width, 0],
-      [width, height],
-      [0, height],
+    // The embedded map viewport may occupy only part of the sheet.
+    const frame = georeferencedRasterWindow(reference, viewport, width, height);
+    const corners = [
+      [frame.x, frame.y],
+      [frame.x + frame.width, frame.y],
+      [frame.x + frame.width, frame.y + frame.height],
+      [frame.x, frame.y + frame.height],
     ] as const;
-    const coordinates = canvasCorners.map(([x, y]) => {
+    const coordinates = corners.map(([x, y]) => {
       const [pageX, pageY] = viewport.convertToPdfPoint(x, y);
       const [longitude, latitude] = pageToLonLat(reference, [pageX, pageY]);
-      if (
-        !Number.isFinite(longitude) ||
-        !Number.isFinite(latitude) ||
-        longitude < -180 ||
-        longitude > 180 ||
-        latitude < -90 ||
-        latitude > 90
-      )
+      if (!Number.isFinite(longitude) || !Number.isFinite(latitude) ||
+          Math.abs(longitude) > 180 || Math.abs(latitude) > 90)
         throw new Error("O posicionamento do PDF gerou coordenadas inválidas.");
       return [longitude, latitude] as [number, number];
     }) as GeoPdfOverlay["coordinates"];
 
+    const task = page.render({ canvas, canvasContext: context, viewport });
+    await task.promise;
+    const fullPage = frame.x === 0 && frame.y === 0 &&
+      frame.width === width && frame.height === height;
+    if (!fullPage) {
+      cutCanvas = globalThis.document.createElement("canvas");
+      cutCanvas.width = frame.width;
+      cutCanvas.height = frame.height;
+      const cutContext = cutCanvas.getContext("2d", { alpha: false });
+      if (!cutContext) throw new Error("Canvas do GeoPDF indisponível.");
+      cutContext.drawImage(canvas, frame.x, frame.y, frame.width, frame.height,
+        0, 0, frame.width, frame.height);
+    }
+    const image = await canvasBlob(cutCanvas ?? canvas);
+    const url = URL.createObjectURL(image);
     return {
       url,
       coordinates,
-      width,
-      height,
+      width: frame.width,
+      height: frame.height,
       release: () => URL.revokeObjectURL(url),
     };
   } finally {
+    if (cutCanvas) {
+      cutCanvas.width = 0;
+      cutCanvas.height = 0;
+    }
     if (canvas) {
       canvas.width = 0;
       canvas.height = 0;

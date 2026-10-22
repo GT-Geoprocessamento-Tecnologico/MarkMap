@@ -1,0 +1,68 @@
+{
+  "id": "br-uf-ms",
+  "version": "1.0.0-brazil.20261019",
+  "label": "Mato Grosso do Sul — mapa offline",
+  "bounds": [
+    -58.1686,
+    -24.0682,
+    -50.9306,
+    -17.1714
+  ],
+  "minZoom": 0,
+  "maxZoom": 9,
+  "archive": {
+    "id": "f36bb66a-75c9-4ed7-8884-295af1f0725d",
+    "sha256": "f36bb66a75c94ed72884295af1f0725d9d8a8ccd279532ec93e3cfb23b577971",
+    "bytes": 3656044,
+    "mediaType": "application/vnd.pmtiles"
+  },
+  "style": {
+    "path": "style.json",
+    "blob": {
+      "id": "caa3a941-410e-4826-897d-87cc78e83ef4",
+      "sha256": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",
+      "bytes": 1098,
+      "mediaType": "application/json"
+    }
+  },
+  "glyphs": [],
+  "sprites": [],
+  "attribution": "OpenStreetMap contributors · Protomaps Basemap",
+  "createdAt": "2026-10-19T22:48:28.778Z",
+  "packageVersion": "1.0.0-brazil.20261019",
+  "osmDataDate": "2026-10-19T04:00:00.000Z",
+  "capabilities": [
+    "basemap"
+  ],
+  "checksums": {
+    "archive": "f36bb66a75c94ed72884295af1f0725d9d8a8ccd279532ec93e3cfb23b577971",
+    "style": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",
+    "glyphs": [],
+    "sprites": []
+  },
+  "totalBytes": 3657142,
+  "sources": {
+    "osm": "OpenStreetMap + Natural Earth via Protomaps Basemap 4.15.2",
+    "attributions": [
+      {
+        "name": "OpenStreetMap contributors",
+        "url": "https://www.openstreetmap.org/copyright"
+      },
+      {
+        "name": "Protomaps Basemap",
+        "url": "https://docs.protomaps.com/basemaps/downloads"
+      }
+    ]
+  },
+  "optionalComponents": {
+    "search": {},
+    "routing": {
+      "walk": false,
+      "bicycle": false,
+      "car": false
+    },
+    "elevation": false,
+    "contours": false
+  },
+  "minimumCompatibleVersion": "0.2.0-dev.0"
+}

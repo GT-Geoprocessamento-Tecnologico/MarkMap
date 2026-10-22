@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * region-pipeline.mjs — Pipeline regional OSM → MarkMap (M3, MM-MAP-200).
  *
@@ -10,26 +9,36 @@
  *   node scripts/region-pipeline.mjs --input <dir> --output <dir> [--dry-run]
  *
  * Entradas obrigatórias em <dir>:
- *   basemap.pmtiles  PMTiles v3 já gerado externamente a partir de OSM
- *   style.json       estilo MapLibre com sources locais
- *   region.json      id,label,bounds,osmDataDate,versão
- * Entradas opcionais: places.json, graph.json, contours.json e osm.pbf.
- * O arquivo osm.pbf NÃO é convertido automaticamente pelo script.
+ *   region.json      id,label,bounds,osmDataDate,versao
+ *   osm.pbf          extrato OSM PBF regional (builder limitado a pequenos extratos)
+ *                   OU basemap.pmtiles pregerado (prioridade se ambos existirem)
+ *   style.json       opcional com osm.pbf; gerado automaticamente sem dependencia remota
+ * Entradas opcionais: places.json, graph.json, contours.json.
+ * Relations e nomes tipograficos exigem processamento posterior.
  *
  * Nenhum serviço de rede é usado: tudo é local.
  */
 
-import { createHash } from "node:crypto";
-import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
-import { basename, join, resolve } from "node:path";
+import { createHash, randomUUID } from "node:crypto";
+import { createReadStream } from "node:fs";
+import { validateRegionalWikipedia, validateRegionalTransit, MAX_WIKIPEDIA_BYTES, MAX_TRANSIT_BYTES } from '../packages/maps/src/content/region-content.mjs';
+import { copyFile, lstat, mkdir, open, readFile, readdir, rename, rm, rmdir, stat, unlink, writeFile } from "node:fs/promises";
+import { basename, dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { validateRegionalGraph, MAX_GRAPH_BYTES } from '../packages/maps/src/routing/graph-format.mjs';
+import { validateRegionalContours, MAX_CONTOUR_BYTES } from '../packages/maps/src/elevation/contour-package.mjs';
+import { validateRegionalDem, MAX_REGIONAL_DEM_BYTES } from '../packages/maps/src/elevation/regional-dem.mjs';
+import { buildRegionalDemFromHgt } from './srtm-hgt.mjs';
+import { buildRegionalTransitFromGtfs } from './gtfs-static.mjs';
+import { buildPmtilesFromOsmFile, defaultOfflineStyle, OsmTileError } from "./osm-pbf-pmtiles.mjs";
+import { buildSmallOsmAddons } from "./osm-graph-search.mjs";
 
 export const PIPELINE_VERSION = "1.0.0";
 
 /** Limites defensivos por artefato (bytes). */
 export const PIPELINE_LIMITS = {
   maxArtifactBytes: 256 * 1024 * 1024,
-  maxPlaces: 500_000,
+  maxPlaces: 25_000,
   maxShardBytes: 4 * 1024 * 1024,
   shardsPerLetter: 4,
 };
@@ -52,9 +61,26 @@ export function normalizeName(name) {
     .normalize("NFD")
     .replace(/\p{Diacritic}/gu, "")
     .toLowerCase()
+    .replace(/[ºª]/g, "")
     .replace(/[^\p{L}\p{N}\s]/gu, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+export function normalizePostalCode(value) {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (!trimmed || !/^[0-9][0-9 .-]*$/.test(trimmed)) return null;
+  const digits = trimmed.replace(/[\- .]/g, '');
+  return /^\d{8}$/.test(digits) ? digits : null;
+}
+
+function postalCodesFromRecord(raw) {
+  if (Array.isArray(raw.postalCodes) && raw.postalCodes.length > 16)
+    throw new PipelineError('postalCodes excede o limite de 16 valores', 'INVALID_RECORD');
+  const values = [raw.postalCodes, raw['addr:postcode'], raw.postcode, raw.postal_code, raw.postalcode, raw.cep];
+  return [...new Set(values.flatMap((value) => Array.isArray(value) ? value : [value])
+    .map(normalizePostalCode).filter(Boolean))].slice(0, 16);
 }
 
 /** Mesmo shard da busca offline em packages/maps/src/search. */
@@ -86,25 +112,34 @@ export function buildSearchShards(records, shardsPerLetter = PIPELINE_LIMITS.sha
   }
 
   const shards = new Map();
+  const seenIds = new Set();
   let index = 0;
   for (const raw of records) {
     if (!raw || typeof raw !== "object") {
       throw new PipelineError(`registro inválido na posição ${index}`, "INVALID_RECORD");
     }
     const { id, name, type, category, lon, lat, description } = raw;
-    if (typeof id !== "string" || typeof name !== "string") {
+    if (typeof id !== "string" || typeof name !== "string" || !id || id.length > 160 || !name || name.length > 200) {
       throw new PipelineError(`registro ${index} sem id/name string`, "INVALID_RECORD");
     }
-    if (typeof lon !== "number" || typeof lat !== "number" || !Number.isFinite(lon) || !Number.isFinite(lat)) {
+    if (seenIds.has(id)) throw new PipelineError(`id repetido no índice: ${id}`, "DUPLICATE_PLACE");
+    seenIds.add(id);
+    if (typeof lon !== "number" || typeof lat !== "number" || !Number.isFinite(lon) || !Number.isFinite(lat) ||
+        lon < -180 || lon > 180 || lat < -90 || lat > 90 ||
+        String(type ?? '').length > 60 || String(category ?? '').length > 60 ||
+        (description !== undefined && (typeof description !== 'string' || description.length > 500))) {
       throw new PipelineError(`registro ${id} com lon/lat inválidos`, "INVALID_COORDS");
     }
 
     const normalized = normalizeName(name);
+    if (!normalized) throw new PipelineError(`registro ${id} sem nome pesquisável`, 'INVALID_RECORD');
     const shardId = getShardId(normalized);
     const key = shardsPerLetter === PIPELINE_LIMITS.shardsPerLetter ? shardId : shardId;
 
     const record = { id, name, normalized, type: String(type ?? ""), category: String(category ?? ""), lon, lat };
     if (typeof description === "string") record.description = description;
+    const postalCodes = postalCodesFromRecord(raw);
+    if (postalCodes.length) record.postalCodes = postalCodes;
 
     const list = shards.get(key) ?? [];
     list.push(record);
@@ -181,6 +216,7 @@ function blobRef(artifact, mediaType) {
 export function buildManifest({
   id, label, bounds, artifacts, sources, osmDataDate, packageVersion = PIPELINE_VERSION,
   minZoom = 0, maxZoom = 14, minimumCompatibleVersion = "0.2.0-dev.0", now = new Date(),
+  graphProfiles = [],
 }) {
   if (typeof id !== "string" || !/^[a-z0-9][a-z0-9._-]{0,127}$/.test(id))
     throw new PipelineError("id regional inválido", "INVALID_REGION_ID");
@@ -203,12 +239,29 @@ export function buildManifest({
     throw new PipelineError("PMTiles v3 ausente: índice/OSM PBF não é basemap", "MISSING_BASEMAP");
   if (!style || style.mediaType !== "application/json")
     throw new PipelineError("style.json ausente", "MISSING_STYLE");
+  const spriteArtifacts = artifacts.filter((a) => a.path.startsWith('sprites/'));
+  const glyphArtifacts = artifacts.filter((a) => a.path.startsWith('glyphs/'));
+  const searchArtifacts = artifacts.filter((a) => /^search\/(?:[a-z][0-3]|0-9|other)\.json$/.test(a.path));
+  const routingArtifact = artifacts.find((a) => a.path === 'routing/graph.json');
+  const contoursArtifact = artifacts.find((a) => a.path === 'elevation/contours.json');
+  const demArtifact = artifacts.find((a) => a.path === 'elevation/dem.json');
+  const wikipediaArtifact = artifacts.find((a) => a.path === 'content/wikipedia.json');
+  const transitArtifact = artifacts.find((a) => a.path === 'content/transit.json');
+  const activeArtifacts = [basemap, style, ...spriteArtifacts, ...glyphArtifacts, ...searchArtifacts,
+    ...(routingArtifact ? [routingArtifact] : []), ...(contoursArtifact ? [contoursArtifact] : []),
+    ...(wikipediaArtifact ? [wikipediaArtifact] : []), ...(transitArtifact ? [transitArtifact] : []),
+    ...(demArtifact ? [demArtifact] : [])];
   let totalBytes = 0;
   for (const a of artifacts) {
     if (!/^[a-f0-9]{64}$/.test(a.sha256) || !Number.isSafeInteger(a.bytes) || a.bytes <= 0)
       throw new PipelineError("artefato inválido: " + a.path, "INVALID_ARTIFACT");
-    totalBytes += a.bytes;
   }
+  totalBytes = activeArtifacts.reduce((sum, a) => sum + a.bytes, 0);
+  if (searchArtifacts.some((a) => a.bytes > 2 * 1024 * 1024) ||
+      searchArtifacts.reduce((sum, a) => sum + a.bytes, 0) > 12 * 1024 * 1024)
+    throw new PipelineError("índice de busca excede orçamento offline", "SEARCH_TOO_LARGE");
+  if (searchArtifacts.length > 64) throw new PipelineError("fragmentos de busca demais", "TOO_MANY_SEARCH_SHARDS");
+  if (spriteArtifacts.length > 256 || glyphArtifacts.length > 256) throw new PipelineError("glyphs/sprites excedem 256 arquivos", "TOO_MANY_ASSETS");
   if (basemap.bytes > 250 * 1024 * 1024 || style.bytes > 25 * 1024 * 1024 ||
       totalBytes > 250 * 1024 * 1024)
     throw new PipelineError("pacote excede o contrato v2 atual de 250 MiB", "PACKAGE_TOO_LARGE");
@@ -220,22 +273,50 @@ export function buildManifest({
   if (!Array.isArray(attributionItems) || attributionItems.some((a) =>
     !a || typeof a.name !== "string" || !a.name.trim() || typeof a.url !== "string" || !/^https:\/\//.test(a.url)
   )) throw new PipelineError("attributions deve conter name e URL HTTPS", "INVALID_SOURCES");
-  const attributions = attributionItems.length ? attributionItems : [
-    { name: "OpenStreetMap contributors", url: "https://www.openstreetmap.org/copyright" },
-  ];
+  const attributions = [...attributionItems];
+  // Every OSM-based map must retain a visible ODbL credit even when another data
+  // source (DEM, transit) supplies its own independent attribution.
+  if (!attributions.some(credit => /openstreetmap/i.test(credit.name) ||
+      credit.url === 'https://www.openstreetmap.org/copyright')) {
+    attributions.unshift({ name: 'OpenStreetMap contributors', url: 'https://www.openstreetmap.org/copyright' });
+  }
+  if (routingArtifact && (!Array.isArray(graphProfiles) || graphProfiles.length < 1 || graphProfiles.length > 3 ||
+      new Set(graphProfiles).size !== graphProfiles.length ||
+      graphProfiles.some((p) => !['walk', 'bicycle', 'car'].includes(p))))
+    throw new PipelineError('perfis de roteamento não declarados', 'INVALID_GRAPH');
+  if (routingArtifact && (routingArtifact.bytes > MAX_GRAPH_BYTES || routingArtifact.mediaType !== 'application/json'))
+    throw new PipelineError('grafo regional excede limite', 'INVALID_GRAPH');
+  if (contoursArtifact && (contoursArtifact.bytes > MAX_CONTOUR_BYTES || contoursArtifact.mediaType !== 'application/json'))
+    throw new PipelineError('curvas de nível excedem limite', 'INVALID_CONTOURS');
+  if (demArtifact && (demArtifact.bytes > MAX_REGIONAL_DEM_BYTES || demArtifact.mediaType !== 'application/json'))
+    throw new PipelineError('DEM regional excede limite', 'INVALID_DEM');
   const archiveRef = blobRef(basemap, "application/vnd.pmtiles");
   const styleRef = blobRef(style, "application/json");
   return {
     id, version: packageVersion, label, bounds, minZoom, maxZoom,
     archive: archiveRef, style: { path: style.path, blob: styleRef },
-    glyphs: [], sprites: [],
+    glyphs: glyphArtifacts.map((a) => ({ path: a.path, blob: blobRef(a, a.mediaType) })),
+    sprites: spriteArtifacts.map((a) => ({ path: a.path, blob: blobRef(a, a.mediaType) })),
+    ...(searchArtifacts.length ? { searchShards: searchArtifacts.map((a) => ({ path: a.path, blob: blobRef(a, 'application/json') })) } : {}),
+    ...(routingArtifact ? { routingGraph: { path: routingArtifact.path, blob: blobRef(routingArtifact, 'application/json') } } : {}),
+    ...(contoursArtifact ? { contourLines: { path: contoursArtifact.path, blob: blobRef(contoursArtifact, 'application/json') } } : {}),
+    ...(demArtifact ? { demGrid: { path: demArtifact.path, blob: blobRef(demArtifact, 'application/json') } } : {}),
+    ...(wikipediaArtifact ? { wikipediaPack: { path: wikipediaArtifact.path, blob: blobRef(wikipediaArtifact, 'application/json') } } : {}),
+    ...(transitArtifact ? { transitPack: { path: transitArtifact.path, blob: blobRef(transitArtifact, 'application/json') } } : {}),
     attribution: attributions.map((a) => a.name).join(" · "),
     createdAt: now.toISOString(), packageVersion, osmDataDate,
-    // Auxiliary JSON files are not activated by the current offline store.
-    capabilities: ["basemap"],
-    checksums: { archive: basemap.sha256, style: style.sha256, glyphs: [], sprites: [] },
+    capabilities: ['basemap', ...(searchArtifacts.length ? ['search'] : []),
+      ...(routingArtifact ? graphProfiles.map((profile) => `routing.${profile}`) : []),
+      ...(contoursArtifact ? ['contours'] : []), ...(demArtifact ? ['elevation'] : []),
+      ...(wikipediaArtifact ? ['wikipedia'] : []), ...(transitArtifact ? ['transit'] : [])],
+    checksums: { archive: basemap.sha256, style: style.sha256,
+      glyphs: glyphArtifacts.map((a) => a.sha256), sprites: spriteArtifacts.map((a) => a.sha256) },
     totalBytes, sources: { osm: sources.osm, attributions },
-    optionalComponents: { search: {}, routing: { walk: false, bicycle: false, car: false }, elevation: false, contours: false },
+    optionalComponents: { search: {}, routing: {
+      walk: Boolean(routingArtifact && graphProfiles.includes('walk')),
+      bicycle: Boolean(routingArtifact && graphProfiles.includes('bicycle')),
+      car: Boolean(routingArtifact && graphProfiles.includes('car')),
+    }, elevation: Boolean(demArtifact), contours: Boolean(contoursArtifact) },
     minimumCompatibleVersion,
   };
 }
@@ -249,6 +330,19 @@ async function exists(path) {
   }
 }
 
+function isLocalStyleResource(value) {
+  return typeof value === 'string' && value.length > 0 && !/^[A-Za-z][A-Za-z0-9+.-]*:/.test(value) &&
+    !value.startsWith('/') && !value.startsWith('//') && !value.includes('\\') &&
+    value.split('/').every((part) => part && part !== '.' && part !== '..' && /^[A-Za-z0-9._@{}-]+$/.test(part));
+}
+async function readBounded(path, maxBytes, label) {
+  let details;
+  try { details = await stat(path); }
+  catch { throw new PipelineError(`${label} ausente`, "INPUT_MISSING"); }
+  if (!details.isFile() || !Number.isSafeInteger(details.size) || details.size > maxBytes)
+    throw new PipelineError(`${label} excede o limite de ${maxBytes} bytes`, "INPUT_TOO_LARGE");
+  return readFile(path);
+}
 async function writeArtifact(outputDir, relPath, data) {
   const target = join(outputDir, relPath);
   await mkdir(resolve(target, ".."), { recursive: true });
@@ -260,19 +354,167 @@ async function writeArtifact(outputDir, relPath, data) {
   return { path: relPath, bytes: bytes.byteLength, sha256: sha256(bytes), mediaType: mediaTypeFor(relPath) };
 }
 
+
+/**
+ * Pack a publisher-generated vector PMTiles without materializing up to 250 MiB
+ * in Node heap. Copy to a temporary file, validate the actual copy, stream its
+ * SHA-256, then atomically place it in the output directory.
+ *
+ * This is a bounded prebuilt-package path, NOT a large OSM PBF converter.
+ */
+async function copyPrebuiltPmtiles(source, outputDir, metadata) {
+  const MAX_PREBUILT_BYTES = 250 * 1024 * 1024;
+  const sourceInfo = await stat(source);
+  if (!sourceInfo.isFile() || sourceInfo.size < 127 || sourceInfo.size > MAX_PREBUILT_BYTES)
+    throw new PipelineError("PMTiles regional deve ser arquivo entre 127 bytes e 250 MiB", "INVALID_PMTILES_SIZE");
+  await mkdir(outputDir, { recursive: true });
+  const target = join(outputDir, "package.pmtiles");
+  const staging = join(outputDir, `package.pmtiles.part-${randomUUID()}`);
+
+  try {
+    await copyFile(source, staging);
+    const details = await stat(staging);
+    if (details.size !== sourceInfo.size)
+      throw new PipelineError("Cópia PMTiles incompleta ou alterada", "INVALID_PMTILES_SIZE");
+
+    const file = await open(staging, "r");
+    const header = Buffer.alloc(127);
+    try {
+      const { bytesRead } = await file.read(header, 0, 127, 0);
+      if (bytesRead !== 127) throw new PipelineError("Header PMTiles incompleto", "INVALID_PMTILES");
+    } finally {
+      await file.close();
+    }
+
+    if (header.toString("ascii", 0, 7) !== "PMTiles" || header[7] !== 3 || header[99] !== 1)
+      throw new PipelineError("PMTiles v3 vetorial MVT obrigatório", "INVALID_PMTILES");
+    const minZoom = header[100], maxZoom = header[101];
+    if (minZoom > maxZoom || maxZoom > 24)
+      throw new PipelineError("Zoom no header PMTiles inválido", "INVALID_PMTILES");
+    // Current MapLibre package path expects uncompressed or gzip MVT tiles.
+    if (![1, 2].includes(header[98]))
+      throw new PipelineError("Compressão dos tiles MVT não suportada", "INVALID_PMTILES");
+
+    let rootLength = 0, tileDataLength = 0;
+    for (let offset = 8; offset < 72; offset += 16) {
+      const start = Number(header.readBigUInt64LE(offset));
+      const length = Number(header.readBigUInt64LE(offset + 8));
+      if (!Number.isSafeInteger(start) || !Number.isSafeInteger(length) ||
+          start < 127 || start + length > details.size)
+        throw new PipelineError("Seção do PMTiles fora dos bytes do arquivo", "INVALID_PMTILES");
+      if (offset === 8) rootLength = length;
+      if (offset === 56) tileDataLength = length;
+    }
+    if (rootLength === 0 || tileDataLength === 0 || header.readBigUInt64LE(72) === 0n)
+      throw new PipelineError("PMTiles não contém diretório/tiles regionais", "INVALID_PMTILES");
+    const area = [0, 1, 2, 3].map((idx) => header.readInt32LE(102 + idx * 4) / 1e7);
+    const [west, south, east, north] = area;
+    if (west < -180 || east > 180 || south < -90 || north > 90 || west >= east || south >= north)
+      throw new PipelineError("Bounds geográficos do PMTiles inválidos", "INVALID_PMTILES");
+    if (!Array.isArray(metadata.bounds) || metadata.bounds.length !== 4 ||
+        metadata.bounds.some((n) => !Number.isFinite(n)))
+      throw new PipelineError("Bounds regionais ausentes ou inválidos", "INVALID_BOUNDS");
+    const [minLon, minLat, maxLon, maxLat] = metadata.bounds;
+    if (east < minLon || west > maxLon || north < minLat || south > maxLat)
+      throw new PipelineError("PMTiles não sobrepõe a região declarada", "INVALID_REGION_COVERAGE");
+
+    const digest = createHash("sha256");
+    for await (const chunk of createReadStream(staging, { highWaterMark: 1024 * 1024 })) digest.update(chunk);
+    await rename(staging, target);
+    return {
+      artifact: { path: "package.pmtiles", bytes: details.size, sha256: digest.digest("hex"),
+        mediaType: "application/vnd.pmtiles" },
+      minZoom, maxZoom, bounds: area,
+    };
+  } finally {
+    // Never remove previous installed or source packages; only our temp output.
+    await unlink(staging).catch(() => undefined);
+  }
+}
+
+/**
+ * Sidecars for a supplied style must actually be in the signed regional manifest,
+ * otherwise MapLibre may try the network for missing sprite/glyph resources.
+ * File names follow the same safe-path restrictions as OfflineMapStore.
+ */
+function hasMaterializedGlyphTemplate(ref, artifacts) {
+  if (typeof ref !== 'string') return false;
+  const parts = ref.split(/(\{fontstack\}|\{range\})/g);
+  if (!parts.includes('{fontstack}') || !parts.includes('{range}')) return false;
+  const pattern = '^' + parts.map((part) => {
+    if (part === '{fontstack}' || part === '{range}') return '[A-Za-z0-9._@-]+';
+    return part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }).join('') + '$';
+  const matcher = new RegExp(pattern);
+  return artifacts.some((artifact) => matcher.test(artifact.path));
+}
+async function addLocalStyleSidecars(inputDir, outputDir, styleData, artifacts) {
+  const maxFiles = 256;
+  const maxFileBytes = 8 * 1024 * 1024;
+  let count = 0;
+  for (const folder of ['sprites', 'glyphs']) {
+    const root = join(inputDir, folder);
+    if (!(await exists(root))) continue;
+    if (!(await lstat(root)).isDirectory())
+      throw new PipelineError(folder + ' deve ser uma pasta local, sem symlink', 'UNSAFE_STYLE_ASSETS');
+    const queue = [folder];
+    while (queue.length) {
+      const relativeDir = queue.shift();
+      for (const entry of await readdir(join(inputDir, relativeDir), { withFileTypes: true })) {
+        if (!/^[A-Za-z0-9._@-]+$/.test(entry.name) || entry.name === '.' || entry.name === '..' ||
+            entry.isSymbolicLink())
+          throw new PipelineError('Nome/symlink inválido em ' + folder, 'UNSAFE_STYLE_ASSETS');
+        const relative = relativeDir + '/' + entry.name;
+        if (entry.isDirectory()) {
+          queue.push(relative);
+          continue;
+        }
+        if (!entry.isFile() || !(folder === 'sprites' ? /\.(?:png|json)$/i : /\.pbf$/i).test(entry.name))
+          throw new PipelineError('Artefato inesperado em ' + relative, 'UNSAFE_STYLE_ASSETS');
+        if (++count > maxFiles)
+          throw new PipelineError('Glyphs/sprites excedem 256 arquivos', 'TOO_MANY_STYLE_ASSETS');
+        const size = (await stat(join(inputDir, relative))).size;
+        if (!Number.isSafeInteger(size) || size <= 0 || size > maxFileBytes)
+          throw new PipelineError('Artefato de estilo fora do orçamento: ' + relative, 'STYLE_ASSET_TOO_LARGE');
+        const bytes = await readFile(join(inputDir, relative));
+        if (relative.endsWith('.json')) {
+          try { JSON.parse(bytes.toString('utf8')); }
+          catch { throw new PipelineError('Sprite JSON inválido: ' + relative, 'INVALID_SPRITE'); }
+        }
+        artifacts.push(await writeArtifact(outputDir, relative, bytes));
+      }
+    }
+  }
+  if (typeof styleData.sprite === 'string') {
+    const prefix = styleData.sprite;
+    if (!/^sprites\/[A-Za-z0-9._@-]+$/.test(prefix) ||
+        !['.json', '.png'].every((ext) => artifacts.some((a) => a.path === prefix + ext)) ||
+        (artifacts.some((a) => a.path === prefix + '@2x.json') !== artifacts.some((a) => a.path === prefix + '@2x.png')))
+      throw new PipelineError('style.sprite precisa de sprite JSON e PNG locais empacotados',
+        'MISSING_SPRITES');
+  }
+  const needsGlyphs = Array.isArray(styleData.layers) && styleData.layers.some(
+    (layer) => layer?.type === 'symbol' && layer.layout?.['text-field'] !== undefined &&
+      layer.layout?.['text-field'] !== null && layer.layout?.['text-field'] !== '',
+  );
+  if (needsGlyphs && (
+    styleData.glyphs !== 'glyphs/{fontstack}/{range}.pbf' ||
+    !hasMaterializedGlyphTemplate(styleData.glyphs, artifacts)
+  )) throw new PipelineError('Rótulos requerem glyphs/*.pbf locais e template seguro no estilo',
+    'MISSING_GLYPHS');
+}
+
 function mediaTypeFor(path) {
   if (path.endsWith(".json")) return "application/json";
+  if (path.endsWith(".png")) return "image/png";
   if (path.endsWith(".pmtiles")) return "application/vnd.pmtiles";
   if (path.endsWith(".pbf")) return "application/x-protobuf";
   if (path.endsWith(".geojson")) return "application/geo+json";
   return "application/octet-stream";
 }
 
-/**
- * Packages pre-generated PMTiles and auxiliary offline data. Conversion of
- * raw OSM PBF into vector tiles still requires an external, audited builder.
- */
-export async function runPipeline({ input, output, dryRun = false, now = new Date() }) {
+/** Packages validated PMTiles or builds small-area vector PMTiles from OSM PBF. */
+async function buildPipelineInto({ input, output, dryRun = false, now = new Date() }) {
   if (typeof input !== "string" || typeof output !== "string")
     throw new PipelineError("--input e --output são obrigatórios", "MISSING_ARGS");
   const inputDir = resolve(input);
@@ -292,78 +534,352 @@ export async function runPipeline({ input, output, dryRun = false, now = new Dat
   const basemapPath = join(inputDir, "basemap.pmtiles");
   const stylePath = join(inputDir, "style.json");
   const metadataPath = join(inputDir, "region.json");
-  if (!(await exists(basemapPath)))
-    throw new PipelineError("basemap.pmtiles é obrigatório; osm.pbf não é convertido automaticamente", "MISSING_BASEMAP");
-  if (!(await exists(stylePath)))
-    throw new PipelineError("style.json é obrigatório", "MISSING_STYLE");
+  const hasBasemap = await exists(basemapPath);
+  const hasOsm = await exists(join(inputDir, "osm.pbf"));
+  if (!hasBasemap && !hasOsm)
+    throw new PipelineError("basemap.pmtiles ou osm.pbf e obrigatorio", "MISSING_BASEMAP");
   if (!(await exists(metadataPath)))
-    throw new PipelineError("region.json com bounds/data/versão é obrigatório", "MISSING_REGION_METADATA");
+    throw new PipelineError("region.json com bounds/data/versao e obrigatorio", "MISSING_REGION_METADATA");
 
   let metadata;
   let styleData;
   try {
-    metadata = JSON.parse(await readFile(metadataPath, "utf8"));
-    styleData = JSON.parse(await readFile(stylePath, "utf8"));
+    metadata = JSON.parse((await readBounded(metadataPath, PIPELINE_LIMITS.maxMetadataBytes, "region.json")).toString("utf8"));
+    styleData = await exists(stylePath) ? JSON.parse((await readBounded(stylePath, PIPELINE_LIMITS.maxStyleBytes, "style.json")).toString("utf8")) : defaultOfflineStyle();
   } catch {
-    throw new PipelineError("region.json ou style.json inválido", "INVALID_JSON");
+    throw new PipelineError("region.json ou style.json invalido", "INVALID_JSON");
   }
-  if (!styleData || !styleData.sources || typeof styleData.sources !== "object")
-    throw new PipelineError("style.json sem fontes", "INVALID_STYLE");
-  const basemap = await readFile(basemapPath);
-  if (basemap.byteLength < 127 ||
-      basemap.toString("ascii", 0, 7) !== "PMTiles" || basemap[7] !== 3)
-    throw new PipelineError("basemap não tem header PMTiles v3 válido", "INVALID_PMTILES");
-  for (let offset = 8; offset < 72; offset += 16) {
-    const start = Number(basemap.readBigUInt64LE(offset));
-    const size = Number(basemap.readBigUInt64LE(offset + 8));
-    if (!Number.isSafeInteger(start) || !Number.isSafeInteger(size) ||
-        start < 127 || start + size > basemap.byteLength)
-      throw new PipelineError("seção PMTiles fora do arquivo", "INVALID_PMTILES");
+  if (!hasBasemap && await exists(stylePath))
+    warnings.push("style.json fornecido: certifique-se de que os source-layer coincidam com o builder regional");
+  if (hasBasemap && !(await exists(stylePath)))
+    throw new PipelineError("style.json e obrigatorio ao fornecer basemap.pmtiles", "MISSING_STYLE");
+  if (!styleData || styleData.version !== 8 || !styleData.sources ||
+      typeof styleData.sources !== "object" || !Array.isArray(styleData.layers))
+    throw new PipelineError("style.json MapLibre v8 inválido ou sem fontes/camadas", "INVALID_STYLE");
+  // A distributable offline basemap cannot silently depend on remote tiles.
+  const sources = Object.values(styleData.sources);
+  if (!sources.some((source) => source?.url === 'pmtiles://package.pmtiles') ||
+      sources.some((source) => !source || typeof source !== 'object' ||
+        (source.url !== undefined && source.url !== 'pmtiles://package.pmtiles') ||
+        (source.tiles !== undefined && (!Array.isArray(source.tiles) ||
+          source.tiles.some((url) => url !== 'pmtiles://package.pmtiles'))))) {
+    throw new PipelineError('style.json deve usar apenas a fonte local pmtiles://package.pmtiles',
+      'EXTERNAL_STYLE_SOURCE');
   }
-  await mkdir(outputDir, { recursive: true });
-  artifacts.push(await writeArtifact(outputDir, "package.pmtiles", basemap));
+  if (styleData.glyphs !== undefined && !isLocalStyleResource(styleData.glyphs))
+    throw new PipelineError('style.glyphs contém referência externa ou caminho inseguro', 'EXTERNAL_STYLE_RESOURCE');
+  if (styleData.sprite !== undefined && !isLocalStyleResource(styleData.sprite))
+    throw new PipelineError('style.sprite contém referência externa ou caminho inseguro', 'EXTERNAL_STYLE_RESOURCE');
+  const needsGlyphs = Array.isArray(styleData.layers) && styleData.layers.some(
+    (layer) => layer?.type === 'symbol' && layer.layout?.['text-field'] !== undefined &&
+      layer.layout?.['text-field'] !== null && layer.layout?.['text-field'] !== '',
+  );
+  const needsSprite = Array.isArray(styleData.layers) && styleData.layers.some(
+    (layer) => layer?.type === 'symbol' && layer.layout?.['icon-image'] !== undefined &&
+      layer.layout?.['icon-image'] !== null && layer.layout?.['icon-image'] !== '',
+  );
+  if (needsGlyphs && (styleData.glyphs !== 'glyphs/{fontstack}/{range}.pbf'))
+    throw new PipelineError('rótulos requerem template glyphs local', 'MISSING_GLYPHS');
+  if (needsSprite && typeof styleData.sprite !== 'string')
+    throw new PipelineError('ícones requerem sprite local', 'MISSING_SPRITES');
+  if (hasBasemap) {
+    const packed = await copyPrebuiltPmtiles(basemapPath, outputDir, metadata);
+    artifacts.push(packed.artifact);
+    metadata.minZoom ??= packed.minZoom;
+    metadata.maxZoom ??= packed.maxZoom;
+    if (hasOsm) warnings.push("basemap.pmtiles pregerado prevalece sobre osm.pbf");
+    const [west, south, east, north] = packed.bounds;
+    if (west > metadata.bounds[0] || south > metadata.bounds[1] ||
+        east < metadata.bounds[2] || north < metadata.bounds[3])
+      warnings.push("Os bounds do PMTiles não cobrem toda a região declarada; confirme a cobertura antes de distribuir");
+    if (metadata.minZoom !== packed.minZoom || metadata.maxZoom !== packed.maxZoom)
+      warnings.push("Zoom no region.json difere do header PMTiles; confirme a compatibilidade com o estilo");
+  } else {
+    let basemap;
+    try {
+      const built = await buildPmtilesFromOsmFile(join(inputDir, "osm.pbf"), {
+        bounds: metadata.bounds, minZoom: metadata.minZoom ?? 0, maxZoom: metadata.maxZoom ?? 12,
+      });
+      basemap = built.bytes;
+      metadata.minZoom ??= 0;
+      metadata.maxZoom ??= 12;
+      warnings.push("OSM PBF convertido para " + built.tileCount + " tiles / " + built.featureCount + " geometrias; relations, labels e fontes vetoriais completas ainda nao sao cobertos");
+    } catch (error) {
+      if (error instanceof OsmTileError) throw new PipelineError(error.message, error.code);
+      throw error;
+    }
+    if (basemap.byteLength < 127 ||
+        basemap.toString("ascii", 0, 7) !== "PMTiles" || basemap[7] !== 3)
+      throw new PipelineError("basemap não tem header PMTiles v3 válido", "INVALID_PMTILES");
+    for (let offset = 8; offset < 72; offset += 16) {
+      const start = Number(basemap.readBigUInt64LE(offset));
+      const size = Number(basemap.readBigUInt64LE(offset + 8));
+      if (!Number.isSafeInteger(start) || !Number.isSafeInteger(size) ||
+          start < 127 || start + size > basemap.byteLength)
+        throw new PipelineError("seção PMTiles fora do arquivo", "INVALID_PMTILES");
+    }
+    await mkdir(outputDir, { recursive: true });
+    artifacts.push(await writeArtifact(outputDir, "package.pmtiles", basemap));
+  }
   artifacts.push(await writeArtifact(outputDir, "style.json", JSON.stringify(styleData)));
+  // Supplied styles ship their real glyphs/sprites with checksums in the manifest.
+  // The synthetic style is symbol-free and uses the safe empty sprite below.
+  if (hasBasemap || await exists(stylePath))
+    await addLocalStyleSidecars(inputDir, outputDir, styleData, artifacts);
+  // MapLibre automatically requests sprite metadata from style.sprite. The
+  // generated symbol-free basemap ships a valid empty sprite instead of 404s.
+  if (!hasBasemap && !(await exists(stylePath))) {
+    const transparentPng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZ0AAAAASUVORK5CYII=', 'base64');
+    for (const suffix of ['', '@2x']) {
+      artifacts.push(await writeArtifact(outputDir, 'sprites/sprite' + suffix + '.json', '{}'));
+      artifacts.push(await writeArtifact(outputDir, 'sprites/sprite' + suffix + '.png', transparentPng));
+    }
+  }
 
   const placesPath = join(inputDir, "places.json");
+  const graphPath = join(inputDir, "graph.json");
+  let addons = null;
+  if (hasOsm && (!(await exists(placesPath)) || !(await exists(graphPath)))) {
+    try {
+      addons = await buildSmallOsmAddons(join(inputDir, 'osm.pbf'), metadata);
+      if (!addons) warnings.push('Extrato OSM nao atende os limites do gerador automatico de busca/rotas');
+    } catch (error) {
+      warnings.push('Derivacao OSM de busca/rotas indisponivel: ' +
+        (error instanceof Error ? error.message : 'erro de leitura'));
+    }
+  }
+  // Validate all shards before writing any. Optional auto-derived data may be
+  // omitted on budget errors without making an otherwise valid basemap fail.
+  const writeSearchIndex = async (places) => {
+    const files = buildSearchShards(places).map((shard) => ({
+      path: "search/" + shard.id + ".json",
+      json: JSON.stringify(shard),
+    }));
+    let totalIndexBytes = 0;
+    for (const file of files) {
+      const size = Buffer.byteLength(file.json);
+      totalIndexBytes += size;
+      if (size > 2 * 1024 * 1024 || totalIndexBytes > 12 * 1024 * 1024 ||
+          files.length > 64)
+        throw new PipelineError("Índice regional excede o orçamento do runtime", "SEARCH_TOO_LARGE");
+    }
+    for (const file of files) artifacts.push(await writeArtifact(outputDir, file.path, file.json));
+  };
   if (await exists(placesPath)) {
     let places;
     try { places = JSON.parse(await readFile(placesPath, "utf8")); }
     catch { throw new PipelineError("places.json inválido", "INVALID_JSON"); }
-    for (const shard of buildSearchShards(places))
-      artifacts.push(await writeArtifact(outputDir, "search/" + shard.id + ".json", JSON.stringify(shard)));
-  } else warnings.push("places.json ausente: busca regional não foi empacotada");
+    await writeSearchIndex(places);
+  } else if (addons?.places.length) {
+    try {
+      await writeSearchIndex(addons.places);
+      warnings.push('Índice OSM offline inclui POIs, endereços pontuais e vias nomeadas efetivamente presentes no extrato pequeno');
+    } catch (error) {
+      if (error instanceof PipelineError && ['SEARCH_TOO_LARGE', 'PLACES_TOO_LARGE', 'INVALID_RECORD', 'INVALID_COORDS', 'DUPLICATE_PLACE'].includes(error.code)) {
+        warnings.push('Busca OSM derivada excede limites ou contém dados inválidos; pacote básico mantido sem índice regional');
+      } else throw error;
+    }
+  } else warnings.push('Busca offline regional ausente: forneça places.json licenciado ou um extrato OSM pequeno com nomes');
 
-  const graphPath = join(inputDir, "graph.json");
+  let graphProfiles = [];
   if (await exists(graphPath)) {
+    if ((await stat(graphPath)).size > MAX_GRAPH_BYTES) throw new PipelineError('graph.json acima do limite regional', 'INVALID_GRAPH');
     let graph;
     try { graph = JSON.parse(await readFile(graphPath, "utf8")); }
     catch { throw new PipelineError("graph.json inválido", "INVALID_JSON"); }
     validateRoutingGraph(graph);
+    try { validateRegionalGraph(graph, { bounds: metadata.bounds, osmDataDate: metadata.osmDataDate }); }
+    catch (error) { throw new PipelineError(error instanceof Error ? error.message : 'Grafo inválido', 'INVALID_GRAPH'); }
+    graphProfiles = graph.profiles;
     artifacts.push(await writeArtifact(outputDir, "routing/graph.json", JSON.stringify(graph)));
-  } else warnings.push("graph.json ausente: roteamento não foi empacotado");
+  } else if (addons?.graph) {
+    graphProfiles = addons.graph.profiles;
+    artifacts.push(await writeArtifact(outputDir, 'routing/graph.json', JSON.stringify(addons.graph)));
+    warnings.push('Grafo OSM basico para a pe/bicicleta: sem relacoes, restricoes condicionais ou roteamento de carro; validacao em campo obrigatoria');
+  } else warnings.push('Sem grafo de rotas valido: forneca graph.json ou OSM PBF regional pequeno');
 
   const contoursPath = join(inputDir, "contours.json");
   if (await exists(contoursPath)) {
+    if ((await stat(contoursPath)).size > MAX_CONTOUR_BYTES) throw new PipelineError('contours.json acima do limite regional', 'INVALID_CONTOURS');
     let contours;
     try { contours = JSON.parse(await readFile(contoursPath, "utf8")); }
     catch { throw new PipelineError("contours.json inválido", "INVALID_JSON"); }
     validateContours(contours);
+    try { validateRegionalContours(contours, metadata.bounds); }
+    catch (error) { throw new PipelineError(error instanceof Error ? error.message : 'Curvas inválidas', 'INVALID_CONTOURS'); }
     artifacts.push(await writeArtifact(outputDir, "elevation/contours.json", JSON.stringify(contours)));
   } else warnings.push("contours.json ausente: curvas de nível não foram empacotadas");
 
-  if (await exists(join(inputDir, "osm.pbf")))
-    warnings.push("osm.pbf não convertido: usar gerador vetorial externo antes de executar o pipeline");
-  warnings.push("glyphs/sprites e ativação de componentes auxiliares exigem integração posterior ao contrato v2");
+  // M6: real regional heights only. No synthetic 0m values and no remote access.
+  const demPath = join(inputDir, 'dem.json');
+  const srtmDir = join(inputDir, 'srtm');
+  let localDem = null;
+  if (await exists(demPath)) {
+    if ((await stat(demPath)).size > MAX_REGIONAL_DEM_BYTES)
+      throw new PipelineError('dem.json excede limite de 2 MiB', 'INVALID_DEM');
+    try { localDem = validateRegionalDem(JSON.parse(await readFile(demPath, 'utf8')), metadata.id, metadata.bounds); }
+    catch (error) { throw new PipelineError(error instanceof Error ? error.message : 'DEM inválido', 'INVALID_DEM'); }
+  } else if (await exists(srtmDir)) {
+    const srtmMetaPath = join(inputDir, 'srtm.json');
+    if (!(await exists(srtmMetaPath)) ) throw new PipelineError('srtm.json com licença e fonte é obrigatório para tiles SRTM', 'MISSING_DEM_LICENSE');
+    let srtmMeta;
+    try { srtmMeta = JSON.parse(await readFile(srtmMetaPath, 'utf8')); }
+    catch { throw new PipelineError('srtm.json inválido', 'INVALID_DEM'); }
+    try {
+      localDem = await buildRegionalDemFromHgt({ directory: srtmDir, regionId: metadata.id, bounds: metadata.bounds,
+        attribution: srtmMeta.attribution, license: srtmMeta.license, sourceUrl: srtmMeta.sourceUrl,
+        width: srtmMeta.width ?? 192, height: srtmMeta.height ?? 192 });
+    } catch (error) { throw new PipelineError(error instanceof Error ? error.message : 'SRTM inválido', 'INVALID_DEM'); }
+  }
+  if (localDem) {
+    const json = JSON.stringify(localDem);
+    if (Buffer.byteLength(json) > MAX_REGIONAL_DEM_BYTES)
+      throw new PipelineError('DEM regional excede limite de 2 MiB', 'INVALID_DEM');
+    artifacts.push(await writeArtifact(outputDir, 'elevation/dem.json', json));
+    warnings.push('DEM regional amostrado com resolução declarada; verifique cobertura e licença antes de distribuir');
+  } else warnings.push('Elevação indisponível: forneça dem.json licenciado ou srtm/*.hgt + srtm.json');
+
+  // M8: only publisher-supplied, licensed region data. No live Wikipedia or transit queries.
+  for (const [inputName, outputName, maxBytes, validator] of [
+    ['wikipedia.json', 'content/wikipedia.json', MAX_WIKIPEDIA_BYTES,
+      (value) => validateRegionalWikipedia(value, metadata.id)],
+    ['transit.json', 'content/transit.json', MAX_TRANSIT_BYTES,
+      (value) => validateRegionalTransit(value, metadata.id, metadata.bounds)],
+  ]) {
+    const file = join(inputDir, inputName);
+    if (!(await exists(file))) continue;
+    if ((await stat(file)).size > maxBytes)
+      throw new PipelineError(inputName + ' excede limite de 2 MiB', 'CONTENT_TOO_LARGE');
+    let parsed;
+    try { parsed = JSON.parse(await readFile(file, 'utf8')); validator(parsed); }
+    catch (error) {
+      throw new PipelineError(error instanceof Error ? error.message : 'Conteúdo inválido', 'INVALID_CONTENT');
+    }
+    artifacts.push(await writeArtifact(outputDir, outputName, JSON.stringify(parsed)));
+  }
+
+  // Optional offline-only GTFS Schedule source. Extracted CSV files and distribution
+  // rights are furnished by the publisher; no GTFS feed URL is fetched or scraped.
+  let gtfsCredit = null;
+  const gtfsDir = join(inputDir, 'gtfs');
+  if (!(await exists(join(inputDir, 'transit.json'))) && (await exists(gtfsDir))) {
+    const sourceFile = join(inputDir, 'gtfs-source.json');
+    if (!(await exists(sourceFile)))
+      throw new PipelineError('GTFS requer gtfs-source.json com licença, URL e atribuição', 'MISSING_TRANSIT_LICENSE');
+    let source;
+    try { source = JSON.parse(await readFile(sourceFile, 'utf8')); }
+    catch { throw new PipelineError('gtfs-source.json inválido', 'INVALID_GTFS'); }
+    if (!source || typeof source.sourceUrl !== 'string' ||
+        !/^https:\/\/[^\s/]+/.test(source.sourceUrl) || source.sourceUrl.length > 500)
+      throw new PipelineError('GTFS requer URL HTTPS da fonte licenciada', 'INVALID_GTFS');
+    try {
+      const transit = await buildRegionalTransitFromGtfs({ directory: gtfsDir,
+        regionId: metadata.id, bounds: metadata.bounds, attribution: source.attribution,
+        license: source.license, version: source.version ?? 'gtfs-v1', generatedAt: now.toISOString() });
+      artifacts.push(await writeArtifact(outputDir, 'content/transit.json', JSON.stringify(transit)));
+      gtfsCredit = { name: source.attribution, url: source.sourceUrl };
+      warnings.push('GTFS estático inclui paradas/linhas apenas; não possui horários, geometria nem serviço em tempo real');
+    } catch (error) {
+      throw new PipelineError(error instanceof Error ? error.message : 'GTFS inválido', 'INVALID_GTFS');
+    }
+  }
+
+  if (hasOsm && !hasBasemap) warnings.push("Limite do builder integrado: ate 32 MiB de extrato PBF; use um gerador regional especializado para areas maiores");
+  warnings.push('Validacao GPS, fontes de dados e licença em campo continuam pendentes; nao distribuir rotas sem gate final');
 
   const manifest = buildManifest({
     ...metadata,
     artifacts,
-    sources: metadata.sources ?? { osm: "OpenStreetMap", attributions: [] },
+    sources: (() => {
+      const baseSources = metadata.sources ?? { osm: 'OpenStreetMap', attributions: [] };
+      const credits = [...(baseSources.attributions ?? [])];
+      if (localDem) credits.push({ name: localDem.metadata.attribution, url: localDem.metadata.sourceUrl });
+      if (gtfsCredit) credits.push(gtfsCredit);
+      return { ...baseSources, attributions: credits };
+    })(),
     osmDataDate: metadata.osmDataDate,
+    graphProfiles,
     now,
   });
   artifacts.push(await writeArtifact(outputDir, "manifest.json", JSON.stringify(manifest, null, 2)));
   return { dryRun: false, artifacts, manifest, warnings, inputDir, outputDir };
+}
+
+/**
+ * Publish a whole region, not an in-place series of partially valid files.
+ * Existing populated destinations are immutable: the publisher must choose a
+ * new output path instead of silently overwriting another agent's package.
+ *
+ * Empty output directories remain supported for existing tests/CLI callers.
+ */
+export async function runPipeline({ input, output, dryRun = false, now = new Date() }) {
+  if (typeof input !== "string" || typeof output !== "string")
+    throw new PipelineError("--input e --output são obrigatórios", "MISSING_ARGS");
+  const inputDir = resolve(input), outputDir = resolve(output);
+  if (inputDir === outputDir)
+    throw new PipelineError("entrada e saída devem ser diferentes", "SAME_DIR");
+  if (dryRun) return buildPipelineInto({ input, output, dryRun, now });
+
+  // Prevent clobbering a previous package (including another agent's output).
+  // Even a symlink to a directory must not be treated as a writable destination.
+  const inspectOutput = async () => {
+    let details;
+    try { details = await lstat(outputDir); }
+    catch (error) {
+      if (error?.code === "ENOENT") return false;
+      throw error;
+    }
+    if (!details.isDirectory() || details.isSymbolicLink() ||
+        (await readdir(outputDir)).length !== 0)
+      throw new PipelineError("Saída já contém arquivos; informe uma pasta nova para preservar o pacote anterior", "OUTPUT_NOT_EMPTY");
+    return true;
+  };
+  await inspectOutput();
+  await mkdir(dirname(outputDir), { recursive: true });
+
+  // The staging folder is owned exclusively by this invocation.
+  const stagingDir = join(dirname(outputDir), `.${basename(outputDir)}.staging-${randomUUID()}`);
+  await mkdir(stagingDir);
+  let published = false;
+  let removedEmptyTarget = false;
+  try {
+    const result = await buildPipelineInto({ input, output: stagingDir, now });
+    if (!result.manifest || !result.artifacts.some((a) => a.path === "manifest.json"))
+      throw new PipelineError("Pacote incompleto: manifest ausente", "INCOMPLETE_PACKAGE");
+
+    // Check staged bytes before exposing the package directory to consumers.
+    // A checksum failure must never leave a valid-looking manifest in output.
+    const seen = new Set();
+    for (const artifact of result.artifacts) {
+      if (seen.has(artifact.path) || !/^[A-Za-z0-9._@/-]+$/.test(artifact.path) ||
+          artifact.path.startsWith("/") ||
+          artifact.path.split("/").some((part) => !part || part === "." || part === ".."))
+        throw new PipelineError("Caminho duplicado ou inseguro no pacote publicado", "INVALID_ARTIFACT_PATH");
+      seen.add(artifact.path);
+      const file = join(stagingDir, artifact.path);
+      const details = await lstat(file);
+      if (!details.isFile() || details.isSymbolicLink() || details.size !== artifact.bytes)
+        throw new PipelineError("Arquivo mudou durante o empacotamento: " + artifact.path, "ARTIFACT_CHANGED");
+      const digest = createHash("sha256");
+      for await (const chunk of createReadStream(file, { highWaterMark: 1024 * 1024 })) digest.update(chunk);
+      if (digest.digest("hex") !== artifact.sha256)
+        throw new PipelineError("Checksum alterado durante o empacotamento: " + artifact.path, "ARTIFACT_CHANGED");
+    }
+    // Recheck immediately before promoting: no implicit replace or cleanup.
+    if (await inspectOutput()) {
+      await rmdir(outputDir); // only a confirmed empty directory, never its contents
+      removedEmptyTarget = true;
+    }
+    await rename(stagingDir, outputDir);
+    published = true;
+    return { ...result, outputDir };
+  } catch (error) {
+    // If rename fails after removing an empty caller-provided folder, restore it.
+    if (removedEmptyTarget) await mkdir(outputDir).catch(() => undefined);
+    throw error;
+  } finally {
+    if (!published) await rm(stagingDir, { recursive: true, force: true }).catch(() => undefined);
+  }
 }
 
 function parseArgs(argv) {

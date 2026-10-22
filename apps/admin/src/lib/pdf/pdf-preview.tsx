@@ -5,8 +5,7 @@ import {
   useState,
   type MouseEvent as ReactMouseEvent,
 } from "react";
-import * as pdfjs from "pdfjs-dist";
-import workerUrl from "pdfjs-dist/build/pdf.worker.mjs?url";
+import { pdfjs } from "./pdf-runtime";
 import { geoReferenceSchema, type GeoReference } from "@markmap/contracts";
 import {
   autoCalibrateFromText,
@@ -24,8 +23,7 @@ import {
   type OriginalRecord,
 } from "../local-repositories";
 import { resolveEmbeddedGeoReference } from "./geopdf-overlay";
-
-pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
+import { fitPdfToViewport } from "./pdf-fit";
 
 export const PDF_MAX_BYTES = 25 * 1024 * 1024;
 export const PDF_MAX_PAGES = 100;
@@ -217,8 +215,29 @@ const createManualReference = (
 export function PdfPreview({ record }: { record: OriginalRecord }) {
   const { toast } = useToast();
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
+  const [pdfSize, setPdfSize] = useState({ width: 1, height: 1 });
+  const [previewBounds, setPreviewBounds] = useState({ width: 320, height: 500 });
+  const [fitToScreen, setFitToScreen] = useState(true);
   const viewportRef = useRef<ViewportConverter | null>(null);
   const pageGeometryRef = useRef<PageGeometry | null>(null);
+  // The PDF raster stays at full render resolution; only its displayed size changes.
+  useEffect(() => {
+    const container = previewRef.current;
+    if (!container) return;
+    const update = () => setPreviewBounds({
+      width: Math.max(1, container.clientWidth - 16),
+      height: Math.max(180, Math.round(window.innerHeight * 0.65)),
+    });
+    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(update) : null;
+    observer?.observe(container);
+    window.addEventListener("resize", update);
+    update();
+    return () => { observer?.disconnect(); window.removeEventListener("resize", update); };
+  }, []);
+  const viewSize = fitToScreen
+    ? fitPdfToViewport(pdfSize.width, pdfSize.height, previewBounds.width, previewBounds.height)
+    : pdfSize;
   const [inspection, setInspection] = useState<PdfInspection | null>(null);
   const [reason, setReason] = useState<string | null>(null);
   const [pageCount, setPageCount] = useState<number | null>(null);
@@ -310,6 +329,7 @@ export function PdfPreview({ record }: { record: OriginalRecord }) {
         const viewport = page.getViewport({ scale });
         canvas.width = Math.ceil(viewport.width);
         canvas.height = Math.ceil(viewport.height);
+        setPdfSize({ width: canvas.width, height: canvas.height });
         viewportRef.current = viewport;
         const view = page.view;
         if (view.length === 4) {
@@ -659,32 +679,35 @@ export function PdfPreview({ record }: { record: OriginalRecord }) {
         </section>
       )}
 
-      <div className="mt-4 overflow-auto rounded-lg bg-white p-2">
-        <div className="relative w-max">
-          <canvas
-            ref={canvasRef}
-            aria-label={
-              calibrating
-                ? "Primeira página do PDF. Toque para marcar um ponto de calibração."
-                : "Primeira página do PDF"
-            }
-            onClick={addCalibrationPoint}
-            className={calibrating ? "cursor-crosshair touch-none" : ""}
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs text-on-surface-variant">
+        <p>Arquivo original preservado. A imagem se adapta à tela sem cortar a carta.</p>
+        <button type="button" onClick={() => setFitToScreen(value => !value)}
+          className="min-h-[44px] rounded-lg border border-outline-variant px-3 font-semibold text-on-surface">
+          {fitToScreen ? "Ampliar para ler" : "Ajustar à tela"}
+        </button>
+      </div>
+      <div ref={previewRef}
+        className="mt-2 w-full min-w-0 overflow-auto rounded-lg bg-white p-2"
+        aria-label="Visualização ajustável do GeoPDF">
+        <div className="relative mx-auto" style={{
+          width: viewSize.width, height: viewSize.height,
+        }}>
+          <canvas ref={canvasRef} onClick={addCalibrationPoint}
+            aria-label={calibrating
+              ? "Primeira página do PDF. Toque para marcar um ponto de calibração."
+              : "Primeira página do PDF"}
+            className={`block h-full w-full ${calibrating ? "cursor-crosshair touch-none" : ""}`}
           />
-          {calibrating &&
-            calibration.map((point, index) => (
-              <span
-                key={`marker-${index}`}
-                aria-hidden="true"
-                className="pointer-events-none absolute flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white bg-cyan-600 text-xs font-bold text-white shadow"
-                style={{
-                  left: point.pixel[0],
-                  top: point.pixel[1],
-                }}
-              >
-                {index + 1}
-              </span>
-            ))}
+          {calibrating && calibration.map((point, index) => (
+            <span key={`marker-${index}`} aria-hidden="true"
+              className="pointer-events-none absolute flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white bg-cyan-600 text-xs font-bold text-white shadow"
+              style={{
+                left: `${(point.pixel[0] / pdfSize.width) * 100}%`,
+                top: `${(point.pixel[1] / pdfSize.height) * 100}%`,
+              }}>
+              {index + 1}
+            </span>
+          ))}
         </div>
       </div>
     </article>

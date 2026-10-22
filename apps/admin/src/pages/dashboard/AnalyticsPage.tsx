@@ -2,11 +2,14 @@ import { useMemo } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useProjects } from "../../lib/hooks/projects";
-import { listProjectLayers } from "../../lib/api-client";
+import { listLocalLayersPage } from "../../lib/hooks/layers";
+import { downloadBlob } from "../../lib/file-download";
+import { useToast } from "@geonexo/ui";
 
 const csvCell = (value: string) =>
   `"${(/^[=+@-]/.test(value) ? "'" + value : value).replaceAll('"', '""')}"`;
 export default function AnalyticsPage() {
+  const { toast } = useToast();
   const projects = useProjects({ limit: 100 });
   const ids = useMemo(
     () => (projects.data?.items ?? []).map((project) => project.id),
@@ -14,10 +17,11 @@ export default function AnalyticsPage() {
   );
   const layers = useQuery({
     queryKey: ["analytics-layers", ids, "bounded", 100],
-    queryFn: async ({ signal }) => {
-      const pages = await Promise.all(
-        ids.map((id) => listProjectLayers(id, { limit: 100, signal })),
-      );
+    queryFn: async () => {
+      const pages = await Promise.all(ids.map(async (id) => {
+        const page = await listLocalLayersPage(id, 100);
+        return { items: page.items, nextCursor: page.truncated ? "100" : null };
+      }));
       return {
         rows: pages.flatMap((page) => page.items),
         truncated: pages.some((page) => page.nextCursor !== null),
@@ -41,12 +45,15 @@ export default function AnalyticsPage() {
       ["\uFEFF", data.map((row) => row.map(csvCell).join(",")).join("\r\n")],
       { type: "text/csv;charset=utf-8" },
     );
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = "geonexo-camadas.csv";
-    anchor.click();
-    setTimeout(() => URL.revokeObjectURL(url), 0);
+    try {
+      downloadBlob(blob, "markmap-camadas.csv");
+    } catch (cause) {
+      toast({
+        title: "Exportação não concluída",
+        description: cause instanceof Error ? cause.message : "Não foi possível exportar o arquivo.",
+        variant: "error",
+      });
+    }
   };
   return (
     <section className="min-w-0 space-y-6 bg-background p-4 text-on-surface md:p-6">

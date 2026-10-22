@@ -19,14 +19,15 @@ export function parseGpx(xml: string): GpxImport {
     for (const segMatch of segMatches) {
       const segBody = segMatch[1]!;
       const points: TrackPoint[] = [];
-      const ptMatches = segBody.matchAll(/<trkpt\s+lat="([^"]*)"\s+lon="([^"]*)"(?:\s*\/>|(?:\s*[^>]*)>([\s\S]*?)<\/trkpt>)/g);
+      const ptMatches = segBody.matchAll(/<trkpt\b([^>]*?)(?:\/\s*>|>([\s\S]*?)<\/trkpt\s*>)/g);
       for (const ptMatch of ptMatches) {
-        const lat = parseFloat(ptMatch[1]!);
-        const lon = parseFloat(ptMatch[2]!);
-        if (Number.isNaN(lat) || Number.isNaN(lon)) continue;
+        const attrs = ptMatch[1] ?? '';
+        const lat = Number(attrs.match(/(?:^|\s)lat="([^"]+)"/)?.[1]);
+        const lon = Number(attrs.match(/(?:^|\s)lon="([^"]+)"/)?.[1]);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
         if (lat < -90 || lat > 90 || lon < -180 || lon > 180) continue;
 
-        const inner = ptMatch[3] ?? "";
+        const inner = ptMatch[2] ?? "";
         const eleText = extractTag(inner, "ele");
         const timeText = extractTag(inner, "time");
 
@@ -48,15 +49,16 @@ export function parseGpx(xml: string): GpxImport {
     trkIndex++;
   }
 
-  const wptMatches = xml.matchAll(/<wpt\s+lat="([^"]*)"\s+lon="([^"]*)"(?:\s*\/>|(?:\s*[^>]*)>([\s\S]*?)<\/wpt>)/g);
+  const wptMatches = xml.matchAll(/<wpt\b([^>]*?)(?:\/\s*>|>([\s\S]*?)<\/wpt\s*>)/g);
   let wptIndex = 0;
   for (const wptMatch of wptMatches) {
-    const lat = parseFloat(wptMatch[1]!);
-    const lon = parseFloat(wptMatch[2]!);
-    if (Number.isNaN(lat) || Number.isNaN(lon)) continue;
+    const attrs = wptMatch[1] ?? '';
+    const lat = Number(attrs.match(/(?:^|\s)lat="([^"]+)"/)?.[1]);
+    const lon = Number(attrs.match(/(?:^|\s)lon="([^"]+)"/)?.[1]);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
     if (lat < -90 || lat > 90 || lon < -180 || lon > 180) continue;
 
-    const inner = wptMatch[3] ?? "";
+    const inner = wptMatch[2] ?? "";
     const eleText = extractTag(inner, "ele");
     waypoints.push({
       id: crypto.randomUUID(),
@@ -77,13 +79,20 @@ export function parseGpx(xml: string): GpxImport {
     const description = extractTag(rteBody, "desc");
 
     const points: RoutePoint[] = [];
-    const ptMatches = rteBody.matchAll(/<rtept\s+lat="([^"]*)"\s+lon="([^"]*)"[^>]*\/?>/g);
+    const ptMatches = rteBody.matchAll(/<rtept\b([^>]*?)(?:\/\s*>|>([\s\S]*?)<\/rtept\s*>)/g);
     for (const ptMatch of ptMatches) {
-      const lat = parseFloat(ptMatch[1]!);
-      const lon = parseFloat(ptMatch[2]!);
-      if (Number.isNaN(lat) || Number.isNaN(lon)) continue;
+      const attrs = ptMatch[1] ?? '';
+      const latText = attrs.match(/(?:^|\s)lat="([^"]+)"/)?.[1];
+      const lonText = attrs.match(/(?:^|\s)lon="([^"]+)"/)?.[1];
+      if (!latText || !lonText) continue;
+      const lat = Number(latText);
+      const lon = Number(lonText);
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
       if (lat < -90 || lat > 90 || lon < -180 || lon > 180) continue;
-      points.push({ latitude: lat, longitude: lon, elevation: null });
+      const elevationText = extractTag(ptMatch[2] ?? '', 'ele');
+      const elevation = elevationText === null ? null : Number(elevationText);
+      points.push({ latitude: lat, longitude: lon,
+        elevation: elevation !== null && Number.isFinite(elevation) ? elevation : null });
     }
 
     if (points.length > 0) {

@@ -1,4 +1,5 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
+import { requestAppUpdate } from "../../lib/pwa-update-request";
 import userEvent from "@testing-library/user-event";
 import UpdatePrompt from "./UpdatePrompt";
 
@@ -6,10 +7,14 @@ type NavigatorWithServiceWorker = Omit<Navigator, "serviceWorker"> & {
   serviceWorker?: unknown;
 };
 
+type WaitingMock = { state: 'installed'; postMessage: ReturnType<typeof vi.fn> };
+
 interface MockRegistration {
-  waiting: { postMessage: (message: unknown) => void } | null;
+  scope: string;
+  waiting: WaitingMock | null;
   controller: unknown;
   installing: null;
+  update: ReturnType<typeof vi.fn>;
   addEventListener: ReturnType<typeof vi.fn>;
   removeEventListener: ReturnType<typeof vi.fn>;
   dispatchEvent: ReturnType<typeof vi.fn>;
@@ -18,6 +23,19 @@ interface MockRegistration {
 beforeEach(() => {
   delete (navigator as NavigatorWithServiceWorker).serviceWorker;
   vi.restoreAllMocks();
+  // jsdom does not consistently provide MessageChannel; emulate the real handshake.
+  class TestMessageChannel {
+    port1 = { onmessage: null as ((event: MessageEvent) => void) | null, close() {} };
+    port2 = {
+      postMessage: (data: unknown) => this.port1.onmessage?.({ data } as MessageEvent),
+      close() {},
+    };
+  }
+  vi.stubGlobal('MessageChannel', TestMessageChannel);
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
 });
 
 const createServiceWorkerMock = (overrides: {
@@ -25,9 +43,22 @@ const createServiceWorkerMock = (overrides: {
   controller: unknown;
 }) => {
   const readyObj: MockRegistration = {
-    waiting: overrides.waiting ?? null,
+    scope: `${window.location.origin}/`,
+    waiting: overrides.waiting ? {
+      state: 'installed',
+      postMessage: vi.fn((message: unknown, ports?: Array<{ postMessage: (data: unknown) => void }>) => {
+        if ((message as { type?: string })?.type === 'CHECK_COMPATIBILITY') {
+          ports?.[0]?.postMessage({
+            type: 'MARKMAP_COMPATIBILITY', shellProtocolVersion: 1,
+            localSchemaVersion: 1, regionPackageSchemaVersion: 2,
+          });
+        }
+        overrides.waiting?.postMessage(message);
+      }),
+    } : null,
     controller: overrides.controller ?? null,
     installing: null,
+    update: vi.fn(async () => undefined),
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
     dispatchEvent: vi.fn(),
@@ -73,6 +104,10 @@ describe("UpdatePrompt", () => {
     await waitFor(() =>
       expect(screen.getByRole("status")).toBeInTheDocument()
     );
+    expect(screen.getByText("MarkMap tem novidades")).toBeInTheDocument();
+    expect(screen.getByText(/dados locais antes de atualizar/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Atualizar agora" })).toHaveClass("pwa-update-prompt__primary");
+    expect(screen.getByRole("button", { name: "Depois" })).toHaveClass("pwa-update-prompt__secondary");
   });
 
   it("should not show prompt when no waiting registration", () => {
@@ -95,8 +130,7 @@ describe("UpdatePrompt", () => {
       <UpdatePrompt
         durableWritesReady={() => true}
         compatibilityReady={() => true}
-      >
-      </UpdatePrompt>
+      />
     );
 
     await waitFor(() =>
@@ -135,37 +169,20 @@ describe("UpdatePrompt", () => {
 
     // Falha fechada: o fluxo termina sem nunca acionar o skip-waiting
     await waitFor(() => expect(button).toBeEnabled());
-    expect(readyObj.waiting?.postMessage).not.toHaveBeenCalled();
+    // Compatibility handshake may post a message, but activation must not.
+    expect(readyObj.waiting?.postMessage).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: "SKIP_WAITING" })
+    );
   });
 
-  it("should handle controllerchange and reload", async () => {
-    const { sw } = createServiceWorkerMock({
+  it("ignores a waiting worker outside the active service-worker scope", async () => {
+    const { readyObj } = createServiceWorkerMock({
       waiting: { postMessage: vi.fn() },
       controller: {},
     });
-
-    const reloadMock = vi.fn();
-    const originalLocation = window.location;
-    Object.defineProperty(window, "location", {
-      configurable: true,
-      writable: true,
-      value: { ...originalLocation, reload: reloadMock } as Location,
-    });
-
-    try {
-      render(<UpdatePrompt />);
-
-      // O efeito registra o listener no serviceWorker durante o mount
-      sw.dispatch("controllerchange");
-
-      expect(reloadMock).toHaveBeenCalled();
-    } finally {
-      Object.defineProperty(window, "location", {
-        configurable: true,
-        writable: true,
-        value: originalLocation,
-      });
-    }
+    readyObj.scope = "https://unrelated.example/";
+    render(<UpdatePrompt />);
+    await waitFor(() => expect(screen.queryByRole("status")).toBeNull());
   });
 
   it("should persist version check across focus/online events", async () => {
@@ -181,4 +198,50 @@ describe("UpdatePrompt", () => {
     const prompt = await screen.findByRole("status");
     expect(prompt).toBeInTheDocument();
   });
+  it("checks and activates an installed PWA from Settings using the existing safeguards", async () => {
+    const { readyObj } = createServiceWorkerMock({
+      waiting: { postMessage: vi.fn() },
+      controller: true,
+    });
+    render(
+      <UpdatePrompt durableWritesReady={() => true} compatibilityReady={() => true} />
+    );
+
+    let result: Awaited<ReturnType<typeof requestAppUpdate>> | undefined;
+    await act(async () => { result = await requestAppUpdate(); });
+    expect(result).toEqual({ status: "updating" });
+    expect(readyObj.update).toHaveBeenCalled();
+    expect(readyObj.waiting?.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "SKIP_WAITING", durableWritesReady: true })
+    );
+  });
+
+  it("reports current when Settings checks and no new version exists", async () => {
+    const { readyObj } = createServiceWorkerMock({
+      waiting: null,
+      controller: true,
+    });
+    render(<UpdatePrompt />);
+
+    let result: Awaited<ReturnType<typeof requestAppUpdate>> | undefined;
+    await act(async () => { result = await requestAppUpdate(); });
+    expect(result).toEqual({ status: "current" });
+    expect(readyObj.update).toHaveBeenCalled();
+  });
+
+  it("refuses Settings activation when outbox safety check fails", async () => {
+    const { readyObj } = createServiceWorkerMock({
+      waiting: { postMessage: vi.fn() },
+      controller: true,
+    });
+    render(<UpdatePrompt durableWritesReady={() => false} compatibilityReady={() => true} />);
+
+    let result: Awaited<ReturnType<typeof requestAppUpdate>> | undefined;
+    await act(async () => { result = await requestAppUpdate(); });
+    expect(result?.status).toBe("error");
+    expect(readyObj.waiting?.postMessage).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: "SKIP_WAITING" })
+    );
+  });
+
 });

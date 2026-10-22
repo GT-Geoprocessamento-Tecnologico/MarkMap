@@ -1,5 +1,4 @@
 import { BackToTop } from "./components/BackToTop";
-import { InstallAppNotice } from "./components/InstallAppNotice";
 import { DownloadPage } from "./pages/DownloadPage";
 import { HomePage } from "./pages/HomePage";
 import { OfflinePage } from "./pages/OfflinePage";
@@ -18,7 +17,6 @@ export function App() {
   return (
     <>
       {page}
-      <InstallAppNotice />
       <BackToTop />
     </>
   );

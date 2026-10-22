@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+// @ts-expect-error contracts emits runtime JS without declarations in this workspace
+import type { OfflineMapPackageManifest } from "../../../contracts/dist/src/offline-map.js";
 import { adaptOfflineStyle } from "../../src/offline/style.js";
 import { validateOfflinePackage } from "../../src/offline/package.js";
 import { createOfflineAssetProtocol } from "../../src/offline/protocol.js";
@@ -12,7 +14,7 @@ async function fixture() {
   for (let p = 8; p < 72; p += 16) new DataView(archive.buffer).setBigUint64(p, 127n, true);
   const style = new TextEncoder().encode(JSON.stringify({ sources: { base: { type: "vector", url: "pmtiles://package.pmtiles" } }, glyphs: "glyphs/{fontstack}/{range}.pbf", sprite: "sprites/light" }));
   const manifest = { id: "test-package", version: "1", label: "Test", bounds: [-48, -16, -47, -15] as [number, number, number, number], minZoom: 0, maxZoom: 12, archive: { id: crypto.randomUUID(), sha256: await hash(archive), bytes: archive.byteLength, mediaType: "application/vnd.pmtiles" as const }, style: { path: "style.json", blob: { id: crypto.randomUUID(), sha256: await hash(style), bytes: style.byteLength, mediaType: "application/json" as const } }, glyphs: [], sprites: [], attribution: "OpenStreetMap", createdAt: new Date().toISOString(), packageVersion: "1.0.0", osmDataDate: new Date().toISOString(), capabilities: [], checksums: { archive: await hash(archive) }, totalBytes: archive.byteLength, sources: { osm: "OpenStreetMap", attributions: [] }, minimumCompatibleVersion: "1.0.0" };
-  return { manifest, assets: new Map([["package.pmtiles", archive], ["style.json", style]]) };
+  return { manifest: manifest as OfflineMapPackageManifest, assets: new Map([["package.pmtiles", archive], ["style.json", style]]) };
 }
 
 describe("offline package", () => {
@@ -33,5 +35,38 @@ describe("offline package", () => {
       await expect(protocol({ url }, new AbortController())).rejects.toThrow("invalid offline package asset URL");
     }
     expect(calls).toBe(0);
+  });
+});
+
+describe("offline style resource policy", () => {
+  it("accepts geometry-only styles without optional glyphs or sprites", async () => {
+    const value = await fixture();
+    const style = new TextEncoder().encode(JSON.stringify({ sources: { base: { type: "vector", url: "pmtiles://package.pmtiles" } }, layers: [{ id: "base", type: "fill", source: "base" }] }));
+    value.assets.set("style.json", style);
+    value.manifest.style.blob = { ...value.manifest.style.blob, sha256: await hash(style), bytes: style.byteLength };
+    await expect(validateOfflinePackage(value.manifest, value.assets)).resolves.toMatchObject({ ok: true });
+    const adapted = adaptOfflineStyle({ sources: { base: { url: "pmtiles://package.pmtiles" } }, layers: [{ id: "base", type: "fill" }] }, { id: "local", attribution: "Licensed data" } as never);
+    expect(adapted).not.toHaveProperty("glyphs");
+    expect(adapted).not.toHaveProperty("sprite");
+  });
+
+  it("requires materialized glyphs and exact sprite pairs only when symbols use them", async () => {
+    const value = await fixture();
+    const glyph = new Uint8Array([1, 2, 3]);
+    const glyphPath = "glyphs/Noto-Sans-Regular/0-255.pbf";
+    value.manifest.glyphs = [{ path: glyphPath, blob: { id: crypto.randomUUID(), sha256: await hash(glyph), bytes: glyph.byteLength, mediaType: "application/x-protobuf" as const } }];
+    value.assets.set(glyphPath, glyph);
+    const style = new TextEncoder().encode(JSON.stringify({ sources: { base: { type: "vector", url: "pmtiles://package.pmtiles" } }, glyphs: "glyphs/{fontstack}/{range}.pbf", layers: [{ id: "labels", type: "symbol", layout: { "text-field": "{name}" } }] }));
+    value.assets.set("style.json", style);
+    value.manifest.style.blob = { ...value.manifest.style.blob, sha256: await hash(style), bytes: style.byteLength };
+    await expect(validateOfflinePackage(value.manifest, value.assets)).resolves.toMatchObject({ ok: true });
+
+    const literal = await fixture();
+    const literalBytes = new Uint8Array([4]);
+    literal.manifest.glyphs = [{ path: "glyphs/__MM_GLYPH_TOKEN__.pbf", blob: { id: crypto.randomUUID(), sha256: await hash(literalBytes), bytes: 1, mediaType: "application/x-protobuf" as const } }];
+    literal.assets.set("glyphs/__MM_GLYPH_TOKEN__.pbf", literalBytes);
+    literal.assets.set("style.json", style);
+    literal.manifest.style.blob = { ...literal.manifest.style.blob, sha256: await hash(style), bytes: style.byteLength };
+    await expect(validateOfflinePackage(literal.manifest, literal.assets)).resolves.toMatchObject({ ok: false, code: "invalid-style" });
   });
 });

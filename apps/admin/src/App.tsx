@@ -10,6 +10,7 @@ import { SyncStatus } from "./lib/sync/SyncStatus";
 import { UpdatePrompt } from "./components/pwa/UpdatePrompt";
 import { PwaInstallPrompt } from "./components/pwa/PwaInstallPrompt";
 import { NetworkStatusBanner } from "./components/pwa/NetworkStatusBanner";
+import { isPwaStandalone, shouldShowPwaInstallFlow } from "./lib/pwa-install";
 
 function createQueryClient(): QueryClient {
   return new QueryClient({
@@ -29,6 +30,15 @@ function createQueryClient(): QueryClient {
 export default function App() {
   const [queryClient] = useState(createQueryClient);
 
+  // Marketing-site installs arrive here with ?install=1. Do not mount the
+  // operational workspace or start synchronization until launched as a PWA.
+  if (
+    typeof window !== "undefined" &&
+    shouldShowPwaInstallFlow(window.location.search, isPwaStandalone())
+  ) {
+    return <PwaInstallPrompt fullScreen />;
+  }
+
   return (
     <QueryClientProvider client={queryClient}>
       <ToastProvider>
@@ -41,7 +51,7 @@ export default function App() {
             await localRepository.listOutbox();
             return true;
           }}
-          compatibilityReady={() => true}
+          compatibilityReady={() => typeof indexedDB !== 'undefined' && typeof caches !== 'undefined'}
         />
         <RouterProvider router={router} />
       </ToastProvider>

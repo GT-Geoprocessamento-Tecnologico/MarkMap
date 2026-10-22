@@ -7,8 +7,10 @@ O app móvel reutiliza o mesmo React/Vite e usa Capacitor.
 `apps/admin/capacitor.config.json`:
 
 - appId: `dev.mtsferreira.geonexo`
-- appName: `GeoNexo`
+- appName: `MarkMap`
 - webDir: `dist`
+
+O appId histórico permanece para preservar a identidade de instalação; nome exibido e artefatos adotam MarkMap.
 
 ## Android
 
@@ -20,7 +22,7 @@ Workflow `android-apk.yml`:
 4. executa `cap add android` e `cap sync android`;
 5. garante permissões FINE/COARSE location;
 6. gera APK debug;
-7. publica artefato `geonexo-android-debug`.
+7. publica artefato `markmap-android-debug`.
 
 Java 21 é usado no CI.
 

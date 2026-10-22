@@ -60,3 +60,9 @@ export * from './coordinates.js';
 export * from './geodesy.js';
 export * from './navigation.js';
 export * from './location.js';
+
+export { parseGpx } from './gpx.js';
+export { parseKml } from './kml.js';
+export { extractKmzKml, MAX_KMZ_BYTES } from './kmz.js';
+export { tracksToGeoJSON } from './tracks-geojson.js';
+export type { TrackGeoJsonCollection, TrackGeoJsonFeature } from './tracks-geojson.js';

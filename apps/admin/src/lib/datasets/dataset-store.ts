@@ -4,8 +4,13 @@ import {
   isReprojectableEpsg,
   parseGeoJsonCrsEpsg,
   transformPosition,
+  parseGpx,
+  parseKml,
+  tracksToGeoJSON,
+  extractKmzKml,
 } from "@markmap/geo";
 import { offlineDB } from "../storage/offline-db";
+import { downloadBlob } from "../file-download";
 
 export const MAX_DATASET_BYTES = 25 * 1024 * 1024;
 export const MAX_DATASET_FEATURES = 10_000;
@@ -27,7 +32,7 @@ export interface DatasetGeoJSON {
 export interface DatasetRecord {
   id: string;
   name: string;
-  format: "GeoJSON";
+  format: "GeoJSON" | "GPX" | "KML" | "KMZ";
   sizeBytes: number;
   featuresCount: number;
   uploadedAt: string;
@@ -118,7 +123,7 @@ export async function parseGeoJSON(file: File): Promise<DatasetRecord> {
   const sourceEpsg = parseGeoJsonCrsEpsg(declaredCrs) ?? EPSG_WGS84;
   if (sourceEpsg !== EPSG_WGS84 && !isReprojectableEpsg(sourceEpsg))
     throw new Error(
-      `O arquivo declara EPSG:${sourceEpsg}, que o GeoNexo não sabe reprojetar para WGS 84.`,
+      `O arquivo declara EPSG:${sourceEpsg}, que o MarkMap não sabe reprojetar para WGS 84.`,
     );
   const features = (parsed as { features?: unknown }).features;
   if (!Array.isArray(features))
@@ -201,6 +206,46 @@ export async function parseGeoJSON(file: File): Promise<DatasetRecord> {
   };
 }
 
+/** Import GPX/KML through the existing parsers, then through the same GeoJSON safety gate. */
+export async function parseDatasetFile(file: File): Promise<DatasetRecord> {
+  if (/\.(?:geojson|json)$/i.test(file.name)) return parseGeoJSON(file);
+  if (!/\.(?:gpx|kml|kmz)$/i.test(file.name))
+    throw new Error('Formato não suportado. Use GeoJSON, GPX, KML ou KMZ.');
+  if (file.size > MAX_DATASET_BYTES) throw new Error('Arquivo excede o limite de 25 MiB.');
+  const raw = /\.kmz$/i.test(file.name) ? await extractKmzKml(file) : await file.text();
+  // Treat XML as untrusted input. Existing parsers are text-only (no network/DTD resolution).
+  if (/<!\s*(?:DOCTYPE|ENTITY)\b/i.test(raw))
+    throw new Error('Declarações DTD/ENTITY não são permitidas.');
+  const format = /\.gpx$/i.test(file.name) ? 'GPX' : /\.kmz$/i.test(file.name) ? 'KMZ' : 'KML';
+  if (!(format === 'GPX' ? /<(?:[\w-]+:)?gpx\b/i : /<(?:[\w-]+:)?kml\b/i).test(raw))
+    throw new Error('XML incompatível com o formato informado.');
+  const imported = format === 'GPX' ? parseGpx(raw) : parseKml(raw, { strict: true });
+  const collection = tracksToGeoJSON(imported);
+  if (collection.features.length === 0)
+    throw new Error('O arquivo não contém pontos, linhas ou áreas compatíveis.');
+  if (collection.features.length > MAX_DATASET_FEATURES)
+    throw new Error(`O arquivo excede o limite de ${MAX_DATASET_FEATURES} feições.`);
+  // Reuse the same CRS, geometry, feature-count and properties validation as GeoJSON.
+  const normalized = JSON.stringify(collection);
+  const jsonFile = new File([normalized], 'converted.geojson', { type: 'application/geo+json' });
+  // jsdom File lacks text(); installed browsers provide it natively.
+  if (typeof jsonFile.text !== 'function') Object.defineProperty(jsonFile, 'text', {value: async () => normalized});
+  const validated = await parseGeoJSON(jsonFile);
+  return { ...validated, name: file.name, format, sizeBytes: file.size, originalBlob: file };
+}
+
+/** Export validated normalized WGS84 data, independent of the original format. */
+export function normalizedGeoJSONBlob(dataset: Pick<DatasetRecord, 'geojson'>): Blob {
+  return new Blob([JSON.stringify(dataset.geojson)], { type: 'application/geo+json' });
+}
+
+export async function exportDatasetGeoJSON(id: string): Promise<void> {
+  const dataset = await getDataset(id);
+  if (!dataset) throw new Error('Dataset não encontrado.');
+  const blob = normalizedGeoJSONBlob(dataset);
+  downloadBlob(blob, dataset.name.replace(/\.[^.]+$/, '') + '.geojson');
+}
+
 export async function saveDataset(dataset: DatasetRecord): Promise<void> {
   const { originalBlob, ...metadata } = dataset;
   await offlineDB.save("datasets", dataset.id, { ...metadata, originalBytes: await originalBlob.arrayBuffer(), originalType: originalBlob.type });
@@ -237,11 +282,5 @@ export async function removeDataset(id: string): Promise<void> {
 export async function exportDataset(id: string): Promise<void> {
   const dataset = await getDataset(id);
   if (!dataset) throw new Error("Dataset não encontrado.");
-  const blob = dataset.originalBlob;
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = dataset.name;
-  anchor.click();
-  URL.revokeObjectURL(url);
+  downloadBlob(dataset.originalBlob, dataset.name);
 }

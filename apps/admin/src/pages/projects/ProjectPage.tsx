@@ -1,10 +1,12 @@
 import { Link, useParams } from "@tanstack/react-router";
 import { Button, Skeleton } from "@geonexo/ui";
 import { useProject } from "../../lib/hooks/projects";
+import { useProjectLayers } from "../../lib/hooks/layers";
 
 export default function ProjectPage() {
   const { projectId } = useParams({ from: "/projects/$projectId" });
   const { data: project, isLoading, isError } = useProject(projectId);
+  const layersQuery = useProjectLayers(projectId, { limit: 100 });
 
   if (isLoading) {
     return (
@@ -53,14 +55,39 @@ export default function ProjectPage() {
 
       <section className="rounded-xl border border-outline-variant bg-surface-container p-6">
         <h2 className="text-lg font-semibold">Camadas do projeto</h2>
-        <p className="mt-2 text-sm text-on-surface-variant">
-          Ainda não há camadas neste projeto local. Você já pode importar GeoJSON e visualizá-lo no mapa.
-        </p>
+        {layersQuery.isLoading ? (
+          <p role="status" className="mt-2 text-sm text-on-surface-variant">Carregando camadas locais…</p>
+        ) : layersQuery.isError ? (
+          <p role="alert" className="mt-2 text-sm text-error">
+            Não foi possível carregar as camadas locais.
+            <button type="button" className="ml-2 underline" onClick={() => void layersQuery.refetch()}>Tentar novamente</button>
+          </p>
+        ) : layersQuery.data?.items.length === 0 ? (
+          <p className="mt-2 text-sm text-on-surface-variant">
+            Ainda não há camadas neste projeto local. Você já pode importar GeoJSON e visualizá-lo no mapa.
+          </p>
+        ) : (
+          <>
+            <ul aria-label="Camadas locais do projeto" className="mt-3 space-y-2">
+              {layersQuery.data?.items.map((layer) => (
+                <li key={layer.id} className="rounded-lg border border-outline-variant bg-background p-3 text-sm">
+                  <span className="font-semibold">{layer.name}</span>
+                  <span className="ml-2 text-on-surface-variant">{layer.geometryType ?? layer.kind}</span>
+                </li>
+              ))}
+            </ul>
+            {layersQuery.data?.nextCursor && (
+              <p role="status" className="mt-2 text-xs text-on-surface-variant">
+                Resumo parcial: até 100 camadas deste projeto.
+              </p>
+            )}
+          </>
+        )}
         <div className="mt-4 flex flex-wrap gap-3">
           <Link to="/imports">
             <Button variant="primary">Importar dados</Button>
           </Link>
-          <Link to="/workspace">
+          <Link to="/projects/$projectId/map" params={{ projectId }}>
             <Button variant="secondary">Abrir mapa</Button>
           </Link>
         </div>

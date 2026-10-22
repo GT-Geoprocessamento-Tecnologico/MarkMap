@@ -1,4 +1,57 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { PWA_UPDATE_REQUEST, type AppUpdateRequest, type AppUpdateResult } from "../../lib/pwa-update-request";
+import { AppIcon } from "../AppIcon";
+
+/** Ask the WAITING worker for protocol information; do not infer it from network status. */
+async function waitingWorkerCompatible(waiting: ServiceWorker): Promise<boolean> {
+  if (typeof MessageChannel === 'undefined') return false;
+  return new Promise((resolve) => {
+    const channel = new MessageChannel();
+    let settled = false;
+    const finish = (ok: boolean) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      try { channel.port1.close(); channel.port2.close(); }
+      finally { resolve(ok); }
+    };
+    const timeout = setTimeout(() => finish(false), 4000);
+    channel.port1.onmessage = (event: MessageEvent<{
+      type?: string; shellProtocolVersion?: number; localSchemaVersion?: number;
+      regionPackageSchemaVersion?: number;
+    }>) => {
+      const data = event.data;
+      finish(data?.type === 'MARKMAP_COMPATIBILITY' &&
+        data.shellProtocolVersion === 1 && data.localSchemaVersion === 1 &&
+        data.regionPackageSchemaVersion === 2);
+    };
+    try { waiting.postMessage({ type: 'CHECK_COMPATIBILITY' }, [channel.port2]); }
+    catch { finish(false); }
+  });
+}
+
+
+/** Wait for an in-progress installation before deciding whether an update exists. */
+async function waitForInstallation(registration: ServiceWorkerRegistration): Promise<void> {
+  const installing = registration.installing;
+  if (!installing || ["installed", "activated", "redundant"].includes(installing.state)) return;
+  await new Promise<void>((resolve) => {
+    let finished = false;
+    const done = () => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timeout);
+      installing.removeEventListener("statechange", onStateChange);
+      resolve();
+    };
+    const onStateChange = () => {
+      if (["installed", "activated", "redundant"].includes(installing.state)) done();
+    };
+    const timeout = setTimeout(done, 15000);
+    installing.addEventListener("statechange", onStateChange);
+    onStateChange();
+  });
+}
 
 export interface UpdatePromptProps {
   /** Return true only after IndexedDB transactions and outbox writes are durable. */
@@ -14,7 +67,55 @@ export function UpdatePrompt({
 }: UpdatePromptProps) {
   const [registration, setRegistration] = useState<ServiceWorkerRegistration | null>(null);
   const [busy, setBusy] = useState(false);
+  const activationApproved = useRef(false);
+  const reloadStarted = useRef(false);
+  const [error, setError] = useState<string | null>(null);
   const [dismissedVersion, setDismissedVersion] = useState<ServiceWorker | null>(null);
+
+  const accept = useCallback(async (target: ServiceWorkerRegistration): Promise<AppUpdateResult> => {
+    const waiting = target.waiting;
+    if (!waiting) return { status: "current" };
+    setBusy(true);
+    setError(null);
+    try {
+      const [writesReady, appCompatible, workerCompatible] = await Promise.all([
+        durableWritesReady(), compatibilityReady(), waitingWorkerCompatible(waiting),
+      ]);
+      if (!writesReady || !appCompatible) {
+        const message = "Os dados locais ainda não estão prontos. Salve as alterações antes de atualizar.";
+        setError(message);
+        return { status: "error", message };
+      }
+      if (!workerCompatible) {
+        const message = "Esta versão não confirmou compatibilidade dos dados locais. Atualização bloqueada por segurança.";
+        setError(message);
+        return { status: "error", message };
+      }
+      if (target.waiting !== waiting || waiting.state !== "installed") {
+        const message = "A versão disponível mudou. Verifique novamente antes de atualizar.";
+        setError(message);
+        return { status: "error", message };
+      }
+      activationApproved.current = true;
+      try {
+        waiting.postMessage({
+          type: "SKIP_WAITING",
+          durableWritesReady: true,
+          compatibilityVersion: 1,
+        });
+      } catch (cause) {
+        activationApproved.current = false;
+        throw cause;
+      }
+      return { status: "updating" };
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : "Não foi possível ativar a atualização com segurança.";
+      setError(message);
+      return { status: "error", message };
+    } finally {
+      setBusy(false);
+    }
+  }, [durableWritesReady, compatibilityReady]);
 
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return undefined;
@@ -22,9 +123,13 @@ export function UpdatePrompt({
     let disposed = false;
     let updateInterval: NodeJS.Timeout | null = null;
 
-    const hadController = navigator.serviceWorker.controller !== null;
     const onControllerChange = () => {
-      if (hadController) window.location.reload();
+      // A different tab may activate a worker. Never force-reload unsaved local UI
+      // unless THIS tab approved an update and finished its durable write check.
+      if (activationApproved.current && !reloadStarted.current) {
+        reloadStarted.current = true;
+        window.location.reload();
+      }
     };
 
     const checkForUpdate = async () => {
@@ -71,6 +176,8 @@ export function UpdatePrompt({
     navigator.serviceWorker.addEventListener("controllerchange", onControllerChange);
     void navigator.serviceWorker.ready.then((ready) => {
       if (disposed) return;
+      // Only a worker registered for this document's scope can prompt activation.
+      if (!window.location.href.startsWith(ready.scope)) return;
       if (ready.waiting && ready.waiting !== dismissedVersion) setRegistration(ready);
       ready.addEventListener("updatefound", () => {
         const worker = ready.installing;
@@ -84,6 +191,40 @@ export function UpdatePrompt({
       void checkForUpdate();
     });
 
+    // Settings delegates to this single guarded activation flow, not a second updater.
+    const onManualUpdate = (rawEvent: Event) => {
+      const event = rawEvent as CustomEvent<AppUpdateRequest>;
+      if (typeof event.detail?.respond !== "function") return;
+      event.preventDefault();
+      void (async (): Promise<AppUpdateResult> => {
+        if (!("serviceWorker" in navigator) || !navigator.serviceWorker.controller) {
+          return { status: "unavailable" };
+        }
+        if (!navigator.onLine) return { status: "offline" };
+        const ready = await navigator.serviceWorker.ready;
+        if (disposed || !window.location.href.startsWith(ready.scope) || typeof ready.update !== "function") {
+          return { status: "unavailable" };
+        }
+        try {
+          await ready.update();
+        } catch (cause) {
+          // An already downloaded version can still be activated when another
+          // update check fails; otherwise surface the real network error.
+          if (!ready.waiting) throw cause;
+        }
+        await waitForInstallation(ready);
+        if (disposed) return { status: "unavailable" };
+        if (!ready.waiting) return { status: ready.installing ? "pending" : "current" };
+        setRegistration(ready);
+        return accept(ready);
+      })().then(event.detail.respond, (cause: unknown) => {
+        event.detail.respond({
+          status: "error",
+          message: cause instanceof Error ? cause.message : "Falha ao verificar atualização.",
+        });
+      });
+    };
+    window.addEventListener(PWA_UPDATE_REQUEST, onManualUpdate);
     window.addEventListener("online", goOnline);
     document.addEventListener("visibilitychange", onVisibilityChange);
     startPeriodicCheck();
@@ -91,62 +232,70 @@ export function UpdatePrompt({
     return () => {
       disposed = true;
       navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange);
+      window.removeEventListener(PWA_UPDATE_REQUEST, onManualUpdate);
       window.removeEventListener("online", goOnline);
       document.removeEventListener("visibilitychange", onVisibilityChange);
       if (updateInterval) clearInterval(updateInterval);
     };
-  }, [dismissedVersion]);
-
-  if (!registration?.waiting) return null;
-
-  const accept = async () => {
-    const waiting = registration.waiting;
-    if (!waiting) return;
-    setBusy(true);
-    try {
-      const [writesReady, compatible] = await Promise.all([durableWritesReady(), compatibilityReady()]);
-      if (!writesReady || !compatible) return;
-      waiting.postMessage({
-        type: "SKIP_WAITING",
-        durableWritesReady: true,
-        compatibilityVersion: 1,
-      });
-    } finally {
-      setBusy(false);
-    }
-  };
+  }, [dismissedVersion, accept]);
 
   const handleLater = () => {
-    if (registration.waiting) {
+    if (registration?.waiting) {
+      activationApproved.current = false;
       setDismissedVersion(registration.waiting);
     }
     setRegistration(null);
   };
 
+  if (!registration?.waiting) return null;
+
+  // Desenvolvido por MtsFerreira. Apenas a apresentação muda; o aceite continua seguro.
   return (
     <aside
       role="status"
       aria-live="polite"
+      aria-busy={busy}
       aria-label="Nova versão do MarkMap disponível."
       className="pwa-update-prompt"
     >
-      <span>Nova versão do MarkMap disponível.</span>
-      <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
+      <div className="pwa-update-prompt__heading">
+        <span className="pwa-update-prompt__icon">
+          <AppIcon name="sync" size="lg" />
+        </span>
+        <div>
+          <span className="pwa-update-prompt__eyebrow">ATUALIZAÇÃO DISPONÍVEL</span>
+          <strong className="pwa-update-prompt__title">MarkMap tem novidades</strong>
+        </div>
+      </div>
+      <p className="pwa-update-prompt__description">
+        Uma nova versão está pronta. Verificamos seus dados locais antes de atualizar.
+      </p>
+      {error && (
+        <p role="alert" className="pwa-update-prompt__error">
+          <AppIcon name="info" size="sm" />
+          <span>{error}</span>
+        </p>
+      )}
+      <div className="pwa-update-prompt__actions">
         <button
           type="button"
-          onClick={() => void accept()}
+          className="pwa-update-prompt__primary"
+          onClick={() => void accept(registration)}
           disabled={busy}
         >
+          <AppIcon name={busy ? "loading" : "download"} size="sm" />
           {busy ? "Verificando…" : "Atualizar agora"}
         </button>
         <button
           type="button"
-          onClick={() => handleLater()}
-          style={{ flex: "1" }}
+          className="pwa-update-prompt__secondary"
+          onClick={handleLater}
+          disabled={busy}
         >
           Depois
         </button>
       </div>
+      <span className="pwa-update-prompt__note">Você escolhe quando atualizar.</span>
     </aside>
   );
 }

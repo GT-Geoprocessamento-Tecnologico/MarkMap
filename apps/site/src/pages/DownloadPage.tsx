@@ -21,7 +21,7 @@ export function DownloadPage() {
               <InstallAppButton className="button button--primary button--download">
                 Instalar MarkMap
               </InstallAppButton>
-              <small>A instalação é concluída pelo navegador. Android e iOS usam os fluxos nativos de instalação do app.</small>
+              <small>O botão abre o aplicativo oficial. Instale-o no navegador para abrir depois pelo ícone, em janela própria e com suporte offline.</small>
             </Reveal>
 
             <Reveal delay={120}>

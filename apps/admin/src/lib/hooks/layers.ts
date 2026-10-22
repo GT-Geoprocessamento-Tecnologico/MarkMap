@@ -15,7 +15,7 @@ interface ListLayersOptions {
   limit?: number;
 }
 
-async function listLocalLayers(projectId: string): Promise<Layer[]> {
+export async function listLocalLayers(projectId: string): Promise<Layer[]> {
   await ensureDemoWorkspace();
   const entities = await localRepository.listEntities("layer");
   return entities
@@ -31,6 +31,15 @@ async function listLocalLayers(projectId: string): Promise<Layer[]> {
         a.name.localeCompare(b.name) ||
         a.id.localeCompare(b.id),
     );
+}
+
+export async function listLocalLayersPage(
+  projectId: string,
+  limit = 100,
+): Promise<{ items: Layer[]; truncated: boolean }> {
+  const safeLimit = Math.max(1, Math.min(100, Math.trunc(limit)));
+  const items = await listLocalLayers(projectId);
+  return { items: items.slice(0, safeLimit), truncated: items.length > safeLimit };
 }
 
 async function getLocalLayer(layerId: string): Promise<Layer | null> {
@@ -94,7 +103,11 @@ export function useCreateLayer(projectId: string) {
       });
       return layer;
     },
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: queryKeys.layersByProject(projectId) }),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.layersByProject(projectId) }),
+        queryClient.invalidateQueries({ queryKey: ["analytics-layers"] }),
+      ]);
+    },
   });
 }

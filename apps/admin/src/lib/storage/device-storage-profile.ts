@@ -7,10 +7,11 @@
  *
  * Este módulo é o MM-MAP-100 da sequência Maps Engine v2 offline.
  *
- * Observação sobre Capacitor: a Storage Manager API (`navigator.storage`) está
- * disponível dentro do WebView do Capacitor, portanto o caminho nativo usa as
- * mesmas APIs web. A persistência (`navigator.storage.persist()`) é concedida
- * pelo sistema operacional em Android/iOS quando o app é usado com frequência.
+ * Observação sobre Capacitor: quando disponível, a Storage Manager API
+ * (`navigator.storage`) pode ser usada dentro do WebView do Capacitor, portanto
+ * o caminho nativo tenta as mesmas APIs web. Em versões anteriores ao Safari
+ * 17/iOS 17 essas APIs podem estar ausentes ou ter suporte parcial; a
+ * persistência é apenas uma otimização e nunca uma garantia contra evicção.
  */
 
 import { getStorageBreakdown, StorageBreakdown } from "./storage-management";
@@ -22,7 +23,7 @@ import { getStorageBreakdown, StorageBreakdown } from "./storage-management";
 export type StorageBackend = "indexeddb" | "filesystem" | "unknown";
 
 export interface DeviceStorageProfile {
-  /** Quota total disponível em bytes (aprox. 20% do total do dispositivo) */
+  /** Orçamento seguro restante estimado para novas gravações (não quota física total) */
   quota: number;
   /** Uso atual em bytes, por categoria */
   usage: Map<StorageCategory, number>;
@@ -32,7 +33,7 @@ export interface DeviceStorageProfile {
   persistentGranted: boolean;
   /** Backend disponível para storage */
   backend: StorageBackend;
-  /** Orçamento seguro calculado (quota * 0.85, nunca exceder 85% do total) */
+  /** Espaço adicional após descontar o uso informado pelo navegador */
   safeLimit: number;
   /** Limite máximo absoluto do dispositivo (bytes) */
   maxLimit: number;
@@ -58,13 +59,15 @@ const categoryMap: Record<string, StorageCategory> = {
 /**
  * Obtém o perfil completo de storage do dispositivo.
  *
- * Usa `navigator.storage.estimate()` e a Storage Manager API, disponíveis
- * tanto em Web/PWA quanto dentro do WebView do Capacitor.
+ * Tenta `navigator.storage.estimate()` e a Storage Manager API quando
+ * disponíveis em Web/PWA ou dentro do WebView do Capacitor. Fallbacks mantêm
+ * o perfil utilizável quando o navegador não expõe essas APIs.
  *
  * @returns DeviceStorageProfile preenchido com dados reais
  */
 export async function getDeviceStorageProfile(): Promise<DeviceStorageProfile> {
   let maxLimit = 0;
+  let browserUsage: number | null = null;
   let persistentGranted = false;
   const backend: StorageBackend = "indexeddb";
   const usageMap = new Map<StorageCategory, number>();
@@ -74,7 +77,10 @@ export async function getDeviceStorageProfile(): Promise<DeviceStorageProfile> {
   try {
     if (typeof navigator !== "undefined" && navigator.storage?.estimate) {
       const estimate = await navigator.storage.estimate();
-      maxLimit = estimate.quota ?? 0;
+      const quota = estimate.quota ?? 0;
+      const usage = estimate.usage ?? -1;
+      if (Number.isFinite(quota) && quota > 0) maxLimit = quota;
+      if (Number.isFinite(usage) && usage >= 0) browserUsage = usage;
       persistentGranted = await isPersistentStorageGranted();
     }
   } catch {
@@ -87,7 +93,7 @@ export async function getDeviceStorageProfile(): Promise<DeviceStorageProfile> {
       const raw = localStorage.getItem("storage_quota");
       const value = raw === null ? Number.NaN : Number(raw);
       if (Number.isFinite(value) && value > 0) {
-        maxLimit = Math.max(maxLimit, value);
+        if (maxLimit === 0) maxLimit = value; // fallback only, never override browser quota
       }
       persistentGranted = persistentGranted || (await isPersistentStorageGranted());
     } catch {
@@ -108,16 +114,15 @@ export async function getDeviceStorageProfile(): Promise<DeviceStorageProfile> {
     // Fallback se breakdown falhar
   }
 
-  const quota = Math.floor(maxLimit * 0.85); // 85% safe limit
-
-  // Calcular space livre
-  const totalUsed = Array.from(usageMap.values()).reduce((sum, bytes) => sum + bytes, 0);
+  // Breakdown is partial. StorageManager usage also includes outbox, region chunks,
+  // cache and other origin data; never replace the larger usage with a smaller estimate.
+  const categoryUsage = Array.from(usageMap.values()).reduce((sum, bytes) => sum + bytes, 0);
+  const totalUsed = Math.max(browserUsage ?? 0, categoryUsage);
   const freeSpace = maxLimit > 0 ? Math.max(maxLimit - totalUsed, 0) : 0;
-
-  // Ajustar quota se freeSpace for menor
-  const adjustedQuota = maxLimit > 0 && freeSpace < quota
-    ? Math.floor(freeSpace * 0.95) // 95% do espaço livre restante
-    : quota;
+  const safeTotal = Math.floor(maxLimit * 0.85);
+  const adjustedQuota = maxLimit > 0
+    ? Math.max(0, Math.min(safeTotal - totalUsed, Math.floor(freeSpace * 0.95)))
+    : 0;
 
   return {
     quota: adjustedQuota,
@@ -201,8 +206,9 @@ export function formatBytes(bytes: number): string {
 /**
  * Verifica se o usuário tem permission persistente para storage.
  *
- * Usa a Storage Manager API (`navigator.storage.persisted()`), que funciona
- * em Web/PWA e dentro do WebView do Capacitor.
+ * Usa a Storage Manager API (`navigator.storage.persisted()`) quando exposta;
+ * Safari/iOS anterior ao suporte completo pode retornar `false` por ausência
+ * ou indisponibilidade da API.
  */
 export async function isPersistentStorageGranted(): Promise<boolean> {
   if (typeof navigator !== "undefined" && navigator.storage?.persisted) {
@@ -217,7 +223,7 @@ export async function isPersistentStorageGranted(): Promise<boolean> {
 }
 
 /**
- * Solicita persistência de storage ao navegador/SO.
+ * Solicita persistência de storage ao navegador/SO quando essa API existe.
  *
  * @returns True se a persistência foi concedida
  */

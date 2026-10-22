@@ -7,6 +7,7 @@ export interface SearchRecord {
   lon: number;
   lat: number;
   description?: string;
+  postalCodes?: string[];
 }
 
 export interface SearchShard {
@@ -54,12 +55,16 @@ export interface SearchResponse {
   took: number;
 }
 
+export { formatPostalCode, normalizePostalCode } from './postal-code.js';
+import { normalizePostalCode } from './postal-code.js';
+
 export function normalizeName(name: string): string {
   return name
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^\w\s]/g, " ")
+    .replace(/[ºª]/g, "")
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -69,6 +74,37 @@ export function getShardId(normalized: string): string {
   if (first >= "a" && first <= "z") return first.toUpperCase();
   if (first >= "0" && first <= "9") return "#";
   return "#";
+}
+
+/** Identifiers used in search/<id>.json by scripts/region-pipeline.mjs. */
+export function getPipelineShardId(normalized: string): string {
+  const first = normalized[0] ?? '';
+  if (!first) return 'other';
+  const code = first.codePointAt(0) ?? 0;
+  if (code >= 97 && code <= 122) return `${first}${(code - 97) % 4}`;
+  if (code >= 48 && code <= 57) return '0-9';
+  return 'other';
+}
+
+export interface RegionalSearchShard { id: string; records: SearchRecord[]; }
+
+/** Search shards emitted by the regional packager without assuming legacy A/# naming. */
+export function searchRegionalShards(shards: readonly RegionalSearchShard[], query: SearchQuery): SearchResponse {
+  const seen = new Set<string>();
+  const records: SearchRecord[] = [];
+  for (const shard of shards) {
+    if (!/^(?:[a-z][0-3]|0-9|other)$/.test(shard.id)) continue;
+    for (const record of shard.records ?? []) {
+      if (!record || typeof record.id !== 'string' || typeof record.name !== 'string' ||
+          typeof record.normalized !== 'string' || !Number.isFinite(record.lon) || !Number.isFinite(record.lat)) continue;
+      if (getPipelineShardId(record.normalized) !== shard.id || seen.has(record.id)) continue;
+      if (record.postalCodes !== undefined && (!Array.isArray(record.postalCodes) ||
+          record.postalCodes.length > 16 || record.postalCodes.some((code) => normalizePostalCode(code) !== code))) continue;
+      seen.add(record.id);
+      records.push(record);
+    }
+  }
+  return searchIndex(records, query);
 }
 
 export function partitionByFirstLetter(records: SearchRecord[]): Map<string, SearchRecord[]> {
@@ -180,46 +216,30 @@ export function searchIndex(
   query: SearchQuery,
 ): SearchResponse {
   const start = performance.now();
-  const queryNormalized = normalizeName(query.query);
-  const limit = query.limit ?? 20;
+  const queryNormalized = normalizeName(query.query).slice(0, 128);
+  const queryPostalCode = normalizePostalCode(query.query);
+  const limit = Number.isFinite(query.limit) ? Math.max(1, Math.min(50, Math.trunc(query.limit!))) : 20;
   const maxEditDistance = 2;
+  if (!queryNormalized && !queryPostalCode) return { results: [], total: 0, query: query.query, took: 0 };
 
-  const shardMap = partitionByFirstLetter(records);
-  const shardId = getShardId(queryNormalized);
+  // Search every token, not only the first letter of each record. This lets
+  // "Augusta" find "Rua Augusta" and "Sé" find "Praça da Sé" offline.
   const candidates: SearchRecord[] = [];
-
-  const searchShards = query.fuzzy
-    ? Array.from(shardMap.keys())
-    : [shardId];
-
-  for (const sid of searchShards) {
-    const shard = shardMap.get(sid);
-    if (!shard) continue;
-
-    const names = shard.map((r) => r.normalized);
-
-    if (query.fuzzy) {
-      for (const record of shard) {
-        let matched = levenshteinDistance(record.normalized, queryNormalized) <= maxEditDistance;
-        if (!matched) {
-          const words = record.normalized.split(/\s+/);
-          for (const word of words) {
-            if (levenshteinDistance(word, queryNormalized) <= maxEditDistance) {
-              matched = true;
-              break;
-            }
-          }
-        }
-        if (matched) {
-          candidates.push(record);
-        }
-      }
-    } else {
-      const { start: s, end: e } = binarySearchPrefix(names, queryNormalized);
-      for (let i = s; i <= e; i++) {
-        if (shard[i]) candidates.push(shard[i]!);
-      }
+  for (const record of records) {
+    if (queryPostalCode && record.postalCodes?.includes(queryPostalCode)) {
+      candidates.push(record);
+      continue;
     }
+    if (queryPostalCode) continue;
+    const normalized = record.normalized || normalizeName(record.name);
+    const words = normalized.split(/\s+/);
+    if (words.some((word) => word.startsWith(queryNormalized)) || normalized.startsWith(queryNormalized)) {
+      candidates.push(record);
+      continue;
+    }
+    if (!query.fuzzy || queryNormalized.length < 3) continue;
+    if (words.some((word) => Math.abs(word.length - queryNormalized.length) <= maxEditDistance &&
+        levenshteinDistance(word, queryNormalized) <= maxEditDistance)) candidates.push(record);
   }
 
   let filtered = candidates;

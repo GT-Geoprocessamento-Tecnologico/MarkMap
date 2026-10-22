@@ -13,7 +13,7 @@ const encodePdf = (objects: string[]): Uint8Array => {
 };
 
 /** Generates a deterministic, lawful, minimal PDF fixture for the P0 spike. */
-export function generateGeoPdfFixture(options: { includeLgiDict?: boolean; projectedCrs?: boolean; unsupportedLgi?: boolean; unknownCrs?: boolean; unsupportedEpsg?: number } = {}): Uint8Array {
+export function generateGeoPdfFixture(options: { includeLgiDict?: boolean; projectedCrs?: boolean; unsupportedLgi?: boolean; unknownCrs?: boolean; unsupportedEpsg?: number; insetViewport?: boolean } = {}): Uint8Array {
   const lgiDict = options.includeLgiDict === false ? '' : ' /LGIDict 7 0 R';
   const lgiObject = options.includeLgiDict === false
     ? '<< /Version 1.0 /Projection << /EPSG 4326 >> /Registration [10 20 110 20 10 120 110 120] >>'
@@ -27,14 +27,16 @@ export function generateGeoPdfFixture(options: { includeLgiDict?: boolean; proje
     : options.projectedCrs
       ? '/GCS << /Type /PROJCS /WKT (PROJCS["WGS_1984_UTM_Zone_20N",GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137.0,298.257223563]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],PROJECTION["Transverse_Mercator"],PARAMETER["False_Easting",500000.0],PARAMETER["False_Northing",0.0],PARAMETER["Central_Meridian",-63.0],PARAMETER["Scale_Factor",0.9996],PARAMETER["Latitude_Of_Origin",0.0],UNIT["Meter",1.0]]) >>'
     : '/GCS << /Type /GEOGCS /EPSG 4326 >>';
+  const bbox = options.insetViewport ? '[60 40 170 100]' : '[10 20 210 120]';
+  const lpts = options.insetViewport ? '[0.1 0.9 0.1 0.1 0.9 0.1 0.9 0.9]' : '[0 1 0 0 1 0 1 1]';
   const gpts = options.projectedCrs ? '[500000.125 4900000.125 500000.125 4900100.125 500100.125 4900100.125 500100.125 4900000.125]' : '[10 -69 10 -70 11 -70 11 -69]';
   const objects = [
     '<< /Type /Catalog /Pages 2 0 R >>',
     '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
     '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 240 140] /CropBox [10 20 210 120] /Rotate 90 /VP [5 0 R] /Contents 4 0 R >>',
     `<< /Length ${escape('BT /F1 12 Tf 20 40 Td (GeoNexo feasibility fixture) Tj ET').length} >>\nstream\nBT /F1 12 Tf 20 40 Td (${escape('GeoNexo feasibility fixture')}) Tj ET\nendstream`,
-    `<< /Type /Viewport /BBox [10 20 210 120] /Measure 6 0 R${lgiDict} >>`,
-    `<< /Type /Measure /Subtype /GEO /GPTS ${gpts} /LPTS [0 1 0 0 1 0 1 1] ${gcs} >>`,
+    `<< /Type /Viewport /BBox ${bbox} /Measure 6 0 R${lgiDict} >>`,
+    `<< /Type /Measure /Subtype /GEO /GPTS ${gpts} /LPTS ${lpts} ${gcs} >>`,
     lgiObject,
   ];
   return encodePdf(objects);

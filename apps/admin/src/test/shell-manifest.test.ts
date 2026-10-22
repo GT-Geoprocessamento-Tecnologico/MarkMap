@@ -13,7 +13,7 @@ describe('production shell manifest', () => {
     await mkdir(join(root, 'maps'), { recursive: true });
     await mkdir(join(root, 'fonts'), { recursive: true });
     await mkdir(join(root, 'icons'), { recursive: true });
-    for (const file of ['index.html', 'manifest.json', 'assets/index-a1b2c3d4.js', 'assets/pdf-worker-a1b2c3d4.mjs', 'assets/index-a1b2c3d4.css', 'fonts/ui.woff2', 'icons/icon-192x192.png', 'maps/region.pmtiles', 'api/health.json', 'debug.txt']) {
+    for (const file of ['index.html', 'manifest.json', 'version.json', 'assets/index-a1b2c3d4.js', 'assets/pdf-worker-a1b2c3d4.mjs', 'assets/index-a1b2c3d4.css', 'fonts/ui.woff2', 'icons/icon-192x192.png', 'maps/region.pmtiles', 'api/health.json', 'debug.txt']) {
       await writeFile(join(root, file), 'fixture');
     }
     const assets = await collectShellAssets(root);
@@ -25,6 +25,7 @@ describe('production shell manifest', () => {
       '/icons/icon-192x192.png',
       '/index.html',
       '/manifest.json',
+      '/version.json',
     ]);
     await generateShellManifest(root);
     expect(JSON.parse(await readFile(join(root, 'shell-manifest.json'), 'utf8')).assets).toEqual(assets);

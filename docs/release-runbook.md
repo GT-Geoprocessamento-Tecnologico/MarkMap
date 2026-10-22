@@ -4,6 +4,8 @@ Este documento prepara a execução; **não autoriza** deploy público, tag/rele
 
 ## 1. Preflight obrigatório
 
+Todo agente deve cumprir [versioning.md](versioning.md): reservar uma versão numérica superior à publicada, atualizar `apps/admin/package.json` e `CHANGELOG.md`, executar `node scripts/version-release-guard.mjs --base-ref <SHA-base>` e conferir os artefatos com `node scripts/version-release-guard.mjs --dist apps/admin/dist`. O `vite build` também bloqueia produção sem incremento em relação ao `/version.json` oficial. Versão igual só permite repetir o mesmo commit já publicado.
+
 Confirmar no mesmo HEAD candidato:
 
 - lint, typecheck, unit e build verdes;
@@ -20,7 +22,7 @@ Confirmar no mesmo HEAD candidato:
 
 ## 2. Parâmetros que precisam de decisão humana
 
-- versão candidata;
+- versão candidata reservada pelo coordenador conforme [versioning.md](versioning.md);
 - provedor e domínio Web/API;
 - janela de publicação;
 - responsável pela aprovação;

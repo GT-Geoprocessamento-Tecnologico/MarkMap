@@ -164,7 +164,7 @@ Station/line overlays are packaged per region from open transit feeds.
   `attribution`.
 - No transit feed is vendored in this repository.
 
-### Inspired code — concepts only, no code copied
+### Historical inspiration — concepts only
 
 The following projects were reviewed for **concepts only**. No source file was
 copied. Anything reimplemented was rewritten from scratch under this
@@ -185,3 +185,51 @@ Hard rules enforced for this initiative:
 - **No Organic Maps data files (`.mwm`, `.bin`) are redistributed.**
 - Each `docs/MM-MAP-*.md` deliverable names its inspiration in a
   "Fontes de Inspiracao (conceitos, nao codigo copiado)" section.
+
+### CEP search adaptation (2026-10-20)
+
+`packages/maps/src/search/postal-code.ts` adapts the small postcode character-shape
+matcher from Organic Maps `libs/indexer/postcodes_matcher.cpp` (lines 24–40,
+95–105) to the Brazilian eight-digit CEP format. The inspected local source has
+SHA-256 `eb337d67fe01e6eec17f149d341aefa9e2b93dd4521e860e937e58cef1bc7fbc`.
+Its root `LICENSE` points to Apache-2.0, as does `NOTICE`; the earlier conceptual
+inventory above does not describe this source snapshot's license.
+
+Copyright 2020 My.com B.V. (Mail.Ru Group).
+Copyright 2020–2026 Organic Maps Contributors.
+Source: <https://github.com/organicmaps/organicmaps/blob/master/libs/indexer/postcodes_matcher.cpp>.
+The adapted TypeScript module is modified for exact Brazilian CEP matching;
+no `.mwm` files, Qt libraries, icons or other map application assets are included.
+The upstream Apache license and NOTICE are distributed at
+`apps/admin/public/licenses/organic-maps/Apache-2.0.txt` and `NOTICE.txt`.
+The search panel credits and links the [Organic Maps Project](https://organicmaps.app).
+
+Online address data is obtained only for submitted human queries through the
+same-origin route: [BrasilAPI CEP v2](https://brasilapi.com.br/docs) and
+[Photon/Komoot](https://github.com/komoot/photon). Photon results are derived
+from OpenStreetMap and require © OpenStreetMap contributors attribution
+(ODbL). These public services have usage limits and no availability guarantee;
+there is no autocomplete, bulk harvesting or direct public Nominatim request.
+
+## Araguaína regional basemap (2026-10-19)
+
+The files in `apps/admin/public/offline/araguaina/` contain an authorized urban
+cutout of the official Protomaps daily build `20261019.pmtiles`, produced from
+OpenStreetMap and Natural Earth. Protomaps distributes this basemap as an ODbL
+Produced Work requiring OpenStreetMap attribution:
+<https://docs.protomaps.com/basemaps/downloads> and
+<https://www.openstreetmap.org/copyright>.
+
+- Extractor: `go-pmtiles v1.31.2` (BSD-3-Clause); no extractor binary is distributed.
+- OSM snapshot: `2026-10-19T04:00:00Z`; bounds `[-48.3,-7.3,-48.1,-7.1]`; zooms 0–12.
+- Archive: 473884 bytes, SHA-256 `f0e0c9c8290a7000a563a6b27a95001b4225e9beec493377e6557d48581a807d`.
+- Complete archive/style payload: 474982 bytes. The local geometry-only style
+  omits labels, search, offline routes, glyphs and sprites; those capabilities
+  must not be inferred from this pilot package.
+- Attribution is carried by the manifest and rendered by the existing map engine.
+- No proprietary APK code, branding or assets are included.
+
+
+## Brazil regional offline packages (2026-10-19)
+
+The regional PMTiles packages under apps/admin/public/offline/br-uf-* and br-city-* are ODbL Produced Works derived from the Protomaps Basemap 4.15.2 snapshot (OSM replication 2026-10-19T04:00:00Z). OpenStreetMap attribution is required: https://www.openstreetmap.org/copyright. Source and extraction documentation: https://docs.protomaps.com/basemaps/downloads and https://build.protomaps.com/20261019.pmtiles. Geographic clipping bounds and state/municipality identifiers come from the IBGE Malhas v3 API; package provenance and checksums are in docs/region-package-provenance.json. The packages intentionally use a geometry-only local style and do not promise labels, glyphs, sprites, routes, search, or elevation.

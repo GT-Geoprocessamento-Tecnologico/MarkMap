@@ -6,6 +6,7 @@ import {
   type SyncEntity,
   type SyncEntityPayload,
   type SyncOperation,
+  type WorkspaceCapability,
   type Tombstone,
 } from "@markmap/contracts";
 import {
@@ -19,6 +20,21 @@ import {
   type OutboxRecord,
 } from "../local-db";
 import { readBlobBytes } from "../blob-bytes";
+
+type BootstrapIdentity = { installationId: string; bootstrapProof: string };
+
+// Older installations stored Blob directly. New records use the bytes already
+// validated below, avoiding WebKit's Blob preparation failure without a migration.
+type StoredOriginal = Omit<OriginalRecord, 'blob'> & { blob?: Blob; originalBytes?: ArrayBuffer };
+
+function restoreOriginal(record: StoredOriginal): OriginalRecord {
+  const { originalBytes, ...metadata } = record;
+  const blob = record.blob instanceof Blob ? record.blob
+    : originalBytes instanceof ArrayBuffer ? new Blob([originalBytes], { type: record.mediaType }) : null;
+  if (!blob || blob.size !== record.bytes || blob.size < 1 || blob.size > 25 * 1024 * 1024)
+    throw new Error('Os bytes do PDF original não estão disponíveis ou estão incompletos.');
+  return { ...metadata, blob };
+}
 
 const now = () => new Date().toISOString();
 
@@ -60,6 +76,50 @@ export class LocalRepository {
   async setMeta<T>(key: string, value: T): Promise<void> {
     await this.db.transact(["meta"], "readwrite", (tx) => {
       tx.store("meta").put({ key, value });
+    });
+  }
+
+  /** Keep both recovery values under one IndexedDB readwrite transaction.
+   * Two tabs must not provision the same workspace with different proofs. */
+  async ensureBootstrapIdentity(
+    create: () => BootstrapIdentity,
+  ): Promise<BootstrapIdentity> {
+    return this.db.transact(["meta"], "readwrite", async (tx) => {
+      const meta = tx.store("meta");
+      const [installation, proof] = await Promise.all([
+        read<{ key: string; value: string } | undefined>(meta.get("installationId")),
+        read<{ key: string; value: string } | undefined>(meta.get("workspaceBootstrapProof")),
+      ]);
+      if (installation?.value && proof?.value)
+        return { installationId: installation.value, bootstrapProof: proof.value };
+      const generated = create();
+      const installationId = installation?.value || generated.installationId;
+      const bootstrapProof = proof?.value || generated.bootstrapProof;
+      if (!installation?.value) meta.put({ key: "installationId", value: installationId });
+      if (!proof?.value) meta.put({ key: "workspaceBootstrapProof", value: bootstrapProof });
+      return { installationId, bootstrapProof };
+    });
+  }
+
+  /** Never allow a delayed 401 recovery response to downgrade a newer bearer. */
+  async saveWorkspaceCapability(candidate: WorkspaceCapability): Promise<WorkspaceCapability> {
+    if (candidate.workspaceId !== await this.workspaceId())
+      throw new Error("Workspace capability does not match this device.");
+    return this.db.transact(["meta"], "readwrite", async (tx) => {
+      const meta = tx.store("meta");
+      const stored = await read<{ key: string; value: WorkspaceCapability } | undefined>(
+        meta.get("workspaceCapability"),
+      );
+      const current = stored?.value;
+      if (current && BigInt(current.generation) > BigInt(candidate.generation))
+        return current;
+      // Sync cursors are HMAC-signed with the bearer on the API. After rotation
+      // the old cursor is no longer valid; retire it atomically with the token.
+      // Keep the outbox, ACKs, conflicts and offline entities untouched.
+      if (!current || current.bearer !== candidate.bearer)
+        meta.delete("syncCursor");
+      meta.put({ key: "workspaceCapability", value: candidate });
+      return candidate;
     });
   }
 
@@ -250,12 +310,22 @@ export class LocalRepository {
     changes: ServerChange[],
     tombstones: Tombstone[],
     nextCursor: string,
+    options?: { expectedCursor?: string },
   ): Promise<void> {
     const workspaceId = await this.workspaceId();
     await this.db.transact(
       ["meta", "entities", "outbox", "acks", "conflicts"],
       "readwrite",
       async (tx) => {
+        // Another tab may have committed a newer page while this request was
+        // in flight. Check within the same readwrite transaction as the edits.
+        if (options) {
+          const stored = await read<{ key: string; value: string } | undefined>(
+            tx.store("meta").get("syncCursor"),
+          );
+          if (stored?.value !== options.expectedCursor)
+            throw new Error("Sync cursor changed during page application");
+        }
         const entities = tx.store("entities");
         const outboxStore = tx.store("outbox");
         const ackStore = tx.store("acks");
@@ -280,11 +350,19 @@ export class LocalRepository {
           return pending.sort((a, b) => b.localSequence - a.localSequence)[0];
         };
 
-        const writeConflict = (
+        const writeConflict = async (
           pending: OutboxRecord,
           serverVersion: number,
           serverPayload?: SyncEntityPayload,
-        ) => {
+        ): Promise<void> => {
+          // Pull groups upserts and tombstones separately. They may refer to
+          // different versions of the same entity, even in a single page.
+          // Never replace a newer durable conflict with an older event.
+          const key = `${workspaceId}:${pending.operationId}`;
+          const previous = await read<ConflictRecord | undefined>(
+            conflictStore.get(key),
+          );
+          if (previous && previous.serverVersion >= serverVersion) return;
           const conflict = syncConflictSchema.parse({
             operationId: pending.operationId,
             entity: pending.entity,
@@ -299,7 +377,7 @@ export class LocalRepository {
           });
           conflictStore.put({
             ...conflict,
-            key: `${workspaceId}:${conflict.operationId}`,
+            key,
             workspaceId,
             createdAt: now(),
           } satisfies ConflictRecord);
@@ -332,7 +410,11 @@ export class LocalRepository {
           }
           if (pending?.predecessorOperationId === change.operationId) continue;
           if (pending) {
-            writeConflict(pending, change.version, change.payload);
+            // A local edit based on version N already knows the history up to
+            // N. Old pull pages must not quarantine it as a new conflict.
+            if (pending.baseVersion !== null && change.version <= pending.baseVersion)
+              continue;
+            await writeConflict(pending, change.version, change.payload);
             continue;
           }
           const current = await read<EntityRecord | undefined>(
@@ -355,7 +437,20 @@ export class LocalRepository {
         for (const tombstone of tombstones) {
           const pending = await latestPending(tombstone.entity, tombstone.entityId);
           if (pending) {
-            writeConflict(pending, tombstone.version);
+            if (pending.baseVersion !== null) {
+              // An older deletion is already covered by the version the local
+              // operation was based on: it cannot invalidate that edit.
+              if (tombstone.version <= pending.baseVersion) continue;
+              // A tombstone has no operationId. A pending delete at the next
+              // version could be our own committed operation OR a concurrent
+              // delete. Do not guess or manufacture an ACK: keep it in the
+              // durable outbox for push to confirm or return a real conflict.
+              if (
+                pending.operation === "delete" &&
+                tombstone.version === pending.baseVersion + 1
+              ) continue;
+            }
+            await writeConflict(pending, tombstone.version);
             continue;
           }
           const current = await read<EntityRecord | undefined>(
@@ -511,19 +606,20 @@ export class LocalRepository {
   async saveOriginal(
     input: Omit<OriginalRecord, "key" | "workspaceId" | "createdAt">,
   ): Promise<void> {
+    const { blob, ...metadata } = input;
     if (input.mediaType !== "application/pdf")
       throw new Error("O original local deve ser um PDF.");
     if (
-      !(input.blob instanceof Blob) ||
-      input.blob.size < 1 ||
-      input.blob.size > 25 * 1024 * 1024
+      !(blob instanceof Blob) ||
+      blob.size < 1 ||
+      blob.size > 25 * 1024 * 1024
     )
       throw new Error("O PDF original excede o limite de 25 MiB ou está vazio.");
-    if (input.bytes !== input.blob.size)
+    if (input.bytes !== blob.size)
       throw new Error("O tamanho declarado do PDF não corresponde ao Blob.");
     if (!/^[a-f0-9]{64}$/i.test(input.sha256))
       throw new Error("SHA-256 inválido.");
-    const bytes = await readBlobBytes(input.blob);
+    const bytes = await readBlobBytes(blob);
     const digest = await crypto.subtle.digest(
       "SHA-256",
       new Uint8Array(bytes),
@@ -534,14 +630,15 @@ export class LocalRepository {
     if (actualHash.toLowerCase() !== input.sha256.toLowerCase())
       throw new Error("SHA-256 do PDF original não confere.");
     const workspaceId = await this.workspaceId();
-    const record: OriginalRecord = {
-      ...input,
+    const record: StoredOriginal = {
+      ...metadata,
+      originalBytes: bytes,
       key: originalKey(workspaceId, input.blobId),
       workspaceId,
       createdAt: now(),
     };
     await this.db.transact(["originals"], "readwrite", async (tx) => {
-      const current = await read<OriginalRecord | undefined>(
+      const current = await read<StoredOriginal | undefined>(
         tx.store("originals").get(record.key),
       );
       if (current) {
@@ -564,20 +661,22 @@ export class LocalRepository {
     workspaceId?: string,
   ): Promise<OriginalRecord | null> {
     workspaceId ??= await this.workspaceId();
-    return this.db.transact(["originals"], "readonly", (tx) =>
-      read(
+    const record = await this.db.transact(["originals"], "readonly", (tx) =>
+      read<StoredOriginal | undefined>(
         tx.store("originals").get(originalKey(workspaceId as string, blobId)),
       ),
     );
+    return record ? restoreOriginal(record) : null;
   }
 
   async listOriginals(workspaceId?: string): Promise<OriginalRecord[]> {
     workspaceId ??= await this.workspaceId();
-    return this.db.transact(["originals"], "readonly", (tx) =>
-      read<OriginalRecord[]>(
+    const records = await this.db.transact(["originals"], "readonly", (tx) =>
+      read<StoredOriginal[]>(
         tx.store("originals").index("workspace").getAll(workspaceId),
       ),
     );
+    return records.map(restoreOriginal);
   }
 
   async saveConflict(conflict: SyncConflict): Promise<void> {
@@ -589,8 +688,31 @@ export class LocalRepository {
       createdAt: now(),
       key: `${workspaceId}:${parsed.operationId}`,
     };
-    await this.db.transact(["conflicts"], "readwrite", (tx) => {
-      tx.store("conflicts").put(record);
+    // A push reply can arrive after another tab ACKed or resolved this
+    // operation. Conflict persistence must share the outbox/ACK transaction
+    // boundary with those decisions: never resurrect a resolved operation.
+    await this.db.transact(["conflicts", "outbox", "acks"], "readwrite", async (tx) => {
+      const pending = await read<OutboxRecord | undefined>(
+        tx.store("outbox").get(parsed.operationId),
+      );
+      if (!pending || pending.workspaceId !== workspaceId) return;
+      const ack = await read<{ key: string } | undefined>(
+        tx.store("acks").get(parsed.operationId),
+      );
+      if (ack) return;
+      if (
+        pending.entity !== parsed.entity ||
+        pending.entityId !== parsed.entityId ||
+        pending.baseVersion !== parsed.baseVersion
+      )
+        throw new Error("Conflict receipt does not match pending operation.");
+
+      const store = tx.store("conflicts");
+      // An in-flight push may report an older server state after another tab
+      // has applied a newer pull. Never downgrade the durable resolution target.
+      const previous = await read<ConflictRecord | undefined>(store.get(record.key));
+      if (previous && previous.serverVersion >= record.serverVersion) return;
+      store.put(record);
     });
   }
 

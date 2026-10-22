@@ -35,17 +35,22 @@ const places = [
 
 
 async function writeRequiredRegionFiles() {
-  const pmtiles = Buffer.alloc(127);
+  const pmtiles = Buffer.alloc(128);
   pmtiles.write("PMTiles", 0, "ascii");
   pmtiles[7] = 3;
   for (let offset = 8; offset < 72; offset += 16) {
     pmtiles.writeBigUInt64LE(127n, offset);
-    pmtiles.writeBigUInt64LE(0n, offset + 8);
+    pmtiles.writeBigUInt64LE(offset === 8 || offset === 56 ? 1n : 0n, offset + 8);
   }
+  pmtiles[98] = 1;
+  pmtiles[99] = 1;
+  pmtiles[100] = 0;
+  pmtiles[101] = 14;
+  pmtiles.writeBigUInt64LE(127n, 72);
+  for (const [offset, value] of [[102, -490000000], [106, -250000000], [110, -450000000], [114, -210000000]] as const) pmtiles.writeInt32LE(value, offset);
   await writeFile(join(inputDir, "basemap.pmtiles"), pmtiles);
   await writeFile(join(inputDir, "style.json"), JSON.stringify({
-    version: 8, glyphs: "glyphs/{fontstack}/{range}.pbf",
-    sprite: "sprites/sprite",
+    version: 8,
     sources: { basemap: { type: "vector", url: "pmtiles://package.pmtiles" } },
     layers: [],
   }));
@@ -81,6 +86,12 @@ describe("region-pipeline (MM-MAP-200)", () => {
         expect(rec.normalized).toBe(normalizeName(rec.name));
       }
     }
+  });
+
+  it("indexes only exact eight-digit CEP aliases", () => {
+    const shards = buildSearchShards([{ id: "cep", name: "Rua Augusta", lon: -46.6, lat: -23.5,
+      "addr:postcode": "12345-678", postal_code: "12345678", cep: "12345" }]);
+    expect(shards[0]?.records[0]?.postalCodes).toEqual(["12345678"]);
   });
 
   it("rejects malformed places", () => {
@@ -133,13 +144,14 @@ describe("region-pipeline (MM-MAP-200)", () => {
     expect(manifest.style.blob.sha256).toBe("b".repeat(64));
     expect(manifest.checksums.archive).toBe("a".repeat(64));
     expect(manifest.checksums.style).toBe("b".repeat(64));
-    expect(manifest.capabilities).toEqual(["basemap"]);
+    expect(manifest.capabilities).toEqual(["basemap", "search"]);
     expect(manifest.sources.attributions).toEqual([
       { name: "OpenStreetMap contributors", url: "https://www.openstreetmap.org/copyright" },
     ]);
     expect(manifest.createdAt).toBe("2026-10-09T12:00:00.000Z");
     expect(manifest.minimumCompatibleVersion).toBe("0.2.0-dev.0");
     expect(manifest.totalBytes).toBe(179);
+    expect(manifest.searchShards?.[0]?.path).toBe("search/a0.json");
   });
 
   it("fails closed instead of turning a search shard into a basemap", () => {
@@ -159,6 +171,8 @@ describe("region-pipeline (MM-MAP-200)", () => {
     await writeFile(
       join(inputDir, "graph.json"),
       JSON.stringify({
+        version: 'v1', bounds: [-49, -25, -45, -21], osmDataDate: '2026-10-08T00:00:00.000Z',
+        profiles: ['walk', 'bicycle', 'car'], turnRestrictions: [],
         nodes: [
           { id: 0, lon: -46.6, lat: -23.5 },
           { id: 1, lon: -46.5, lat: -23.5 },
@@ -168,7 +182,7 @@ describe("region-pipeline (MM-MAP-200)", () => {
     );
     await writeFile(
       join(inputDir, "contours.json"),
-      JSON.stringify({ interval: 20, majorInterval: 100, contours: [{ elevation: 100, geometry: [[0, 0]] }] }),
+      JSON.stringify({ interval: 20, majorInterval: 100, contours: [{ elevation: 100, geometry: [[-46.6, -23.5], [-46.5, -23.5]] }] }),
     );
 
     await writeRequiredRegionFiles();
@@ -183,7 +197,10 @@ describe("region-pipeline (MM-MAP-200)", () => {
     const manifestOnDisk = JSON.parse(await readFile(join(outputDir, "manifest.json"), "utf8"));
     expect(manifestOnDisk.packageVersion).toBe("1.0.0");
     expect(manifestOnDisk.checksums.archive).toMatch(/^[a-f0-9]{64}$/);
-    expect(manifestOnDisk.capabilities).toEqual(["basemap"]);
+    expect(manifestOnDisk.capabilities).toEqual(['basemap','search','routing.walk','routing.bicycle','routing.car','contours']);
+    expect(manifestOnDisk.searchShards?.length).toBeGreaterThan(0);
+    expect(manifestOnDisk.routingGraph.path).toBe('routing/graph.json');
+    expect(manifestOnDisk.contourLines.path).toBe('elevation/contours.json');
 
     const shardFiles = result.artifacts.filter((a: { path: string }) => a.path.startsWith("search/"));
     expect(shardFiles.length).toBeGreaterThan(0);
@@ -210,7 +227,7 @@ describe("region-pipeline (MM-MAP-200)", () => {
     await writeRequiredRegionFiles();
     await writeFile(join(inputDir, "basemap.pmtiles"), Buffer.from("not-a-pmtiles"));
     await expect(runPipeline({ input: inputDir, output: outputDir })).rejects.toMatchObject({
-      code: "INVALID_PMTILES",
+      code: "INVALID_PMTILES_SIZE",
     });
   });
 
@@ -231,6 +248,47 @@ describe("region-pipeline (MM-MAP-200)", () => {
     expect(result.artifacts).toHaveLength(0);
     const { readdir } = await import("node:fs/promises");
     expect(await readdir(outputDir)).toHaveLength(0);
+  });
+
+  it("accepts empty symbol resource fields but still requires nonempty resources", async () => {
+    await writeRequiredRegionFiles();
+    await writeFile(join(inputDir, "style.json"), JSON.stringify({
+      version: 8,
+      sources: { basemap: { type: "vector", url: "pmtiles://package.pmtiles" } },
+      layers: [{
+        id: "empty-symbol",
+        type: "symbol",
+        source: "basemap",
+        layout: { "text-field": "", "icon-image": null },
+      }],
+    }));
+    await expect(runPipeline({ input: inputDir, output: outputDir })).resolves.toMatchObject({ dryRun: false });
+
+    await rm(outputDir, { recursive: true, force: true });
+    await writeFile(join(inputDir, "style.json"), JSON.stringify({
+      version: 8,
+      sources: { basemap: { type: "vector", url: "pmtiles://package.pmtiles" } },
+      layers: [{
+        id: "label",
+        type: "symbol",
+        source: "basemap",
+        layout: { "text-field": "{name}" },
+      }],
+    }));
+    await expect(runPipeline({ input: inputDir, output: outputDir })).rejects.toMatchObject({ code: "MISSING_GLYPHS" });
+
+    await rm(outputDir, { recursive: true, force: true });
+    await writeFile(join(inputDir, "style.json"), JSON.stringify({
+      version: 8,
+      sources: { basemap: { type: "vector", url: "pmtiles://package.pmtiles" } },
+      layers: [{
+        id: "icon",
+        type: "symbol",
+        source: "basemap",
+        layout: { "icon-image": "marker" },
+      }],
+    }));
+    await expect(runPipeline({ input: inputDir, output: outputDir })).rejects.toMatchObject({ code: "MISSING_SPRITES" });
   });
 
   it("rejects invalid places.json payload", async () => {

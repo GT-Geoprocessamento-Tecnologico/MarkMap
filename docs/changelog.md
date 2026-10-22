@@ -2,6 +2,8 @@
 
 Este arquivo registra mudanças relevantes e não substitui tags/releases oficiais.
 
+O registro canônico de versões do aplicativo é [CHANGELOG.md](../CHANGELOG.md), seguindo a [política de versionamento](versioning.md). Este arquivo preserva o histórico documental anterior.
+
 ## 2026-10-03
 
 ### PWA e qualidade
