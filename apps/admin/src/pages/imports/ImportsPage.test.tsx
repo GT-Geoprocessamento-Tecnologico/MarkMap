@@ -5,7 +5,7 @@ import { exportDataset, exportDatasetGeoJSON, listDatasets, parseDatasetFile, sa
 
 const { toast } = vi.hoisted(() => ({ toast: vi.fn() }));
 
-vi.mock('@geonexo/ui', () => ({
+vi.mock('@markmap/ui', () => ({
   useToast: () => ({ toast }),
 }));
 vi.mock('../../components/AppIcon', () => ({ AppIcon: () => <span aria-hidden="true" /> }));

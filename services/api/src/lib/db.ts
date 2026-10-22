@@ -43,7 +43,7 @@ export const db = {
     async create(data: {
       projectId: string;
       name: string;
-      kind: import("@geonexo/db").LayerKind;
+      kind: import("@markmap/db").LayerKind;
       geometryType: GeometryType | null;
       description?: string | null;
     }) {
@@ -64,5 +64,5 @@ export const db = {
 };
 
 export type Project = ProjectRecord;
-export type Layer = import("@geonexo/db").LayerRecord;
-export type Feature = import("@geonexo/db").FeatureRecord;
+export type Layer = import("@markmap/db").LayerRecord;
+export type Feature = import("@markmap/db").FeatureRecord;

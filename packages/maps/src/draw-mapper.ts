@@ -4,8 +4,8 @@ import {
   isFeature,
   normalizeProperties,
   validateGeometryLight,
-} from '@geonexo/geo';
-import type { GeoNexoFeature } from '@geonexo/geo';
+} from '@markmap/geo';
+import type { MarkMapFeature } from '@markmap/geo';
 import type { DrawChangeEvent, DrawChangeType } from './types.js';
 
 /**
@@ -37,7 +37,7 @@ function stableId(raw: unknown): string {
  * Returns null for empty/invalid geometries instead of throwing, so a
  * single corrupt snapshot entry never breaks the whole change event.
  */
-export function toGeoNexoFeature(input: unknown): GeoNexoFeature | null {
+export function toGeoNexoFeature(input: unknown): MarkMapFeature | null {
   if (!isFeature(input)) {
     return null;
   }
@@ -59,7 +59,7 @@ export function toGeoNexoFeature(input: unknown): GeoNexoFeature | null {
 }
 
 /** Map a whole snapshot array, dropping invalid entries. */
-export function snapshotToFeatures(snapshot: unknown): GeoNexoFeature[] {
+export function snapshotToFeatures(snapshot: unknown): MarkMapFeature[] {
   if (!Array.isArray(snapshot)) {
     return [];
   }

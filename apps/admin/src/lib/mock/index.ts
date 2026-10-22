@@ -20,7 +20,7 @@ import {
   httpStatusByErrorCode,
   isGeometryCompatibleWith,
   updateFeatureSchema,
-} from '@geonexo/contracts';
+} from '@markmap/contracts';
 import type {
   Bbox,
   CreateProject,
@@ -31,7 +31,7 @@ import type {
   Pagination,
   Position,
   Project,
-} from '@geonexo/contracts';
+} from '@markmap/contracts';
 import { ApiError } from '../errors';
 import type {
   CreateFeatureInput,

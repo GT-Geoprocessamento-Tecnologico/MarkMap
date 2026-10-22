@@ -1,4 +1,4 @@
-// Local flat config for @geonexo/maps. The shared
+// Local flat config for @markmap/maps. The shared
 // packages/config/eslint.config.js is currently broken (see docs/api/README.md
 // defects 5-10 and docs/gis/HANDOFF-GIS.md); this minimal config enforces the
 // PRD gates that matter here (no `any`, no unused vars) without depending on

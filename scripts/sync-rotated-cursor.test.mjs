@@ -24,7 +24,7 @@ const load = (path, imports = {}, extra = {}) => {
 };
 const { MemoryLocalDb } = load('local-db/memory.ts');
 const { LocalRepository } = load('local-repositories/index.ts', {
-  '@geonexo/contracts': { syncOperationSchema: {parse:x=>x}, syncConflictSchema: {parse:x=>x} },
+  '@markmap/contracts': { syncOperationSchema: {parse:x=>x}, syncConflictSchema: {parse:x=>x} },
   '../local-db': { localDb:{}, entityKey:(w,e,id)=>w+':'+e+':'+id, originalKey:(w,id)=>w+':'+id },
   '../blob-bytes': { readBlobBytes:async()=>new Uint8Array() },
 });
@@ -103,7 +103,7 @@ async function harness({ recovery=true, badCursor=false, concurrent=false }={}) 
     return new Response(JSON.stringify({changes:[],tombstones:[],nextCursor:final,hasMore:false}),{status:200});
   };
   const {syncNow}=load('sync/sync-engine.ts',{
-    '@geonexo/contracts':{capabilityProvisionResponseSchema:{parse:x=>x},pullSyncResponseSchema:{parse:x=>x},pushSyncResponseSchema:{parse:x=>x}},
+    '@markmap/contracts':{capabilityProvisionResponseSchema:{parse:x=>x},pullSyncResponseSchema:{parse:x=>x},pushSyncResponseSchema:{parse:x=>x}},
     '../api-client':{API_BASE:'https://api.invalid/api/v1',API_MODE:'live'},
     '../local-repositories':{localRepository:repo},
   },{fetch,navigator:{onLine:true},window:{dispatchEvent(){}},CustomEvent:class{constructor(){} }});

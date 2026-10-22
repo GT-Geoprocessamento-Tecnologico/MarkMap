@@ -19,7 +19,7 @@ A identidade pública do produto passa a ser **MarkMap — Planejamento Intelige
 
 Para não quebrar contratos e dados já estabilizados, permanecem temporariamente:
 
-- packages internos `@geonexo/*`;
+- packages internos `@markmap/*`;
 - nomes históricos de recursos remotos, buckets e banco;
 - caminhos internos `apps/admin`;
 - identificadores nativos estáveis enquanto houver instalações compatíveis.

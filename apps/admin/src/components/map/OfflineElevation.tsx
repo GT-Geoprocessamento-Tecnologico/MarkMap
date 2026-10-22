@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { MapOfflinePanel } from './MapOfflinePanel';
-import type { Route, OfflineMapPackageManifest } from '@geonexo/contracts';
+import type { Route, OfflineMapPackageManifest } from '@markmap/contracts';
 import { offlineMapStore } from '../../lib/storage/offline-map-store';
 import {
   MAX_REGIONAL_DEM_BYTES, computeRegionalElevationProfile, sampleRegionalDem, validateRegionalDem,
   type DemSampleGrid, type RegionalDemGrid,
-} from '@geonexo/maps/elevation/regional-dem.mjs';
+} from '@markmap/maps/elevation/regional-dem.mjs';
 import {
   downloadTerrainGrid, getCachedTerrainGrid, getTerrainPoint,
   type TerrainBounds, type TerrainGrid,

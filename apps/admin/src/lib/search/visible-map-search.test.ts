@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { collectVisibleMapSearch, MAX_VISIBLE_MAP_RECORDS, type SearchableMap } from './visible-map-search';
-import { searchIndex } from '@geonexo/maps/search';
+import { searchIndex } from '@markmap/maps/search';
 
 const point = (name: string, coordinates = [-48.2, -7.2]) => ({
   type: 'Feature', properties: { name }, geometry: { type: 'Point', coordinates },

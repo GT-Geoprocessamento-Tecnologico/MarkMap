@@ -1,4 +1,4 @@
-import type { TransitNetwork, WikipediaArticle } from '@geonexo/contracts';
+import type { TransitNetwork, WikipediaArticle } from '@markmap/contracts';
 export const MAX_WIKIPEDIA_BYTES: number;
 export const MAX_TRANSIT_BYTES: number;
 export const MAX_WIKIPEDIA_ARTICLES: number;

@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { positionSampleFromBrowser, type PositionSample } from '@geonexo/geo';
+import { positionSampleFromBrowser, type PositionSample } from '@markmap/geo';
 
 export interface DeviceLocationOptions {
   enableHighAccuracy?: boolean;

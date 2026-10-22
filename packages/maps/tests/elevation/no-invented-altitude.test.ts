@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { computeElevationProfile } from '../../src/elevation/profile.js';
-import type { DemMetadata } from '@geonexo/contracts';
+import type { DemMetadata } from '@markmap/contracts';
 
 const metadata = { bounds: [0, 0, 1, 1], width: 2, height: 2, noDataValue: -9999 } as unknown as DemMetadata;
 

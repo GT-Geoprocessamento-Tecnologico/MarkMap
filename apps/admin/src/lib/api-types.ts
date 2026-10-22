@@ -4,7 +4,7 @@ import type { Bbox } from '@markmap/contracts';
 
 /**
  * Tipos compartilhados entre `api-client` (transporte) e `mock` (transporte de
- * desenvolvimento). Todas as tipagens sao derivadas de `@geonexo/contracts` -
+ * desenvolvimento). Todas as tipagens sao derivadas de `@markmap/contracts` -
  * nunca sao declaradas de novo na mao. `z.input` e usado porque e o corpo que
  * o cliente envia: campos com `.default()` no contrato sao opcionais aqui.
  */

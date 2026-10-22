@@ -1,6 +1,6 @@
 // Desenvolvido por MtsFerreira. Escolher e baixar mapas sem editar arquivos ou URLs.
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import type { OfflineMapPackageManifest } from "@geonexo/contracts";
+import type { OfflineMapPackageManifest } from "@markmap/contracts";
 import { offlineMapStore } from "../../lib/storage/offline-map-store";
 import {
   getSelectedOfflineMapId, setSelectedOfflineMapId, subscribeSelectedOfflineMapId,

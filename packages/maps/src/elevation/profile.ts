@@ -1,7 +1,7 @@
 import type {
   DemMetadata,
   ElevationProfile,
-} from "@geonexo/contracts";
+} from "@markmap/contracts";
 import { sampleDemBilinear } from "./dem.js";
 
 export function computeElevationProfile(

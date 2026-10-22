@@ -1,7 +1,7 @@
 /**
  * GeoNexo UI component styles.
  * Consumes the variables declared in tokens.css (both are loaded by
- * `@geonexo/ui` barrel; they can also be imported one by one).
+ * `@markmap/ui` barrel; they can also be imported one by one).
  */
 
 /* ---------- Button ---------- */

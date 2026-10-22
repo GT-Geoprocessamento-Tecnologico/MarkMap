@@ -6,7 +6,7 @@ import {
   GeometryTypeMismatchError,
   type Bbox,
   type Geometry,
-} from "@geonexo/contracts";
+} from "@markmap/contracts";
 import { sql } from "drizzle-orm";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";

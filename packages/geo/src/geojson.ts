@@ -54,7 +54,7 @@ export type GeoJsonGeometry =
 
 export type GeoJsonGeometryType = GeoJsonGeometry['type'];
 
-export interface GeoNexoFeature {
+export interface MarkMapFeature {
   type: 'Feature';
   id?: string | undefined;
   geometry: GeoJsonGeometry | null;
@@ -62,9 +62,9 @@ export interface GeoNexoFeature {
   bbox?: [number, number, number, number] | undefined;
 }
 
-export interface GeoNexoFeatureCollection {
+export interface MarkMapFeatureCollection {
   type: 'FeatureCollection';
-  features: GeoNexoFeature[];
+  features: MarkMapFeature[];
   bbox?: [number, number, number, number] | undefined;
 }
 

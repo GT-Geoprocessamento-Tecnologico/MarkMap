@@ -2,8 +2,8 @@ import {
   DEFAULT_PAGE_LIMIT,
   MAX_PAGE_LIMIT,
   paginationQuerySchema,
-} from "@geonexo/contracts";
-import type { Pagination } from "@geonexo/contracts";
+} from "@markmap/contracts";
+import type { Pagination } from "@markmap/contracts";
 import { z } from "zod";
 
 import { ValidationError, type FieldIssue } from "./errors.js";

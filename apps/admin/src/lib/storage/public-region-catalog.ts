@@ -1,5 +1,5 @@
 // Desenvolvido por MtsFerreira. Only published, licensed packages appear here.
-import { mapBoundsSchema } from "@geonexo/contracts";
+import { mapBoundsSchema } from "@markmap/contracts";
 import { z } from "zod";
 import { normalizePublicRegionManifestUrl } from "./region-install-draft.mjs";
 

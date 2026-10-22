@@ -27,7 +27,7 @@ function load(path, imports = {}) {
 
 const { MemoryLocalDb } = load('local-db/memory.ts');
 const { LocalRepository } = load('local-repositories/index.ts', {
-  '@geonexo/contracts': {
+  '@markmap/contracts': {
     syncOperationSchema: { parse: x => x },
     syncConflictSchema: { parse: x => {
       if (x.reason === 'VERSION_CONFLICT') assert.ok(x.serverVersion > 0);

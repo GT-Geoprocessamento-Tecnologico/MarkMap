@@ -13,7 +13,7 @@ vi.mock("@tanstack/react-router", () => ({
   ),
   useParams: () => ({ projectId: "project-1" }),
 }));
-vi.mock("@geonexo/ui", () => ({
+vi.mock("@markmap/ui", () => ({
   Button: ({ children, ...props }: { children: React.ReactNode; [key: string]: unknown }) => <button {...props}>{children}</button>,
   Skeleton: (props: Record<string, unknown>) => <div {...props} />,
 }));

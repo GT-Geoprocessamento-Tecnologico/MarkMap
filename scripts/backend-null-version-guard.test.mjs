@@ -31,7 +31,7 @@ const exports = {};
 runInNewContext(js.outputText, {
   exports,
   require(name) {
-    if (name === '@geonexo/contracts') return {
+    if (name === '@markmap/contracts') return {
       assertGeometryCompatible() {}, geometryTypeSchema: { parse: x => x },
     };
     if (name === 'drizzle-orm') return { and, asc: x => x, eq, gt: () => ({}), sql };

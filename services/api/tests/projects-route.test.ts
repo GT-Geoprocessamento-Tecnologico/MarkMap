@@ -6,8 +6,8 @@ const dbMocks = vi.hoisted(() => ({
   getDb: vi.fn(() => ({})),
 }));
 
-vi.mock("@geonexo/db", async () => ({
-  ...(await vi.importActual<typeof import("@geonexo/db")>("@geonexo/db")),
+vi.mock("@markmap/db", async () => ({
+  ...(await vi.importActual<typeof import("@markmap/db")>("@markmap/db")),
   listProjects: dbMocks.listProjects,
   getDb: dbMocks.getDb,
 }));

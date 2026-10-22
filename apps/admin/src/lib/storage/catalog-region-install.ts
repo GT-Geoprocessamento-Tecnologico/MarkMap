@@ -1,5 +1,5 @@
 // Desenvolvido por MtsFerreira. Catalog entries never bypass manifest checks.
-import { offlineMapPackageManifestSchema, type OfflineMapPackageManifest } from "@geonexo/contracts";
+import { offlineMapPackageManifestSchema, type OfflineMapPackageManifest } from "@markmap/contracts";
 import { fetchRemoteRegionManifest } from "./remote-region-manifest.mjs";
 import type { ResumableInstaller, InstallerProgress } from "./resumable-installer";
 import type { PublicRegion } from "./public-region-catalog";

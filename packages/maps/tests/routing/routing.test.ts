@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { findRoute, snapToNearestNode } from "../../src/routing/router.js";
 import { generateTtsText, getDistanceText, getEtaText } from "../../src/routing/tts.js";
-import type { RoutingGraph } from "@geonexo/contracts";
+import type { RoutingGraph } from "@markmap/contracts";
 
 function makeTestGraph(): RoutingGraph {
   return {

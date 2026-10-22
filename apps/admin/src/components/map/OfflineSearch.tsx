@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { LocalSearchRecord } from '../../lib/search/local-map-search';
-import { normalizeName, searchIndex } from '@geonexo/maps/search';
+import { normalizeName, searchIndex } from '@markmap/maps/search';
 import { MapOfflinePanel } from './MapOfflinePanel';
 import { configuredAddressSearchEndpoint, searchAddressOnline, type AddressResult } from '../../lib/search/address-geocoder';
 

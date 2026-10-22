@@ -1,4 +1,4 @@
-import { consumeRateLimit, getDb } from "@geonexo/db";
+import { consumeRateLimit, getDb } from "@markmap/db";
 
 const IDENTITY_LIMIT_PER_MINUTE = 10;
 const GLOBAL_LIMIT_PER_MINUTE = 200;

@@ -1,11 +1,11 @@
-import type { Route, RoutingGraph, RoutingProfile } from '@geonexo/contracts';
-import { findRoute } from '@geonexo/maps/routing';
+import type { Route, RoutingGraph, RoutingProfile } from '@markmap/contracts';
+import { findRoute } from '@markmap/maps/routing';
 import {
   computeOfflineNavigationProgress,
   type ForegroundGpsFix,
   type OfflineNavigationProgress,
-} from '@geonexo/maps/routing/navigation-progress';
-import { MAX_GRAPH_BYTES, validateRegionalGraph } from '@geonexo/maps/routing/graph-format.mjs';
+} from '@markmap/maps/routing/navigation-progress';
+import { MAX_GRAPH_BYTES, validateRegionalGraph } from '@markmap/maps/routing/graph-format.mjs';
 import { offlineMapStore } from '../lib/storage/offline-map-store';
 import { describeOfflineRouteWorkerFailure } from '../lib/map/offline-route-worker-errors.mjs';
 

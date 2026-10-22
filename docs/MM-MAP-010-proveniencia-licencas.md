@@ -57,12 +57,12 @@ Todos os pacotes TypeScript do MarkMap são originais, com as seguintes licença
 
 | Pacote | Licença | Evidência |
 |--------|---------|-----------|
-| `@geonexo/contracts` | Apache-2.0 | Cabeçalhos SPDX nos arquivos |
-| `@geonexo/geo` | MIT | Cabeçalhos SPDX nos arquivos |
-| `@geonexo/maps` | MIT | Cabeçalhos SPDX nos arquivos |
-| `@geonexo/ui` | MIT | Cabeçalhos SPDX nos arquivos |
-| `@geonexo/config` | MIT | Cabeçalhos SPDX nos arquivos |
-| `@geonexo/db` | MIT | Cabeçalhos SPDX nos arquivos |
+| `@markmap/contracts` | Apache-2.0 | Cabeçalhos SPDX nos arquivos |
+| `@markmap/geo` | MIT | Cabeçalhos SPDX nos arquivos |
+| `@markmap/maps` | MIT | Cabeçalhos SPDX nos arquivos |
+| `@markmap/ui` | MIT | Cabeçalhos SPDX nos arquivos |
+| `@markmap/config` | MIT | Cabeçalhos SPDX nos arquivos |
+| `@markmap/db` | MIT | Cabeçalhos SPDX nos arquivos |
 | `admin` | MIT (aplicação) | `apps/admin/package.json` |
 | `markmap-site` | MIT | `apps/site/` |
 | `api` | MIT | `services/api/` |
@@ -74,7 +74,7 @@ Todos os pacotes TypeScript do MarkMap são originais, com as seguintes licença
 |-----------|---------|-----------|
 | `@capacitor/geolocation` | MIT | Capacitor plugin |
 | `@capacitor/ios` | MIT | Capacitor plugin |
-| `@geonexo/*` (workspaces) | Variedade | MIT/Apache-2.0 |
+| `@markmap/*` (workspaces) | Variedade | MIT/Apache-2.0 |
 | `maplibre-gl` | MIT | Renderizador de mapas |
 | `terra-draw` | MIT | Edição vetorial |
 | `terra-draw-maplibre-gl-adapter` | MIT | Adaptador Terra Draw |
@@ -83,12 +83,12 @@ Todos os pacotes TypeScript do MarkMap são originais, com as seguintes licença
 | `zustand` | MIT | Gerenciamento de estado |
 
 #### 3.2 packages analysis
-- `@geonexo/contracts`: Apache-2.0 (verificado via SPDX headers)
-- `@geonexo/geo`: MIT (verificado via SPDX headers)
-- `@geonexo/maps`: MIT (verificado via SPDX headers)
-- `@geonexo/ui`: MIT (verificado via SPDX headers)
-- `@geonexo/config`: MIT (verificado via SPDX headers)
-- `@geonexo/db`: MIT (verificado via SPDX headers)
+- `@markmap/contracts`: Apache-2.0 (verificado via SPDX headers)
+- `@markmap/geo`: MIT (verificado via SPDX headers)
+- `@markmap/maps`: MIT (verificado via SPDX headers)
+- `@markmap/ui`: MIT (verificado via SPDX headers)
+- `@markmap/config`: MIT (verificado via SPDX headers)
+- `@markmap/db`: MIT (verificado via SPDX headers)
 
 ## Proibições Confirmadas
 

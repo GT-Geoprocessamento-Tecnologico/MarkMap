@@ -1,4 +1,4 @@
-import type { Layer } from "@geonexo/contracts";
+import type { Layer } from "@markmap/contracts";
 import { listLocalFeatures } from "../../lib/hooks/features";
 
 export interface ProjectMapFeature extends GeoJSON.Feature {

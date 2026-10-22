@@ -28,6 +28,7 @@
     "@markmap/config": "workspace:*",
     "@types/node": "^20.14.0",
     "typescript": "^5.5.0",
+    "typescript-eslint": "^8.71.0",
     "vitest": "^4.1.11"
   }
 }

@@ -11,8 +11,8 @@ const presignMocks = vi.hoisted(() => ({
   getSignedUrl: vi.fn().mockResolvedValue("https://signed.example/object"),
 }));
 
-vi.mock("@geonexo/db", async () => ({
-  ...(await vi.importActual<typeof import("@geonexo/db")>("@geonexo/db")),
+vi.mock("@markmap/db", async () => ({
+  ...(await vi.importActual<typeof import("@markmap/db")>("@markmap/db")),
   ...dbMocks,
 }));
 

@@ -8,7 +8,7 @@ export type {
   LayerEntry,
   MapStatus,
 } from './types.js';
-export type { BBox, GeoNexoFeature } from './types.js';
+export type { BBox, GeoNexoFeature, MarkMapFeature } from './types.js';
 
 export { createBasemapRegistry, getDefaultBasemaps, OPENFREEMAP_ATTRIBUTION } from './providers.js';
 export type { BasemapRegistry } from './providers.js';
@@ -36,8 +36,8 @@ export type {
 export { createFallbackStyle, shouldFallbackOnError, FALLBACK_BACKGROUND_COLOR } from './fallback.js';
 export type { FallbackStyle, MapErrorLike } from './fallback.js';
 
-export { createGeoNexoMap } from './controller.js';
-export type { GeoNexoMap, GeoNexoMapOptions, MinimalMap } from './controller.js';
+export { createGeoNexoMap, createMarkMap, createMarkMapMap } from './controller.js';
+export type { GeoNexoMap, GeoNexoMapOptions, MarkMap, MarkMapMap, MarkMapMapOptions, MinimalMap } from './controller.js';
 
 export { createMapLibreMap, toFitBounds } from './maplibre.js';
 export type { CreateMapArgs } from './maplibre.js';

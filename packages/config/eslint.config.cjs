@@ -51,8 +51,8 @@ const config = [
           extensions: ['.js', '.jsx', '.ts', '.tsx'],
         },
         alias: [
-          ['@geonexo/*', [resolve(__dirname, '../../packages/*/src')]],
-          ['@geonexo', resolve(__dirname, '../../packages')],
+          ['@markmap/*', [resolve(__dirname, '../../packages/*/src')]],
+          ['@markmap', resolve(__dirname, '../../packages')],
         ],
       },
     },

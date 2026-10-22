@@ -1,4 +1,4 @@
-// Local flat config for @geonexo/ui. Enforces the PRD gates that matter here
+// Local flat config for @markmap/ui. Enforces the PRD gates that matter here
 // (no `any`, no unused vars) without depending on the shared config.
 import js from '@eslint/js';
 import tseslint from 'typescript-eslint';

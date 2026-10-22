@@ -68,7 +68,7 @@ const wiki = testBlob(wikiText);
 const knowledgeManifest = { id: 'regional', bounds: [0, 0, 1, 1], wikipediaPack: {
   path: 'wikipedia.json', blob: { bytes: wiki.size, sha256: sha(wikiText) },
 }};
-const knowledgeDeps = { '@geonexo/maps/content/region-content.mjs': {
+const knowledgeDeps = { '@markmap/maps/content/region-content.mjs': {
   MAX_TRANSIT_BYTES: 2000000, MAX_WIKIPEDIA_BYTES: 2000000,
   validateRegionalWikipedia(value) { return value; }, validateRegionalTransit(value) { return value; },
 }};
@@ -78,7 +78,7 @@ const demBlob = testBlob(demText);
 const elevationManifest = { id: 'regional', bounds: [0,0,1,1], demGrid: {
   path:'dem.json',blob:{bytes:demBlob.size,sha256:sha(demText)},
 }};
-const demDeps = { '@geonexo/maps/elevation/regional-dem.mjs': {
+const demDeps = { '@markmap/maps/elevation/regional-dem.mjs': {
   MAX_REGIONAL_DEM_BYTES: 2000000,
   validateRegionalDem(value) { return value; },
   computeRegionalElevationProfile() { return null; },

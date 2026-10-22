@@ -1,4 +1,4 @@
-import { syncEntityPayloadSchema } from "@geonexo/contracts";
+import { syncEntityPayloadSchema } from "@markmap/contracts";
 
 import { getDb } from "../mock/storage";
 import { localRepository } from "./index";

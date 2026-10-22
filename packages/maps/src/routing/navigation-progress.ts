@@ -1,4 +1,4 @@
-import type { Route } from '@geonexo/contracts';
+import type { Route } from '@markmap/contracts';
 
 /** The GPS is used in memory only, never persisted or transmitted. */
 export interface ForegroundGpsFix {

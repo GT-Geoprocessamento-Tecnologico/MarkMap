@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { MapOfflinePanel } from './MapOfflinePanel';
-import type { WikipediaArticle, TransitNetwork, OfflineMapPackageManifest } from '@geonexo/contracts';
+import type { WikipediaArticle, TransitNetwork, OfflineMapPackageManifest } from '@markmap/contracts';
 import { offlineMapStore } from '../../lib/storage/offline-map-store';
-import { validateRegionalWikipedia, validateRegionalTransit, MAX_TRANSIT_BYTES, MAX_WIKIPEDIA_BYTES } from '@geonexo/maps/content/region-content.mjs';
+import { validateRegionalWikipedia, validateRegionalTransit, MAX_TRANSIT_BYTES, MAX_WIKIPEDIA_BYTES } from '@markmap/maps/content/region-content.mjs';
 
 type Station = TransitNetwork['stations'][number];
 type ContentState = { articles: WikipediaArticle[]; stations: Station[]; attribution: string[] };

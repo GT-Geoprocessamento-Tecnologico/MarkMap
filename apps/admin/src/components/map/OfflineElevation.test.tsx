@@ -14,7 +14,7 @@ vi.mock('../../lib/elevation/terrain-client', () => ({
 vi.mock('../../lib/storage/offline-map-store', () => ({ offlineMapStore: {
   getActiveRevision: mocks.getActiveRevision, assetAtRevision: mocks.assetAtRevision,
 } }));
-vi.mock('@geonexo/maps/elevation/regional-dem.mjs', () => ({
+vi.mock('@markmap/maps/elevation/regional-dem.mjs', () => ({
   MAX_REGIONAL_DEM_BYTES: 2 * 1024 * 1024,
   sampleRegionalDem: (grid: { values: number[] }) => grid.values[0] === -32768 ? null : grid.values[0],
   computeRegionalElevationProfile: () => ({ samples: [{ distanceMeters: 0, elevationMeters: 100 }, { distanceMeters: 10, elevationMeters: 120 }], totalMeters: 10, gainMeters: 20, lossMeters: 0, minElevationMeters: 100, maxElevationMeters: 120, coveragePercent: 100, missingCount: 0 }),

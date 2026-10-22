@@ -38,9 +38,9 @@ pnpm format
 ## Banco
 
 ```bash
-pnpm --filter @geonexo/db db:generate
-pnpm --filter @geonexo/db db:migrate
-pnpm --filter @geonexo/db db:studio
+pnpm --filter @markmap/db db:generate
+pnpm --filter @markmap/db db:migrate
+pnpm --filter @markmap/db db:studio
 ```
 
 Migration remota deve ser revisada antes de execução.

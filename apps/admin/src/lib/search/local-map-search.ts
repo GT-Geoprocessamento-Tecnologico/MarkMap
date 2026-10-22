@@ -1,4 +1,4 @@
-import { normalizePostalCode } from '@geonexo/maps/search';
+import { normalizePostalCode } from '@markmap/maps/search';
 
 /** Small, serializable index for maps already present on this device. */
 export interface LocalSearchRecord {

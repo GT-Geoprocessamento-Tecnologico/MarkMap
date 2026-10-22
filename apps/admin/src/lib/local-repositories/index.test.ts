@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { SyncConflict } from "@geonexo/contracts";
+import type { SyncConflict } from "@markmap/contracts";
 import { MemoryLocalDb } from "../local-db/memory";
 import { LocalRepository } from "./index";
 import { readBlobBytes } from "../blob-bytes";

@@ -21,12 +21,12 @@ function harness(resolveOperation) {
   const handlers = new Map(), calls = [], exports = {};
   const field = { optional() { return this; }, int() { return this; }, min() { return this; }, max() { return this; }, default() { return this; } };
   const modules = {
-    '@geonexo/contracts': {
+    '@markmap/contracts': {
       pushSyncRequestSchema: { parse: value => value },
       pushSyncResponseSchema: { parse: value => value },
       pullSyncResponseSchema: { parse: value => value },
     },
-    '@geonexo/db': {
+    '@markmap/db': {
       getDb: () => ({}),
       async applyPushOperation(db, operation, workspaceId) {
         assert.equal(workspaceId, 'workspace-a'); calls.push(operation);

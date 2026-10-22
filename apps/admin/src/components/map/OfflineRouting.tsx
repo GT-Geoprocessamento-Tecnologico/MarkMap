@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { MapOfflinePanel } from './MapOfflinePanel';
-import type { Route, RoutingProfile, OfflineMapPackageManifest } from '@geonexo/contracts';
-import { generateTtsText, getDistanceText } from '@geonexo/maps/routing';
+import type { Route, RoutingProfile, OfflineMapPackageManifest } from '@markmap/contracts';
+import { generateTtsText, getDistanceText } from '@markmap/maps/routing';
 import { ensureLocationPermission } from '../../lib/device-location-permission';
 import {
   GPS_MAX_ACCURACY_M, GPS_MAX_AGE_MS,
   type ForegroundGpsFix, type OfflineNavigationProgress,
-} from '@geonexo/maps/routing/navigation-progress';
+} from '@markmap/maps/routing/navigation-progress';
 
 type Point = [number, number];
 type NavigationStatus = 'idle' | 'starting' | 'tracking' | 'paused' | 'arrived' | 'error';

@@ -2117,7 +2117,7 @@ Obter os dados/autorizações externos acima e executar o preflight de `docs/rel
 - `apps/admin` recebeu identidade visual MarkMap preservando offline-first, GIS, sync e contratos existentes;
 - PWA e Capacitor passam a exibir MarkMap;
 - nome visível mobile passa a MarkMap; identificadores nativos existentes permanecem estáveis para preservar continuidade de instalação e dados locais;
-- namespaces internos `@geonexo/*` e identificadores históricos de infraestrutura permanecem por compatibilidade até uma migração específica e validada;
+- namespaces internos `@markmap/*` e identificadores históricos de infraestrutura permanecem por compatibilidade até uma migração específica e validada;
 - repositório GitHub renomeado para `mmatteuus/MarkMap`;
 - PR #3 e PR #4 integrados em `main`.
 

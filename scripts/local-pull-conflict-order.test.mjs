@@ -41,7 +41,7 @@ function strictConflict(value) {
 
 const { MemoryLocalDb } = load('local-db/memory.ts');
 const { LocalRepository } = load('local-repositories/index.ts', {
-  '@geonexo/contracts': {
+  '@markmap/contracts': {
     syncOperationSchema: { parse: value => value },
     syncConflictSchema: { parse: strictConflict },
   },

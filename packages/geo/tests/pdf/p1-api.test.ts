@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { GeoReference as ContractGeoReference } from '@geonexo/contracts';
+import type { GeoReference as ContractGeoReference } from '@markmap/contracts';
 import { PdfError, inspectPdf, lonLatToPage, pageToLonLat, resolveIsoMeasure, resolveOgcLgiDict } from '../../src/pdf/index';
 import { createGeoReference, fitAffine } from '../../src/pdf/transform';
 import { resolveCrsId } from '../../src/pdf/crs-registry';

@@ -54,7 +54,7 @@ function simulate(initial, responses, { acknowledgementBlocked = false } = {}) {
     exports, require(specifier) {
       if (specifier === '../api-client') return { API_BASE: 'https://api.invalid/api/v1', API_MODE: 'live' };
       if (specifier === '../local-repositories') return { localRepository };
-      if (specifier === '@geonexo/contracts') return {
+      if (specifier === '@markmap/contracts') return {
         capabilityProvisionResponseSchema: {parse(x){return x;}},
         pullSyncResponseSchema: {parse(x){return x;}},
         pushSyncResponseSchema: {parse(x){return x;}},

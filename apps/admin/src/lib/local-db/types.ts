@@ -1,6 +1,6 @@
-import type { SyncConflict, SyncEntity, SyncEntityPayload, SyncOperation } from "@geonexo/contracts";
+import type { SyncConflict, SyncEntity, SyncEntityPayload, SyncOperation } from "@markmap/contracts";
 
-export const LOCAL_DB_NAME = "GeoNexoLocalFirstDB";
+export const LOCAL_DB_NAME = "MarkMapLocalFirstDB";
 export const LOCAL_DB_VERSION = 2;
 
 export type EntityRecord = {

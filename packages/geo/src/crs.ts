@@ -1,7 +1,7 @@
 import proj4 from 'proj4';
 
 /**
- * Canonical spatial reference identifiers for GeoNexo.
+ * Canonical spatial reference identifiers for MarkMap.
  *
  * - Storage (PostGIS): EPSG:4674 (SIRGAS 2000), per 00-MASTER-PRD section 9.
  * - Browser / GeoJSON transport: EPSG:4326 (WGS 84), per web interoperability.

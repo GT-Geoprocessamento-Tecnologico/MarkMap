@@ -1,4 +1,4 @@
-import type { RoutingGraph } from '@geonexo/contracts';
+import type { RoutingGraph } from '@markmap/contracts';
 export const MAX_GRAPH_BYTES: number;
 export const MAX_GRAPH_NODES: number;
 export const MAX_GRAPH_EDGES: number;

@@ -12,7 +12,7 @@ substituir a marca visível GeoNexo por MarkMap e remover a palavra PWA das
 mensagens apresentadas ao usuário. Preservar layout, comportamento, contraste,
 rotas, URLs, domínios, dados locais e compatibilidade de importação.
 
-O nome interno de pacotes e imports `@geonexo/*`, nomes de bancos IndexedDB,
+O nome interno de pacotes e imports `@markmap/*`, nomes de bancos IndexedDB,
 chaves de storage, IDs do manifest, `start_url`, `scope`, Service Worker,
 manifest versionado, endpoints e IDs de catálogo permanecem inalterados.
 Comentários, testes e nomes internos podem continuar usando GeoNexo quando não
@@ -43,7 +43,7 @@ não recebe manifest, ícone instalável ou proxy do app.
    escaping e proteção contra fórmulas.
 4. **QA independente**: executar testes de manifest/favicon/shell, contraste,
    suíte admin aplicável, typecheck, lint e build; verificar que strings
-   internas `@geonexo/*`, banco, SW e rotas não foram renomeadas.
+   internas `@markmap/*`, banco, SW e rotas não foram renomeadas.
 5. **Root — validação nativa**: no PWA instalado, confirmar ícone/atalho após
    atualização, marca visível, export CSV com o novo nome, reload e preservação
    dos dados. Cache de ícone pode exigir atualização/reinstalação manual; isso

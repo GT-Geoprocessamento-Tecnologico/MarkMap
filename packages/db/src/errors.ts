@@ -1,6 +1,6 @@
 /**
  * Stable failure classes raised by the persistence layer. Each carries a
- * `code` from `@geonexo/contracts` so `services/api` can map it to the
+ * `code` from `@markmap/contracts` so `services/api` can map it to the
  * documented HTTP envelope without string matching (50-CONTRATOS-DE-INTEGRACAO.md:108).
  *
  * Read/update helpers still return `null` for absent records; create operations

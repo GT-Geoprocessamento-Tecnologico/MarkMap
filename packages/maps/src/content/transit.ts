@@ -1,4 +1,4 @@
-import type { TransitNetwork, TransitStation, TransitLine } from "@geonexo/contracts";
+import type { TransitNetwork, TransitStation, TransitLine } from "@markmap/contracts";
 
 export class TransitStore {
   private stations = new Map<string, TransitStation>();

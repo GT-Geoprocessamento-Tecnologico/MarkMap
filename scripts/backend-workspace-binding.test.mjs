@@ -92,13 +92,13 @@ function appHarness(execute, rateLimit={allowed:true,remaining:10,retryAfterSeco
   }
   const {workspaceRoutes} = load(routePath, {
     'node:crypto': createRequire(import.meta.url)('node:crypto'),
-    '@geonexo/contracts': {
+    '@markmap/contracts': {
       capabilityProvisionRequestSchema: {parse:v=>v},
       capabilityProvisionResponseSchema: {parse:v=>v},
       capabilityRecoveryRequestSchema: {parse:v=>v},
       ErrorCodes:{RATE_LIMITED:'RATE_LIMITED'},
     },
-    '@geonexo/db': {
+    '@markmap/db': {
       getDb:()=>backend.db,
       provisionWorkspace:backend.provisionWorkspace,
       recoverWorkspaceCapability:backend.recoverWorkspaceCapability,

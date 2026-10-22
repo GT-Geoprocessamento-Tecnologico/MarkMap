@@ -2,7 +2,7 @@ import {
   DEFAULT_PAGE_LIMIT,
   MAX_PAGE_LIMIT,
   uuidSchema,
-} from "@geonexo/contracts";
+} from "@markmap/contracts";
 
 import { InvalidCursorError } from "./errors.js";
 

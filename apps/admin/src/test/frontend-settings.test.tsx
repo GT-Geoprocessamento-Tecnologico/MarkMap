@@ -4,8 +4,8 @@ import SettingsPage from '../pages/settings/SettingsPage';
 import CoordinateSystemsPage from '../pages/dashboard/CoordinateSystemsPage';
 
 const { toast } = vi.hoisted(() => ({ toast: vi.fn() }));
-vi.mock('@geonexo/ui', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@geonexo/ui')>()),
+vi.mock('@markmap/ui', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@markmap/ui')>()),
   useToast: () => ({ toast }),
 }));
 

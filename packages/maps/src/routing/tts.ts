@@ -1,4 +1,4 @@
-import type { RouteStep } from "@geonexo/contracts";
+import type { RouteStep } from "@markmap/contracts";
 
 export function generateTtsText(step: RouteStep, locale = "pt-BR"): string {
   const { maneuver } = step;

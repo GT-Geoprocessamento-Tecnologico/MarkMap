@@ -62,7 +62,7 @@ function simulate({ outbox = [], pushReplies = [], pullReplies = [], initialCurs
     require(name) {
       if (name === '../api-client') return { API_BASE: 'https://api.invalid/api/v1', API_MODE: 'live' };
       if (name === '../local-repositories') return { localRepository: repository };
-      if (name === '@geonexo/contracts') return {
+      if (name === '@markmap/contracts') return {
         capabilityProvisionResponseSchema: { parse: x => x },
         pullSyncResponseSchema: { parse: x => x },
         pushSyncResponseSchema: { parse: x => x },

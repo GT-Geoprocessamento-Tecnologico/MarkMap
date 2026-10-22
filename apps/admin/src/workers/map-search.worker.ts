@@ -1,4 +1,4 @@
-import { searchIndex, type SearchRecord } from '@geonexo/maps/search';
+import { searchIndex, type SearchRecord } from '@markmap/maps/search';
 import type { LocalSearchRecord } from '../lib/search/local-map-search';
 
 type Incoming = {type: 'load'; records: LocalSearchRecord[]} |

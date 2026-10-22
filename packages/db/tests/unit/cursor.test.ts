@@ -1,4 +1,4 @@
-import { DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT } from "@geonexo/contracts";
+import { DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT } from "@markmap/contracts";
 import { describe, expect, it } from "vitest";
 
 import {

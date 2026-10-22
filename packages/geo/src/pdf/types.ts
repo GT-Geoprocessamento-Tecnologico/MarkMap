@@ -1,7 +1,7 @@
 import type { PdfErrorCode } from './errors.js';
-import type { GeoReference, PagePoint } from '@geonexo/contracts';
+import type { GeoReference, PagePoint } from '@markmap/contracts';
 
-export type { ControlPoint, GeoReference, PagePoint } from '@geonexo/contracts';
+export type { ControlPoint, GeoReference, PagePoint } from '@markmap/contracts';
 
 export type LonLat = readonly [number, number];
 export type Bounds = GeoReference['cropBox'];

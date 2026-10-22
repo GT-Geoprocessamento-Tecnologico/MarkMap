@@ -36,7 +36,7 @@ const indexes = {
   },
 };
 const search = () => loadTS('lib/search/regional-package-search.ts', {
-  '@geonexo/maps/search/regional-shards': indexes,
+  '@markmap/maps/search/regional-shards': indexes,
 });
 const shard = value => new Blob([JSON.stringify({ id: 'a0', records: [{
   id: value, name: value, normalized: value, lon: 1, lat: 2, type: 'poi', category: 'poi',
@@ -111,9 +111,9 @@ function workerImports(store) {
     '../lib/map/offline-route-worker-errors.mjs': {
       describeOfflineRouteWorkerFailure: (_error) => 'Falha segura no grafo regional.',
     },
-    '@geonexo/maps/routing': { findRoute: () => null },
-    '@geonexo/maps/routing/navigation-progress': { computeOfflineNavigationProgress: () => null },
-    '@geonexo/maps/routing/graph-format.mjs': {
+    '@markmap/maps/routing': { findRoute: () => null },
+    '@markmap/maps/routing/navigation-progress': { computeOfflineNavigationProgress: () => null },
+    '@markmap/maps/routing/graph-format.mjs': {
       MAX_GRAPH_BYTES: 8 * 1024 * 1024,
       validateRegionalGraph: () => ({ profiles: ['walk'] }),
     },

@@ -1,4 +1,4 @@
-import type { Contour, ContourLayer, DemMetadata } from "@geonexo/contracts";
+import type { Contour, ContourLayer, DemMetadata } from "@markmap/contracts";
 
 export function generateContours(
   dem: Int16Array | Float32Array,

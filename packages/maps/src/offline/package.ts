@@ -7,7 +7,7 @@ import { IncrementalSha256, sha256Blob } from "./incremental-sha256.mjs";
 // @ts-expect-error contracts emits runtime JS without declarations in this workspace
 import { offlineMapPackageManifestSchema, type OfflineMapPackageManifest } from "../../../contracts/dist/src/offline-map.js";
 
-export const OFFLINE_PACKAGE_DB = "GeoNexoOfflineMapPackages";
+export const OFFLINE_PACKAGE_DB = "MarkMapOfflineMapPackages";
 export const OFFLINE_PACKAGE_VERSION = 1;
 export const OFFLINE_PACKAGE_QUOTA = 250 * 1024 * 1024;
 

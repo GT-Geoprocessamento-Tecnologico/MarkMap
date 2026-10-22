@@ -1,4 +1,4 @@
-import type { BBox, GeoNexoFeature, GeoNexoFeatureCollection } from '@geonexo/geo';
+import type { BBox, GeoNexoFeature, GeoNexoFeatureCollection } from '@markmap/geo';
 import { createFallbackStyle, shouldFallbackOnError } from './fallback.js';
 import { createLayerStore, layerVisibilityLayoutValue } from './layers.js';
 import type { LayerStore } from './layers.js';
@@ -38,6 +38,8 @@ export interface GeoNexoMapOptions {
   onSelectFeature?: (feature: GeoNexoFeature | null) => void;
 }
 
+export type MarkMapMapOptions = GeoNexoMapOptions;
+
 export interface GeoNexoMap {
   readonly layers: LayerStore;
   getStatus(): MapStatus;
@@ -56,10 +58,13 @@ export interface GeoNexoMap {
   destroy(): void;
 }
 
+export type MarkMap = GeoNexoMap;
+export type MarkMapMap = GeoNexoMap;
+
 /**
  * Create the map controller: owns basemap state, layer bookkeeping,
  * selection state and style-failure fallback. Draw modes live in the draw
- * adapter; measurement/CRS helpers live in @geonexo/geo.
+ * adapter; measurement/CRS helpers live in @markmap/geo.
  */
 export function createGeoNexoMap(options: GeoNexoMapOptions): GeoNexoMap {
   const layers = createLayerStore();
@@ -246,3 +251,6 @@ export function createGeoNexoMap(options: GeoNexoMapOptions): GeoNexoMap {
     },
   };
 }
+
+export const createMarkMap = createGeoNexoMap;
+export const createMarkMapMap = createGeoNexoMap;

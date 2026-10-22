@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { featureSchema, layerSchema, projectSchema } from '@geonexo/contracts';
+import { featureSchema, layerSchema, projectSchema } from '@markmap/contracts';
 
 export const MOCK_DB_VERSION = 1;
 

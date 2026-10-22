@@ -151,7 +151,7 @@ export function sampleDemBilinear(
 
 ```typescript
 // packages/maps/src/elevation/profile.ts
-import { ElevationProfile } from "@geonexo/contracts";
+import { ElevationProfile } from "@markmap/contracts";
 
 export function computeElevationProfile(
   path: Array<[number, number]>,  // [lon, lat] coords

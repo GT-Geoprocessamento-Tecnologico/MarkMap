@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { sampleDem, sampleDemBilinear } from "../../src/elevation/dem.js";
 import { computeElevationProfile, haversineDistanceKm } from "../../src/elevation/profile.js";
 import { generateContours } from "../../src/elevation/contours.js";
-import type { DemMetadata } from "@geonexo/contracts";
+import type { DemMetadata } from "@markmap/contracts";
 
 const metadata: DemMetadata = {
   source: "srtm",

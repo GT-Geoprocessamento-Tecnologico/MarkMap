@@ -25,7 +25,7 @@ outro geocoder público diretamente.
 ## Evidência do estado atual
 
 - `OfflineSearch.tsx` tem dois caminhos de UI: busca local por botão/Enter e
-  botão separado para busca online. O worker usa `@geonexo/maps/search` sobre
+  botão separado para busca online. O worker usa `@markmap/maps/search` sobre
   registros de projeto, shards da região ativa e nomes de tiles visíveis.
 - `local-map-search.ts` indexa `name`, `title`, `ref`, `label` e os campos
   `addr:street`, `addr:housenumber`, `addr:city`; não indexa CEP.

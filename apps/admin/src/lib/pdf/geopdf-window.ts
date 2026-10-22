@@ -1,5 +1,5 @@
 // Desenvolvido por MtsFerreira. Only the georeferenced map, not sheet margins.
-import type { GeoReference } from "@geonexo/contracts";
+import type { GeoReference } from "@markmap/contracts";
 
 type Viewport = { convertToViewportPoint(x: number, y: number): number[] };
 export type PdfWindow = Readonly<{ x: number; y: number; width: number; height: number }>;

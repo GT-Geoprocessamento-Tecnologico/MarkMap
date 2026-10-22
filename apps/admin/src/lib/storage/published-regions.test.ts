@@ -1,8 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { URL as NodeURL } from "node:url";
 import { describe, expect, it } from "vitest";
-import { offlineMapPackageManifestSchema } from "@geonexo/contracts";
-import { validateOfflinePackage } from "@geonexo/maps/offline/package";
+import { offlineMapPackageManifestSchema } from "@markmap/contracts";
+import { validateOfflinePackage } from "@markmap/maps/offline/package";
 import { parsePublicRegionCatalog } from "./public-region-catalog";
 
 const publicRoot = new NodeURL("../../../public/", import.meta.url);

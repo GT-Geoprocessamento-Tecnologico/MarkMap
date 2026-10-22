@@ -57,19 +57,19 @@ importers:
       '@capacitor/ios':
         specifier: 8.5.2
         version: 8.5.2(@capacitor/core@8.5.2)
-      '@geonexo/config':
+      '@markmap/config':
         specifier: workspace:*
         version: link:../../packages/config
-      '@geonexo/contracts':
+      '@markmap/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
-      '@geonexo/geo':
+      '@markmap/geo':
         specifier: workspace:*
         version: link:../../packages/geo
-      '@geonexo/maps':
+      '@markmap/maps':
         specifier: workspace:*
         version: link:../../packages/maps
-      '@geonexo/ui':
+      '@markmap/ui':
         specifier: workspace:*
         version: link:../../packages/ui
       '@tanstack/react-query':
@@ -279,7 +279,7 @@ importers:
         specifier: ^3.23.0
         version: 3.25.76
     devDependencies:
-      '@geonexo/config':
+      '@markmap/config':
         specifier: workspace:*
         version: link:../config
       '@types/node':
@@ -294,7 +294,7 @@ importers:
 
   packages/db:
     dependencies:
-      '@geonexo/contracts':
+      '@markmap/contracts':
         specifier: workspace:*
         version: link:../contracts
       '@neondatabase/serverless':
@@ -340,7 +340,7 @@ importers:
 
   packages/geo:
     dependencies:
-      '@geonexo/contracts':
+      '@markmap/contracts':
         specifier: workspace:*
         version: link:../contracts
       '@turf/turf':
@@ -377,7 +377,7 @@ importers:
 
   packages/maps:
     dependencies:
-      '@geonexo/contracts':
+      '@markmap/contracts':
         specifier: workspace:*
         version: link:../contracts
       '@types/maplibre-gl':
@@ -399,7 +399,7 @@ importers:
       '@eslint/js':
         specifier: ^9.39.5
         version: 9.39.5
-      '@geonexo/geo':
+      '@markmap/geo':
         specifier: workspace:*
         version: link:../geo
       '@types/node':
@@ -493,10 +493,10 @@ importers:
       '@aws-sdk/s3-request-presigner':
         specifier: ^3.1141.0
         version: 3.1141.0
-      '@geonexo/contracts':
+      '@markmap/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
-      '@geonexo/db':
+      '@markmap/db':
         specifier: workspace:*
         version: link:../../packages/db
       '@hono/node-server':
@@ -521,7 +521,7 @@ importers:
       '@eslint/js':
         specifier: ^9.39.5
         version: 9.39.5
-      '@geonexo/config':
+      '@markmap/config':
         specifier: workspace:*
         version: link:../../packages/config
       '@types/node':

@@ -25,7 +25,7 @@ function load(path, mocks, extras = {}) {
 const { MemoryLocalDb } = load('local-db/memory.ts', {});
 const localDb = { entityKey:(w,e,id)=>w+':'+e+':'+id, originalKey:(w,id)=>w+':'+id, localDb:{} };
 const { LocalRepository } = load('local-repositories/index.ts', {
-  '@geonexo/contracts': { syncConflictSchema:{parse:x=>x}, syncOperationSchema:{parse:x=>x} },
+  '@markmap/contracts': { syncConflictSchema:{parse:x=>x}, syncOperationSchema:{parse:x=>x} },
   '../local-db': localDb,
   '../blob-bytes': { readBlobBytes:async()=>new Uint8Array() },
 });
@@ -74,7 +74,7 @@ test('A44 sync engine sends its exact request cursor to the transaction',async()
   const engine=load('sync/sync-engine.ts',{
     '../api-client':{API_BASE:'https://api.invalid',API_MODE:'live'},
     '../local-repositories':{localRepository:repository},
-    '@geonexo/contracts':{capabilityProvisionResponseSchema:{parse:x=>x},pushSyncResponseSchema:{parse:x=>x},pullSyncResponseSchema:{parse:x=>x}},
+    '@markmap/contracts':{capabilityProvisionResponseSchema:{parse:x=>x},pushSyncResponseSchema:{parse:x=>x},pullSyncResponseSchema:{parse:x=>x}},
   },{
     fetch:async()=>new Response(JSON.stringify({changes:[],tombstones:[],nextCursor:'next',hasMore:false}),{status:200}),
     URLSearchParams,AbortController,TextEncoder,Uint8Array,setTimeout,clearTimeout,

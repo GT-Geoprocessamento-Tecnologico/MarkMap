@@ -2,7 +2,7 @@
  * IndexedDB storage for local records. Writes resolve after transaction commit.
  */
 
-const DB_NAME = 'GeoNexoLocalEngineDB';
+const DB_NAME = 'MarkMapLocalEngineDB';
 const DB_VERSION = 1;
 
 export interface LocalRecord {

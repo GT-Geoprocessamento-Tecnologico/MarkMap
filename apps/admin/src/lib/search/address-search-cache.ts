@@ -1,5 +1,5 @@
 // Desenvolvido por MtsFerreira. Search responses stay on this device, outside sync/outbox.
-import { normalizeName, normalizePostalCode, searchIndex } from '@geonexo/maps/search';
+import { normalizeName, normalizePostalCode, searchIndex } from '@markmap/maps/search';
 import { localDb, requestValue, type LocalDb } from '../local-db';
 import type { AddressResult } from './address-geocoder';
 

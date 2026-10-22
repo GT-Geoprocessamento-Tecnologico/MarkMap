@@ -1,4 +1,4 @@
-import type { WikipediaArticle } from "@geonexo/contracts";
+import type { WikipediaArticle } from "@markmap/contracts";
 
 export class WikipediaStore {
   private articles = new Map<string, WikipediaArticle>();

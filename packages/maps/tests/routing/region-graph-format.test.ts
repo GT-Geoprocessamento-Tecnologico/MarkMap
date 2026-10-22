@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { validateRegionalGraph } from '../../src/routing/graph-format.mjs';
 import { validateRegionalContours, contoursToGeoJSON } from '../../src/elevation/contour-package.mjs';
 import { findRoute } from '../../src/routing/router.js';
-import type { RoutingGraph } from '@geonexo/contracts';
+import type { RoutingGraph } from '@markmap/contracts';
 
 const graph: RoutingGraph = {
   version: 'v1', bounds: [-1, -1, 1, 1], osmDataDate: '2026-10-08T00:00:00.000Z',

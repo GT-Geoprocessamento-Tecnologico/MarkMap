@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import type { ReactNode } from "react";
-import { useToast } from "@geonexo/ui";
+import { useToast } from "@markmap/ui";
 import { useDialogFocus } from "../../lib/hooks/use-dialog-focus";
 import { AppIcon } from "../../components/AppIcon";
 

@@ -5,7 +5,7 @@ import type { GeometryType } from "./geometry.js";
 import { timestampSchema, uuidSchema } from "./project.js";
 
 /**
- * Re-exported so `import { geometryTypeSchema } from '@geonexo/contracts/layer'`
+ * Re-exported so `import { geometryTypeSchema } from '@markmap/contracts/layer'`
  * (used by feature.ts) keeps working. geometry.ts is the single source of truth.
  */
 export { geometryTypeSchema };

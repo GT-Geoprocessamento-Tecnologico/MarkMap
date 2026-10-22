@@ -13,7 +13,7 @@ import {
   Input,
   Skeleton,
   useToast,
-} from "@geonexo/ui";
+} from "@markmap/ui";
 import { useCreateProject, useProjectPages } from "../../lib/hooks/projects";
 
 export default function ProjectsPage() {

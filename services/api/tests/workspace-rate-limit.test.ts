@@ -8,8 +8,8 @@ const dbMocks = vi.hoisted(() => ({
   recoverWorkspaceCapability: vi.fn(),
 }));
 
-vi.mock("@geonexo/db", async () => ({
-  ...(await vi.importActual<typeof import("@geonexo/db")>("@geonexo/db")),
+vi.mock("@markmap/db", async () => ({
+  ...(await vi.importActual<typeof import("@markmap/db")>("@markmap/db")),
   ...dbMocks,
 }));
 

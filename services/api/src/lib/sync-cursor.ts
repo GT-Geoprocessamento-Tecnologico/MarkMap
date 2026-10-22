@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
-import { syncCursorSchema } from "@geonexo/contracts";
+import { syncCursorSchema } from "@markmap/contracts";
 
 import { AppError, ErrorCode } from "./errors.js";
 

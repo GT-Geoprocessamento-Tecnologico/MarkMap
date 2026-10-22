@@ -22,7 +22,7 @@ import { workspaces } from "./workspaces";
 /**
  * 10-BACKEND-VISIONARIO-PRD.md:143-154. `kind` is a logical enum enforced by
  * CHECK (PostgreSQL has no portable enum ALTER); `geometry_type` mirrors the
- * wire enum from `@geonexo/contracts` so both cannot drift.
+ * wire enum from `@markmap/contracts` so both cannot drift.
  *
  * `description` is not in the PRD table but exists in `layerSchema`
  * (packages/contracts): kept nullable so the HTTP contract can persist without

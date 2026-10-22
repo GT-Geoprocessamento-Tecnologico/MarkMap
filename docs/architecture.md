@@ -21,7 +21,7 @@ Hono API
         +-- rotas de domínio em ambiente não-production
         |
         v
-@geonexo/db
+@markmap/db
         |
         v
 PostgreSQL / Neon + PostGIS
@@ -38,7 +38,7 @@ Aplicação principal em `apps/admin`.
 - Zustand para estado local de UI onde aplicável.
 - MapLibre para mapa.
 - Terra Draw para edição vetorial.
-- PDF.js no app e `@geonexo/geo` para lógica GIS/GeoPDF.
+- PDF.js no app e `@markmap/geo` para lógica GIS/GeoPDF.
 - Capacitor como ponte nativa.
 
 ## Persistência local
@@ -95,9 +95,9 @@ scripts/region-pipeline.mjs (build time, offline)
         v
 package regional (staged -> validated -> atomically activated)
         |
-        +-- @geonexo/contracts  schemas (elevation, routing, content, offline-map v2)
-        +-- @geonexo/maps       search | routing | elevation | content | security | automotive
-        +-- @geonexo/geo        gpx.ts / kml.ts / navigation.ts
+        +-- @markmap/contracts  schemas (elevation, routing, content, offline-map v2)
+        +-- @markmap/maps       search | routing | elevation | content | security | automotive
+        +-- @markmap/geo        gpx.ts / kml.ts / navigation.ts
         |
         v
 MapLibre + Web Worker (search, routing) + IndexedDB/OPFS (LargeBlobStore)

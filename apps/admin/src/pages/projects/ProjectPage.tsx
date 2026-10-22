@@ -1,5 +1,5 @@
 import { Link, useParams } from "@tanstack/react-router";
-import { Button, Skeleton } from "@geonexo/ui";
+import { Button, Skeleton } from "@markmap/ui";
 import { useProject } from "../../lib/hooks/projects";
 import { useProjectLayers } from "../../lib/hooks/layers";
 

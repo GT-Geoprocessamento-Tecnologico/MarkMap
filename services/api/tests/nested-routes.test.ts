@@ -1,4 +1,4 @@
-import { LayerNotFoundError, ProjectNotFoundError } from "@geonexo/db";
+import { LayerNotFoundError, ProjectNotFoundError } from "@markmap/db";
 import { Hono } from "hono";
 import { describe, expect, it, vi } from "vitest";
 
@@ -12,8 +12,8 @@ const mocks = vi.hoisted(() => ({
   getDb: vi.fn(() => ({})),
 }));
 
-vi.mock("@geonexo/db", async () => ({
-  ...(await vi.importActual<typeof import("@geonexo/db")>("@geonexo/db")),
+vi.mock("@markmap/db", async () => ({
+  ...(await vi.importActual<typeof import("@markmap/db")>("@markmap/db")),
   ...mocks,
 }));
 

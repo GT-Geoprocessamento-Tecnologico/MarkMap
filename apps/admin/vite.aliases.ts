@@ -6,8 +6,8 @@ import path from 'node:path';
  * (50-CONTRATOS-DE-INTEGRACAO.md - aliases consistentes).
  *
  * A string alias matches the bare specifier AND every subpath, so
- * `@geonexo/ui` resolves to `packages/ui/src` and `@geonexo/ui/Button`
- * resolves to `packages/ui/src/Button`, mirroring the `@geonexo/ui/*`
+ * `@markmap/ui` resolves to `packages/ui/src` and `@markmap/ui/Button`
+ * resolves to `packages/ui/src/Button`, mirroring the `@markmap/ui/*`
  * tsconfig entry.
  *
  * This file is loaded only through Vite/Vitest config bundling, which
@@ -21,3 +21,5 @@ export const markmapAliases: Record<string, string> = {
   '@markmap/contracts': path.resolve(__dirname, '../../packages/contracts/src'),
   '@': path.resolve(__dirname, 'src'),
 };
+
+export const geonexoAliases = markmapAliases;

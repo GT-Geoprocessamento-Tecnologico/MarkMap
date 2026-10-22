@@ -1,7 +1,7 @@
 import {
   ErrorCodes as ERROR_CODES,
   httpStatusByErrorCode as HTTP_STATUS_BY_CODE,
-} from "@geonexo/contracts";
+} from "@markmap/contracts";
 import type { z } from "zod";
 
 /**

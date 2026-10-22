@@ -63,7 +63,7 @@ class SerializedMetaDb {
 }
 
 const { LocalRepository } = loadTs('local-repositories/index.ts', {
-  '@geonexo/contracts': { syncConflictSchema: {parse:x=>x}, syncOperationSchema: {parse:x=>x} },
+  '@markmap/contracts': { syncConflictSchema: {parse:x=>x}, syncOperationSchema: {parse:x=>x} },
   '../local-db': { localDb: {}, entityKey:()=>'', originalKey:()=>'' },
   '../blob-bytes': { readBlobBytes: async () => new Uint8Array() },
 });
@@ -72,7 +72,7 @@ function makeTab(repo, network) {
   repo.listOutbox = async () => [];
   repo.applyServerPage = async () => undefined;
   return loadTs('sync/sync-engine.ts', {
-    '@geonexo/contracts': {
+    '@markmap/contracts': {
       capabilityProvisionResponseSchema: { parse: x => x },
       pushSyncResponseSchema: { parse: x => x },
       pullSyncResponseSchema: { parse: x => x },

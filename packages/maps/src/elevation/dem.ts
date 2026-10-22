@@ -1,4 +1,4 @@
-import type { DemMetadata } from "@geonexo/contracts";
+import type { DemMetadata } from "@markmap/contracts";
 
 export function sampleDem(
   dem: Int16Array | Float32Array,

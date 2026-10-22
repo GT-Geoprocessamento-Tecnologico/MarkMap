@@ -3,12 +3,12 @@ import {
   errorResponseSchema,
   GeometryTypeMismatchError,
   projectSchema,
-} from "@geonexo/contracts";
+} from "@markmap/contracts";
 import {
   InvalidGeometryError,
   InvalidCursorError,
   VersionConflictError,
-} from "@geonexo/db";
+} from "@markmap/db";
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
 

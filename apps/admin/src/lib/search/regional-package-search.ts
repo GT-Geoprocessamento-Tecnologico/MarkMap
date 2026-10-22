@@ -3,7 +3,7 @@ import type { LocalSearchRecord } from './local-map-search';
 import {
   MAX_REGIONAL_SEARCH_RECORDS, MAX_REGIONAL_SHARD_BYTES,
   MAX_REGIONAL_SEARCH_BYTES, parseRegionalShard,
-} from '@geonexo/maps/search/regional-shards';
+} from '@markmap/maps/search/regional-shards';
 
 /** Only stable, authored text can reach the regional search UI. */
 const KNOWN_SEARCH_ERRORS = new Set([

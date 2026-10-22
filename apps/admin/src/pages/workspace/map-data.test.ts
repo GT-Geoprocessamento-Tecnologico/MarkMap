@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { Feature, Layer } from "@geonexo/contracts";
+import type { Feature, Layer } from "@markmap/contracts";
 
 import { listLocalFeatures } from "../../lib/hooks/features";
 import { featureBounds, loadProjectFeatures, matchesFeature } from "./map-data";

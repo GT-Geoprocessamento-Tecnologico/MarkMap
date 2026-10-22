@@ -4,14 +4,14 @@
 
 - MapLibre GL para visualização;
 - Terra Draw para desenho/edição;
-- `@geonexo/geo` para utilitários geoespaciais;
+- `@markmap/geo` para utilitários geoespaciais;
 - PostGIS para persistência/consultas remotas.
 
 ## CRS
 
 O banco usa **EPSG:4674 / SIRGAS 2000** como SRID canônico de geometrias.
 
-O pacote `@geonexo/geo` inclui transformação CRS com `proj4` e suporte a sistemas projetados usados no Brasil.
+O pacote `@markmap/geo` inclui transformação CRS com `proj4` e suporte a sistemas projetados usados no Brasil.
 
 ## GeoPDF
 
