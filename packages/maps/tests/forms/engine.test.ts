@@ -37,19 +37,19 @@ describe("Field Forms Engine", () => {
   });
 
   it("rejects a missing required field", () => {
-    expect(validateValue(fields[0], null)).toMatchObject({ valid: false });
+    expect(validateValue(fields[0]!, null)).toMatchObject({ valid: false });
   });
 
   it("rejects a wrong value type", () => {
-    expect(validateValue(fields[2], "one hundred")).toMatchObject({ valid: false });
+    expect(validateValue(fields[2]!, "one hundred")).toMatchObject({ valid: false });
   });
 
   it("rejects a select option outside the declared schema", () => {
-    expect(validateValue(fields[1], "unknown")).toMatchObject({ valid: false });
+    expect(validateValue(fields[1]!, "unknown")).toMatchObject({ valid: false });
   });
 
   it("accepts a select option declared by the schema", () => {
-    expect(validateValue(fields[1], "good")).toEqual({ valid: true });
+    expect(validateValue(fields[1]!, "good")).toEqual({ valid: true });
   });
 
   it("attaches, retrieves and deletes photos for a feature", () => {
@@ -66,8 +66,8 @@ describe("Field Forms Engine", () => {
     attachPhotoToFeature(photo);
     const photos = getPhotosForFeature("point-003");
     expect(photos).toHaveLength(1);
-    expect(photos[0].id).toBe("photo-01");
-    expect(photos[0].metadata?.latitude).toBe(-7.1932);
+    expect(photos[0]!.id).toBe("photo-01");
+    expect(photos[0]!.metadata?.latitude).toBe(-7.1932);
 
     removePhoto("photo-01");
     expect(getPhotosForFeature("point-003")).toHaveLength(0);

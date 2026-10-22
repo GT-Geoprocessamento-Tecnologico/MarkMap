@@ -1,6 +1,6 @@
-import { closeDb } from "@markmap/db";
-import { serve } from "@hono/node-server";
 import type { ServerType } from "@hono/node-server";
+import { serve } from "@hono/node-server";
+import { closeDb } from "@markmap/db";
 
 import { createApp } from "./app.js";
 import { loadEnv } from "./env.js";

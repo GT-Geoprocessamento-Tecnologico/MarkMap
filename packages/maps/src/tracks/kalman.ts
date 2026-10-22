@@ -51,7 +51,7 @@ export class TrackKalmanEngine {
   private latFilter: SimpleKalmanFilter;
   private lonFilter: SimpleKalmanFilter;
   private altFilter: SimpleKalmanFilter;
-  private lastPoint?: RawPoint;
+  private lastPoint: RawPoint | undefined;
   private track: SmoothedPoint[] = [];
 
   constructor(
@@ -71,7 +71,7 @@ export class TrackKalmanEngine {
       this.lonFilter.reset(raw.lon);
       this.altFilter.reset(raw.alt);
       this.lastPoint = raw;
-      const smoothed = { ...raw, filtered: true, kalmanGain: 1 };
+      const smoothed: SmoothedPoint = { ...raw, filtered: true, kalmanGain: 1 };
       this.track.push(smoothed);
       return smoothed;
     }
@@ -92,16 +92,16 @@ export class TrackKalmanEngine {
       lon: smoothedLon,
       alt: smoothedAlt,
       timestamp: raw.timestamp,
-      accuracy: raw.accuracy,
       filtered: true,
     };
+    if (raw.accuracy !== undefined) smoothed.accuracy = raw.accuracy;
 
     this.track.push(smoothed);
     return smoothed;
   }
 
   getTrack(): SmoothedPoint[] {
-    return this.track;
+    return this.track.map((point) => ({ ...point }));
   }
 
   clear(): void {

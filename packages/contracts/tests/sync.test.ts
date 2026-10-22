@@ -226,7 +226,7 @@ describe("shared local-first contracts", () => {
       osmDataDate: date,
       capabilities: [],
       checksums: { archive: "a".repeat(64) },
-      totalBytes: archiveBlob.bytes,
+      totalBytes: archiveBlob.bytes + styleBlob.bytes,
       sources: { osm: "OpenStreetMap", attributions: [] },
       minimumCompatibleVersion: "1.0.0",
     };
@@ -242,12 +242,14 @@ describe("shared local-first contracts", () => {
             blob: { ...styleBlob, mediaType: "image/png" },
           },
         ],
+        totalBytes: archiveBlob.bytes + styleBlob.bytes + styleBlob.bytes,
       }).success,
     ).toBe(true);
     expect(
       offlineMapPackageManifestSchema.safeParse({
         ...manifest,
         archive: { ...archiveBlob, bytes: 250 * 1024 * 1024 - styleBlob.bytes },
+        totalBytes: 250 * 1024 * 1024,
       }).success,
     ).toBe(true);
     expect(
@@ -289,6 +291,92 @@ describe("shared local-first contracts", () => {
         archive: { ...archiveBlob, mediaType: "application/pdf" },
       }).success,
     ).toBe(false);
+  });
+
+  it("counts search, routing, and contour assets in totalBytes", () => {
+    const baseManifest = {
+      id: "region-1",
+      version: "1",
+      label: "Region",
+      bounds: [-10, -10, 10, 10] as [number, number, number, number],
+      minZoom: 4,
+      maxZoom: 12,
+      archive: archiveBlob,
+      style: { path: "style.json", blob: styleBlob },
+      glyphs: [],
+      sprites: [],
+      attribution: "Source",
+      createdAt: date,
+      packageVersion: "1.0.0",
+      osmDataDate: date,
+      capabilities: [],
+      checksums: { archive: "a".repeat(64) },
+      totalBytes: archiveBlob.bytes + styleBlob.bytes,
+      sources: { osm: "OpenStreetMap", attributions: [] },
+      optionalComponents: {
+        search: {},
+        routing: { walk: false, bicycle: false, car: false },
+        elevation: false,
+        contours: false,
+      },
+      minimumCompatibleVersion: "1.0.0",
+    };
+    const asset = (
+      path: string,
+      bytes: number,
+      mediaType = "application/json",
+    ) => ({
+      path,
+      blob: { ...styleBlob, bytes, mediaType },
+    });
+    const cases = [
+      {
+        manifest: {
+          ...baseManifest,
+          searchShards: [asset("search/a0.json", 7)],
+          capabilities: ["search"],
+        },
+        assetBytes: 7,
+      },
+      {
+        manifest: {
+          ...baseManifest,
+          routingGraph: asset("routing/graph.json", 11),
+          capabilities: ["routing.walk"],
+          optionalComponents: {
+            ...baseManifest.optionalComponents,
+            routing: { walk: true, bicycle: false, car: false },
+          },
+        },
+        assetBytes: 11,
+      },
+      {
+        manifest: {
+          ...baseManifest,
+          contourLines: asset("elevation/contours.json", 13),
+          capabilities: ["contours"],
+          optionalComponents: {
+            ...baseManifest.optionalComponents,
+            contours: true,
+          },
+        },
+        assetBytes: 13,
+      },
+    ];
+
+    for (const { manifest, assetBytes } of cases) {
+      const totalBytes = baseManifest.totalBytes + assetBytes;
+      expect(
+        offlineMapPackageManifestSchema.safeParse({ ...manifest, totalBytes })
+          .success,
+      ).toBe(true);
+      expect(
+        offlineMapPackageManifestSchema.safeParse({
+          ...manifest,
+          totalBytes: totalBytes - 1,
+        }).success,
+      ).toBe(false);
+    }
   });
 
   it("uses the canonical map projection and rejects unknown payload fields", () => {

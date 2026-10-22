@@ -372,8 +372,10 @@ test("GPS do dispositivo funciona e mantém a experiência local-first", async (
 }) => {
   test.skip(browserName !== "chromium", "Geolocation acceptance runs in Chromium.");
 
+  await page.goto("/settings");
+  const origin = new URL(page.url()).origin;
   await context.grantPermissions(["geolocation"], {
-    origin: "http://127.0.0.1:5173",
+    origin,
   });
   await context.setGeolocation({
     latitude: -7.191,
@@ -381,7 +383,6 @@ test("GPS do dispositivo funciona e mantém a experiência local-first", async (
     accuracy: 8,
   });
 
-  await page.goto("/settings");
   await page.getByRole("button", { name: "Solicitar localização" }).click();
 
   await expect(page.getByText("Permissão concedida", { exact: true })).toBeVisible();

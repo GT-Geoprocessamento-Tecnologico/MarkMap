@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { describe, expect, it, vi } from "vitest";
-import { ToastProvider } from "@geonexo/ui";
+import { ToastProvider } from "@markmap/ui";
 import CoordinateSystemsPage from "../pages/dashboard/CoordinateSystemsPage";
 import AnalyticsPage from "../pages/dashboard/AnalyticsPage";
 

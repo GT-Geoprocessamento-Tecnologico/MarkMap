@@ -6,4 +6,8 @@ describe("Shapefile Parser", () => {
     const hugeBuffer = new ArrayBuffer(26 * 1024 * 1024);
     await expect(parseShapefileZip(hugeBuffer)).rejects.toThrow("Dataset exceeds maximum allowed size of 25MB");
   });
+
+  it("rejects unsupported under-limit imports instead of returning an empty dataset", async () => {
+    await expect(parseShapefileZip(new ArrayBuffer(4))).rejects.toThrow(/parsing is not available/);
+  });
 });

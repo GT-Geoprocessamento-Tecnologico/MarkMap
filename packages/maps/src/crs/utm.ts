@@ -8,24 +8,44 @@ function toDegrees(rad: number): number {
   return (rad * 180) / Math.PI;
 }
 
-export function getUtmZone(longitude: number): number {
-  return Math.floor((longitude + 180) / 6) + 1;
+export function getUtmZone(longitude: number, latitude?: number): number {
+  if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
+    throw new RangeError(`Longitude must be between -180 and 180, got ${longitude}`);
+  }
+  if (latitude !== undefined && (!Number.isFinite(latitude) || latitude < -80 || latitude > 84)) {
+    throw new RangeError(`Latitude must be between -80 and 84 for UTM, got ${latitude}`);
+  }
+  if (latitude !== undefined && latitude >= 56 && latitude < 64 && longitude >= 3 && longitude < 12) {
+    return 32;
+  }
+  if (latitude !== undefined && latitude >= 72 && latitude < 84 && longitude >= 0 && longitude < 42) {
+    if (longitude < 9) return 31;
+    if (longitude < 21) return 33;
+    if (longitude < 33) return 35;
+    return 37;
+  }
+  return Math.min(60, Math.max(1, Math.floor((longitude + 180) / 6) + 1));
 }
 
 export function getHemisphere(latitude: number): Hemisphere {
+  if (!Number.isFinite(latitude) || latitude < -80 || latitude > 84) {
+    throw new RangeError(`Latitude must be between -80 and 84 for UTM, got ${latitude}`);
+  }
   return latitude >= 0 ? "N" : "S";
 }
 
 export function wgs84ToUtm(coord: GeographicCoordinate): UtmCoordinate {
   const { latitude, longitude } = coord;
-  const zone = getUtmZone(longitude);
+  if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) {
+    throw new RangeError("UTM coordinates require finite latitude and longitude");
+  }
+  const zone = getUtmZone(longitude, latitude);
   const hemisphere = getHemisphere(latitude);
 
   const k0 = 0.9996;
   const a = 6378137.0;
   const f = 1.0 / 298.257223563;
   const e = Math.sqrt(f * (2 - f));
-  const e1 = (1 - Math.sqrt(1 - e * e)) / (1 + Math.sqrt(1 - e * e));
   const e2sq = (e * e) / (1 - e * e);
 
   const lonRad = toRadians(longitude);
@@ -44,7 +64,7 @@ export function wgs84ToUtm(coord: GeographicCoordinate): UtmCoordinate {
       (15 * Math.pow(e, 4) / 256 + 45 * Math.pow(e, 6) / 1024) * Math.sin(4 * latRad) -
       (35 * Math.pow(e, 6) / 3072) * Math.sin(6 * latRad));
 
-  let easting =
+  const easting =
     k0 * N * (A + ((1 - T + C) * Math.pow(A, 3)) / 6 + ((5 - 18 * T + T * T + 72 * C - 58 * e2sq) * Math.pow(A, 5)) / 120) +
     500000;
   let northing =
@@ -61,6 +81,10 @@ export function wgs84ToUtm(coord: GeographicCoordinate): UtmCoordinate {
 
 export function utmToWgs84(utm: UtmCoordinate): GeographicCoordinate {
   const { easting, northing, zone, hemisphere } = utm;
+  if (!Number.isFinite(easting) || easting < 100000 || easting > 1000000) throw new RangeError("UTM easting must be finite and between 100000 and 1000000");
+  if (!Number.isFinite(northing) || northing < 0 || northing > 10000000) throw new RangeError("UTM northing must be finite and between 0 and 10000000");
+  if (!Number.isInteger(zone) || zone < 1 || zone > 60) throw new RangeError("UTM zone must be an integer between 1 and 60");
+  if (hemisphere !== "N" && hemisphere !== "S") throw new RangeError("UTM hemisphere must be N or S");
   const k0 = 0.9996;
   const a = 6378137.0;
   const f = 1.0 / 298.257223563;

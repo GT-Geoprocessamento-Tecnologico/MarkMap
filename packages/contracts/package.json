@@ -13,7 +13,8 @@
     "./geometry": "./src/geometry.ts",
     "./import": "./src/import.ts",
     "./pagination": "./src/pagination.ts",
-    "./errors": "./src/errors.ts"
+    "./errors": "./src/errors.ts",
+    "./offline-map": "./src/offline-map.ts"
   },
   "scripts": {
     "build": "tsc --outDir dist",
@@ -29,6 +30,6 @@
     "@types/node": "^20.14.0",
     "typescript": "^5.5.0",
     "typescript-eslint": "^8.71.0",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.12"
   }
 }

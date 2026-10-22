@@ -1,28 +1,14 @@
 import { readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
-import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { offlineMapPackageManifestSchema } from "@markmap/contracts/offline-map";
 
 import {
   MAX_PACKAGE_BYTES,
   validateOfflineMapPackage,
 } from "../../../src/experimental/offline-package-validator.js";
-
-// The maps package has no contracts dependency yet; load the already-built
-// canonical contract artifact so this fixture test does not duplicate schemas
-// or pull another package's TypeScript sources under maps' rootDir.
-const require = createRequire(import.meta.url);
-const { offlineMapPackageManifestSchema } = require(
-  "../../../../contracts/dist/src/offline-map.js",
-) as {
-  offlineMapPackageManifestSchema: {
-    safeParse: (input: unknown) =>
-      | { success: true; data: { archive: { bytes: number }; maxZoom: number; bounds: number[]; attribution: string } }
-      | { success: false };
-  };
-};
 
 const fixtureDir = dirname(fileURLToPath(import.meta.url));
 const readJson = async (name: string): Promise<unknown> =>
@@ -30,6 +16,25 @@ const readJson = async (name: string): Promise<unknown> =>
 
 const digest = (bytes: Uint8Array): string =>
   createHash("sha256").update(bytes).digest("hex");
+
+const blobBytes = (value: unknown): number => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("fixture blob is not an object");
+  }
+  const bytes = (value as Record<string, unknown>).bytes;
+  if (typeof bytes !== "number") throw new Error("fixture blob bytes missing");
+  return bytes;
+};
+
+const recomputeTotal = (manifest: Record<string, unknown>): void => {
+  const glyphs = manifest.glyphs as Array<Record<string, unknown>>;
+  const sprites = manifest.sprites as Array<Record<string, unknown>>;
+  manifest.totalBytes =
+    blobBytes(manifest.archive) +
+    blobBytes((manifest.style as Record<string, unknown>).blob) +
+    glyphs.reduce((sum, asset) => sum + blobBytes(asset.blob), 0) +
+    sprites.reduce((sum, asset) => sum + blobBytes(asset.blob), 0);
+};
 
 const makeArchive = (sectionLength = 0): Uint8Array => {
   const archive = new Uint8Array(127);
@@ -59,6 +64,7 @@ const makePackage = async () => {
   manifest.style = { ...(manifest.style as Record<string, unknown>), blob: { ...(manifest.style as Record<string, unknown>).blob as Record<string, unknown>, bytes: style.byteLength, sha256: digest(style) } };
   manifest.glyphs = updateRefs(glyphs);
   manifest.sprites = updateRefs(sprites);
+  recomputeTotal(manifest);
   return { manifest, assets };
 };
 
@@ -108,6 +114,7 @@ describe("regional offline package fixture", () => {
     assets.set("style.json", externalBytes);
     const styleRef = manifest.style as Record<string, unknown>;
     styleRef.blob = { ...(styleRef.blob as Record<string, unknown>), bytes: externalBytes.byteLength, sha256: digest(externalBytes) };
+    recomputeTotal(manifest);
     expect(validateOfflineMapPackage(manifest, assets)).toMatchObject({ ok: false, code: "external-style-resource" });
     for (const scheme of ["//cdn.example.test/map", "mapbox://styles/x", "ftp://x/map", "file:///tmp/map", "data:text/plain,x", "blob:https://x"]) {
       const schemeStyle = { ...style as Record<string, unknown>, sources: { basemap: { type: "vector", url: scheme } }, glyphs: "glyphs/{fontstack}/{range}.pbf", sprite: "sprites/light" };
@@ -116,6 +123,7 @@ describe("regional offline package fixture", () => {
       schemePackage.assets.set("style.json", schemeBytes);
       const schemeRef = schemePackage.manifest.style as Record<string, unknown>;
       schemeRef.blob = { ...(schemeRef.blob as Record<string, unknown>), bytes: schemeBytes.byteLength, sha256: digest(schemeBytes) };
+      recomputeTotal(schemePackage.manifest);
       expect(validateOfflineMapPackage(schemePackage.manifest, schemePackage.assets)).toMatchObject({ ok: false, code: "external-style-resource" });
     }
   });
@@ -125,18 +133,21 @@ describe("regional offline package fixture", () => {
     const changedStyle = Buffer.from("changed", "utf8");
     first.assets.set("style.json", changedStyle);
     first.manifest.style = { ...(first.manifest.style as Record<string, unknown>), blob: { ...(first.manifest.style as Record<string, unknown>).blob as Record<string, unknown>, bytes: changedStyle.byteLength } };
+    recomputeTotal(first.manifest);
     expect(validateOfflineMapPackage(first.manifest, first.assets)).toMatchObject({ ok: false, code: "checksum-mismatch" });
 
     const truncated = await makePackage();
     const shortArchive = new Uint8Array(10);
     truncated.assets.set("package.pmtiles", shortArchive);
     truncated.manifest.archive = { ...(truncated.manifest.archive as Record<string, unknown>), bytes: shortArchive.byteLength, sha256: digest(shortArchive) };
+    recomputeTotal(truncated.manifest);
     expect(validateOfflineMapPackage(truncated.manifest, truncated.assets)).toMatchObject({ ok: false, code: "invalid-pmtiles-header" });
 
     const mismatched = await makePackage();
     const badArchive = makeArchive(1);
     mismatched.assets.set("package.pmtiles", badArchive);
     mismatched.manifest.archive = { ...(mismatched.manifest.archive as Record<string, unknown>), bytes: badArchive.byteLength, sha256: digest(badArchive) };
+    recomputeTotal(mismatched.manifest);
     expect(validateOfflineMapPackage(mismatched.manifest, mismatched.assets)).toMatchObject({ ok: false, code: "pmtiles-length-mismatch" });
   });
 
@@ -150,6 +161,7 @@ describe("regional offline package fixture", () => {
     const firstSprite = (oversized.manifest.sprites as Array<Record<string, unknown>>)[0];
     if (!firstSprite) throw new Error("fixture must contain a sprite");
     firstSprite.blob = { ...(firstSprite.blob as Record<string, unknown>), bytes: 25 * 1024 * 1024 };
+    recomputeTotal(oversized.manifest);
     expect(validateOfflineMapPackage(oversized.manifest, oversized.assets)).toMatchObject({ ok: false, code: "budget-exceeded" });
     expect(MAX_PACKAGE_BYTES).toBe(250 * 1024 * 1024);
   });

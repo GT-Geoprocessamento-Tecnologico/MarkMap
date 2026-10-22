@@ -15,7 +15,7 @@ test('new shell version when index content changes without renamed files', async
     await writeFile(join(dir, 'manifest.json'), '{}');
     await writeFile(join(dir, 'icons/icon-192x192.png'), 'image1');
     await writeFile(join(dir, 'icons/icon-512x512.png'), 'image2');
-    await writeFile(join(dir, 'sw.js'), "const SHELL_VERSION = typeof __GEONEXO_SHELL_VERSION__ === 'undefined' ? 'v2' : __GEONEXO_SHELL_VERSION__;\n");
+    await writeFile(join(dir, 'sw.js'), "const SHELL_VERSION = typeof __MARKMAP_SHELL_VERSION__ === 'undefined' ? 'v2' : __MARKMAP_SHELL_VERSION__;\n");
     const first = await generateShellManifest(dir);
     const version = JSON.parse(await readFile(join(dir, 'version.json'), 'utf8'));
     assert.equal(version.shellProtocolVersion, 1);

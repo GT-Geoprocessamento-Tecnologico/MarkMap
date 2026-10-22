@@ -109,5 +109,48 @@ describe("Vector Export Engine - GPX and KML", () => {
       expect(kml).toContain("<LinearRing>");
       expect(kml).toContain("<coordinates>-48.2,-7.19 -48.2,-7.2 -48.21,-7.2 -48.21,-7.19 -48.2,-7.19</coordinates>");
     });
+
+    it("rejects non-finite or out-of-range coordinates", () => {
+      expect(() => exportToGpx([{ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [181, 0] } }])).toThrow(RangeError);
+      expect(() => exportToKml([{ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [0, Number.NaN] } }])).toThrow(RangeError);
+    });
+
+    it("rejects empty and incorrectly nested coordinates", () => {
+      const emptyPoint = { type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [] } } as unknown as GeoJSON.Feature;
+      const nestedPoint = { type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [[[0, 0]]] } } as unknown as GeoJSON.Feature;
+      expect(() => exportToGpx([emptyPoint])).toThrow(TypeError);
+      expect(() => exportToKml([emptyPoint])).toThrow(TypeError);
+      expect(() => exportToGpx([nestedPoint])).toThrow(TypeError);
+      expect(() => exportToKml([nestedPoint])).toThrow(TypeError);
+    });
+
+    it("serializes valid multi-line and polygon geometries", () => {
+      const features: GeoJSON.Feature[] = [
+        {
+          type: "Feature",
+          properties: { name: "Rotas" },
+          geometry: { type: "MultiLineString", coordinates: [[[-48.2, -7.2], [-48.21, -7.21]], [[-48.22, -7.22], [-48.23, -7.23]]] },
+        },
+        {
+          type: "Feature",
+          properties: { name: "Área" },
+          geometry: { type: "Polygon", coordinates: [[[-48.2, -7.2], [-48.2, -7.21], [-48.21, -7.21], [-48.2, -7.2]]] },
+        },
+      ];
+      expect(exportToGpx(features)).toContain("<trkseg>");
+      const kml = exportToKml(features);
+      expect(kml).toContain("<MultiGeometry>");
+      expect(kml).toContain("-48.2,-7.2 -48.21,-7.21");
+      expect(kml).toContain("<Polygon>");
+    });
+
+    it("rejects polygon rings shorter than four closed positions", () => {
+      const invalid = [{
+        type: "Feature" as const,
+        properties: {},
+        geometry: { type: "Polygon" as const, coordinates: [[[0, 0], [0, 0]]] },
+      }];
+      expect(() => exportToKml(invalid)).toThrow(TypeError);
+    });
   });
 });

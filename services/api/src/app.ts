@@ -66,6 +66,7 @@ export const createApp = (env: Env = loadEnv()) => {
   const apiRoutes = new Hono<{ Variables: Variables }>();
   workspaceRoutes(apiRoutes);
   apiRoutes.use("/sync/*", capabilityMiddleware());
+  apiRoutes.use("/notifications", capabilityMiddleware());
   syncRoutes(apiRoutes);
   if (env.NODE_ENV !== "production") {
     projectRoutes(apiRoutes);

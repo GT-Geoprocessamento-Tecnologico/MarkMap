@@ -21,7 +21,16 @@ describe("Geofence Engine", () => {
 
     const eventsInside = engine.updatePosition([5, 5]);
     expect(eventsInside).toHaveLength(1);
-    expect(eventsInside[0].type).toBe("ENTERED");
-    expect(eventsInside[0].zoneId).toBe("zone-1");
+    expect(eventsInside[0]!.type).toBe("ENTERED");
+    expect(eventsInside[0]!.zoneId).toBe("zone-1");
+  });
+
+  it("rejects malformed zones and positions instead of skipping vertices", () => {
+    expect(() => new GeofenceEngine([{ ...zone, polygon: [[0, 0], [10, Number.NaN], [0, 10]] as [number, number][] }])).toThrow(TypeError);
+    expect(() => new GeofenceEngine([{ ...zone, polygon: [[0, 0], [10, 0]] }])).toThrow(TypeError);
+
+    const engine = new GeofenceEngine([zone]);
+    expect(() => engine.updatePosition([Number.NaN, 5])).toThrow(TypeError);
+    expect(() => engine.updatePosition([181, 5])).toThrow(TypeError);
   });
 });

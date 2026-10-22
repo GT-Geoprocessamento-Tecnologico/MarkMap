@@ -24,6 +24,64 @@ export interface KmlExportOptions {
   description?: string;
 }
 
+function validatePosition(value: unknown): void {
+  if (!Array.isArray(value) || (value.length !== 2 && value.length !== 3) || value.some((item) => typeof item !== "number")) {
+    throw new TypeError("Coordinate positions must contain two or three numbers");
+  }
+  const position = value as readonly number[];
+  const lon = position[0]!;
+  const lat = position[1]!;
+  const altitude = position[2];
+  if (!Number.isFinite(lon) || !Number.isFinite(lat) || lon < -180 || lon > 180 || lat < -90 || lat > 90) {
+    throw new RangeError(`Invalid coordinate: longitude/latitude must be finite and within WGS84 bounds`);
+  }
+  if (altitude !== undefined && !Number.isFinite(altitude)) throw new RangeError("Elevation must be finite");
+}
+
+function validateLineCoordinates(value: unknown, label: string): void {
+  if (!Array.isArray(value) || value.length < 2) throw new TypeError(`${label} must contain at least two positions`);
+  for (const position of value) validatePosition(position);
+}
+
+function validateRingCoordinates(value: unknown): void {
+  if (!Array.isArray(value) || value.length < 4) throw new TypeError("Polygon rings must contain at least four positions");
+  for (const position of value) validatePosition(position);
+}
+
+function validatePolygonCoordinates(value: unknown): void {
+  if (!Array.isArray(value) || value.length === 0) throw new TypeError("Polygon must contain at least one ring");
+  for (const ring of value) {
+    validateRingCoordinates(ring);
+    const positions = ring as readonly (readonly number[])[];
+    const first = positions[0]!;
+    const last = positions[positions.length - 1]!;
+    if (first[0] !== last[0] || first[1] !== last[1]) throw new TypeError("Polygon rings must be closed");
+  }
+}
+
+type ExportGeometry = Exclude<GeoJSON.Geometry, GeoJSON.GeometryCollection | GeoJSON.MultiPoint | GeoJSON.MultiPolygon>;
+
+function validateGeometry(geometry: GeoJSON.Geometry): asserts geometry is ExportGeometry {
+  if (!("coordinates" in geometry)) throw new TypeError("Geometry coordinates are required");
+  switch (geometry.type) {
+    case "Point":
+      validatePosition(geometry.coordinates);
+      return;
+    case "LineString":
+      validateLineCoordinates(geometry.coordinates, "LineString");
+      return;
+    case "MultiLineString":
+      if (!Array.isArray(geometry.coordinates) || geometry.coordinates.length === 0) throw new TypeError("MultiLineString must contain at least one line");
+      for (const line of geometry.coordinates) validateLineCoordinates(line, "MultiLineString lines");
+      return;
+    case "Polygon":
+      validatePolygonCoordinates(geometry.coordinates);
+      return;
+    default:
+      throw new TypeError(`${geometry.type} is not supported by this exporter`);
+  }
+}
+
 /**
  * Serializes GeoJSON features to GPX 1.1 XML string.
  * Converts Point geometries to <wpt> waypoints and LineString geometries to <trk> tracks.
@@ -44,6 +102,7 @@ export function exportToGpx(
   // Process waypoints first
   for (const feature of features) {
     if (!feature || !feature.geometry) continue;
+    validateGeometry(feature.geometry);
 
     if (feature.geometry.type === "Point") {
       const [lon, lat, ele] = feature.geometry.coordinates as [number, number, number?];
@@ -67,6 +126,7 @@ export function exportToGpx(
   // Process LineStrings as Tracks
   for (const feature of features) {
     if (!feature || !feature.geometry) continue;
+    validateGeometry(feature.geometry);
 
     if (feature.geometry.type === "LineString") {
       xml += "  <trk>\n";
@@ -129,6 +189,7 @@ export function exportToKml(
 
   for (const feature of features) {
     if (!feature || !feature.geometry) continue;
+    validateGeometry(feature.geometry);
 
     xml += "    <Placemark>\n";
     if (feature.properties?.name) {
@@ -148,15 +209,23 @@ export function exportToKml(
       const coords = coordinates as [number, number, number?][];
       const coordStr = coords.map(([lon, lat, alt]) => (alt !== undefined ? `${lon},${lat},${alt}` : `${lon},${lat}`)).join(" ");
       xml += `      <LineString>\n        <coordinates>${coordStr}</coordinates>\n      </LineString>\n`;
+    } else if (type === "MultiLineString") {
+      const lines = coordinates as [number, number, number?][][];
+      xml += "      <MultiGeometry>\n";
+      for (const line of lines) {
+        const coordStr = line.map(([lon, lat, alt]) => (alt !== undefined ? `${lon},${lat},${alt}` : `${lon},${lat}`)).join(" ");
+        xml += `        <LineString>\n          <coordinates>${coordStr}</coordinates>\n        </LineString>\n`;
+      }
+      xml += "      </MultiGeometry>\n";
     } else if (type === "Polygon") {
       const rings = coordinates as [number, number, number?][][];
       if (rings.length > 0) {
-        const outerCoords = rings[0].map(([lon, lat, alt]) => (alt !== undefined ? `${lon},${lat},${alt}` : `${lon},${lat}`)).join(" ");
+        const outerCoords = rings[0]!.map(([lon, lat, alt]) => (alt !== undefined ? `${lon},${lat},${alt}` : `${lon},${lat}`)).join(" ");
         xml += "      <Polygon>\n";
         xml += `        <outerBoundaryIs>\n          <LinearRing>\n            <coordinates>${outerCoords}</coordinates>\n          </LinearRing>\n        </outerBoundaryIs>\n`;
         // Inner boundaries (holes) if any
         for (let i = 1; i < rings.length; i++) {
-          const innerCoords = rings[i].map(([lon, lat, alt]) => (alt !== undefined ? `${lon},${lat},${alt}` : `${lon},${lat}`)).join(" ");
+          const innerCoords = rings[i]!.map(([lon, lat, alt]) => (alt !== undefined ? `${lon},${lat},${alt}` : `${lon},${lat}`)).join(" ");
           xml += `        <innerBoundaryIs>\n          <LinearRing>\n            <coordinates>${innerCoords}</coordinates>\n          </LinearRing>\n        </innerBoundaryIs>\n`;
         }
         xml += "      </Polygon>\n";

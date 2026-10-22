@@ -15,6 +15,7 @@ const waitFor = async (predicate) => {
     await new Promise(resolve => setTimeout(resolve, 5));
   }
 };
+const allUpdates = ui => ui.state.flatMap(item => item.updates);
 
 function testBlob(text) {
   const blob = new Blob([text]);
@@ -24,6 +25,23 @@ function testBlob(text) {
   });
   return blob;
 }
+
+function loadTypeScriptModule(file) {
+  const source = readFileSync(new URL(file, from), 'utf8');
+  const emitted = ts.transpileModule(source, { fileName: file, reportDiagnostics: true, compilerOptions: {
+    module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX,
+  } });
+  assert.equal((emitted.diagnostics || []).filter(x => x.category === ts.DiagnosticCategory.Error).length, 0);
+  const exports = {};
+  runInNewContext(emitted.outputText, {
+    exports,
+    require: name => { throw Error(`Unexpected import in ${file}: ${name}`); },
+    Error, Blob, TextEncoder, Uint8Array, ArrayBuffer, crypto: webcrypto,
+  });
+  return exports;
+}
+
+const terrainClient = loadTypeScriptModule('../../lib/elevation/terrain-client.ts');
 
 function renderComponent(file, exportName, store, otherModules, props) {
   const state = [];
@@ -37,12 +55,14 @@ function renderComponent(file, exportName, store, otherModules, props) {
     },
     useEffect(callback) { effects.push(callback); },
     useMemo(callback) { return callback(); },
+    useRef(initial) { return { current: initial }; },
   };
   const imports = {
     react: hooks,
     'react/jsx-runtime': { jsx() { return null; }, jsxs() { return null; }, Fragment: {} },
     './MapOfflinePanel': { MapOfflinePanel() { return null; } },
     '../../lib/storage/offline-map-store': { offlineMapStore: store },
+    '../../lib/elevation/terrain-client': terrainClient,
     ...otherModules,
   };
   const source = readFileSync(new URL(file, from), 'utf8');
@@ -57,8 +77,8 @@ function renderComponent(file, exportName, store, otherModules, props) {
     Error, Blob, TextEncoder, Uint8Array, ArrayBuffer, crypto: webcrypto,
   });
   exports[exportName]({ ...props, onStation() {}, onTransit: result => transit.push(result) });
-  assert.equal(effects.length, 1);
-  effects[0]();
+  assert.ok(effects.length > 0);
+  for (const effect of effects) effect();
   return { exports, state, transit };
 }
 
@@ -137,16 +157,16 @@ test('A34 elevation uses the active revision for checksum-verified local DEM', a
 test('A34 elevation does not publish a DEM after region generation changes', async () => {
   const store=revisions(elevationManifest,demBlob,{changeAfterFirst:true});
   const ui=renderComponent('OfflineElevation.tsx','OfflineElevation',store,demDeps,{packageId:'regional',route:null});
-  await waitFor(() => ui.state[1].updates.some(v => /atualizado/i.test(v || '')));
-  assert.equal(ui.state[0].updates.some(v=>v?.metadata),false);
-  assert.match(ui.state[1].updates.at(-1)||'',/atualizado/i);
+  await waitFor(() => allUpdates(ui).some(v => /atualizado/i.test(v || '')));
+  assert.equal(allUpdates(ui).some(v=>v?.metadata),false);
+  assert.match(allUpdates(ui).filter(v => typeof v === 'string').at(-1)||'',/atualizado/i);
 });
 
 test('A34 elevation errors redact accidental storage paths and tokens', async () => {
   const store=revisions(elevationManifest,demBlob,{failAsset:'Error from /private/idb?token=TOP_SECRET'});
   const ui=renderComponent('OfflineElevation.tsx','OfflineElevation',store,demDeps,{packageId:'regional',route:null});
-  await waitFor(() => ui.state[1].updates.some(v => /Dados altimétricos indisponíveis/.test(v || '')));
-  const error=ui.state[1].updates.at(-1);
+  await waitFor(() => allUpdates(ui).some(v => /Dados altimétricos indisponíveis/.test(v || '')));
+  const error=allUpdates(ui).filter(v => typeof v === 'string').at(-1);
   assert.match(error,/Dados altimétricos indisponíveis/);
   assert.doesNotMatch(error,/private|token|secret|path/i);
 });

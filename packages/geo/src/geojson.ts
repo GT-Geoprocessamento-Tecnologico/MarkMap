@@ -68,6 +68,14 @@ export interface MarkMapFeatureCollection {
   bbox?: [number, number, number, number] | undefined;
 }
 
+/**
+ * Legacy public names retained for consumers of the pre-rebrand package.
+ * These aliases are intentionally type aliases so both names describe the
+ * same structural contract and no runtime migration is required.
+ */
+export type GeoNexoFeature = MarkMapFeature;
+export type GeoNexoFeatureCollection = MarkMapFeatureCollection;
+
 /** Coerce unknown input into a properties object; primitives become {}. */
 export function normalizeProperties(input: unknown): JsonObject {
   if (typeof input !== 'object' || input === null || Array.isArray(input)) {

@@ -139,7 +139,7 @@ describe('service worker cache policy', () => {
     await Promise.all(activate.waited);
 
     expect(worker.caches.deleted).toHaveLength(2);
-    expect(worker.caches.deleted.some((name) => name.startsWith('geonexo-cache-v2-installing-'))).toBe(true);
+    expect(worker.caches.deleted.some((name) => name.startsWith('markmap-cache-v2-installing-'))).toBe(true);
     expect(worker.caches.deleted).toContain('geonexo-cache-v1');
     expect(worker.caches.stores.has('other-application-cache')).toBe(true);
   });
@@ -187,7 +187,7 @@ describe('service worker cache policy', () => {
     expect(await (await event.responsePromise!).text()).toBe('asset');
     expect(event.waited).toHaveLength(1);
     await Promise.all(event.waited);
-    expect(await (await worker.caches.open('geonexo-cache-v2')).match('/assets/app.js')).toBeDefined();
+    expect(await (await worker.caches.open('markmap-cache-v2')).match('/assets/app.js')).toBeDefined();
   });
 
   it('does not activate an update until the user handshake is complete', async () => {

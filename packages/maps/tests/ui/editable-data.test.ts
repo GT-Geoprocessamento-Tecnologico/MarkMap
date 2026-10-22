@@ -71,7 +71,8 @@ describe("UI Editable Data Panel for Map Features", () => {
     expect(result1.errors.name).toBeDefined();
 
     // Invalid wrong type
-    const result2 = validateFeatureAttributes(schemas, { name: "Teste", score: "not-a-number" as any });
+    const invalidAttributes: Record<string, unknown> = { name: "Teste", score: "not-a-number" };
+    const result2 = validateFeatureAttributes(schemas, invalidAttributes);
     expect(result2.valid).toBe(false);
     expect(result2.errors.score).toBeDefined();
 

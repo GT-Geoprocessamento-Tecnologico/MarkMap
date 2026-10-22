@@ -5,8 +5,5 @@ export async function parseShapefileZip(zipBuffer: ArrayBuffer): Promise<GeoJSON
     throw new Error(`Dataset exceeds maximum allowed size of 25MB (${(zipBuffer.byteLength / 1024 / 1024).toFixed(1)}MB)`);
   }
 
-  return {
-    type: "FeatureCollection",
-    features: [],
-  };
+  throw new Error("Shapefile ZIP parsing is not available in this build; no features were imported");
 }

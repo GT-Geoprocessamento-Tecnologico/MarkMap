@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { wgs84ToUtm, utmToWgs84, getUtmZone, getHemisphere } from "../../src/crs/utm.js";
+import { wgs84ToMgrs, utmToMgrs } from "../../src/crs/mgrs.js";
+import type { Hemisphere } from "../../src/crs/types.js";
 
 describe("CRS Engine - UTM Projections", () => {
   it("computes correct UTM zone and hemisphere for Brazilian territories", () => {
@@ -26,5 +28,33 @@ describe("CRS Engine - UTM Projections", () => {
     const reversed = utmToWgs84(utm);
     expect(reversed.latitude).toBeCloseTo(original.latitude, 6);
     expect(reversed.longitude).toBeCloseTo(original.longitude, 6);
+  });
+
+  it("uses the Norway and Svalbard UTM zone exceptions", () => {
+    expect(getUtmZone(6, 60)).toBe(32);
+    expect(getUtmZone(20, 78)).toBe(33);
+    expect(wgs84ToUtm({ latitude: 60, longitude: 6 }).zone).toBe(32);
+    expect(wgs84ToUtm({ latitude: 78, longitude: 20 }).zone).toBe(33);
+    expect(getUtmZone(-100, 78)).toBe(14);
+    expect(getUtmZone(-1, 78)).toBe(30);
+    expect(getUtmZone(42, 78)).toBe(38);
+    expect(getUtmZone(50, 78)).toBe(39);
+  });
+
+  it("rejects non-finite and out-of-range UTM inputs", () => {
+    expect(() => wgs84ToUtm({ latitude: 85, longitude: 0 })).toThrow(RangeError);
+    expect(() => wgs84ToUtm({ latitude: 0, longitude: Number.NaN })).toThrow(RangeError);
+    expect(() => utmToWgs84({ easting: 500000, northing: 0, zone: 61, hemisphere: "N" })).toThrow(RangeError);
+    expect(() => utmToWgs84({ easting: 500000, northing: 0, zone: 31, hemisphere: "X" as Hemisphere })).toThrow(RangeError);
+  });
+
+  it("derives MGRS latitude bands and 100 km squares from UTM", () => {
+    const equator = wgs84ToMgrs({ latitude: 0, longitude: 0 });
+    expect(equator.text).toBe("31N AA 66021 00000");
+    const south = wgs84ToMgrs({ latitude: -7.1932, longitude: -48.2045 });
+    expect(south.band).toBe("M");
+    expect(south.text).toBe("22M HH 08756 03949");
+    expect(south.gridSquare).toMatch(/^[A-Z]{2}$/);
+    expect(utmToMgrs(wgs84ToUtm({ latitude: -7.1932, longitude: -48.2045 })).band).toBe("M");
   });
 });

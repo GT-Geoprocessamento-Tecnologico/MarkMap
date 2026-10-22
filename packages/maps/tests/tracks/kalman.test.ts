@@ -11,10 +11,14 @@ describe("Kalman Filter for GPS Track Smoothing", () => {
   it("smooths noisy measurements toward the true value", () => {
     const kf = new SimpleKalmanFilter(0.001, 1);
     const results: number[] = [];
-    // Simulate measurement around true value 10 with noise
-    for (let i = 0; i < 50; i++) {
-      results.push(kf.filter(10 + (Math.random() - 0.5) * 4));
-    }
+    // Deterministic noisy measurements around true value 10. Keeping this
+    // fixed avoids making the regression itself flaky.
+    const measurements = [
+      ...Array.from({ length: 10 }, () => 12),
+      ...Array.from({ length: 20 }, (_, index) => (index % 2 === 0 ? 10.2 : 9.8)),
+      ...Array.from({ length: 20 }, (_, index) => (index % 2 === 0 ? 10.1 : 9.9)),
+    ];
+    for (const measurement of measurements) results.push(kf.filter(measurement));
     // Last 10 values should be closer to 10 than first 10
     const firstAvg = results.slice(0, 10).reduce((a, b) => a + b, 0) / 10;
     const lastAvg = results.slice(-10).reduce((a, b) => a + b, 0) / 10;
@@ -69,7 +73,7 @@ describe("TrackKalmanEngine - 2D GPS point smoothing", () => {
 
     const track = engine.getTrack();
     expect(track).toHaveLength(2);
-    expect(track[0].lat).toBeCloseTo(-23.5);
+    expect(track[0]!.lat).toBeCloseTo(-23.5);
 
     engine.clear();
     expect(engine.getTrack()).toHaveLength(0);

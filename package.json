@@ -4,7 +4,9 @@
   "packageManager": "pnpm@9.15.9",
   "pnpm": {
     "overrides": {
-      "esbuild@0.18.20": "0.25.12"
+      "esbuild@0.18.20": "0.25.12",
+      "shell-quote": "1.11.0",
+      "source-map-js": "1.2.2"
     }
   },
   "workspaces": [

@@ -9,6 +9,19 @@ const source = (overrides: Record<string, string | undefined> = {}) => ({
 });
 
 describe("database environment aliases", () => {
+  it("requires an explicit runtime mode", () => {
+    const input: Record<string, string | undefined> = source();
+    delete input.NODE_ENV;
+    expect(() => loadEnv(input)).toThrow(/NODE_ENV/);
+  });
+
+  it.each(["development", "test", "production"] as const)(
+    "accepts explicit %s mode",
+    (nodeEnv) => {
+      expect(loadEnv(source({ NODE_ENV: nodeEnv })).NODE_ENV).toBe(nodeEnv);
+    },
+  );
+
   it("normalizes NEON_DB_URL to DATABASE_URL", () => {
     const env = loadEnv(source({ NEON_DB_URL: "postgres://alias" }));
     expect(env.DATABASE_URL).toBe("postgres://alias");

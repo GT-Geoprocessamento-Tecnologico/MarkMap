@@ -4,8 +4,7 @@ import { MAX_CONTOUR_BYTES, validateRegionalContours } from '../elevation/contou
 import { MAX_REGIONAL_DEM_BYTES, validateRegionalDem } from '../elevation/regional-dem.mjs';
 import { MAX_REGIONAL_SEARCH_BYTES, MAX_REGIONAL_SHARD_BYTES, MAX_REGIONAL_SEARCH_RECORDS, parseRegionalShard } from "../search/regional-shards.js";
 import { IncrementalSha256, sha256Blob } from "./incremental-sha256.mjs";
-// @ts-expect-error contracts emits runtime JS without declarations in this workspace
-import { offlineMapPackageManifestSchema, type OfflineMapPackageManifest } from "../../../contracts/dist/src/offline-map.js";
+import { offlineMapPackageManifestSchema, type OfflineMapPackageManifest } from "@markmap/contracts/offline-map";
 
 export const OFFLINE_PACKAGE_DB = "GeoNexoOfflineMapPackages";
 export const OFFLINE_PACKAGE_VERSION = 1;

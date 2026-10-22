@@ -47,6 +47,8 @@ export type {
   GeoJsonPosition,
   GeoNexoFeature,
   GeoNexoFeatureCollection,
+  MarkMapFeature,
+  MarkMapFeatureCollection,
   JsonObject,
   JsonValue,
 } from './geojson.js';

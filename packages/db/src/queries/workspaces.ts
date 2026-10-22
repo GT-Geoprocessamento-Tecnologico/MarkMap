@@ -77,7 +77,7 @@ export async function provisionWorkspace(
       // Conflicting workspace identity/proof is a 409, not a retryable 500.
       // Do not expose PostgreSQL constraint names or parameter values.
       if (isWorkspaceUniqueViolation(error))
-        throw new Error("workspace binding already exists");
+        throw new Error("workspace binding already exists", { cause: error });
       throw error;
     }
   })();

@@ -26,6 +26,8 @@ describe("TrackRecorder - Real-time Track Recording", () => {
     // Stop recording
     const finalTrack = recorder.stop();
     expect(finalTrack).toHaveLength(2);
+    finalTrack[0]!.lat = 99;
+    expect(recorder.getTrack()[0]!.lat).not.toBe(99);
 
     // Point after stop should be ignored
     expect(recorder.addPoint(p2)).toBeNull();

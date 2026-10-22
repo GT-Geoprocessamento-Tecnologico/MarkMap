@@ -1,10 +1,8 @@
 import { type GeographicCoordinate, type MgrsCoordinate, type UtmCoordinate } from "./types.js";
-import { wgs84ToUtm } from "./utm.js";
-
-const LATITUDE_BANDS = "CDEFGHJKLMNPQRSTUVWX";
+import { utmToWgs84, wgs84ToUtm } from "./utm.js";
 
 /** Standard 100 km square identifiers, column A-Z (excluding I and O), rows A-V. */
-const GRID_COLUMNS = "ABCDEFGHJKLMNPQRSTUV";
+const GRID_COLUMNS = ["ABCDEFGH", "JKLMNPQR", "STUVWXYZ"] as const;
 const GRID_ROWS = "ABCDEFGHJKLMNPQRSTUV";
 
 export function getLatitudeBand(latitude: number): string {
@@ -38,14 +36,19 @@ export function utmToMgrs(utm: UtmCoordinate, precision = 5): MgrsCoordinate {
     throw new Error(`MGRS precision must be between 1 and 5, got ${precision}`);
   }
 
-  const band = getLatitudeBand(utm.northing >= 10000000 ? (utm.northing - 10000000) / 10000000 * 0 : 0);
+  const { latitude } = utmToWgs84(utm);
+  const band = getLatitudeBand(latitude);
+  // UTM northing already includes the southern false northing.  The MGRS
+  // row cycle therefore gets the additional 10-row southern offset instead
+  // of subtracting 10,000,000 (which produces negative indexes).
   const northing = utm.northing;
 
-  const setNumber = Math.floor(northing / 100000);
-  const rowIndex = setNumber % 20;
-  const rowLetter = GRID_ROWS[rowIndex];
-  const columnIndex = Math.floor(utm.easting / 100000) - 1;
-  const columnLetter = GRID_COLUMNS[columnIndex % 20];
+  const rowOffset = utm.zone % 2 === 0 ? 5 : 0;
+  const rowIndex = (Math.floor(northing / 100000) + rowOffset + (utm.hemisphere === "S" ? 10 : 0)) % 20;
+  const rowLetter = GRID_ROWS[rowIndex]!;
+  const columnLetters = GRID_COLUMNS[(utm.zone - 1) % 3]!;
+  const columnLetter = columnLetters[Math.floor(utm.easting / 100000) - 1];
+  if (!columnLetter) throw new RangeError("UTM easting is outside the MGRS 100 km grid");
 
   const divisor = Math.pow(10, 5 - precision);
   const easting = Math.floor((utm.easting % 100000) / divisor);
@@ -70,11 +73,12 @@ export function wgs84ToMgrs(coord: GeographicCoordinate, precision = 5): MgrsCoo
   const band = getLatitudeBand(coord.latitude);
   const northing = utm.northing;
 
-  const setNumber = Math.floor(northing / 100000);
-  const rowIndex = setNumber % 20;
-  const rowLetter = GRID_ROWS[rowIndex];
-  const columnIndex = Math.floor(utm.easting / 100000) - 1;
-  const columnLetter = GRID_COLUMNS[columnIndex % 20];
+  const rowOffset = utm.zone % 2 === 0 ? 5 : 0;
+  const rowIndex = (Math.floor(northing / 100000) + rowOffset + (utm.hemisphere === "S" ? 10 : 0)) % 20;
+  const rowLetter = GRID_ROWS[rowIndex]!;
+  const columnLetters = GRID_COLUMNS[(utm.zone - 1) % 3]!;
+  const columnLetter = columnLetters[Math.floor(utm.easting / 100000) - 1];
+  if (!columnLetter) throw new RangeError("UTM easting is outside the MGRS 100 km grid");
 
   const divisor = Math.pow(10, 5 - precision);
   const easting = Math.floor((utm.easting % 100000) / divisor);

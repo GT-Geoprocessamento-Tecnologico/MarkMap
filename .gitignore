@@ -69,6 +69,12 @@ docker-compose.override.yml
 .neon
 
 REPOSITORIOS MODELOS/
+REPOSITOTIROS MODELOS/
+.playwright-mcp/
+
+# Local diagnostic output (not application assets)
+test-output*.txt
+apps/admin/test-output*.txt
 
 # Capacitor: projetos nativos gerados por `cap add` e builds nativos
 apps/admin/android/

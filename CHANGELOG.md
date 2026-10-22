@@ -2,6 +2,23 @@
 
 Fonte da versão do aplicativo: `apps/admin/package.json`. Todos os agentes seguem [a política de versionamento](docs/versioning.md). O [histórico documental anterior](docs/changelog.md) permanece preservado.
 
+## [0.5.0] - 2026-10-22
+
+### Alterações
+
+- Consolida na main as melhorias de mapas offline, GPS, busca, importação, PDF, sincronização e compatibilidade móvel, preservando a interface estabelecida.
+- Mantém os bancos locais existentes e remove caches de shell antigos somente após a instalação íntegra da nova versão.
+- Inicia instalações novas sem projetos demonstrativos e mostra dados de análise e sistemas de coordenadas derivados dos arquivos locais.
+- Retira materiais de referência e arquivos temporários do produto, mantendo testes, recursos necessários e avisos de licença.
+- Atualiza dependências afetadas por avisos de segurança e declara explicitamente as dependências usadas em execução.
+- Corrige conversões UTM/MGRS, leitura GNSS, validação de exportação GPX/KML, totais dos pacotes offline e limites das conexões de notificações.
+
+### Validação
+
+- Suíte completa de testes unitários aprovada nas 13 tarefas do monorepo, com 804 testes aprovados; verificações de tipos e lint aprovadas em oito tarefas cada, sem erros. Os testes Node aprovaram 363 casos.
+- Revisão técnica independente e revisão adicional pelo Open Code Review executadas. Auditoria das dependências de produção sem vulnerabilidades; três avisos restritos às ferramentas de desenvolvimento/build permanecem documentados na revisão de segurança.
+- A validação de dispositivos iOS/Android físicos permanece separada dos testes automatizados de navegador.
+
 ## [0.4.3] - 2026-10-20
 
 ### Alterações

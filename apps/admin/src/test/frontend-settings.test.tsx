@@ -34,6 +34,17 @@ describe('functional device settings', () => {
 
 describe('local CRS catalog', () => {
   it('rejects duplicates without a contradictory success message', () => {
+    localStorage.setItem(
+      'geonexo_crs_systems',
+      JSON.stringify([
+        {
+          code: 'EPSG:4326',
+          name: 'WGS 84',
+          type: 'Geográfico',
+          region: 'Global',
+        },
+      ]),
+    );
     render(<CoordinateSystemsPage />);
     fireEvent.click(screen.getByRole('button', { name: /Novo CRS/ }));
     fireEvent.change(screen.getByRole('textbox', { name: 'Código do CRS' }), { target: { value: 'EPSG:4326' } });

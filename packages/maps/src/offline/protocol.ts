@@ -1,6 +1,5 @@
 import { FileSource, PMTiles, Protocol, type RangeResponse } from "pmtiles";
-// @ts-expect-error contracts emits runtime JS without declarations in this workspace
-import type { OfflineMapPackageManifest } from "../../../contracts/dist/src/offline-map.js";
+import type { OfflineMapPackageManifest } from "@markmap/contracts/offline-map";
 import { isSafePackagePath } from "./package.js";
 import {
   OfflineProtocolIntegrityError,

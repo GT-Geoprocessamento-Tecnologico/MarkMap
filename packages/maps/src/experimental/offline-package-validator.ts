@@ -1,11 +1,9 @@
 import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
 
-// The contracts build currently emits JavaScript without declarations. The
-// runtime schema below remains canonical; this type import resolves when the
-// contracts package publishes declarations.
-// @ts-expect-error declarations are not emitted by the current contracts build
-import type { OfflineMapPackageManifest } from "../../../contracts/dist/src/offline-map.js";
+// The runtime schema remains canonical and is loaded from generated JavaScript
+// because this experimental validator is executed directly by Node.
+import type { OfflineMapPackageManifest } from "@markmap/contracts/offline-map";
 
 const require = createRequire(import.meta.url);
 const { offlineMapPackageManifestSchema } = require(
