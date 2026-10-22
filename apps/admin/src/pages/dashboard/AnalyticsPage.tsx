@@ -1,15 +1,13 @@
 import { useMemo } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { layerSchema } from "@markmap/contracts";
 import { useProjects } from "../../lib/hooks/projects";
-import { listLocalLayersPage } from "../../lib/hooks/layers";
-import { downloadBlob } from "../../lib/file-download";
-import { useToast } from "@markmap/ui";
+import { localRepository } from "../../lib/local-repositories";
 
 const csvCell = (value: string) =>
   `"${(/^[=+@-]/.test(value) ? "'" + value : value).replaceAll('"', '""')}"`;
 export default function AnalyticsPage() {
-  const { toast } = useToast();
   const projects = useProjects({ limit: 100 });
   const ids = useMemo(
     () => (projects.data?.items ?? []).map((project) => project.id),
@@ -18,20 +16,21 @@ export default function AnalyticsPage() {
   const layers = useQuery({
     queryKey: ["analytics-layers", ids, "bounded", 100],
     queryFn: async () => {
-      const pages = await Promise.all(ids.map(async (id) => {
-        const page = await listLocalLayersPage(id, 100);
-        return { items: page.items, nextCursor: page.truncated ? "100" : null };
-      }));
-      return {
-        rows: pages.flatMap((page) => page.items),
-        truncated: pages.some((page) => page.nextCursor !== null),
-      };
+      // Apenas registros reais do IndexedDB do workspace, nunca dados mock.
+      const owned = new Set(ids);
+      const entities = await localRepository.listEntities("layer");
+      const allRows = entities.flatMap((entity) => {
+        if (entity.payload?.entity !== "layer") return [];
+        const layer = layerSchema.parse(entity.payload.data);
+        return owned.has(layer.projectId) ? [layer] : [];
+      });
+      return { rows: allRows.slice(0, 10_000), truncated: allRows.length > 10_000 };
     },
     enabled: projects.isSuccess && ids.length > 0,
   });
   const rows = layers.data?.rows ?? [];
-  const loading = projects.isLoading || layers.isLoading;
-  const error = projects.isError || layers.isError;
+  const loading = projects.isLoading || (ids.length > 0 && layers.isLoading);
+  const error = projects.isError || (ids.length > 0 && layers.isError);
   const exportCsv = () => {
     const data = [
       ["Camada", "Tipo", "Criada em"],
@@ -45,15 +44,12 @@ export default function AnalyticsPage() {
       ["\uFEFF", data.map((row) => row.map(csvCell).join(",")).join("\r\n")],
       { type: "text/csv;charset=utf-8" },
     );
-    try {
-      downloadBlob(blob, "markmap-camadas.csv");
-    } catch (cause) {
-      toast({
-        title: "Exportação não concluída",
-        description: cause instanceof Error ? cause.message : "Não foi possível exportar o arquivo.",
-        variant: "error",
-      });
-    }
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "geonexo-camadas.csv";
+    anchor.click();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
   };
   return (
     <section className="min-w-0 space-y-6 bg-background p-4 text-on-surface md:p-6">
@@ -72,7 +68,7 @@ export default function AnalyticsPage() {
             Voltar
           </Link>
           <button
-            disabled={loading || error}
+            disabled={loading || error || rows.length === 0}
             onClick={exportCsv}
             className="rounded-lg bg-gradient-to-r from-brand-blue to-brand-cyan px-4 py-2 font-semibold text-white hover:brightness-110 disabled:opacity-50"
           >
@@ -85,8 +81,8 @@ export default function AnalyticsPage() {
           role="status"
           className="rounded-xl border border-outline-variant p-3 text-sm"
         >
-          Resumo parcial: até 100 projetos e 100 camadas por projeto. As
-          métricas e o CSV consideram somente os dados consultados.
+          Resumo parcial: até 100 projetos e 10.000 camadas locais.
+          As métricas e o CSV consideram somente os dados consultados.
         </p>
       )}
       {error ? (

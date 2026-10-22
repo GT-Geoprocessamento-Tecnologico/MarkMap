@@ -14,33 +14,8 @@ interface CrsEntry {
   region: string;
 }
 
-const DEFAULT_SYSTEMS: CrsEntry[] = [
-  { code: "EPSG:4326", name: "WGS 84", type: "Geográfico", region: "Global" },
-  {
-    code: "EPSG:3857",
-    name: "WGS 84 / Pseudo-Mercator",
-    type: "Projetado",
-    region: "Global",
-  },
-  {
-    code: "EPSG:31983",
-    name: "SIRGAS 2000 / UTM zone 23S",
-    type: "Projetado",
-    region: "Brasil - Fuso 23S",
-  },
-  {
-    code: "EPSG:4674",
-    name: "SIRGAS 2000",
-    type: "Geográfico",
-    region: "América Latina",
-  },
-  {
-    code: "EPSG:4618",
-    name: "SAD69",
-    type: "Geográfico",
-    region: "Brasil (Legado)",
-  },
-];
+// Somente cadastros do usuário; as definições EPSG internas do motor GIS não mudam.
+const DEFAULT_SYSTEMS: CrsEntry[] = [];
 
 const STORAGE_KEY_SYSTEMS = "geonexo_crs_systems";
 const STORAGE_KEY_FAVORITES = "geonexo_crs_favorites";
@@ -414,7 +389,7 @@ export default function CoordinateSystemsPage() {
                     colSpan={5}
                     className="px-6 py-8 text-center text-on-surface-variant"
                   >
-                    Nenhum sistema encontrado.
+                    Nenhum sistema cadastrado. Use Novo CRS para adicionar.
                   </td>
                 </tr>
               ) : (
