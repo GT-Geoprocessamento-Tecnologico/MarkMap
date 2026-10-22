@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { SyncConflict } from "@geonexo/contracts";
+import type { SyncConflict } from "@markmap/contracts";
 
 import { API_MODE } from "../api-client";
 import { localRepository } from "../local-repositories";

@@ -1,7 +1,7 @@
 import { useLayoutStore } from "../lib/store/layout";
 import { useNavigate, useLocation, useRouter } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { useToast } from "@geonexo/ui";
+import { useToast } from "@markmap/ui";
 import { useCreateProject, useProjectPages } from "../lib/hooks/projects";
 import { useDialogFocus } from "../lib/hooks/use-dialog-focus";
 import { MarkMapBrand } from "./MarkMapBrand";

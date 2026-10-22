@@ -14,10 +14,10 @@ import path from 'node:path';
  * injects `__dirname` pointing at apps/admin (it is intentionally outside
  * the tsconfig `include`: Node types are not installed here).
  */
-export const geonexoAliases: Record<string, string> = {
-  '@geonexo/ui': path.resolve(__dirname, '../../packages/ui/src'),
-  '@geonexo/maps': path.resolve(__dirname, '../../packages/maps/src'),
-  '@geonexo/geo': path.resolve(__dirname, '../../packages/geo/src'),
-  '@geonexo/contracts': path.resolve(__dirname, '../../packages/contracts/src'),
+export const markmapAliases: Record<string, string> = {
+  '@markmap/ui': path.resolve(__dirname, '../../packages/ui/src'),
+  '@markmap/maps': path.resolve(__dirname, '../../packages/maps/src'),
+  '@markmap/geo': path.resolve(__dirname, '../../packages/geo/src'),
+  '@markmap/contracts': path.resolve(__dirname, '../../packages/contracts/src'),
   '@': path.resolve(__dirname, 'src'),
 };

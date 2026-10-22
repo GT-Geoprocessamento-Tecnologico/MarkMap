@@ -1,4 +1,4 @@
-import type { Bbox } from '@geonexo/contracts';
+import type { Bbox } from '@markmap/contracts';
 
 /**
  * Chaves de query centralizadas: todo acesso a cache passa por aqui para que

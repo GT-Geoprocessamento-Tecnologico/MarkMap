@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { createFeatureSchema, createLayerSchema, updateFeatureSchema } from '@geonexo/contracts';
-import type { Bbox } from '@geonexo/contracts';
+import { createFeatureSchema, createLayerSchema, updateFeatureSchema } from '@markmap/contracts';
+import type { Bbox } from '@markmap/contracts';
 
 /**
  * Tipos compartilhados entre `api-client` (transporte) e `mock` (transporte de

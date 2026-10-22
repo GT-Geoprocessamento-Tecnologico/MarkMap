@@ -1,4 +1,4 @@
-import { buildPage } from "@geonexo/contracts";
+import { buildPage } from "@markmap/contracts";
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 
 import type { Db } from "../client";

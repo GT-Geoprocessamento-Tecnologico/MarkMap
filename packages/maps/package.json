@@ -1,5 +1,5 @@
 {
-  "name": "@geonexo/maps",
+  "name": "@markmap/maps",
   "version": "0.1.0",
   "private": true,
   "main": "./index.js",
@@ -11,7 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@geonexo/contracts": "workspace:*",
+    "@markmap/contracts": "workspace:*",
     "@types/maplibre-gl": "^1.14.0",
     "maplibre-gl": "^6.11.2",
     "pmtiles": "4.5.0",
@@ -20,7 +20,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
-    "@geonexo/geo": "workspace:*",
+    "@markmap/geo": "workspace:*",
     "@types/node": "^20.14.0",
     "eslint": "^9.39.5",
     "typescript": "^5.5.0",

@@ -4,8 +4,8 @@ import {
   pushSyncResponseSchema,
   type PushSyncAck,
   type SyncConflict,
-} from "@geonexo/contracts";
-import { applyPushOperation, getDb, pullChanges } from "@geonexo/db";
+} from "@markmap/contracts";
+import { applyPushOperation, getDb, pullChanges } from "@markmap/db";
 import type { Hono } from "hono";
 import { z } from "zod";
 

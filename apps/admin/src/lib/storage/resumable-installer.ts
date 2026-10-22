@@ -15,7 +15,7 @@
 
 import { getDeviceStorageProfile } from "./device-storage-profile";
 import { type LargeBlobStore, type StoreResult, createBlobStoreError } from "./large-blob-store";
-import { offlineMapPackageManifestSchema, type OfflineMapPackageManifest } from "@geonexo/contracts";
+import { offlineMapPackageManifestSchema, type OfflineMapPackageManifest } from "@markmap/contracts";
 
 /** Status do instalador */
 export type InstallerStatus = "idle" | "downloading" | "validating" | "activating" | "active" | "rollback" | "error";

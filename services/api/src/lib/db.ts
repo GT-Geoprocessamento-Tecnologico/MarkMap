@@ -1,4 +1,4 @@
-import type { Geometry, GeometryType } from "@geonexo/contracts";
+import type { Geometry, GeometryType } from "@markmap/contracts";
 import {
   getDb,
   createProject,
@@ -6,8 +6,8 @@ import {
   createFeature,
   getLayer,
   projects,
-} from "@geonexo/db";
-import type { Db } from "@geonexo/db";
+} from "@markmap/db";
+import type { Db } from "@markmap/db";
 import { eq } from "drizzle-orm";
 
 type ProjectRecord = typeof projects.$inferSelect;

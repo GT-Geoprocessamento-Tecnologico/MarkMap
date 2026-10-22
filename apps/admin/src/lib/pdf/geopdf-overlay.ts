@@ -6,7 +6,7 @@ import {
   resolveOgcLgiDict,
   pageToLonLat,
   type GeoReference,
-} from "@geonexo/geo/pdf";
+} from "@markmap/geo/pdf";
 import { readBlobBytes } from "../blob-bytes";
 
 pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;

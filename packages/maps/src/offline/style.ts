@@ -4,8 +4,8 @@ import { isSafePackagePath } from "./package.js";
 
 export type OfflineStyle = Record<string, unknown>;
 const replaceLocal = (value: string, packageId: string): string => {
-  if (value === "pmtiles://package.pmtiles") return `pmtiles://geonexo-offline:${packageId}`;
-  return `geonexo-package://${packageId}/${value}`;
+  if (value === "pmtiles://package.pmtiles") return `pmtiles://markmap-offline:${packageId}`;
+  return `markmap-package://${packageId}/${value}`;
 };
 
 export function adaptOfflineStyle(style: OfflineStyle, manifest: OfflineMapPackageManifest): OfflineStyle {

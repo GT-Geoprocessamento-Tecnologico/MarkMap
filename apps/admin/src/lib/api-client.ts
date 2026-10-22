@@ -4,7 +4,7 @@ import {
   featureSchema,
   layerSchema,
   projectSchema,
-} from '@geonexo/contracts';
+} from '@markmap/contracts';
 import type {
   Bbox,
   CreateProject,
@@ -12,7 +12,7 @@ import type {
   Layer,
   Pagination,
   Project,
-} from '@geonexo/contracts';
+} from '@markmap/contracts';
 import { ApiError } from './errors';
 import * as mockApi from './mock';
 import type {

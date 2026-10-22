@@ -1,7 +1,7 @@
-import type { BBox, GeoNexoFeature } from '@geonexo/geo';
+import type { BBox } from '@markmap/geo';
 
 /**
- * Public types of @geonexo/maps. Pages consume only these plus the factory
+ * Public types of @markmap/maps. Pages consume only these plus the factory
  * functions; Terra Draw and MapLibre internals never leak to the admin.
  */
 

@@ -10,7 +10,7 @@
 
 import { IndexedDBBlobStore, type LargeBlobStore } from "./large-blob-store";
 import { offlineMapStore } from "./offline-map-store";
-import { offlineMapPackageManifestSchema, type OfflineMapPackageManifest } from "@geonexo/contracts";
+import { offlineMapPackageManifestSchema, type OfflineMapPackageManifest } from "@markmap/contracts";
 import { ResumableInstaller } from "./resumable-installer";
 
 /** Tipo de operação de região */

@@ -1,5 +1,5 @@
-import { errorCodeSchema } from '@geonexo/contracts';
-import type { ErrorCode } from '@geonexo/contracts';
+import { errorCodeSchema } from '@markmap/contracts';
+import type { ErrorCode } from '@markmap/contracts';
 
 /**
  * Erro tipado do transporte HTTP/mock. O front decide comportamento pelo

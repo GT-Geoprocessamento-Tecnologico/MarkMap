@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider } from "@tanstack/react-router";
-import { ToastProvider } from "@geonexo/ui";
+import { ToastProvider } from "@markmap/ui";
 import { router } from "./router";
 import { isClientError } from "./lib/errors";
 import { localRepository } from "./lib/local-repositories";

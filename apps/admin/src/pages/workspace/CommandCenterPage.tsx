@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { featureBounds, loadProjectFeatures, matchesFeature } from "./map-data";
 import { useParams, useSearch } from "@tanstack/react-router";
-import { useToast } from "@geonexo/ui";
-import type { GeoReference } from "@geonexo/contracts";
+import { useToast } from "@markmap/ui";
+import type { GeoReference } from "@markmap/contracts";
 import {
   addDrawingVertex,
   createDrawingSession,
@@ -13,11 +13,11 @@ import {
   getDefaultBasemaps,
   shouldFallbackOnError,
   undoDrawingVertex,
-} from "@geonexo/maps";
+} from "@markmap/maps";
 import type {
   DrawingSession,
   GeometryType as DrawingGeometryType,
-} from "@geonexo/maps";
+} from "@markmap/maps";
 import { addProtocol, Popup, Marker, removeProtocol } from "maplibre-gl";
 import type { GeoJSONSource, Map as MapLibreMap } from "maplibre-gl";
 import { createPropertyPopupContent } from "./property-popup";
@@ -41,8 +41,8 @@ import { ensureLocationPermission } from "../../lib/device-location-permission";
 import {
   createOfflineAssetProtocol,
   createOfflineProtocol,
-} from "@geonexo/maps/offline/protocol";
-import { adaptOfflineStyle } from "@geonexo/maps/offline/style";
+} from "@markmap/maps/offline/protocol";
+import { adaptOfflineStyle } from "@markmap/maps/offline/style";
 import { AppIcon, type AppIconName } from "../../components/AppIcon";
 
 // ---------------------------------------------------------------------------
@@ -425,7 +425,7 @@ export default function CommandCenterPage() {
     const releaseProtocols = () => {
       if (!protocolsRegistered) return;
       removeProtocol("pmtiles");
-      removeProtocol("geonexo-package");
+      removeProtocol("markmap-package");
       protocolsRegistered = false;
     };
     const initialize = async () => {
@@ -494,7 +494,7 @@ export default function CommandCenterPage() {
         const tileProtocol = createOfflineProtocol(installed.manifest, file);
         addProtocol("pmtiles", (params, controller) => tileProtocol.tile(params, controller));
         addProtocol(
-          "geonexo-package",
+          "markmap-package",
           createOfflineAssetProtocol((packageId, path) =>
             packageId === installed.manifest.id
               ? offlineMapStore.asset(packageId, path)

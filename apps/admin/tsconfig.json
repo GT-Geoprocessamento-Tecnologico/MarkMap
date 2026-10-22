@@ -3,14 +3,14 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@geonexo/ui": ["../../packages/ui/src"],
-      "@geonexo/ui/*": ["../../packages/ui/src/*"],
-      "@geonexo/maps": ["../../packages/maps/src"],
-      "@geonexo/maps/*": ["../../packages/maps/src/*"],
-      "@geonexo/geo": ["../../packages/geo/src"],
-      "@geonexo/geo/*": ["../../packages/geo/src/*"],
-      "@geonexo/contracts": ["../../packages/contracts/src"],
-      "@geonexo/contracts/*": ["../../packages/contracts/src/*"],
+      "@markmap/ui": ["../../packages/ui/src"],
+      "@markmap/ui/*": ["../../packages/ui/src/*"],
+      "@markmap/maps": ["../../packages/maps/src"],
+      "@markmap/maps/*": ["../../packages/maps/src/*"],
+      "@markmap/geo": ["../../packages/geo/src"],
+      "@markmap/geo/*": ["../../packages/geo/src/*"],
+      "@markmap/contracts": ["../../packages/contracts/src"],
+      "@markmap/contracts/*": ["../../packages/contracts/src/*"],
       "@/*": ["src/*"]
     }
   },

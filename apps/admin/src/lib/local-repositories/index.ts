@@ -7,7 +7,7 @@ import {
   type SyncEntityPayload,
   type SyncOperation,
   type Tombstone,
-} from "@geonexo/contracts";
+} from "@markmap/contracts";
 import {
   entityKey,
   localDb,
@@ -122,7 +122,7 @@ export class LocalRepository {
       },
     );
     if (typeof window !== "undefined")
-      window.dispatchEvent(new Event("geonexo-local-mutation"));
+      window.dispatchEvent(new Event("markmap-local-mutation"));
     return operation;
   }
 
@@ -503,8 +503,8 @@ export class LocalRepository {
     );
 
     if (typeof window !== "undefined") {
-      window.dispatchEvent(new Event("geonexo-local-mutation"));
-      window.dispatchEvent(new Event("geonexo-conflict-resolved"));
+      window.dispatchEvent(new Event("markmap-local-mutation"));
+      window.dispatchEvent(new Event("markmap-conflict-resolved"));
     }
   }
 

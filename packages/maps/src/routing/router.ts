@@ -6,7 +6,7 @@ import type {
   RouteRequest,
   RoutingGraph,
   RoutingProfile,
-} from "@geonexo/contracts";
+} from "@markmap/contracts";
 
 const PROFILE_SPEEDS: Record<RoutingProfile, Record<string, number>> = {
   walk: { default: 5 },

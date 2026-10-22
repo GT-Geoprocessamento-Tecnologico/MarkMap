@@ -1,4 +1,4 @@
-import { createDb } from "@geonexo/db";
+import { createDb } from "@markmap/db";
 import { sql } from "drizzle-orm";
 import { Hono } from "hono";
 

@@ -1,6 +1,6 @@
-const CACHE_PREFIX = 'geonexo-';
-const SHELL_ASSETS = typeof __GEONEXO_SHELL_MANIFEST__ === 'undefined' ? [] : __GEONEXO_SHELL_MANIFEST__;
-const SHELL_VERSION = typeof __GEONEXO_SHELL_VERSION__ === 'undefined' ? 'v2' : __GEONEXO_SHELL_VERSION__;
+const CACHE_PREFIX = 'markmap-';
+const SHELL_ASSETS = typeof __MARKMAP_SHELL_MANIFEST__ === 'undefined' ? [] : __MARKMAP_SHELL_MANIFEST__;
+const SHELL_VERSION = typeof __MARKMAP_SHELL_VERSION__ === 'undefined' ? 'v2' : __MARKMAP_SHELL_VERSION__;
 const STATIC_ASSETS = SHELL_ASSETS.length ? SHELL_ASSETS : [
   '/',
   '/index.html',
@@ -10,7 +10,7 @@ const STATIC_ASSETS = SHELL_ASSETS.length ? SHELL_ASSETS : [
 ];
 
 // These are the only runtime paths this worker may intercept besides navigation.
-const CACHE_NAME = `geonexo-cache-${SHELL_VERSION}`;
+const CACHE_NAME = `markmap-cache-${SHELL_VERSION}`;
 const STATIC_PATH_PREFIXES = ['/assets/', '/icons/', '/fonts/'];
 const API_PATH_PREFIXES = [
   '/api',

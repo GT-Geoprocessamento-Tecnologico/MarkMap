@@ -1,4 +1,4 @@
-import { geometryTypeSchema } from "@geonexo/contracts/geometry";
+import { geometryTypeSchema } from "@markmap/contracts/geometry";
 import { sql, desc } from "drizzle-orm";
 import {
   boolean,

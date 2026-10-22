@@ -1,4 +1,4 @@
-import { closeDb } from "@geonexo/db";
+import { closeDb } from "@markmap/db";
 import { serve } from "@hono/node-server";
 import type { ServerType } from "@hono/node-server";
 

@@ -4,7 +4,7 @@ import type {
   Map as MapLibreMap,
   MapOptions,
 } from 'maplibre-gl';
-import type { BBox } from '@geonexo/geo';
+import type { BBox } from '@markmap/geo';
 import type { BasemapDefinition } from './types.js';
 import {
   GeolocateControl as MapLibreGeolocateControl,

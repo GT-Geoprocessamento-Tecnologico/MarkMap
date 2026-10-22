@@ -1,5 +1,5 @@
-import type { OfflineMapPackageManifest } from "@geonexo/contracts";
-import { bytesOf, validateOfflinePackage, OFFLINE_PACKAGE_DB, OFFLINE_PACKAGE_VERSION, type PackageAssets, type StoredOfflinePackage } from "@geonexo/maps/offline/package";
+import type { OfflineMapPackageManifest } from "@markmap/contracts";
+import { bytesOf, validateOfflinePackage, OFFLINE_PACKAGE_DB, OFFLINE_PACKAGE_VERSION, type PackageAssets, type StoredOfflinePackage } from "@markmap/maps/offline/package";
 
 const PACKAGES = "packages";
 const ASSETS = "assets";

@@ -5,12 +5,12 @@ import {
   capabilityProvisionResponseSchema,
   capabilityRecoveryRequestSchema,
   ErrorCodes,
-} from "@geonexo/contracts";
+} from "@markmap/contracts";
 import {
   getDb,
   provisionWorkspace,
   recoverWorkspaceCapability,
-} from "@geonexo/db";
+} from "@markmap/db";
 import type { Hono } from "hono";
 
 import { AppError, ErrorCode } from "../lib/errors.js";

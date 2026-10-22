@@ -1,11 +1,11 @@
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
-import { geonexoAliases } from './vite.aliases';
+import { markmapAliases } from './vite.aliases';
 
 export default defineConfig({
   plugins: [react()],
   resolve: {
-    alias: geonexoAliases,
+    alias: markmapAliases,
   },
   test: {
     environment: 'jsdom',

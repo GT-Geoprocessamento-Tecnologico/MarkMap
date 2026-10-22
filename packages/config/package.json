@@ -1,5 +1,5 @@
 {
-  "name": "@geonexo/config",
+  "name": "@markmap/config",
   "version": "0.1.0",
   "private": true,
   "main": "./eslint.config.js",

@@ -48,8 +48,8 @@ export async function generateShellManifest(distDirectory) {
   try {
     const worker = await readFile(workerPath, 'utf8');
     await writeFile(workerPath, worker
-      .replaceAll('__GEONEXO_SHELL_MANIFEST__', JSON.stringify(assets))
-      .replaceAll('__GEONEXO_SHELL_VERSION__', JSON.stringify(JSON.parse(payload).version)), 'utf8');
+      .replaceAll('__MARKMAP_SHELL_MANIFEST__', JSON.stringify(assets))
+      .replaceAll('__MARKMAP_SHELL_VERSION__', JSON.stringify(JSON.parse(payload).version)), 'utf8');
   } catch (error) {
     if (error?.code !== 'ENOENT') throw error;
   }

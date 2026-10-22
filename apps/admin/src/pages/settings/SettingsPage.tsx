@@ -1,9 +1,9 @@
 import { useEffect, useState, useSyncExternalStore, type InputHTMLAttributes } from "react";
-import { useToast, Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger, Button, Checkbox } from "@geonexo/ui";
+import { useToast, Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger, Button, Checkbox } from "@markmap/ui";
 import {
   offlineMapPackageManifestSchema,
   type OfflineMapPackageManifest,
-} from "@geonexo/contracts";
+} from "@markmap/contracts";
 import { offlineMapStore } from "../../lib/storage/offline-map-store";
 import {
   getSelectedOfflineMapId,

@@ -4,7 +4,7 @@ import {
   listFeaturesQuerySchema,
   paginationQuerySchema,
   uuidSchema,
-} from "@geonexo/contracts";
+} from "@markmap/contracts";
 import {
   getDb,
   getLayer,
@@ -14,7 +14,7 @@ import {
   softDeleteFeature,
   getFeature,
   updateFeature,
-} from "@geonexo/db";
+} from "@markmap/db";
 import { Hono, type Context } from "hono";
 import { z } from "zod";
 

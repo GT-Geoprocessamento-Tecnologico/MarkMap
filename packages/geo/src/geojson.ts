@@ -1,5 +1,5 @@
 /**
- * Minimal GeoJSON types owned by @geonexo/geo.
+ * Minimal GeoJSON types owned by @markmap/geo.
  *
  * Kept local (instead of @types/geojson) so this package has zero extra
  * type dependencies. Shapes follow RFC 7946. `properties` is always an

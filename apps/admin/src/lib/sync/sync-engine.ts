@@ -3,7 +3,7 @@ import {
   pullSyncResponseSchema,
   pushSyncResponseSchema,
   type WorkspaceCapability,
-} from "@geonexo/contracts";
+} from "@markmap/contracts";
 
 import { API_BASE, API_MODE } from "../api-client";
 import { localRepository } from "../local-repositories";

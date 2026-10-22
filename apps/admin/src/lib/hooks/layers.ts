@@ -4,7 +4,7 @@ import {
   layerSchema,
   syncEntityPayloadSchema,
   type Layer,
-} from "@geonexo/contracts";
+} from "@markmap/contracts";
 import type { CreateLayerInput } from "../api-types";
 import { localRepository } from "../local-repositories";
 import { ensureDemoWorkspace } from "../local-repositories/demo-workspace";

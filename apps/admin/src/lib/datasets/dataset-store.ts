@@ -1,10 +1,10 @@
-import { featurePropertiesSchema, geometrySchema } from "@geonexo/contracts";
+import { featurePropertiesSchema, geometrySchema } from "@markmap/contracts";
 import {
   EPSG_WGS84,
   isReprojectableEpsg,
   parseGeoJsonCrsEpsg,
   transformPosition,
-} from "@geonexo/geo";
+} from "@markmap/geo";
 import { offlineDB } from "../storage/offline-db";
 
 export const MAX_DATASET_BYTES = 25 * 1024 * 1024;

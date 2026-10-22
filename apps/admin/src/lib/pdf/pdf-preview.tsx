@@ -7,7 +7,7 @@ import {
 } from "react";
 import * as pdfjs from "pdfjs-dist";
 import workerUrl from "pdfjs-dist/build/pdf.worker.mjs?url";
-import { geoReferenceSchema, type GeoReference } from "@geonexo/contracts";
+import { geoReferenceSchema, type GeoReference } from "@markmap/contracts";
 import {
   autoCalibrateFromText,
   fitAffine,
@@ -16,8 +16,8 @@ import {
   type AutoCalibrationMethod,
   type PdfInspection,
   type PdfTextSample,
-} from "@geonexo/geo/pdf";
-import { useToast } from "@geonexo/ui";
+} from "@markmap/geo/pdf";
+import { useToast } from "@markmap/ui";
 
 import {
   localRepository,

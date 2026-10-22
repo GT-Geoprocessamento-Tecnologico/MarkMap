@@ -3,7 +3,7 @@ import {
   paginationQuerySchema,
   projectSchema,
   uuidSchema,
-} from "@geonexo/contracts";
+} from "@markmap/contracts";
 import {
   createProject,
   decodeCursor,
@@ -11,7 +11,7 @@ import {
   getProject,
   listProjects,
   ProjectNotFoundError,
-} from "@geonexo/db";
+} from "@markmap/db";
 import { type Context } from "hono";
 
 import { validate } from "../middleware/validation.js";

@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-import { findWorkspaceByCapabilityHash, getDb } from "@geonexo/db";
+import { findWorkspaceByCapabilityHash, getDb } from "@markmap/db";
 import type { MiddlewareHandler } from "hono";
 
 import { AppError, ErrorCode } from "../lib/errors.js";

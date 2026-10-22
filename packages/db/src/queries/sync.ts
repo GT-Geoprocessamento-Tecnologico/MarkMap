@@ -7,7 +7,7 @@ import {
   type SyncEntityPayload,
   type SyncOperation,
   type Tombstone,
-} from "@geonexo/contracts";
+} from "@markmap/contracts";
 import { and, asc, eq, gt, sql } from "drizzle-orm";
 
 import type { Db } from "../client.js";

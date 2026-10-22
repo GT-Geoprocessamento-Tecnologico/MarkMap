@@ -4,7 +4,7 @@ import {
   syncEntityPayloadSchema,
   type CreateProject,
   type Project,
-} from "@geonexo/contracts";
+} from "@markmap/contracts";
 import { localRepository } from "../local-repositories";
 import { ensureDemoWorkspace } from "../local-repositories/demo-workspace";
 import { queryKeys } from "../query-keys";

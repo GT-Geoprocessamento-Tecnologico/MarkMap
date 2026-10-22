@@ -9,7 +9,7 @@ export const MAX_ASSET_BYTES = 4 * 1024 * 1024;
 
 export class OfflinePackageSource extends FileSource {
   private readonly key: string;
-  constructor(file: File, packageId: string) { super(file); this.key = `geonexo-offline:${packageId}`; }
+  constructor(file: File, packageId: string) { super(file); this.key = `markmap-offline:${packageId}`; }
   override getKey(): string { return this.key; }
   override async getBytes(offset: number, length: number, signal?: AbortSignal): Promise<RangeResponse> {
     if (!Number.isSafeInteger(offset) || !Number.isSafeInteger(length) || offset < 0 || length < 0 || length > MAX_RANGE_BYTES) throw new RangeError("offline PMTiles range is invalid or too large");

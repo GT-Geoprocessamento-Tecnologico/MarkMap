@@ -44,7 +44,7 @@ pnpm test:e2e
 
 ## Compatibilidade da migração de marca
 
-Os namespaces internos `@geonexo/*`, nomes históricos de infraestrutura e identificadores remotos existentes permanecem temporariamente preservados para evitar quebra de contratos, storage e sincronização. A marca exibida ao usuário é MarkMap; identificadores nativos existentes permanecem estáveis por compatibilidade de instalação e dados locais.
+Os namespaces internos `@markmap/*`, nomes históricos de infraestrutura e identificadores remotos existentes permanecem temporariamente preservados para evitar quebra de contratos, storage e sincronização. A marca exibida ao usuário é MarkMap; identificadores nativos existentes permanecem estáveis por compatibilidade de instalação e dados locais.
 
 ## Regras importantes
 

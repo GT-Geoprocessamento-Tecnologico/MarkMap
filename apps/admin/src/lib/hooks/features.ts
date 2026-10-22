@@ -7,7 +7,7 @@ import {
   syncEntityPayloadSchema,
   type Bbox,
   type Feature,
-} from "@geonexo/contracts";
+} from "@markmap/contracts";
 import type { CreateFeatureInput, UpdateFeatureInput } from "../api-types";
 import { localRepository } from "../local-repositories";
 import { queryKeys } from "../query-keys";
