@@ -105,3 +105,64 @@ describe("workspace-scoped storage presign", () => {
     expect(presignMocks.getSignedUrl).not.toHaveBeenCalled();
   });
 });
+
+describe("getS3Client", () => {
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  it("throws an error if S3_ENDPOINT is missing", async () => {
+    const { getS3Client } = await import("../src/storage.js");
+    const testEnv = { ...env, S3_ENDPOINT: undefined };
+    expect(() => getS3Client(testEnv)).toThrow("Missing S3 credentials");
+  });
+
+  it("throws an error if S3_REGION is missing", async () => {
+    const { getS3Client } = await import("../src/storage.js");
+    const testEnv = { ...env, S3_REGION: undefined };
+    expect(() => getS3Client(testEnv)).toThrow("Missing S3 credentials");
+  });
+
+  it("throws an error if S3_ACCESS_KEY_ID is missing", async () => {
+    const { getS3Client } = await import("../src/storage.js");
+    const testEnv = { ...env, S3_ACCESS_KEY_ID: undefined };
+    expect(() => getS3Client(testEnv)).toThrow("Missing S3 credentials");
+  });
+
+  it("throws an error if S3_SECRET_ACCESS_KEY is missing", async () => {
+    const { getS3Client } = await import("../src/storage.js");
+    const testEnv = { ...env, S3_SECRET_ACCESS_KEY: undefined };
+    expect(() => getS3Client(testEnv)).toThrow("Missing S3 credentials");
+  });
+
+  it("creates and returns an S3Client when credentials are provided", async () => {
+    const { getS3Client } = await import("../src/storage.js");
+    const client = getS3Client(env);
+
+    // We can't easily assert on the exact instance without exposing it,
+    // but we can check if it returns an object with expected S3Client shape,
+    // or just that it doesn't throw and returns something truthy.
+    expect(client).toBeDefined();
+    expect(typeof client.send).toBe('function');
+  });
+
+  it("caches the S3Client instance on subsequent calls", async () => {
+    const { getS3Client } = await import("../src/storage.js");
+    const client1 = getS3Client(env);
+    const client2 = getS3Client(env);
+
+    expect(client1).toBe(client2);
+  });
+
+  it("returns cached client even if subsequent call has missing env vars", async () => {
+    const { getS3Client } = await import("../src/storage.js");
+    // First call succeeds and caches
+    const client1 = getS3Client(env);
+
+    // Second call with missing env shouldn't throw because it returns early
+    const testEnv = { ...env, S3_ENDPOINT: undefined };
+    const client2 = getS3Client(testEnv);
+
+    expect(client1).toBe(client2);
+  });
+});
