@@ -67,7 +67,7 @@ export function convertDatumToSirgas2000(
 /**
  * Transforms all coordinates in a GeoJSON feature or geometry to SIRGAS 2000 / WGS84.
  */
-export function transformGeoJsonToSirgas2000<T extends { type: string; [key: string]: any }>(
+export function transformGeoJsonToSirgas2000<T extends { type: string; [key: string]: unknown }>(
   geoJson: T,
   fromDatum: DatumType,
 ): T {
@@ -81,20 +81,18 @@ export function transformGeoJsonToSirgas2000<T extends { type: string; [key: str
 
   const deepCopy = JSON.parse(JSON.stringify(geoJson));
 
-  function processGeometry(geom: any) {
-    if (!geom || !geom.coordinates) return;
+  function processGeometry(geom: GeoJSON.Geometry | null) {
+    if (!geom || !("coordinates" in geom)) return;
+    const toSirgas = (coord: GeoJSON.Position): [number, number] =>
+      convertDatumToSirgas2000([coord[0]!, coord[1]!], fromDatum);
     if (geom.type === "Point") {
-      geom.coordinates = convertDatumToSirgas2000(geom.coordinates, fromDatum);
+      geom.coordinates = toSirgas(geom.coordinates);
     } else if (geom.type === "LineString" || geom.type === "MultiPoint") {
-      geom.coordinates = geom.coordinates.map((c: [number, number]) => convertDatumToSirgas2000(c, fromDatum));
+      geom.coordinates = geom.coordinates.map(toSirgas);
     } else if (geom.type === "Polygon" || geom.type === "MultiLineString") {
-      geom.coordinates = geom.coordinates.map((ring: Array<[number, number]>) =>
-        ring.map((c) => convertDatumToSirgas2000(c, fromDatum)),
-      );
+      geom.coordinates = geom.coordinates.map((ring) => ring.map(toSirgas));
     } else if (geom.type === "MultiPolygon") {
-      geom.coordinates = geom.coordinates.map((poly: Array<Array<[number, number]>>) =>
-        poly.map((ring) => ring.map((c) => convertDatumToSirgas2000(c, fromDatum))),
-      );
+      geom.coordinates = geom.coordinates.map((poly) => poly.map((ring) => ring.map(toSirgas)));
     }
   }
 
