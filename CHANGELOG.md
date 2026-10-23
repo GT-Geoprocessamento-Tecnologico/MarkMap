@@ -6,6 +6,10 @@ Fonte da versão do aplicativo: `apps/admin/package.json`. Todos os agentes segu
 
 ### Alterações
 
+- Integra suporte dinâmico a qualquer código EPSG via Proj4js em @markmap/maps com reprojeção de coordenadas e FeatureCollections GeoJSON.
+- Conecta o parser de Shapefiles (.shp, .dbf, .prj em ZIP) e GeoPackage (.gpkg com WKB e cabeçalho binário OGC) ao ecossistema de mapas offline e fontes vetoriais.
+- Valida 100% das suítes de testes unitários dos módulos de CRS, formatos vetoriais, GNSS/NMEA, unidades de agrimensura e geofencing (Fases 1 a 4).
+
 - Oculta os pontos de apoio e marcos dos vértices por padrão ao carregar datasets com polígonos (KML/KMZ/GeoJSON), evitando que círculos nos vértices prejudiquem a visualização da área demarcada.
 - Adiciona controle dedicado de visibilidade de pontos e marcos no painel de camadas do mapa quando o dataset ativo possui feições pontuais, permitindo ligar ou desligar os pontos com um clique.
 - Mantém a exibição padrão de pontos para datasets que contenham exclusivamente feições pontuais (waypoints, estações, pontos de interesse).

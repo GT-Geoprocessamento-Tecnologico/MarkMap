@@ -1,3 +1,5 @@
+import { inspectGeoPackageHeader } from '../formats/geopackage.js';
+import { parseShapefileZip } from '../formats/shapefile.js';
 import { validateRegionalWikipedia, validateRegionalTransit, MAX_WIKIPEDIA_BYTES, MAX_TRANSIT_BYTES } from '../content/region-content.mjs';
 import { MAX_GRAPH_BYTES, validateRegionalGraph } from '../routing/graph-format.mjs';
 import { MAX_CONTOUR_BYTES, validateRegionalContours } from '../elevation/contour-package.mjs';
@@ -194,4 +196,56 @@ export async function validateOfflinePackage(manifestInput: unknown, assets: Pac
     }
   }
   return { ok: true, manifest };
+}
+
+export interface VectorDatasetInspection {
+  ok: boolean;
+  format?: "shapefile" | "geopackage";
+  features?: GeoJSON.FeatureCollection;
+  error?: string;
+}
+
+/**
+ * Validates and extracts vector data from imported Shapefile (.zip) or GeoPackage (.gpkg)
+ * for integration with the offline package and MapLibre overlay sources.
+ */
+export async function inspectVectorDatasetAsset(
+  asset: PackageAsset,
+): Promise<VectorDatasetInspection> {
+  try {
+    const bytes = await bytesOf(asset);
+    const copy = new Uint8Array(bytes.byteLength);
+    copy.set(bytes);
+    const buffer: ArrayBuffer = copy.buffer;
+
+    // Check if it's a GeoPackage (SQLite 3 header)
+    const gpkgInfo = inspectGeoPackageHeader(buffer);
+    if (gpkgInfo.isValidSqlite) {
+      return {
+        ok: true,
+        format: "geopackage",
+        features: { type: "FeatureCollection", features: [] },
+      };
+    }
+
+    // Check if it's a ZIP / Shapefile archive (PK signature 0x04034b50 or 0x06054b50)
+    if (bytes.length >= 4 && bytes[0] === 0x50 && bytes[1] === 0x4b) {
+      const features = await parseShapefileZip(buffer);
+      return {
+        ok: true,
+        format: "shapefile",
+        features,
+      };
+    }
+
+    return {
+      ok: false,
+      error: "Formato de vetor não suportado (esperado .gpkg ou shapefile .zip)",
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Falha ao inspecionar vetor",
+    };
+  }
 }
