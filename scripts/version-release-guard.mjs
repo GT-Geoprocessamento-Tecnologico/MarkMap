@@ -201,7 +201,8 @@ if (process.argv[1] && process.argv[1].endsWith('version-release-guard.mjs')) {
   }
   const value = name => { const index = args.indexOf(name); return index >= 0 ? args[index + 1] : undefined; };
   try {
-    const root = DEFAULT_ROOT; const result = await verifyRelease({ root, production: args.includes('--production'), buildSha: process.env.VERCEL_GIT_COMMIT_SHA || process.env.GITHUB_SHA, baseRef: value('--base-ref'), dist: value('--dist') });
+    const gitSha = () => { try { const s = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(); return /^[0-9a-f]{40}$/i.test(s) ? s : undefined; } catch { return undefined; } };
+    const root = DEFAULT_ROOT; const result = await verifyRelease({ root, production: args.includes('--production'), buildSha: process.env.VERCEL_GIT_COMMIT_SHA || process.env.GITHUB_SHA || gitSha(), baseRef: value('--base-ref'), dist: value('--dist') });
     process.stdout.write(`${JSON.stringify(result)}\n`);
   } catch (error) { process.stderr.write(`${JSON.stringify({ ok: false, code: error.code ?? 'VERSION_GUARD', error: error.message })}\n`); process.exitCode = 1; }
 }

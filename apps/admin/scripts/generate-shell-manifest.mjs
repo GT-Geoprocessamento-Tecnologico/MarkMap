@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { execSync } from 'node:child_process';
 import { readdir, readFile, writeFile } from 'node:fs/promises';
 import { join, relative, sep, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -6,6 +7,15 @@ import { fileURLToPath } from 'node:url';
 const HASHED_FILE = /(?:[-.])[a-z0-9_-]{8,}\.(?:js|mjs|css|woff2?|ttf|otf|png|jpg|jpeg|webp|svg)$/i;
 const ALWAYS_SHELL = new Set(['index.html', 'manifest.json', 'version.json', 'icons/icon-192x192.png', 'icons/icon-512x512.png']);
 const EXCLUDED_PREFIXES = ['map/', 'maps/', 'api/'];
+
+function resolveGitSha() {
+  try {
+    const sha = execSync('git rev-parse HEAD', { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+    return /^[0-9a-f]{40}$/i.test(sha) ? sha : 'unavailable';
+  } catch {
+    return 'unavailable';
+  }
+}
 
 async function filesUnder(root, directory = root) {
   const entries = await readdir(directory, { withFileTypes: true });
@@ -37,7 +47,7 @@ export async function generateShellManifest(distDirectory) {
   let appVersion = 'unknown';
   try { appVersion = JSON.parse(await readFile(configFile, 'utf8')).version ?? 'unknown'; }
   catch { /* Standalone fixture can still build a shell, but has no release identity. */ }
-  const buildSha = process.env.VERCEL_GIT_COMMIT_SHA || process.env.GITHUB_SHA || 'unavailable';
+  const buildSha = process.env.VERCEL_GIT_COMMIT_SHA || process.env.GITHUB_SHA || resolveGitSha();
   const epoch = process.env.SOURCE_DATE_EPOCH;
   const buildTime = epoch && Number.isFinite(Number(epoch))
     ? new Date(Number(epoch) * 1000).toISOString() : new Date().toISOString();
