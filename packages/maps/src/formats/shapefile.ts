@@ -2,7 +2,6 @@ import {
   transformCoordinates,
   parseEpsgCode,
   EPSG_WGS84,
-  registerEpsgDefinition,
 } from "../crs/epsg.js";
 
 export const MAX_VECTOR_IMPORT_BYTES = 25 * 1024 * 1024;
