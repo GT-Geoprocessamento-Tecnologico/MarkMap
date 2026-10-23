@@ -205,4 +205,43 @@ describe("Shapefile Parser", () => {
     expect(coords[1]).toBeCloseTo(-7.19, 1);
     expect(result.features[0]!.properties?.NAME).toBe("Marco Geodésico");
   });
+  it("rejects Shapefile without .prj instead of guessing WGS84", async () => {
+    const zip = createSyntheticZip({
+      "survey.shp": createPointShp(808500, 9204500),
+      "survey.dbf": createDbf("Sem CRS"),
+    });
+    await expect(parseShapefileZip(zip)).rejects.toThrow("sem .prj");
+  });
+
+  it("rejects unknown projected coordinate reference systems", async () => {
+    const zip = createSyntheticZip({
+      "survey.shp": createPointShp(808500, 9204500),
+      "survey.prj": new TextEncoder().encode('PROJCS["Sistema local desconhecido",UNIT["Meter",1]]'),
+    });
+    await expect(parseShapefileZip(zip)).rejects.toThrow("identificar o CRS");
+  });
+
+  it("prefers the outer projected EPSG over nested geographic CRS in WKT", async () => {
+    const zip = createSyntheticZip({
+      "survey.shp": createPointShp(808500, 9204500),
+      "survey.prj": new TextEncoder().encode(
+        'PROJCS["SIRGAS 2000 / UTM zone 22S",GEOGCS["SIRGAS 2000",AUTHORITY["EPSG","4674"]],PROJECTION["Transverse_Mercator"],AUTHORITY["EPSG","31982"]]',
+      ),
+    });
+    const result = await parseShapefileZip(zip);
+    const coords = (result.features[0]!.geometry as GeoJSON.Point).coordinates;
+    expect(coords[0]).toBeCloseTo(-48.2, 1);
+    expect(coords[1]).toBeCloseTo(-7.19, 1);
+  });
+
+  it("rejects unsupported geometry types rather than dropping features", async () => {
+    const shp = createPointShp(-48.2, -7.19);
+    new DataView(shp.buffer).setInt32(108, 8, true); // MultiPoint unsupported by this parser
+    const zip = createSyntheticZip({
+      "survey.shp": shp,
+      "survey.prj": new TextEncoder().encode('GEOGCS["WGS 84",AUTHORITY["EPSG","4326"]]'),
+    });
+    await expect(parseShapefileZip(zip)).rejects.toThrow("tipo 8 não suportada");
+  });
+
 });
