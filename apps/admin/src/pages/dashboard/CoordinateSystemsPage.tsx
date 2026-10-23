@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import type { ReactNode } from "react";
 import { useToast } from "@markmap/ui";
 import { useDialogFocus } from "../../lib/hooks/use-dialog-focus";
@@ -152,14 +152,17 @@ export default function CoordinateSystemsPage() {
     setFavorites(loadFavorites());
   }, []);
 
-  const systems = allSystems.filter((s) => {
-    const matchSearch =
-      s.code.toLowerCase().includes(search.toLowerCase()) ||
-      s.name.toLowerCase().includes(search.toLowerCase()) ||
-      s.region.toLowerCase().includes(search.toLowerCase());
-    const matchType = filterType === "Todos" || s.type === filterType;
-    return matchSearch && matchType;
-  });
+  const systems = useMemo(() => {
+    const searchLower = search.toLowerCase();
+    return allSystems.filter((s) => {
+      const matchSearch =
+        s.code.toLowerCase().includes(searchLower) ||
+        s.name.toLowerCase().includes(searchLower) ||
+        s.region.toLowerCase().includes(searchLower);
+      const matchType = filterType === "Todos" || s.type === filterType;
+      return matchSearch && matchType;
+    });
+  }, [allSystems, search, filterType]);
 
   const handleSaveCrs = useCallback(() => {
     const normalizedCode = newCrsCode.trim().toUpperCase();
