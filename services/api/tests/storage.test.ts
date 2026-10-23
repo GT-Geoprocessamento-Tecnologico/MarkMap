@@ -25,6 +25,8 @@ import { createErrorHandler } from "../src/middleware/error-handler.js";
 import { createLogger } from "../src/middleware/logger.js";
 import { requestId } from "../src/middleware/request-id.js";
 import { storageRoutes } from "../src/routes/storage.js";
+import { generatePresignedGetUrl, generatePresignedPutUrl } from "../src/storage.js";
+import { S3Client } from "@aws-sdk/client-s3";
 
 const env: Env = {
   NODE_ENV: "test",
@@ -103,5 +105,47 @@ describe("workspace-scoped storage presign", () => {
     );
     expect(response.status).toBe(400);
     expect(presignMocks.getSignedUrl).not.toHaveBeenCalled();
+  });
+});
+
+describe("generatePresignedGetUrl", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    presignMocks.getSignedUrl.mockResolvedValue("https://signed.example/get-object");
+  });
+
+  it("generates a presigned GET URL with default expiration", async () => {
+    const mockClient = {} as S3Client;
+    const bucket = "test-bucket";
+    const key = "test-key.txt";
+
+    const url = await generatePresignedGetUrl(mockClient, bucket, key);
+
+    expect(url).toBe("https://signed.example/get-object");
+    expect(presignMocks.getSignedUrl).toHaveBeenCalledTimes(1);
+
+    const callArgs = presignMocks.getSignedUrl.mock.calls[0];
+    expect(callArgs[0]).toBe(mockClient);
+    expect(callArgs[1]).toBeInstanceOf(GetObjectCommand);
+    expect((callArgs[1] as GetObjectCommand).input).toEqual({
+      Bucket: bucket,
+      Key: key,
+    });
+    expect(callArgs[2]).toEqual({ expiresIn: 3600 });
+  });
+
+  it("generates a presigned GET URL with custom expiration", async () => {
+    const mockClient = {} as S3Client;
+    const bucket = "test-bucket";
+    const key = "test-key.txt";
+    const expiresIn = 7200;
+
+    const url = await generatePresignedGetUrl(mockClient, bucket, key, expiresIn);
+
+    expect(url).toBe("https://signed.example/get-object");
+    expect(presignMocks.getSignedUrl).toHaveBeenCalledTimes(1);
+
+    const callArgs = presignMocks.getSignedUrl.mock.calls[0];
+    expect(callArgs[2]).toEqual({ expiresIn: 7200 });
   });
 });
