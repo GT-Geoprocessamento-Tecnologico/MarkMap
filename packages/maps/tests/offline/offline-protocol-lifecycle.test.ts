@@ -42,5 +42,7 @@ describe('A24 protocol ownership URLs', () => {
     // Protocol registration uses PMTiles.getKey() internally; tiles must be
     // looked up by the isolated map-view ID, not by a shared region ID.
     expect(protocol).toBeDefined();
+    expect(protocol.get('geonexo-offline:mkview42')).toBeDefined();
+    expect(protocol.get('markmap-offline:mkview42')).toBeDefined();
   });
 });

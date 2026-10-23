@@ -19,8 +19,8 @@ const prefix = (() => {
 function leaseFromUrl(scheme, url) {
   if (typeof url !== 'string') return null;
   const expression = scheme === 'pmtiles'
-    ? /^pmtiles:\/\/geonexo-offline:(mk[a-z0-9]+)(?:\/|$)/
-    : /^geonexo-package:\/\/(mk[a-z0-9]+)\//;
+    ? /^pmtiles:\/\/(?:geonexo|markmap)-offline:(mk[a-z0-9]+)(?:\/|$)/
+    : /^(?:geonexo|markmap)-package:\/\/(mk[a-z0-9]+)\//;
   return expression.exec(url)?.[1] ?? null;
 }
 

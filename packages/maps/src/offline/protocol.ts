@@ -16,7 +16,7 @@ export const MAX_ASSET_BYTES = 4 * 1024 * 1024;
 
 export class OfflinePackageSource extends FileSource {
   private readonly key: string;
-  constructor(file: File, packageId: string) { super(file); this.key = `markmap-offline:${packageId}`; }
+  constructor(file: File, packageId: string, prefix = 'markmap-offline') { super(file); this.key = `${prefix}:${packageId}`; }
   override getKey(): string { return this.key; }
   override async getBytes(offset: number, length: number, signal?: AbortSignal): Promise<RangeResponse> {
     assertOfflineByteRange(offset, length, this.file.size, MAX_RANGE_BYTES);
@@ -27,11 +27,12 @@ export class OfflinePackageSource extends FileSource {
   }
 }
 
-export function createOfflinePmtiles(file: File, packageId: string): PMTiles { return new PMTiles(new OfflinePackageSource(file, packageId)); }
+export function createOfflinePmtiles(file: File, packageId: string, prefix = 'markmap-offline'): PMTiles { return new PMTiles(new OfflinePackageSource(file, packageId, prefix)); }
 
 export function createOfflineProtocol(manifest: OfflineMapPackageManifest, file: File, protocolId = manifest.id): Protocol {
   const protocol = new Protocol({ metadata: false });
-  protocol.add(createOfflinePmtiles(file, protocolId));
+  protocol.add(createOfflinePmtiles(file, protocolId, 'markmap-offline'));
+  protocol.add(createOfflinePmtiles(file, protocolId, 'geonexo-offline'));
   return protocol;
 }
 

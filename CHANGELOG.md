@@ -2,6 +2,19 @@
 
 Fonte da versão do aplicativo: `apps/admin/package.json`. Todos os agentes seguem [a política de versionamento](docs/versioning.md). O [histórico documental anterior](docs/changelog.md) permanece preservado.
 
+## [0.5.1] - 2026-10-23
+
+### Alterações
+
+- Corrige a resolução do protocolo de mapas offline registrando simultaneamente as chaves 'markmap-offline' e 'geonexo-offline' na instância do PMTiles.
+- Evita falhas de Fetch API ('URL scheme "geonexo-offline" is not supported') ao carregar pacotes cartográficos e blocos vetoriais locais.
+- Mantém compatibilidade transparente de leases e busca com ambos os esquemas.
+
+### Validação
+
+- 37 suítes de mapas (211 testes) e suíte de leases de protocolos offline (15 testes) aprovadas sem erros.
+- Validação do ciclo de vida dos protocolos e testes de contrato de versão aprovados.
+
 ## [0.5.0] - 2026-10-22
 
 ### Alterações

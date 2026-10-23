@@ -28,7 +28,7 @@ export function collectVisibleMapSearch(
   const bounds = map.getBounds();
   const sourceIds = Object.entries(style.sources ?? {}).filter(([, source]) =>
     source.type === 'vector' && typeof source.url === 'string' &&
-    source.url.startsWith('pmtiles://geonexo-offline:'),
+    (source.url.startsWith('pmtiles://geonexo-offline:') || source.url.startsWith('pmtiles://markmap-offline:')),
   ).slice(0, 4).map(([id]) => id);
   const records: LocalSearchRecord[] = [];
   const seen = new Set<string>();
