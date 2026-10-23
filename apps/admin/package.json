@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc --noEmit && pnpm --filter @markmap/maps test && pnpm --filter admin test && pnpm --filter @markmap/maps lint && pnpm --filter admin lint && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "verify:version": "node ../../scripts/version-release-guard.mjs",
