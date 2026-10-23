@@ -109,8 +109,8 @@ export function parseSigefParcel(feature: any): SigefParcelReport {
       code: v.code || `V-${i + 1}`,
       type,
       coordinate: Array.isArray(v.coord) ? v.coord : coordinates[i] || [0, 0],
-      altitude: Number.isFinite(Number(v.altitude)) ? Number(v.altitude) : undefined,
-      sigmaPositionMeters: sigma,
+      ...(Number.isFinite(Number(v.altitude)) ? { altitude: Number(v.altitude) } : {}),
+      ...(sigma !== undefined ? { sigmaPositionMeters: sigma } : {}),
       isCompliant,
     };
   });
@@ -119,8 +119,8 @@ export function parseSigefParcel(feature: any): SigefParcelReport {
     parcelCode: props.cod_parcela || props.codigo_parcela || props.id,
     denomination: props.denominacao || props.nome_imovel,
     ownerName: props.detentor || props.proprietario,
-    areaHa,
-    areaAlqueiresPaulista,
+    ...(areaHa !== undefined ? { areaHa } : {}),
+    ...(areaAlqueiresPaulista !== undefined ? { areaAlqueiresPaulista } : {}),
     perimeterMeters,
     vertices,
     complianceSummary: {
