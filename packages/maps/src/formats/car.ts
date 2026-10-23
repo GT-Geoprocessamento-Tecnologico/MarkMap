@@ -61,8 +61,8 @@ export interface NormalizedCarFeature {
   municipality?: string;
   state?: string;
   style: CarLayerStyle;
-  rawProperties: Record<string, any>;
-  geometry: any;
+  rawProperties: Record<string, unknown>;
+  geometry: GeoJSON.Geometry | null;
 }
 
 /**
@@ -93,14 +93,15 @@ export function classifyCarLayer(layerNameOrType: string = ""): CarLayerType {
 /**
  * Parses and normalizes a CAR GeoJSON feature collection.
  */
-export function parseCarGeoJson(geoJson: any): NormalizedCarFeature[] {
+export function parseCarGeoJson(geoJson: unknown): NormalizedCarFeature[] {
   if (!geoJson || typeof geoJson !== "object") {
     throw new TypeError("Invalid CAR GeoJSON data");
   }
 
-  const features = geoJson.type === "FeatureCollection" ? geoJson.features : geoJson.type === "Feature" ? [geoJson] : [];
+  const document = geoJson as GeoJSON.FeatureCollection | GeoJSON.Feature;
+  const features = document.type === "FeatureCollection" ? document.features : document.type === "Feature" ? [document] : [];
 
-  return features.map((feature: any, index: number) => {
+  return features.map((feature: GeoJSON.Feature, index: number) => {
     const props = feature.properties || {};
 
     const rawType = props.layer || props.tipo_tema || props.TIPO_IMOVEL || props.nom_tema || props.layerType || "";
@@ -113,7 +114,7 @@ export function parseCarGeoJson(geoJson: any): NormalizedCarFeature[] {
     const state = props.cod_estado || props.uf || props.UF || undefined;
 
     return {
-      id: feature.id || props.gid || `car-feat-${index}`,
+      id: String(feature.id ?? props.gid ?? `car-feat-${index}`),
       carCode,
       layerType,
       status,
