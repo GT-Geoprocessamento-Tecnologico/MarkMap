@@ -17,9 +17,11 @@ export interface BoundaryGuardOptions {
 export class BoundaryGuard extends GeofenceEngine {
   private warningThreshold: number;
   private lastDistances: Map<string, number> = new Map();
+  private readonly boundaryZones: readonly GeofenceZone[];
 
   constructor(zones: GeofenceZone[], options: BoundaryGuardOptions = {}) {
     super(zones);
+    this.boundaryZones = zones.slice();
     this.warningThreshold = options.warningThresholdMeters ?? 50; // default 50 meters
   }
 
@@ -35,10 +37,7 @@ export class BoundaryGuard extends GeofenceEngine {
     const alerts: BoundaryAlert[] = [];
     const now = Date.now();
 
-    // @ts-ignore accessing private zones array via constructor parameter retention
-    const zonesList: GeofenceZone[] = this.zones;
-
-    for (const zone of zonesList) {
+    for (const zone of this.boundaryZones) {
       const minDistance = this.calculateMinDistanceToPolygonMeters(coord, zone.polygon);
       this.lastDistances.set(zone.id, minDistance);
 

@@ -2,9 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   inspectGeoPackageHeader,
   parseGpkgGeometry,
-  parseWkb,
   parseGeoPackageBuffer,
-  MAX_GPKG_IMPORT_BYTES,
 } from "../../src/formats/geopackage.js";
 import { inspectVectorDatasetAsset } from "../../src/offline/package.js";
 
@@ -95,4 +93,27 @@ describe("GeoPackage Reader & WKB Geometry Parser", () => {
     expect(inspection.ok).toBe(true);
     expect(inspection.format).toBe("geopackage");
   });
+  it("never reports an empty successful import for a valid GeoPackage header", async () => {
+    const buffer = new ArrayBuffer(100);
+    new Uint8Array(buffer).set(new TextEncoder().encode("SQLite format 3\0"));
+    new DataView(buffer).setUint32(68, 0x47504b47, false);
+    await expect(parseGeoPackageBuffer(buffer)).rejects.toThrow("ainda não implementada");
+  });
+
+  it("rejects ordinary SQLite containers that are not GeoPackage", async () => {
+    const buffer = new ArrayBuffer(100);
+    new Uint8Array(buffer).set(new TextEncoder().encode("SQLite format 3\0"));
+    await expect(parseGeoPackageBuffer(buffer)).rejects.toThrow("não identificado como GeoPackage");
+  });
+
+  it("handles a truncated SQLite header without out-of-bounds reads", () => {
+    const buffer = new ArrayBuffer(70);
+    new Uint8Array(buffer).set(new TextEncoder().encode("SQLite format 3\0"));
+    expect(inspectGeoPackageHeader(buffer)).toEqual({ isValidSqlite: true });
+  });
+
+  it("rejects unknown coordinate systems rather than emitting incorrect geometry", () => {
+    expect(() => parseGpkgGeometry(createSyntheticGpkgPoint(808500, 9204500, 999999))).toThrow("EPSG:999999");
+  });
+
 });

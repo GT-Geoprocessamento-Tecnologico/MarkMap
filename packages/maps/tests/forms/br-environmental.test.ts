@@ -12,7 +12,7 @@ describe("Brazilian Environmental & Agronomic Field Forms", () => {
     const submission = {
       templateType: "FIRE_OUTBREAK" as const,
       timestamp: Date.now(),
-      coordinate: [-48.2, -15.9],
+      coordinate: [-48.2, -15.9] as [number, number],
       answers: {
         fire_status: "Ativo em propagação",
         affected_area_type: "Pastagem",

@@ -58,7 +58,7 @@ export interface FormSubmission {
   templateType: InspectionTemplateType;
   timestamp: number;
   coordinate: [number, number]; // [lon, lat]
-  answers: Record<string, any>;
+  answers: Record<string, unknown>;
   photoUrls?: string[];
 }
 

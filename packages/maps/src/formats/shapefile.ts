@@ -2,7 +2,6 @@ import {
   transformCoordinates,
   parseEpsgCode,
   EPSG_WGS84,
-  registerEpsgDefinition,
 } from "../crs/epsg.js";
 
 export const MAX_VECTOR_IMPORT_BYTES = 25 * 1024 * 1024;
@@ -141,25 +140,31 @@ async function unzipShapefileArchive(zipBuffer: ArrayBuffer): Promise<ZipFiles> 
  * Extracts EPSG code from PRJ text or registers WKT definition.
  */
 function resolvePrjEpsg(prjText?: string): number {
-  if (!prjText) return EPSG_WGS84;
-  const trimmed = prjText.trim();
-  if (!trimmed) return EPSG_WGS84;
+  const trimmed = prjText?.trim();
+  if (!trimmed) {
+    throw new Error("Shapefile sem .prj: informe o CRS de origem antes de importar.");
+  }
 
-  // Search for AUTHORITY["EPSG","31982"]
-  const authMatch = trimmed.match(/AUTHORITY\s*\[\s*"EPSG"\s*,\s*"(\d+)"\s*\]/i);
-  if (authMatch && authMatch[1]) {
-    const code = parseEpsgCode(authMatch[1]);
+  // For WKT1/WKT2, the outermost EPSG identifier is normally the final one.
+  // The first identifier often describes the nested geographic datum, not
+  // the projected CRS (e.g. EPSG:4674 inside EPSG:31982).
+  const authorities = [...trimmed.matchAll(/\b(?:AUTHORITY|ID)\s*\[\s*["']EPSG["']\s*,\s*["']?(\d+)["']?\s*\]/gi)];
+  const outer = authorities[authorities.length - 1];
+  if (outer?.[1]) {
+    const code = parseEpsgCode(outer[1]);
     if (code) return code;
   }
 
-  // Common keywords
   if (/SIRGAS.*UTM.*22S/i.test(trimmed)) return 31982;
   if (/SIRGAS.*UTM.*23S/i.test(trimmed)) return 31983;
-  if (/SIRGAS.*2000/i.test(trimmed)) return 4674;
-  if (/SAD.*69/i.test(trimmed)) return 4618;
-  if (/WGS.*84/i.test(trimmed)) return EPSG_WGS84;
 
-  return EPSG_WGS84;
+  // Never treat an unidentified projected coordinate system as latitude/longitude.
+  const projected = /\b(?:PROJCS|PROJCRS|PROJECTEDCRS)\b|\bUTM\b|Transverse_Mercator|Mercator/i.test(trimmed);
+  if (!projected && /SIRGAS.*2000/i.test(trimmed)) return 4674;
+  if (!projected && /SAD.*69/i.test(trimmed)) return 4618;
+  if (!projected && /WGS.*84/i.test(trimmed)) return EPSG_WGS84;
+
+  throw new Error("Não foi possível identificar o CRS do arquivo .prj. Importação cancelada para evitar coordenadas incorretas.");
 }
 
 /**
@@ -266,11 +271,8 @@ function parseShpGeometries(
       const x = view.getFloat64(contentOffset + 4, true);
       const y = view.getFloat64(contentOffset + 12, true);
       const pt = transformCoordinates([x, y], sourceEpsg, EPSG_WGS84);
-      if (pt) {
-        geometries.push({ type: "Point", coordinates: [pt[0], pt[1]] });
-      } else {
-        geometries.push(null);
-      }
+      if (!pt) throw new Error("Não foi possível reprojetar um ponto do Shapefile.");
+      geometries.push({ type: "Point", coordinates: [pt[0], pt[1]] });
       continue;
     }
 
@@ -294,7 +296,8 @@ function parseShpGeometries(
           const x = view.getFloat64(ptOffset, true);
           const y = view.getFloat64(ptOffset + 8, true);
           const transformed = transformCoordinates([x, y], sourceEpsg, EPSG_WGS84);
-          if (transformed) line.push([transformed[0], transformed[1]]);
+          if (!transformed) throw new Error("Não foi possível reprojetar uma linha do Shapefile.");
+          line.push([transformed[0], transformed[1]]);
         }
         if (line.length >= 2) lines.push(line);
       }
@@ -328,7 +331,8 @@ function parseShpGeometries(
           const x = view.getFloat64(ptOffset, true);
           const y = view.getFloat64(ptOffset + 8, true);
           const transformed = transformCoordinates([x, y], sourceEpsg, EPSG_WGS84);
-          if (transformed) ring.push([transformed[0], transformed[1]]);
+          if (!transformed) throw new Error("Não foi possível reprojetar um polígono do Shapefile.");
+          ring.push([transformed[0], transformed[1]]);
         }
         if (ring.length >= 4) rings.push(ring);
       }
@@ -340,8 +344,8 @@ function parseShpGeometries(
       continue;
     }
 
-    // Default fallback for unknown shape types
-    geometries.push(null);
+    // Unsupported types must not disappear silently from imported datasets.
+    throw new Error(`Geometria Shapefile de tipo ${shapeType} não suportada. Importação cancelada.`);
   }
 
   return geometries;
@@ -380,6 +384,10 @@ export async function parseShapefileZip(zipBuffer: ArrayBuffer): Promise<GeoJSON
       geometry,
       properties: records[i] ?? {},
     });
+  }
+
+  if (!features.length) {
+    throw new Error("O Shapefile não contém feições importáveis; nenhum dado foi salvo.");
   }
 
   return {

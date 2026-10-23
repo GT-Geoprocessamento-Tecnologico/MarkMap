@@ -2,6 +2,21 @@
 
 Fonte da versão do aplicativo: `apps/admin/package.json`. Todos os agentes seguem [a política de versionamento](docs/versioning.md). O [histórico documental anterior](docs/changelog.md) permanece preservado.
 
+## [0.5.4] - 2026-10-23
+
+### Alterações
+
+- Corrige o bloqueio de compilação TypeScript em SIGEF, testes de datum e formulários ambientais.
+- Corrige classificação de pontos virtuais no SIGEF, preservando os tipos M, P e V.
+- Impede importações GeoPackage que retornavam sucesso sem carregar feições; arquivos ainda não suportados agora recebem erro explícito.
+- Rejeita CRS Shapefile desconhecido e geometrias não compatíveis, evitando georreferenciamento incorreto e perda silenciosa de dados.
+- Remove 15 erros de ESLint dos módulos cartográficos, com tipagem explícita de CAR, SIGEF, datums, formulários e geofencing, sem alterar o armazenamento IndexedDB.
+
+### Validação
+
+- Execução isolada no build da Vercel Hobby: 247 testes Vitest de mapas e 291 testes Vitest do frontend aprovados.
+- TypeScript dos pacotes de mapas e do aplicativo aprovado; ESLint em mapas e frontend com zero erros e seis avisos já existentes no frontend.
+
 ## [0.5.3] - 2026-10-23
 
 ### Alterações

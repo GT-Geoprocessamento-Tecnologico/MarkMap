@@ -41,8 +41,8 @@ export const INCRA_PRECISION_LIMITS: Record<Extract<SigefVertexType, "M" | "P" |
 export function classifySigefVertexType(typeCodeStr: string = ""): SigefVertexType {
   const code = String(typeCodeStr).toUpperCase().trim();
   if (code.startsWith("M") || code.includes("MARCO")) return "M";
-  if (code.startsWith("V") || code.includes("VERTICE")) return "V";
   if (code.startsWith("P") || code.includes("VIRTUAL")) return "P";
+  if (code.startsWith("V") || code.includes("VERTICE")) return "V";
   return "UNKNOWN";
 }
 
@@ -64,19 +64,20 @@ function calculateRingPerimeter(ring: Array<[number, number]>): number {
 /**
  * Parses and audits a SIGEF parcel GeoJSON feature.
  */
-export function parseSigefParcel(feature: any): SigefParcelReport {
-  if (!feature || typeof feature !== "object" || !feature.geometry) {
+export function parseSigefParcel(feature: unknown): SigefParcelReport {
+  if (!feature || typeof feature !== "object" || !("geometry" in feature) || !feature.geometry) {
     throw new TypeError("Invalid SIGEF parcel feature");
   }
 
-  const props = feature.properties || {};
-  const geom = feature.geometry;
+  const parcel = feature as { properties?: Record<string, unknown>; geometry: GeoJSON.Geometry };
+  const props = parcel.properties ?? {};
+  const geom = parcel.geometry;
 
   let coordinates: Array<[number, number]> = [];
   if (geom.type === "Polygon" && Array.isArray(geom.coordinates) && geom.coordinates[0]) {
-    coordinates = geom.coordinates[0];
+    coordinates = geom.coordinates[0] as Array<[number, number]>;
   } else if (geom.type === "MultiPolygon" && Array.isArray(geom.coordinates) && geom.coordinates[0]?.[0]) {
-    coordinates = geom.coordinates[0][0];
+    coordinates = geom.coordinates[0][0] as Array<[number, number]>;
   }
 
   const perimeterMeters = calculateRingPerimeter(coordinates);
@@ -86,7 +87,9 @@ export function parseSigefParcel(feature: any): SigefParcelReport {
   const areaSqMeters = areaHa !== undefined ? areaHa * 10000 : 0;
   const areaAlqueiresPaulista = areaSqMeters > 0 ? Number(convertArea(areaSqMeters, "alqueire_paulista").toFixed(2)) : undefined;
 
-  const rawVertices: any[] = Array.isArray(props.vertices) ? props.vertices : coordinates.map((c, idx) => ({ code: `VERT-${idx + 1}`, coord: c }));
+  const rawVertices: Array<Record<string, unknown>> = Array.isArray(props.vertices)
+    ? props.vertices.filter((vertex: unknown): vertex is Record<string, unknown> => vertex !== null && typeof vertex === "object")
+    : coordinates.map((coord, idx) => ({ code: `VERT-${idx + 1}`, coord }));
 
   let marcoCount = 0;
   let virtualCount = 0;
@@ -94,7 +97,7 @@ export function parseSigefParcel(feature: any): SigefParcelReport {
   let nonCompliantCount = 0;
 
   const vertices: SigefVertex[] = rawVertices.map((v, i) => {
-    const type = classifySigefVertexType(v.type || v.codigo || v.code);
+    const type = classifySigefVertexType(String(v.type ?? v.codigo ?? v.code ?? ""));
     const sigma = Number.isFinite(Number(v.sigma)) ? Number(v.sigma) : undefined;
     const limit = type !== "UNKNOWN" ? INCRA_PRECISION_LIMITS[type] : 0.5;
     const isCompliant = sigma !== undefined ? sigma <= limit : true;
@@ -106,21 +109,27 @@ export function parseSigefParcel(feature: any): SigefParcelReport {
     if (!isCompliant) nonCompliantCount++;
 
     return {
-      code: v.code || `V-${i + 1}`,
+      code: String(v.code ?? `V-${i + 1}`),
       type,
-      coordinate: Array.isArray(v.coord) ? v.coord : coordinates[i] || [0, 0],
-      altitude: Number.isFinite(Number(v.altitude)) ? Number(v.altitude) : undefined,
-      sigmaPositionMeters: sigma,
+      coordinate: Array.isArray(v.coord) && v.coord.length >= 2
+        ? [Number(v.coord[0]), Number(v.coord[1])] as [number, number]
+        : (coordinates[i] ?? [0, 0]),
+      ...(Number.isFinite(Number(v.altitude)) ? { altitude: Number(v.altitude) } : {}),
+      ...(sigma !== undefined ? { sigmaPositionMeters: sigma } : {}),
       isCompliant,
     };
   });
 
+  const parcelCode = props.cod_parcela || props.codigo_parcela || props.id;
+  const denomination = props.denominacao || props.nome_imovel;
+  const ownerName = props.detentor || props.proprietario;
+
   return {
-    parcelCode: props.cod_parcela || props.codigo_parcela || props.id,
-    denomination: props.denominacao || props.nome_imovel,
-    ownerName: props.detentor || props.proprietario,
-    areaHa,
-    areaAlqueiresPaulista,
+    ...(parcelCode != null ? { parcelCode: String(parcelCode) } : {}),
+    ...(denomination != null ? { denomination: String(denomination) } : {}),
+    ...(ownerName != null ? { ownerName: String(ownerName) } : {}),
+    ...(areaHa !== undefined ? { areaHa } : {}),
+    ...(areaAlqueiresPaulista !== undefined ? { areaAlqueiresPaulista } : {}),
     perimeterMeters,
     vertices,
     complianceSummary: {
