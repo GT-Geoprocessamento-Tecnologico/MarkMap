@@ -19,6 +19,9 @@ function position(value: unknown, depth = 0): [number, number] | null {
   return position(value[Math.floor(value.length / 2)], depth + 1);
 }
 
+const isValidName = (value: unknown): value is string =>
+  typeof value === 'string' && value.trim().length > 0 && value.length <= 220;
+
 /** Source queries include cached tile edges; restrict result positions to the displayed area. */
 export function collectVisibleMapSearch(
   map: SearchableMap, regionId: string, regionLabel = '',
@@ -41,10 +44,9 @@ export function collectVisibleMapSearch(
       for (const feature of features) {
         if (++scanned > MAX_SCANNED_FEATURES || records.length >= MAX_VISIBLE_MAP_RECORDS) return records;
         const properties = feature.properties ?? {};
-        const name = [properties['name:pt'], properties.name].find(value =>
-          typeof value === 'string' && value.trim().length > 0 && value.length <= 220,
-        );
-        if (typeof name !== 'string') continue;
+        let name = properties['name:pt'];
+        if (!isValidName(name)) name = properties.name;
+        if (!isValidName(name)) continue;
         const coordinates = position((feature.geometry as { coordinates?: unknown } | null)?.coordinates);
         if (!coordinates || !bounds.contains(coordinates)) continue;
         const record = buildLocalMapSearchRecords([{
