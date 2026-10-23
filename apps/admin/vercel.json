@@ -26,5 +26,6 @@
         }
       ]
     }
-  ]
+  ],
+  "buildCommand": "pnpm turbo run build --filter=admin && pnpm turbo run lint typecheck test --filter=admin..."
 }
