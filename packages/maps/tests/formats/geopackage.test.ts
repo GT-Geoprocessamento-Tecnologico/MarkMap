@@ -2,9 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   inspectGeoPackageHeader,
   parseGpkgGeometry,
-  parseWkb,
   parseGeoPackageBuffer,
-  MAX_GPKG_IMPORT_BYTES,
 } from "../../src/formats/geopackage.js";
 import { inspectVectorDatasetAsset } from "../../src/offline/package.js";
 
