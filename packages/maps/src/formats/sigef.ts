@@ -41,8 +41,8 @@ export const INCRA_PRECISION_LIMITS: Record<Extract<SigefVertexType, "M" | "P" |
 export function classifySigefVertexType(typeCodeStr: string = ""): SigefVertexType {
   const code = String(typeCodeStr).toUpperCase().trim();
   if (code.startsWith("M") || code.includes("MARCO")) return "M";
-  if (code.startsWith("V") || code.includes("VERTICE")) return "V";
   if (code.startsWith("P") || code.includes("VIRTUAL")) return "P";
+  if (code.startsWith("V") || code.includes("VERTICE")) return "V";
   return "UNKNOWN";
 }
 
