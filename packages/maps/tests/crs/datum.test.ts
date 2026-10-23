@@ -42,8 +42,9 @@ describe("Geodetic Datum Transformations (SAD69 / Córrego Alegre -> SIRGAS 2000
     };
 
     const transformed = transformGeoJsonToSirgas2000(featureCollection, "CORREGO_ALEGRE");
-    expect(transformed.features[0].geometry.coordinates[0][0][0]).not.toBe(-48.0);
-    expect(transformed.features[0].properties.name).toBe("Fazenda Primavera");
+    const firstFeature = transformed.features[0]!;
+    expect(firstFeature.geometry.coordinates[0]![0]![0]).not.toBe(-48.0);
+    expect(firstFeature.properties.name).toBe("Fazenda Primavera");
   });
 
   it("throws errors on invalid coordinates or invalid inputs", () => {
