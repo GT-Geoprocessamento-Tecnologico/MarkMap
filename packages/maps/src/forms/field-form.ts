@@ -38,15 +38,27 @@ export interface PhotoAttachment {
 
 const formStore = new Map<string, FieldForm>();
 const photoStore = new Map<string, PhotoAttachment>();
+const featurePhotosIndex = new Map<string, Set<string>>();
 
 export function attachPhotoToFeature(photo: PhotoAttachment): void {
   photoStore.set(photo.id, photo);
+  let featurePhotos = featurePhotosIndex.get(photo.featureId);
+  if (!featurePhotos) {
+    featurePhotos = new Set<string>();
+    featurePhotosIndex.set(photo.featureId, featurePhotos);
+  }
+  featurePhotos.add(photo.id);
 }
 
 export function getPhotosForFeature(featureId: string): PhotoAttachment[] {
+  const featurePhotos = featurePhotosIndex.get(featureId);
+  if (!featurePhotos) {
+    return [];
+  }
   const result: PhotoAttachment[] = [];
-  for (const photo of photoStore.values()) {
-    if (photo.featureId === featureId) {
+  for (const photoId of featurePhotos) {
+    const photo = photoStore.get(photoId);
+    if (photo) {
       result.push(photo);
     }
   }
@@ -54,14 +66,26 @@ export function getPhotosForFeature(featureId: string): PhotoAttachment[] {
 }
 
 export function removePhoto(photoId: string): void {
-  photoStore.delete(photoId);
+  const photo = photoStore.get(photoId);
+  if (photo) {
+    const featurePhotos = featurePhotosIndex.get(photo.featureId);
+    if (featurePhotos) {
+      featurePhotos.delete(photoId);
+      if (featurePhotos.size === 0) {
+        featurePhotosIndex.delete(photo.featureId);
+      }
+    }
+    photoStore.delete(photoId);
+  }
 }
 
 export function clearPhotosForFeature(featureId: string): void {
-  for (const [id, photo] of photoStore.entries()) {
-    if (photo.featureId === featureId) {
-      photoStore.delete(id);
+  const featurePhotos = featurePhotosIndex.get(featureId);
+  if (featurePhotos) {
+    for (const photoId of featurePhotos) {
+      photoStore.delete(photoId);
     }
+    featurePhotosIndex.delete(featureId);
   }
 }
 
