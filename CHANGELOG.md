@@ -2,6 +2,16 @@
 
 Fonte da versão do aplicativo: `apps/admin/package.json`. Todos os agentes seguem [a política de versionamento](docs/versioning.md). O [histórico documental anterior](docs/changelog.md) permanece preservado.
 
+## [0.5.5] - 2026-10-23
+
+### Alterações
+
+- Update version to publish changes as requested by user.
+
+### Validação
+
+- TypeScript e ESLint aprovados, testes unitários aprovados.
+
 ## [0.5.4] - 2026-10-23
 
 ### Alterações
