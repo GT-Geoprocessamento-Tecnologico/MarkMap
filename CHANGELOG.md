@@ -2,6 +2,19 @@
 
 Fonte da versão do aplicativo: `apps/admin/package.json`. Todos os agentes seguem [a política de versionamento](docs/versioning.md). O [histórico documental anterior](docs/changelog.md) permanece preservado.
 
+## [0.5.3] - 2026-10-23
+
+### Alterações
+
+- Integra suporte dinâmico a qualquer código EPSG via Proj4js em @markmap/maps com reprojeção de coordenadas e FeatureCollections GeoJSON.
+- Conecta o parser de Shapefiles (.shp, .dbf, .prj em ZIP) e GeoPackage (.gpkg com WKB e cabeçalho binário OGC) ao ecossistema de mapas offline e fontes vetoriais.
+- Valida 100% das suítes de testes unitários dos módulos de CRS, formatos vetoriais, GNSS/NMEA, unidades de agrimensura e geofencing (Fases 1 a 4).
+
+### Validação
+
+- 38 arquivos de teste e 224 testes aprovados em @markmap/maps com cobertura total dos novos módulos.
+- Build de produção gerado com sucesso para a versão 0.5.3 e verificação estrita de release guard aprovada.
+
 ## [0.5.2] - 2026-10-23
 
 ### Alterações
