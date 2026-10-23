@@ -6,7 +6,6 @@ import {
   partitionByFirstLetter,
   binarySearchPrefix,
   levenshteinDistance,
-  haversineDistanceKm,
   calculateRelevance,
   searchIndex,
   type SearchRecord,
@@ -105,17 +104,6 @@ describe("levenshteinDistance", () => {
   });
 });
 
-describe("haversineDistanceKm", () => {
-  it("returns 0 for same point", () => {
-    expect(haversineDistanceKm(-23.55, -46.63, -23.55, -46.63)).toBe(0);
-  });
-
-  it("computes known distance", () => {
-    const dist = haversineDistanceKm(-23.55, -46.63, -23.56, -46.64);
-    expect(dist).toBeGreaterThan(0);
-    expect(dist).toBeLessThan(5);
-  });
-});
 
 describe("calculateRelevance", () => {
   it("gives 1.0 for exact match", () => {

@@ -1,3 +1,4 @@
+import { haversineDistanceKm } from "../distance.js";
 import type { TransitNetwork, TransitStation, TransitLine } from "@markmap/contracts";
 
 export class TransitStore {
@@ -55,12 +56,12 @@ export class TransitStore {
     const results: TransitStation[] = [];
     if (![lon, lat, radiusKm].every(Number.isFinite) || lon < -180 || lon > 180 || lat < -90 || lat > 90 || radiusKm <= 0) return [];
     for (const station of this.stations.values()) {
-      const dist = haversineKm(lat, lon, station.lat, station.lon);
+      const dist = haversineDistanceKm(lat, lon, station.lat, station.lon);
       if (dist <= radiusKm) results.push(station);
     }
     return results.sort((a, b) => {
-      const da = haversineKm(lat, lon, a.lat, a.lon);
-      const db = haversineKm(lat, lon, b.lat, b.lon);
+      const da = haversineDistanceKm(lat, lon, a.lat, a.lon);
+      const db = haversineDistanceKm(lat, lon, b.lat, b.lon);
       return da - db;
     });
   }
@@ -74,14 +75,3 @@ export class TransitStore {
   }
 }
 
-function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}

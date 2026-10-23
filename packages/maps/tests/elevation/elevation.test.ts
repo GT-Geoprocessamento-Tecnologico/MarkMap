@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { sampleDem, sampleDemBilinear } from "../../src/elevation/dem.js";
-import { computeElevationProfile, haversineDistanceKm } from "../../src/elevation/profile.js";
+import { computeElevationProfile } from "../../src/elevation/profile.js";
 import { generateContours } from "../../src/elevation/contours.js";
 import type { DemMetadata } from "@markmap/contracts";
 
@@ -87,15 +87,6 @@ describe("computeElevationProfile", () => {
   });
 });
 
-describe("haversineDistanceKm", () => {
-  it("returns 0 for same point", () => {
-    expect(haversineDistanceKm(-23.55, -46.63, -23.55, -46.63)).toBe(0);
-  });
-
-  it("computes positive distance", () => {
-    expect(haversineDistanceKm(-23.55, -46.63, -23.56, -46.64)).toBeGreaterThan(0);
-  });
-});
 
 describe("generateContours", () => {
   it("generates contours at specified interval", () => {
