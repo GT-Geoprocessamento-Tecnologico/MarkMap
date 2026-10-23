@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ensureLocationPermission, isLocationPermissionGranted } from "./device-location-permission";
+import {
+  ensureLocationPermission,
+  isLocationPermissionGranted,
+} from "./device-location-permission";
 
 const checkPermissions = vi.fn();
 const requestPermissions = vi.fn();
@@ -34,14 +37,18 @@ describe("ensureLocationPermission", () => {
   });
 
   it("resolves granted on the web without touching the native plugin", async () => {
-    await expect(ensureLocationPermission()).resolves.toEqual({ state: "granted" });
+    await expect(ensureLocationPermission()).resolves.toEqual({
+      state: "granted",
+    });
     expect(checkPermissions).not.toHaveBeenCalled();
     expect(requestPermissions).not.toHaveBeenCalled();
   });
 
   it("treats a Capacitor global reporting web as a no-op", async () => {
     setCapacitorGlobal({ isNativePlatform: () => false });
-    await expect(ensureLocationPermission()).resolves.toEqual({ state: "granted" });
+    await expect(ensureLocationPermission()).resolves.toEqual({
+      state: "granted",
+    });
     expect(checkPermissions).not.toHaveBeenCalled();
   });
 
@@ -49,7 +56,9 @@ describe("ensureLocationPermission", () => {
     setCapacitorGlobal({ getPlatform: () => "android" });
     checkPermissions.mockResolvedValue({ location: "granted" });
 
-    await expect(ensureLocationPermission()).resolves.toEqual({ state: "granted" });
+    await expect(ensureLocationPermission()).resolves.toEqual({
+      state: "granted",
+    });
     expect(requestPermissions).not.toHaveBeenCalled();
   });
 
@@ -58,8 +67,12 @@ describe("ensureLocationPermission", () => {
     checkPermissions.mockResolvedValue({ location: "prompt" });
     requestPermissions.mockResolvedValue({ location: "granted" });
 
-    await expect(ensureLocationPermission()).resolves.toEqual({ state: "granted" });
-    expect(requestPermissions).toHaveBeenCalledWith({ permissions: ["location"] });
+    await expect(ensureLocationPermission()).resolves.toEqual({
+      state: "granted",
+    });
+    expect(requestPermissions).toHaveBeenCalledWith({
+      permissions: ["location"],
+    });
   });
 
   it("reports denied when the user refuses the native prompt", async () => {

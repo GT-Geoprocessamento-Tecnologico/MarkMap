@@ -9,22 +9,30 @@
  */
 
 import { offlineMapStore } from "./offline-map-store";
-import { offlineMapPackageManifestSchema, type OfflineMapPackageManifest } from "@markmap/contracts";
+import {
+  offlineMapPackageManifestSchema,
+  type OfflineMapPackageManifest,
+} from "@markmap/contracts";
 import { getSelectedOfflineMapId } from "./offline-map-selection";
 import { validateOfflinePackage } from "@markmap/maps/offline/package";
-import { fetchRemoteRegionManifest } from './remote-region-manifest.mjs';
-import { ResumableInstaller } from './resumable-installer';
-import { getRegionSourceUrl } from './region-source-registry';
-import { compareRegionVersions } from './region-version';
-import { fingerprintRegionManifest, matchesRegionUpdatePreview, type RegionUpdatePreview } from './region-update-identity.mjs';
-export type { RegionUpdatePreview } from './region-update-identity.mjs';
-import { version as appVersion } from '../../../package.json';
+import { fetchRemoteRegionManifest } from "./remote-region-manifest.mjs";
+import { ResumableInstaller } from "./resumable-installer";
+import { getRegionSourceUrl } from "./region-source-registry";
+import { compareRegionVersions } from "./region-version";
+import {
+  fingerprintRegionManifest,
+  matchesRegionUpdatePreview,
+  type RegionUpdatePreview,
+} from "./region-update-identity.mjs";
+export type { RegionUpdatePreview } from "./region-update-identity.mjs";
+import { version as appVersion } from "../../../package.json";
 
 /** Tipo de operação de região */
 export type RegionOperation = "list" | "remove" | "repair" | "details";
 
 /** Status da região */
-export type RegionStatus = "installed" | "updating" | "active" | "error" | "removed";
+export type RegionStatus =
+  "installed" | "updating" | "active" | "error" | "removed";
 
 export interface RegionInfo {
   id: string;
@@ -87,20 +95,34 @@ export class RegionManager {
       for (const pkg of packages) {
         try {
           const manifest = pkg.manifest;
-          const status: RegionStatus = getSelectedOfflineMapId() === manifest.id ? 'active' : 'installed';
+          const status: RegionStatus =
+            getSelectedOfflineMapId() === manifest.id ? "active" : "installed";
 
           regions.push({
             id: manifest.id,
             version: manifest.packageVersion || manifest.version,
             label: manifest.label || manifest.id,
-            size: manifest.totalBytes || (manifest.archive.bytes + manifest.style.blob.bytes + manifest.glyphs.reduce((n: number, a: { blob: { bytes: number } }) => n + a.blob.bytes, 0) + manifest.sprites.reduce((n: number, a: { blob: { bytes: number } }) => n + a.blob.bytes, 0)),
+            size:
+              manifest.totalBytes ||
+              manifest.archive.bytes +
+                manifest.style.blob.bytes +
+                manifest.glyphs.reduce(
+                  (n: number, a: { blob: { bytes: number } }) =>
+                    n + a.blob.bytes,
+                  0,
+                ) +
+                manifest.sprites.reduce(
+                  (n: number, a: { blob: { bytes: number } }) =>
+                    n + a.blob.bytes,
+                  0,
+                ),
             date: manifest.osmDataDate || pkg.installedAt,
             status,
             manifest: manifest,
             manifestPath: `/offline/${manifest.id}/manifest.json`,
             lastActivated: pkg.installedAt,
             lastUsed: pkg.installedAt,
-            removable: status !== 'active',
+            removable: status !== "active",
             repairRequired: this.requiresRepair(manifest),
             licenses: this.extractLicenses(manifest),
           });
@@ -125,7 +147,10 @@ export class RegionManager {
   }
 
   /** Aplicar filtros de listagem sobre o conjunto completo de regiões */
-  private applyFilter(regions: RegionInfo[], filter?: RegionFilter): RegionInfo[] {
+  private applyFilter(
+    regions: RegionInfo[],
+    filter?: RegionFilter,
+  ): RegionInfo[] {
     if (!filter) return regions;
 
     let result = regions;
@@ -150,7 +175,9 @@ export class RegionManager {
     }
 
     if (filter.maxSize !== undefined) {
-      result = result.filter((region) => region.size <= (filter.maxSize ?? Number.MAX_SAFE_INTEGER));
+      result = result.filter(
+        (region) => region.size <= (filter.maxSize ?? Number.MAX_SAFE_INTEGER),
+      );
     }
 
     return result;
@@ -164,7 +191,9 @@ export class RegionManager {
   }
 
   /** Extrair licenças do manifest */
-  private extractLicenses(manifest: OfflineMapPackageManifest): Array<{ name: string; url: string }> {
+  private extractLicenses(
+    manifest: OfflineMapPackageManifest,
+  ): Array<{ name: string; url: string }> {
     const licenses: Array<{ name: string; url: string }> = [];
 
     // Mostrar as atribuições reais do pacote, não atribuir OSM a qualquer origem.
@@ -183,11 +212,22 @@ export class RegionManager {
       const list = await this.listRegions();
       const region = list.regions.find((r) => r.id === regionId);
       if (!region) {
-        return { success: false, regionId, freedBytes: 0, message: "Região não encontrada" };
+        return {
+          success: false,
+          regionId,
+          freedBytes: 0,
+          message: "Região não encontrada",
+        };
       }
 
       if (!region.removable) {
-        return { success: false, regionId, freedBytes: 0, message: "A regiao ativa nao pode ser removida. Selecione outra primeiro." };
+        return {
+          success: false,
+          regionId,
+          freedBytes: 0,
+          message:
+            "A regiao ativa nao pode ser removida. Selecione outra primeiro.",
+        };
       }
       await offlineMapStore.remove(regionId);
 
@@ -202,7 +242,8 @@ export class RegionManager {
         success: false,
         regionId,
         freedBytes: 0,
-        message: error instanceof Error ? error.message : "Erro ao remover região",
+        message:
+          error instanceof Error ? error.message : "Erro ao remover região",
       };
     }
   }
@@ -214,45 +255,79 @@ export class RegionManager {
       const list = await this.listRegions();
       const region = list.regions.find((r) => r.id === regionId);
       if (!region) {
-        return { success: false, regionId, message: "Região não encontrada", repairedFiles: 0 };
+        return {
+          success: false,
+          regionId,
+          message: "Região não encontrada",
+          repairedFiles: 0,
+        };
       }
 
-      const manifestValidate = offlineMapPackageManifestSchema.safeParse(region.manifest);
+      const manifestValidate = offlineMapPackageManifestSchema.safeParse(
+        region.manifest,
+      );
       if (!manifestValidate.success) {
-        return { success: false, regionId,
-          message: "Manifest invalido. Reinstale a regiao a partir de fonte confiavel.", repairedFiles: 0 };
+        return {
+          success: false,
+          regionId,
+          message:
+            "Manifest invalido. Reinstale a regiao a partir de fonte confiavel.",
+          repairedFiles: 0,
+        };
       }
       const manifest = manifestValidate.data;
       const assets = new Map<string, Blob>();
-      const refs = [manifest.style, ...manifest.glyphs, ...manifest.sprites,
+      const refs = [
+        manifest.style,
+        ...manifest.glyphs,
+        ...manifest.sprites,
         ...(manifest.searchShards ?? []),
         ...(manifest.routingGraph ? [manifest.routingGraph] : []),
         ...(manifest.contourLines ? [manifest.contourLines] : []),
         ...(manifest.wikipediaPack ? [manifest.wikipediaPack] : []),
         ...(manifest.transitPack ? [manifest.transitPack] : []),
-        ...(manifest.demGrid ? [manifest.demGrid] : [])];
-      for (const path of ['package.pmtiles', ...refs.map((ref) => ref.path)]) {
+        ...(manifest.demGrid ? [manifest.demGrid] : []),
+      ];
+      for (const path of ["package.pmtiles", ...refs.map((ref) => ref.path)]) {
         const blob = await offlineMapStore.asset(regionId, path);
-        if (!blob) return { success: false, regionId, message: `Arquivo ausente no pacote: ${path}`, repairedFiles: 0 };
+        if (!blob)
+          return {
+            success: false,
+            regionId,
+            message: `Arquivo ausente no pacote: ${path}`,
+            repairedFiles: 0,
+          };
         assets.set(path, blob);
       }
       const verified = await validateOfflinePackage(manifest, assets);
-      if (!verified.ok) return { success: false, regionId,
-        message: `Falha de integridade: ${verified.code}. Reinstale a regiao.`, repairedFiles: 0 };
-      return { success: true, regionId,
-        message: "Integridade do pacote verificada; nenhum reparo necessario", repairedFiles: 0 };
+      if (!verified.ok)
+        return {
+          success: false,
+          regionId,
+          message: `Falha de integridade: ${verified.code}. Reinstale a regiao.`,
+          repairedFiles: 0,
+        };
+      return {
+        success: true,
+        regionId,
+        message: "Integridade do pacote verificada; nenhum reparo necessario",
+        repairedFiles: 0,
+      };
     } catch (error) {
       return {
         success: false,
         regionId,
-        message: error instanceof Error ? error.message : "Erro ao reparar região",
+        message:
+          error instanceof Error ? error.message : "Erro ao reparar região",
         repairedFiles: 0,
       };
     }
   }
 
   /** Obter detalhes de uma região */
-  async getRegionDetails(regionId: string): Promise<{ success: boolean; region: RegionInfo | null }> {
+  async getRegionDetails(
+    regionId: string,
+  ): Promise<{ success: boolean; region: RegionInfo | null }> {
     try {
       const list = await this.listRegions();
       const region = list.regions.find((r) => r.id === regionId);
@@ -266,68 +341,144 @@ export class RegionManager {
   }
 
   /** Check a user-configured HTTPS manifest without modifying installed data. */
-  async checkUpdateAvailable(regionId: string): Promise<{ hasUpdate: boolean; updateInfo: Record<string, unknown> }> {
-    const unavailable = (reason: string) => ({ hasUpdate: false, updateInfo: { status: 'unavailable', reason } });
-    const installed = await offlineMapStore.getActiveRevision(regionId).catch(() => null);
-    if (!installed) return unavailable('Região não encontrada neste dispositivo.');
+  async checkUpdateAvailable(
+    regionId: string,
+  ): Promise<{ hasUpdate: boolean; updateInfo: Record<string, unknown> }> {
+    const unavailable = (reason: string) => ({
+      hasUpdate: false,
+      updateInfo: { status: "unavailable", reason },
+    });
+    const installed = await offlineMapStore
+      .getActiveRevision(regionId)
+      .catch(() => null);
+    if (!installed)
+      return unavailable("Região não encontrada neste dispositivo.");
     const source = getRegionSourceUrl(regionId);
-    if (!source) return unavailable('Instale a região a partir de uma URL HTTPS para ativar atualizações.');
-    if (typeof navigator !== 'undefined' && navigator.onLine === false)
-      return unavailable('Conecte-se para consultar novas versões. O mapa instalado permanece offline.');
+    if (!source)
+      return unavailable(
+        "Instale a região a partir de uma URL HTTPS para ativar atualizações.",
+      );
+    if (typeof navigator !== "undefined" && navigator.onLine === false)
+      return unavailable(
+        "Conecte-se para consultar novas versões. O mapa instalado permanece offline.",
+      );
     try {
       const remote = await fetchRemoteRegionManifest(source);
       const parsed = offlineMapPackageManifestSchema.safeParse(remote.manifest);
       if (!parsed.success || parsed.data.id !== regionId)
-        return unavailable('Manifest remoto incompatível ou de outra região.');
+        return unavailable("Manifest remoto incompatível ou de outra região.");
       const current = installed.manifest;
       const next = parsed.data;
-      const order = compareRegionVersions(next.packageVersion, current.packageVersion);
-      if (order === null) return unavailable('Versões regionais precisam seguir MAJOR.MINOR.PATCH.');
-      if (order <= 0) return { hasUpdate: false, updateInfo: {
-        status: order < 0 ? 'older' : 'current', installedVersion: current.packageVersion,
-        availableVersion: next.packageVersion,
-      } };
-      const compatibility = compareRegionVersions(next.minimumCompatibleVersion, appVersion);
+      const order = compareRegionVersions(
+        next.packageVersion,
+        current.packageVersion,
+      );
+      if (order === null)
+        return unavailable(
+          "Versões regionais precisam seguir MAJOR.MINOR.PATCH.",
+        );
+      if (order <= 0)
+        return {
+          hasUpdate: false,
+          updateInfo: {
+            status: order < 0 ? "older" : "current",
+            installedVersion: current.packageVersion,
+            availableVersion: next.packageVersion,
+          },
+        };
+      const compatibility = compareRegionVersions(
+        next.minimumCompatibleVersion,
+        appVersion,
+      );
       if (compatibility === null || compatibility > 0)
-        return unavailable('Este mapa exige um protocolo de aplicativo mais recente. Atualize o MarkMap primeiro.');
-      return { hasUpdate: true, updateInfo: {
-        status: 'available', installedVersion: current.packageVersion,
-        availableVersion: next.packageVersion, bytes: next.totalBytes,
-        sourceUrl: source, manifestFingerprint: fingerprintRegionManifest(next),
-        installedGeneration: installed.generation,
-      } };
+        return unavailable(
+          "Este mapa exige um protocolo de aplicativo mais recente. Atualize o MarkMap primeiro.",
+        );
+      return {
+        hasUpdate: true,
+        updateInfo: {
+          status: "available",
+          installedVersion: current.packageVersion,
+          availableVersion: next.packageVersion,
+          bytes: next.totalBytes,
+          sourceUrl: source,
+          manifestFingerprint: fingerprintRegionManifest(next),
+          installedGeneration: installed.generation,
+        },
+      };
     } catch (cause) {
-      return unavailable(cause instanceof Error ? cause.message : 'Falha ao consultar o catálogo regional.');
+      return unavailable(
+        cause instanceof Error
+          ? cause.message
+          : "Falha ao consultar o catálogo regional.",
+      );
     }
   }
 
   /** Apply only after an explicit click. The installer verifies all bytes before activation. */
-  async applyUpdate(regionId: string, expected?: RegionUpdatePreview): Promise<{ success: boolean; message: string }> {
-    if (!expected) return { success: false, message: 'Consulte a nova versão antes de confirmar uma atualização.' };
+  async applyUpdate(
+    regionId: string,
+    expected?: RegionUpdatePreview,
+  ): Promise<{ success: boolean; message: string }> {
+    if (!expected)
+      return {
+        success: false,
+        message: "Consulte a nova versão antes de confirmar uma atualização.",
+      };
     const source = getRegionSourceUrl(regionId);
-    if (!source || source !== expected.sourceUrl) return { success: false, message: 'Fonte alterada. Consulte novamente antes de atualizar.' };
+    if (!source || source !== expected.sourceUrl)
+      return {
+        success: false,
+        message: "Fonte alterada. Consulte novamente antes de atualizar.",
+      };
     try {
       const remote = await fetchRemoteRegionManifest(source);
       const manifest = offlineMapPackageManifestSchema.parse(remote.manifest);
       const installed = await offlineMapStore.getActiveRevision(regionId);
-      if (!installed || manifest.id !== regionId ||
-          compareRegionVersions(manifest.packageVersion, installed.manifest.packageVersion) !== 1 ||
-          (compareRegionVersions(manifest.minimumCompatibleVersion, appVersion) ?? 1) > 0 ||
-          !matchesRegionUpdatePreview(manifest, source, installed.manifest.packageVersion, expected, installed.generation))
-        return { success: false, message: 'A versão, origem ou algum arquivo mudou. Consulte novamente antes de instalar.' };
+      if (
+        !installed ||
+        manifest.id !== regionId ||
+        compareRegionVersions(
+          manifest.packageVersion,
+          installed.manifest.packageVersion,
+        ) !== 1 ||
+        (compareRegionVersions(manifest.minimumCompatibleVersion, appVersion) ??
+          1) > 0 ||
+        !matchesRegionUpdatePreview(
+          manifest,
+          source,
+          installed.manifest.packageVersion,
+          expected,
+          installed.generation,
+        )
+      )
+        return {
+          success: false,
+          message:
+            "A versão, origem ou algum arquivo mudou. Consulte novamente antes de instalar.",
+        };
       const installer = new ResumableInstaller();
-      const result = await installer.startInstall({ packageId: regionId,
-        manifest: { ...manifest, archivePath: 'package.pmtiles' },
-        baseUrl: remote.baseUrl, forceValidate: true,
-        expectedActiveGeneration: expected.installedGeneration });
+      const result = await installer.startInstall({
+        packageId: regionId,
+        manifest: { ...manifest, archivePath: "package.pmtiles" },
+        baseUrl: remote.baseUrl,
+        forceValidate: true,
+        expectedActiveGeneration: expected.installedGeneration,
+      });
       return result.success
-        ? { success: true, message: `Região ${manifest.label} atualizada para ${manifest.packageVersion}.` }
+        ? {
+            success: true,
+            message: `Região ${manifest.label} atualizada para ${manifest.packageVersion}.`,
+          }
         : { success: false, message: result.error.message };
     } catch (cause) {
-      return { success: false, message: cause instanceof Error ? cause.message : 'Falha ao atualizar região.' };
+      return {
+        success: false,
+        message:
+          cause instanceof Error ? cause.message : "Falha ao atualizar região.",
+      };
     }
   }
-
 }
 
 export default RegionManager;

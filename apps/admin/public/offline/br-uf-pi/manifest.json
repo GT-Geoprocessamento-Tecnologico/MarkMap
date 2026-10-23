@@ -2,12 +2,7 @@
   "id": "br-uf-pi",
   "version": "1.0.0-brazil.20261019",
   "label": "Piauí — mapa offline",
-  "bounds": [
-    -46.0124,
-    -10.919,
-    -40.3705,
-    -2.7573
-  ],
+  "bounds": [-46.0124, -10.919, -40.3705, -2.7573],
   "minZoom": 0,
   "maxZoom": 9,
   "archive": {
@@ -31,9 +26,7 @@
   "createdAt": "2026-10-19T22:49:35.083Z",
   "packageVersion": "1.0.0-brazil.20261019",
   "osmDataDate": "2026-10-19T04:00:00.000Z",
-  "capabilities": [
-    "basemap"
-  ],
+  "capabilities": ["basemap"],
   "checksums": {
     "archive": "c0c8924aec3d356d6a6484c6dd9b7530bf3378045fbffb20e640b1f92771ac84",
     "style": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",

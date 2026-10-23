@@ -29,7 +29,8 @@ const plistPath = process.argv[2]
   : resolve(appRoot, "ios/App/App/Info.plist");
 
 /** Monta o par chave/valor com a indentação usada pelo plist gerado. */
-const entry = ([key, value]) => `\t<key>${key}</key>\n\t<string>${value}</string>`;
+const entry = ([key, value]) =>
+  `\t<key>${key}</key>\n\t<string>${value}</string>`;
 
 /** Atualiza uma chave string existente sem duplicá-la; falha em chaves malformadas. */
 const upsertString = (plist, key, value) => {

@@ -1,10 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { PWA_UPDATE_REQUEST, type AppUpdateRequest, type AppUpdateResult } from "../../lib/pwa-update-request";
+import {
+  PWA_UPDATE_REQUEST,
+  type AppUpdateRequest,
+  type AppUpdateResult,
+} from "../../lib/pwa-update-request";
 import { AppIcon } from "../AppIcon";
 
 /** Ask the WAITING worker for protocol information; do not infer it from network status. */
-async function waitingWorkerCompatible(waiting: ServiceWorker): Promise<boolean> {
-  if (typeof MessageChannel === 'undefined') return false;
+async function waitingWorkerCompatible(
+  waiting: ServiceWorker,
+): Promise<boolean> {
+  if (typeof MessageChannel === "undefined") return false;
   return new Promise((resolve) => {
     const channel = new MessageChannel();
     let settled = false;
@@ -12,29 +18,48 @@ async function waitingWorkerCompatible(waiting: ServiceWorker): Promise<boolean>
       if (settled) return;
       settled = true;
       clearTimeout(timeout);
-      try { channel.port1.close(); channel.port2.close(); }
-      finally { resolve(ok); }
+      try {
+        channel.port1.close();
+        channel.port2.close();
+      } finally {
+        resolve(ok);
+      }
     };
     const timeout = setTimeout(() => finish(false), 4000);
-    channel.port1.onmessage = (event: MessageEvent<{
-      type?: string; shellProtocolVersion?: number; localSchemaVersion?: number;
-      regionPackageSchemaVersion?: number;
-    }>) => {
+    channel.port1.onmessage = (
+      event: MessageEvent<{
+        type?: string;
+        shellProtocolVersion?: number;
+        localSchemaVersion?: number;
+        regionPackageSchemaVersion?: number;
+      }>,
+    ) => {
       const data = event.data;
-      finish(data?.type === 'MARKMAP_COMPATIBILITY' &&
-        data.shellProtocolVersion === 1 && data.localSchemaVersion === 1 &&
-        data.regionPackageSchemaVersion === 2);
+      finish(
+        data?.type === "MARKMAP_COMPATIBILITY" &&
+          data.shellProtocolVersion === 1 &&
+          data.localSchemaVersion === 1 &&
+          data.regionPackageSchemaVersion === 2,
+      );
     };
-    try { waiting.postMessage({ type: 'CHECK_COMPATIBILITY' }, [channel.port2]); }
-    catch { finish(false); }
+    try {
+      waiting.postMessage({ type: "CHECK_COMPATIBILITY" }, [channel.port2]);
+    } catch {
+      finish(false);
+    }
   });
 }
 
-
 /** Wait for an in-progress installation before deciding whether an update exists. */
-async function waitForInstallation(registration: ServiceWorkerRegistration): Promise<void> {
+async function waitForInstallation(
+  registration: ServiceWorkerRegistration,
+): Promise<void> {
   const installing = registration.installing;
-  if (!installing || ["installed", "activated", "redundant"].includes(installing.state)) return;
+  if (
+    !installing ||
+    ["installed", "activated", "redundant"].includes(installing.state)
+  )
+    return;
   await new Promise<void>((resolve) => {
     let finished = false;
     const done = () => {
@@ -45,7 +70,8 @@ async function waitForInstallation(registration: ServiceWorkerRegistration): Pro
       resolve();
     };
     const onStateChange = () => {
-      if (["installed", "activated", "redundant"].includes(installing.state)) done();
+      if (["installed", "activated", "redundant"].includes(installing.state))
+        done();
     };
     const timeout = setTimeout(done, 15000);
     installing.addEventListener("statechange", onStateChange);
@@ -65,57 +91,71 @@ export function UpdatePrompt({
   durableWritesReady = () => false,
   compatibilityReady = () => false,
 }: UpdatePromptProps) {
-  const [registration, setRegistration] = useState<ServiceWorkerRegistration | null>(null);
+  const [registration, setRegistration] =
+    useState<ServiceWorkerRegistration | null>(null);
   const [busy, setBusy] = useState(false);
   const activationApproved = useRef(false);
   const reloadStarted = useRef(false);
   const [error, setError] = useState<string | null>(null);
-  const [dismissedVersion, setDismissedVersion] = useState<ServiceWorker | null>(null);
+  const [dismissedVersion, setDismissedVersion] =
+    useState<ServiceWorker | null>(null);
 
-  const accept = useCallback(async (target: ServiceWorkerRegistration): Promise<AppUpdateResult> => {
-    const waiting = target.waiting;
-    if (!waiting) return { status: "current" };
-    setBusy(true);
-    setError(null);
-    try {
-      const [writesReady, appCompatible, workerCompatible] = await Promise.all([
-        durableWritesReady(), compatibilityReady(), waitingWorkerCompatible(waiting),
-      ]);
-      if (!writesReady || !appCompatible) {
-        const message = "Os dados locais ainda não estão prontos. Salve as alterações antes de atualizar.";
-        setError(message);
-        return { status: "error", message };
-      }
-      if (!workerCompatible) {
-        const message = "Esta versão não confirmou compatibilidade dos dados locais. Atualização bloqueada por segurança.";
-        setError(message);
-        return { status: "error", message };
-      }
-      if (target.waiting !== waiting || waiting.state !== "installed") {
-        const message = "A versão disponível mudou. Verifique novamente antes de atualizar.";
-        setError(message);
-        return { status: "error", message };
-      }
-      activationApproved.current = true;
+  const accept = useCallback(
+    async (target: ServiceWorkerRegistration): Promise<AppUpdateResult> => {
+      const waiting = target.waiting;
+      if (!waiting) return { status: "current" };
+      setBusy(true);
+      setError(null);
       try {
-        waiting.postMessage({
-          type: "SKIP_WAITING",
-          durableWritesReady: true,
-          compatibilityVersion: 1,
-        });
+        const [writesReady, appCompatible, workerCompatible] =
+          await Promise.all([
+            durableWritesReady(),
+            compatibilityReady(),
+            waitingWorkerCompatible(waiting),
+          ]);
+        if (!writesReady || !appCompatible) {
+          const message =
+            "Os dados locais ainda não estão prontos. Salve as alterações antes de atualizar.";
+          setError(message);
+          return { status: "error", message };
+        }
+        if (!workerCompatible) {
+          const message =
+            "Esta versão não confirmou compatibilidade dos dados locais. Atualização bloqueada por segurança.";
+          setError(message);
+          return { status: "error", message };
+        }
+        if (target.waiting !== waiting || waiting.state !== "installed") {
+          const message =
+            "A versão disponível mudou. Verifique novamente antes de atualizar.";
+          setError(message);
+          return { status: "error", message };
+        }
+        activationApproved.current = true;
+        try {
+          waiting.postMessage({
+            type: "SKIP_WAITING",
+            durableWritesReady: true,
+            compatibilityVersion: 1,
+          });
+        } catch (cause) {
+          activationApproved.current = false;
+          throw cause;
+        }
+        return { status: "updating" };
       } catch (cause) {
-        activationApproved.current = false;
-        throw cause;
+        const message =
+          cause instanceof Error
+            ? cause.message
+            : "Não foi possível ativar a atualização com segurança.";
+        setError(message);
+        return { status: "error", message };
+      } finally {
+        setBusy(false);
       }
-      return { status: "updating" };
-    } catch (cause) {
-      const message = cause instanceof Error ? cause.message : "Não foi possível ativar a atualização com segurança.";
-      setError(message);
-      return { status: "error", message };
-    } finally {
-      setBusy(false);
-    }
-  }, [durableWritesReady, compatibilityReady]);
+    },
+    [durableWritesReady, compatibilityReady],
+  );
 
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return undefined;
@@ -173,17 +213,25 @@ export function UpdatePrompt({
       }, 300000);
     };
 
-    navigator.serviceWorker.addEventListener("controllerchange", onControllerChange);
+    navigator.serviceWorker.addEventListener(
+      "controllerchange",
+      onControllerChange,
+    );
     void navigator.serviceWorker.ready.then((ready) => {
       if (disposed) return;
       // Only a worker registered for this document's scope can prompt activation.
       if (!window.location.href.startsWith(ready.scope)) return;
-      if (ready.waiting && ready.waiting !== dismissedVersion) setRegistration(ready);
+      if (ready.waiting && ready.waiting !== dismissedVersion)
+        setRegistration(ready);
       ready.addEventListener("updatefound", () => {
         const worker = ready.installing;
         if (!worker) return;
         worker.addEventListener("statechange", () => {
-          if (!disposed && worker.state === "installed" && navigator.serviceWorker.controller) {
+          if (
+            !disposed &&
+            worker.state === "installed" &&
+            navigator.serviceWorker.controller
+          ) {
             setRegistration(ready);
           }
         });
@@ -197,12 +245,19 @@ export function UpdatePrompt({
       if (typeof event.detail?.respond !== "function") return;
       event.preventDefault();
       void (async (): Promise<AppUpdateResult> => {
-        if (!("serviceWorker" in navigator) || !navigator.serviceWorker.controller) {
+        if (
+          !("serviceWorker" in navigator) ||
+          !navigator.serviceWorker.controller
+        ) {
           return { status: "unavailable" };
         }
         if (!navigator.onLine) return { status: "offline" };
         const ready = await navigator.serviceWorker.ready;
-        if (disposed || !window.location.href.startsWith(ready.scope) || typeof ready.update !== "function") {
+        if (
+          disposed ||
+          !window.location.href.startsWith(ready.scope) ||
+          typeof ready.update !== "function"
+        ) {
           return { status: "unavailable" };
         }
         try {
@@ -214,13 +269,17 @@ export function UpdatePrompt({
         }
         await waitForInstallation(ready);
         if (disposed) return { status: "unavailable" };
-        if (!ready.waiting) return { status: ready.installing ? "pending" : "current" };
+        if (!ready.waiting)
+          return { status: ready.installing ? "pending" : "current" };
         setRegistration(ready);
         return accept(ready);
       })().then(event.detail.respond, (cause: unknown) => {
         event.detail.respond({
           status: "error",
-          message: cause instanceof Error ? cause.message : "Falha ao verificar atualização.",
+          message:
+            cause instanceof Error
+              ? cause.message
+              : "Falha ao verificar atualização.",
         });
       });
     };
@@ -231,7 +290,10 @@ export function UpdatePrompt({
 
     return () => {
       disposed = true;
-      navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange);
+      navigator.serviceWorker.removeEventListener(
+        "controllerchange",
+        onControllerChange,
+      );
       window.removeEventListener(PWA_UPDATE_REQUEST, onManualUpdate);
       window.removeEventListener("online", goOnline);
       document.removeEventListener("visibilitychange", onVisibilityChange);
@@ -263,12 +325,17 @@ export function UpdatePrompt({
           <AppIcon name="sync" size="lg" />
         </span>
         <div>
-          <span className="pwa-update-prompt__eyebrow">ATUALIZAÇÃO DISPONÍVEL</span>
-          <strong className="pwa-update-prompt__title">MarkMap tem novidades</strong>
+          <span className="pwa-update-prompt__eyebrow">
+            ATUALIZAÇÃO DISPONÍVEL
+          </span>
+          <strong className="pwa-update-prompt__title">
+            MarkMap tem novidades
+          </strong>
         </div>
       </div>
       <p className="pwa-update-prompt__description">
-        Uma nova versão está pronta. Verificamos seus dados locais antes de atualizar.
+        Uma nova versão está pronta. Verificamos seus dados locais antes de
+        atualizar.
       </p>
       {error && (
         <p role="alert" className="pwa-update-prompt__error">
@@ -295,7 +362,9 @@ export function UpdatePrompt({
           Depois
         </button>
       </div>
-      <span className="pwa-update-prompt__note">Você escolhe quando atualizar.</span>
+      <span className="pwa-update-prompt__note">
+        Você escolhe quando atualizar.
+      </span>
     </aside>
   );
 }

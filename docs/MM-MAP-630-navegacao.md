@@ -6,9 +6,11 @@
 **Gate M7**: rota completa a pé/bike/carro em aparelho sem internet
 
 ## Objetivo
+
 GPS tracking, progresso da rota, detecção off-route, recálculo local, distância para próxima manobra, ETA, chegada e wake behavior apenas quando necessário.
 
 ## Fontes de Inspiração (conceitos, não código copiado)
+
 - `libs/routing/` — progresso de rota e recálculo (conceito)
 
 ## Implementação
@@ -17,7 +19,7 @@ GPS tracking, progresso da rota, detecção off-route, recálculo local, distân
 
 ```typescript
 // packages/geo/src/navigation.ts
-export type ArrivalStatus = 'arrived' | 'possibly-arrived' | 'en-route';
+export type ArrivalStatus = "arrived" | "possibly-arrived" | "en-route";
 
 export interface NavigationState {
   readonly current: Coordinate;
@@ -25,7 +27,7 @@ export interface NavigationState {
   readonly distanceM: number;
   readonly bearingDeg: number | null;
   readonly currentHeadingDeg: number | null;
-  readonly turnAngleDeg: number | null;   // giro curto do heading ao bearing
+  readonly turnAngleDeg: number | null; // giro curto do heading ao bearing
   readonly arrivalRadiusM: number;
   readonly accuracyM: number | null;
   readonly estimatedInsideArrivalRadius: boolean;
@@ -39,14 +41,14 @@ export interface NavigationState {
 
 ### 2. Progresso da rota e off-route
 
-| Conceito | Implementação |
-|---|---|
-| Route progress | Projeta posição atual sobre o polyline da rota; `distanceRemaining` = comprimento restante |
-| Off-route | Desvio > limiar (ex.: 25 m + janela de amostras) → dispara `reroute` |
-| Recálculo local | `findRoute(graph, { origin: posição atual, destination, profile })` — 100% offline |
-| Distância à próxima manobra | Soma das arestas até o próximo `Maneuver` no `steps[]` |
-| ETA | `duration` restante acumulado (custo-tempo do router) |
-| Wake behavior | Wake lock solicitado somente durante navegação ativa e liberado na chegada/pausa |
+| Conceito                    | Implementação                                                                              |
+| --------------------------- | ------------------------------------------------------------------------------------------ |
+| Route progress              | Projeta posição atual sobre o polyline da rota; `distanceRemaining` = comprimento restante |
+| Off-route                   | Desvio > limiar (ex.: 25 m + janela de amostras) → dispara `reroute`                       |
+| Recálculo local             | `findRoute(graph, { origin: posição atual, destination, profile })` — 100% offline         |
+| Distância à próxima manobra | Soma das arestas até o próximo `Maneuver` no `steps[]`                                     |
+| ETA                         | `duration` restante acumulado (custo-tempo do router)                                      |
+| Wake behavior               | Wake lock solicitado somente durante navegação ativa e liberado na chegada/pausa           |
 
 ### 3. Tracking
 
@@ -55,6 +57,7 @@ export interface NavigationState {
 - Sem rede: todo cálculo usa grafo e rota empacotados (aceite global #7).
 
 ## Evidência Concreta
+
 - ✅ `NavigationState` com distance/bearing/turn/arrival
 - ✅ `ArrivalStatus` de 3 estados (arrived/possibly-arrived/en-route)
 - ✅ Cálculo geodésico local (`geodesicDistanceM`, `initialBearingDeg`)
@@ -64,4 +67,4 @@ export interface NavigationState {
 
 ---
 
-*Entregável do MM-MAP-630. Prepara MM-MAP-640 (Voz).*
+_Entregável do MM-MAP-630. Prepara MM-MAP-640 (Voz)._

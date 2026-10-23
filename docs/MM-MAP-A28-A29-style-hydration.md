@@ -21,7 +21,7 @@ Garantir que o MarkMap nao marque uma visualizacao antiga como pronta depois de 
 
 1. Criar `createOfflineStyleLifecycle()` para organizar `style.load`, `sourcedata`, `render` e eventos de contexto perdido/restaurado em uma unica geracao de visualizacao por montagem React.
 2. Consolidar eventos `sourcedata` em **um** callback `render` pendente e publicar `mapReady` apenas depois da fonte `local-dataset` carregada e da renderizacao do estilo atual. Cancelar callbacks pendentes ao trocar de estilo, perder WebGL ou desmontar.
-3. Preservar eventos de fontes locais que se resolvem *sincronamente* durante a hidratacao. Ignorar `sourcedata` de outras fontes ou sem `isSourceLoaded`.
+3. Preservar eventos de fontes locais que se resolvem _sincronamente_ durante a hidratacao. Ignorar `sourcedata` de outras fontes ou sem `isSourceLoaded`.
 4. Integrar ao `CommandCenterPage`: registrar `sourcedata` antes da hidratacao, zerar o readiness ao mudar estilo, impedir sucesso de mapas cancelados/perdidos e relatar falhas de hidratação pelas mensagens seguras da A23.
 5. Em uma segunda restauracao WebGL do mesmo contexto, se A27 ja consumiu o remount automatico, revalidar camadas do estilo corrente caso ele ainda esteja carregado; **nao iniciar loop** de remount, rede ou timer.
 

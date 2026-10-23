@@ -2,12 +2,7 @@
   "id": "br-city-5103403",
   "version": "1.0.0-brazil.20261019",
   "label": "Cuiabá — mapa offline",
-  "bounds": [
-    -56.302,
-    -16.5293,
-    -55.1408,
-    -15.074
-  ],
+  "bounds": [-56.302, -16.5293, -55.1408, -15.074],
   "minZoom": 0,
   "maxZoom": 12,
   "archive": {
@@ -31,9 +26,7 @@
   "createdAt": "2026-10-19T22:48:47.804Z",
   "packageVersion": "1.0.0-brazil.20261019",
   "osmDataDate": "2026-10-19T04:00:00.000Z",
-  "capabilities": [
-    "basemap"
-  ],
+  "capabilities": ["basemap"],
   "checksums": {
     "archive": "c4fd4737ea3cbd386baa5a1bd930820704e297d02aa101db470ba40029e420a6",
     "style": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",

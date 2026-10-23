@@ -43,16 +43,13 @@ export interface DeviceStorageProfile {
 
 /** Categorias de armazenamento suportadas */
 export type StorageCategory =
-  | "offline-maps"
-  | "pdfs"
-  | "telemetry"
-  | "datasets-excluidos";
+  "offline-maps" | "pdfs" | "telemetry" | "datasets-excluidos";
 
 /** Mapeamento interno de categorias do breakdown para o nosso tipo */
 const categoryMap: Record<string, StorageCategory> = {
   "offline-maps": "offline-maps",
   "original-pdfs": "pdfs",
-  "telemetry": "telemetry",
+  telemetry: "telemetry",
   "soft-deleted-datasets": "datasets-excluidos",
 };
 
@@ -95,7 +92,8 @@ export async function getDeviceStorageProfile(): Promise<DeviceStorageProfile> {
       if (Number.isFinite(value) && value > 0) {
         if (maxLimit === 0) maxLimit = value; // fallback only, never override browser quota
       }
-      persistentGranted = persistentGranted || (await isPersistentStorageGranted());
+      persistentGranted =
+        persistentGranted || (await isPersistentStorageGranted());
     } catch {
       // Ignorar erros de leitura em ambiente nativo
     }
@@ -116,13 +114,20 @@ export async function getDeviceStorageProfile(): Promise<DeviceStorageProfile> {
 
   // Breakdown is partial. StorageManager usage also includes outbox, region chunks,
   // cache and other origin data; never replace the larger usage with a smaller estimate.
-  const categoryUsage = Array.from(usageMap.values()).reduce((sum, bytes) => sum + bytes, 0);
+  const categoryUsage = Array.from(usageMap.values()).reduce(
+    (sum, bytes) => sum + bytes,
+    0,
+  );
   const totalUsed = Math.max(browserUsage ?? 0, categoryUsage);
   const freeSpace = maxLimit > 0 ? Math.max(maxLimit - totalUsed, 0) : 0;
   const safeTotal = Math.floor(maxLimit * 0.85);
-  const adjustedQuota = maxLimit > 0
-    ? Math.max(0, Math.min(safeTotal - totalUsed, Math.floor(freeSpace * 0.95)))
-    : 0;
+  const adjustedQuota =
+    maxLimit > 0
+      ? Math.max(
+          0,
+          Math.min(safeTotal - totalUsed, Math.floor(freeSpace * 0.95)),
+        )
+      : 0;
 
   return {
     quota: adjustedQuota,
@@ -139,7 +144,8 @@ export async function getDeviceStorageProfile(): Promise<DeviceStorageProfile> {
 /** Detecta execução dentro do runtime nativo do Capacitor */
 function isNativePlatform(): boolean {
   if (typeof window === "undefined") return false;
-  const capacitor = (window as { Capacitor?: { isNativePlatform?: boolean } })?.Capacitor;
+  const capacitor = (window as { Capacitor?: { isNativePlatform?: boolean } })
+    ?.Capacitor;
   return capacitor?.isNativePlatform === true;
 }
 
@@ -167,11 +173,17 @@ const PROFILE_CACHE_TTL_MS = 300_000;
  *
  * @param refreshForcado Se verdadeiro, força atualização ignorando o cache
  */
-export async function refreshStorageProfile(refreshForcado: boolean = false): Promise<DeviceStorageProfile> {
+export async function refreshStorageProfile(
+  refreshForcado: boolean = false,
+): Promise<DeviceStorageProfile> {
   const now = Date.now();
 
   // Se temos cache recente e não for refresh forçado, retorna cache
-  if (!refreshForcado && cachedProfile !== null && now - cachedProfileTimestamp < PROFILE_CACHE_TTL_MS) {
+  if (
+    !refreshForcado &&
+    cachedProfile !== null &&
+    now - cachedProfileTimestamp < PROFILE_CACHE_TTL_MS
+  ) {
     return cachedProfile;
   }
 

@@ -27,7 +27,17 @@ import {
 /** Tipos do LargeBlobStore */
 export type BlobStoreBackend = "indexeddb" | "opfs" | "filesystem" | "unknown";
 
-export type StoreOperation = "create" | "write" | "read" | "range" | "checksum" | "commit" | "activate" | "rollback" | "delete" | "enumerate";
+export type StoreOperation =
+  | "create"
+  | "write"
+  | "read"
+  | "range"
+  | "checksum"
+  | "commit"
+  | "activate"
+  | "rollback"
+  | "delete"
+  | "enumerate";
 
 export interface BlobStoreMetadata {
   key: string;
@@ -60,13 +70,15 @@ export interface TransferProgress {
 }
 
 /** Result of a store operation */
-export type StoreResult<T> = {
-  success: true;
-  data: T;
-} | {
-  success: false;
-  error: BlobStoreError;
-};
+export type StoreResult<T> =
+  | {
+      success: true;
+      data: T;
+    }
+  | {
+      success: false;
+      error: BlobStoreError;
+    };
 
 /** Metadados de um pacote regional */
 export interface RegionPackageMetadata {
@@ -95,7 +107,11 @@ interface BlobRecord {
 type MetadataRecord = RegionPackageMetadata & { key: string };
 
 /** Cria um BlobStoreError padronizado (sempre com `name`, herda de Error) */
-export function createBlobStoreError(code: string, message: string, retryable: boolean): BlobStoreError {
+export function createBlobStoreError(
+  code: string,
+  message: string,
+  retryable: boolean,
+): BlobStoreError {
   const error = new Error(message) as BlobStoreError;
   error.name = "BlobStoreError";
   error.code = code;
@@ -111,7 +127,8 @@ function errorMessage(error: unknown): string {
 function requestToPromise<T>(request: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {
     request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error ?? new Error("IDBRequest falhou"));
+    request.onerror = () =>
+      reject(request.error ?? new Error("IDBRequest falhou"));
   });
 }
 
@@ -136,7 +153,10 @@ async function sha256Hex(data: ArrayBuffer): Promise<string> {
 function toArrayBuffer(data: ArrayBuffer | Uint8Array): ArrayBuffer {
   if (data instanceof ArrayBuffer) return data;
   const view = data as Uint8Array<ArrayBuffer>;
-  return view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength) as ArrayBuffer;
+  return view.buffer.slice(
+    view.byteOffset,
+    view.byteOffset + view.byteLength,
+  ) as ArrayBuffer;
 }
 
 /** Interface principal do LargeBlobStore */
@@ -145,22 +165,43 @@ export interface LargeBlobStore {
   backend: BlobStoreBackend;
 
   /** Inicializar o store (abrir DB ou preparar filesystem) */
-  init(): Promise<{ success: boolean; backend: BlobStoreBackend; error?: string }>;
+  init(): Promise<{
+    success: boolean;
+    backend: BlobStoreBackend;
+    error?: string;
+  }>;
 
   /** Fazer staging de um novo pacote regional */
-  staging(packageId: string, packageSize: number, options?: StoreOptions): Promise<StoreResult<{ stagingKey: string; estimatedTime: number }>>;
+  staging(
+    packageId: string,
+    packageSize: number,
+    options?: StoreOptions,
+  ): Promise<StoreResult<{ stagingKey: string; estimatedTime: number }>>;
 
   /** Escrever dados no staging */
-  write(stagingKey: string, data: ArrayBuffer | Uint8Array, options?: StoreOptions): Promise<StoreResult<{ bytesWritten: number; checksum: string }>>;
+  write(
+    stagingKey: string,
+    data: ArrayBuffer | Uint8Array,
+    options?: StoreOptions,
+  ): Promise<StoreResult<{ bytesWritten: number; checksum: string }>>;
 
   /** Ler dados do staging */
-  read(stagingKey: string, options?: { range?: [number, number] }): Promise<StoreResult<{ data: Uint8Array; size: number }>>;
+  read(
+    stagingKey: string,
+    options?: { range?: [number, number] },
+  ): Promise<StoreResult<{ data: Uint8Array; size: number }>>;
 
   /** Calcular checksum de um staging key */
-  checksum(stagingKey: string): Promise<StoreResult<{ algorithm: string; hash: string }>>;
+  checksum(
+    stagingKey: string,
+  ): Promise<StoreResult<{ algorithm: string; hash: string }>>;
 
   /** Commit/activate um staging key (torna-o o pacote ativo) */
-  activate(stagingKey: string): Promise<StoreResult<{ previousKey: string | null; newState: "active" | "staged" }>>;
+  activate(
+    stagingKey: string,
+  ): Promise<
+    StoreResult<{ previousKey: string | null; newState: "active" | "staged" }>
+  >;
 
   /** Fazer rollback para o pacote anterior */
   rollback(): Promise<StoreResult<{ recovered: boolean; previousKey: string }>>;
@@ -175,7 +216,10 @@ export interface LargeBlobStore {
   getMetadata(packageId: string): Promise<StoreResult<RegionPackageMetadata>>;
 
   /** Atualizar metadado de um pacote */
-  updateMetadata(packageId: string, metadata: Partial<RegionPackageMetadata>): Promise<StoreResult<void>>;
+  updateMetadata(
+    packageId: string,
+    metadata: Partial<RegionPackageMetadata>,
+  ): Promise<StoreResult<void>>;
 
   /** Obter perfil de storage do dispositivo */
   getDeviceProfile(): Promise<DeviceStorageProfile>;
@@ -196,11 +240,19 @@ export class IndexedDBBlobStore implements LargeBlobStore {
   private readonly metaStoreName = "metadata";
   private readonly dbVersion = 1;
 
-  async init(): Promise<{ success: boolean; backend: BlobStoreBackend; error?: string }> {
+  async init(): Promise<{
+    success: boolean;
+    backend: BlobStoreBackend;
+    error?: string;
+  }> {
     if (this.db) return { success: true, backend: this.backend };
 
     if (typeof indexedDB === "undefined") {
-      return { success: false, backend: "unknown", error: "IndexedDB indisponível neste ambiente" };
+      return {
+        success: false,
+        backend: "unknown",
+        error: "IndexedDB indisponível neste ambiente",
+      };
     }
 
     try {
@@ -211,40 +263,63 @@ export class IndexedDBBlobStore implements LargeBlobStore {
           const db = openRequest.result;
 
           if (!db.objectStoreNames.contains(this.blobStoreName)) {
-            const blobStore = db.createObjectStore(this.blobStoreName, { keyPath: "key" });
+            const blobStore = db.createObjectStore(this.blobStoreName, {
+              keyPath: "key",
+            });
             blobStore.createIndex("packageId", "packageId", { unique: false });
-            blobStore.createIndex("lastModified", "lastModified", { unique: false });
+            blobStore.createIndex("lastModified", "lastModified", {
+              unique: false,
+            });
           }
 
           if (!db.objectStoreNames.contains(this.metaStoreName)) {
-            const metaStore = db.createObjectStore(this.metaStoreName, { keyPath: "key" });
+            const metaStore = db.createObjectStore(this.metaStoreName, {
+              keyPath: "key",
+            });
             metaStore.createIndex("staging", "staging", { unique: false });
-            metaStore.createIndex("lastModified", "lastModified", { unique: false });
+            metaStore.createIndex("lastModified", "lastModified", {
+              unique: false,
+            });
           }
         };
 
         openRequest.onsuccess = () => resolve(openRequest.result);
-        openRequest.onerror = () => reject(openRequest.error ?? new Error("Falha ao abrir IndexedDB"));
+        openRequest.onerror = () =>
+          reject(openRequest.error ?? new Error("Falha ao abrir IndexedDB"));
       });
 
       return { success: true, backend: this.backend };
     } catch (error) {
-      return { success: false, backend: this.backend, error: errorMessage(error) };
+      return {
+        success: false,
+        backend: this.backend,
+        error: errorMessage(error),
+      };
     }
   }
 
   private database(): IDBDatabase {
-    if (!this.db) throw new Error("LargeBlobStore não inicializado: chame init() antes das operações");
+    if (!this.db)
+      throw new Error(
+        "LargeBlobStore não inicializado: chame init() antes das operações",
+      );
     return this.db;
   }
 
-  async staging(packageId: string, packageSize: number, options?: StoreOptions): Promise<StoreResult<{ stagingKey: string; estimatedTime: number }>> {
+  async staging(
+    packageId: string,
+    packageSize: number,
+    options?: StoreOptions,
+  ): Promise<StoreResult<{ stagingKey: string; estimatedTime: number }>> {
     try {
       const db = this.database();
       const now = new Date().toISOString();
       const stagingKey = `staging-${packageId}-${Date.now()}`;
 
-      const tx = db.transaction([this.blobStoreName, this.metaStoreName], "readwrite");
+      const tx = db.transaction(
+        [this.blobStoreName, this.metaStoreName],
+        "readwrite",
+      );
       const blobs = tx.objectStore(this.blobStoreName);
       const meta = tx.objectStore(this.metaStoreName);
 
@@ -272,16 +347,30 @@ export class IndexedDBBlobStore implements LargeBlobStore {
 
       await txDone(tx);
 
-      const chunkSize = options?.chunkSize && options.chunkSize > 0 ? options.chunkSize : 1024 * 1024;
+      const chunkSize =
+        options?.chunkSize && options.chunkSize > 0
+          ? options.chunkSize
+          : 1024 * 1024;
       const estimatedTime = Math.max(1, Math.ceil(packageSize / chunkSize));
 
       return { success: true, data: { stagingKey, estimatedTime } };
     } catch (error) {
-      return { success: false, error: createBlobStoreError("staging-failed", errorMessage(error), true) };
+      return {
+        success: false,
+        error: createBlobStoreError(
+          "staging-failed",
+          errorMessage(error),
+          true,
+        ),
+      };
     }
   }
 
-  async write(stagingKey: string, data: ArrayBuffer | Uint8Array, options?: StoreOptions): Promise<StoreResult<{ bytesWritten: number; checksum: string }>> {
+  async write(
+    stagingKey: string,
+    data: ArrayBuffer | Uint8Array,
+    options?: StoreOptions,
+  ): Promise<StoreResult<{ bytesWritten: number; checksum: string }>> {
     try {
       const buffer = toArrayBuffer(data);
       const checksum = await sha256Hex(buffer);
@@ -290,10 +379,19 @@ export class IndexedDBBlobStore implements LargeBlobStore {
       const tx = db.transaction(this.blobStoreName, "readwrite");
       const blobs = tx.objectStore(this.blobStoreName);
 
-      const existing = await requestToPromise<BlobRecord | undefined>(blobs.get(stagingKey));
+      const existing = await requestToPromise<BlobRecord | undefined>(
+        blobs.get(stagingKey),
+      );
       if (!existing) {
         tx.abort();
-        return { success: false, error: createBlobStoreError("staging-not-found", `Chave de staging inexistente: ${stagingKey}`, false) };
+        return {
+          success: false,
+          error: createBlobStoreError(
+            "staging-not-found",
+            `Chave de staging inexistente: ${stagingKey}`,
+            false,
+          ),
+        };
       }
 
       blobs.put({
@@ -310,75 +408,148 @@ export class IndexedDBBlobStore implements LargeBlobStore {
         // TTL é tratado pelo gc(): registramos apenas a data de escrita.
       }
 
-      return { success: true, data: { bytesWritten: buffer.byteLength, checksum } };
+      return {
+        success: true,
+        data: { bytesWritten: buffer.byteLength, checksum },
+      };
     } catch (error) {
-      return { success: false, error: createBlobStoreError("write-failed", errorMessage(error), true) };
+      return {
+        success: false,
+        error: createBlobStoreError("write-failed", errorMessage(error), true),
+      };
     }
   }
 
-  async read(stagingKey: string, options?: { range?: [number, number] }): Promise<StoreResult<{ data: Uint8Array; size: number }>> {
+  async read(
+    stagingKey: string,
+    options?: { range?: [number, number] },
+  ): Promise<StoreResult<{ data: Uint8Array; size: number }>> {
     try {
       const db = this.database();
       const record = await requestToPromise<BlobRecord | undefined>(
-        db.transaction(this.blobStoreName, "readonly").objectStore(this.blobStoreName).get(stagingKey),
+        db
+          .transaction(this.blobStoreName, "readonly")
+          .objectStore(this.blobStoreName)
+          .get(stagingKey),
       );
 
       if (!record) {
-        return { success: false, error: createBlobStoreError("not-found", `Chave inexistente: ${stagingKey}`, false) };
+        return {
+          success: false,
+          error: createBlobStoreError(
+            "not-found",
+            `Chave inexistente: ${stagingKey}`,
+            false,
+          ),
+        };
       }
 
       const view = new Uint8Array(record.data);
       if (!options?.range) {
-        return { success: true, data: { data: view.slice(), size: record.size } };
+        return {
+          success: true,
+          data: { data: view.slice(), size: record.size },
+        };
       }
 
       const [start, end] = options.range;
       const from = Math.max(0, Math.min(start, view.length));
       const to = Math.max(from, Math.min(end, view.length));
-      return { success: true, data: { data: view.slice(from, to), size: to - from } };
+      return {
+        success: true,
+        data: { data: view.slice(from, to), size: to - from },
+      };
     } catch (error) {
-      return { success: false, error: createBlobStoreError("read-failed", errorMessage(error), true) };
+      return {
+        success: false,
+        error: createBlobStoreError("read-failed", errorMessage(error), true),
+      };
     }
   }
 
-  async checksum(stagingKey: string): Promise<StoreResult<{ algorithm: string; hash: string }>> {
+  async checksum(
+    stagingKey: string,
+  ): Promise<StoreResult<{ algorithm: string; hash: string }>> {
     try {
       const db = this.database();
       const record = await requestToPromise<BlobRecord | undefined>(
-        db.transaction(this.blobStoreName, "readonly").objectStore(this.blobStoreName).get(stagingKey),
+        db
+          .transaction(this.blobStoreName, "readonly")
+          .objectStore(this.blobStoreName)
+          .get(stagingKey),
       );
 
       if (!record) {
-        return { success: false, error: createBlobStoreError("not-found", `Chave inexistente: ${stagingKey}`, false) };
+        return {
+          success: false,
+          error: createBlobStoreError(
+            "not-found",
+            `Chave inexistente: ${stagingKey}`,
+            false,
+          ),
+        };
       }
 
       if (record.checksum) {
-        return { success: true, data: { algorithm: "SHA-256", hash: record.checksum } };
+        return {
+          success: true,
+          data: { algorithm: "SHA-256", hash: record.checksum },
+        };
       }
 
       const hash = await sha256Hex(record.data);
       return { success: true, data: { algorithm: "SHA-256", hash } };
     } catch (error) {
-      return { success: false, error: createBlobStoreError("checksum-failed", errorMessage(error), true) };
+      return {
+        success: false,
+        error: createBlobStoreError(
+          "checksum-failed",
+          errorMessage(error),
+          true,
+        ),
+      };
     }
   }
 
-  async activate(stagingKey: string): Promise<StoreResult<{ previousKey: string | null; newState: "active" | "staged" }>> {
+  async activate(
+    stagingKey: string,
+  ): Promise<
+    StoreResult<{ previousKey: string | null; newState: "active" | "staged" }>
+  > {
     try {
       const db = this.database();
-      const tx = db.transaction([this.blobStoreName, this.metaStoreName], "readwrite");
+      const tx = db.transaction(
+        [this.blobStoreName, this.metaStoreName],
+        "readwrite",
+      );
       const blobs = tx.objectStore(this.blobStoreName);
       const meta = tx.objectStore(this.metaStoreName);
 
-      const record = await requestToPromise<BlobRecord | undefined>(blobs.get(stagingKey));
+      const record = await requestToPromise<BlobRecord | undefined>(
+        blobs.get(stagingKey),
+      );
       if (!record) {
         tx.abort();
-        return { success: false, error: createBlobStoreError("staging-not-found", `Chave de staging inexistente: ${stagingKey}`, false) };
+        return {
+          success: false,
+          error: createBlobStoreError(
+            "staging-not-found",
+            `Chave de staging inexistente: ${stagingKey}`,
+            false,
+          ),
+        };
       }
 
       if (record.size === 0) {
         tx.abort();
-        return { success: false, error: createBlobStoreError("empty-package", "Pacote vazio não pode ser ativado", false) };
+        return {
+          success: false,
+          error: createBlobStoreError(
+            "empty-package",
+            "Pacote vazio não pode ser ativado",
+            false,
+          ),
+        };
       }
 
       // Desativar qualquer pacote ativo anterior
@@ -388,9 +559,15 @@ export class IndexedDBBlobStore implements LargeBlobStore {
       const all = await requestToPromise<MetadataRecord[]>(meta.getAll());
       const activatedAt = new Date().toISOString();
 
-      blobs.put({ ...record, staging: false, lastModified: activatedAt } satisfies BlobRecord);
+      blobs.put({
+        ...record,
+        staging: false,
+        lastModified: activatedAt,
+      } satisfies BlobRecord);
 
-      const metadata: MetadataRecord = all.find((entry) => entry.id === record.packageId) ?? {
+      const metadata: MetadataRecord = all.find(
+        (entry) => entry.id === record.packageId,
+      ) ?? {
         key: record.packageId,
         id: record.packageId,
         version: "0.0.0",
@@ -400,71 +577,138 @@ export class IndexedDBBlobStore implements LargeBlobStore {
         lastModified: activatedAt,
         staging: false,
       };
-      meta.put({ ...metadata, staging: false, size: record.size, checksum: record.checksum, lastModified: activatedAt } satisfies MetadataRecord);
+      meta.put({
+        ...metadata,
+        staging: false,
+        size: record.size,
+        checksum: record.checksum,
+        lastModified: activatedAt,
+      } satisfies MetadataRecord);
 
       await txDone(tx);
 
       return { success: true, data: { previousKey, newState: "active" } };
     } catch (error) {
-      return { success: false, error: createBlobStoreError("activate-failed", errorMessage(error), true) };
+      return {
+        success: false,
+        error: createBlobStoreError(
+          "activate-failed",
+          errorMessage(error),
+          true,
+        ),
+      };
     }
   }
 
-  async rollback(): Promise<StoreResult<{ recovered: boolean; previousKey: string }>> {
+  async rollback(): Promise<
+    StoreResult<{ recovered: boolean; previousKey: string }>
+  > {
     try {
       const db = this.database();
-      const tx = db.transaction([this.blobStoreName, this.metaStoreName], "readwrite");
+      const tx = db.transaction(
+        [this.blobStoreName, this.metaStoreName],
+        "readwrite",
+      );
       const blobs = tx.objectStore(this.blobStoreName);
       const meta = tx.objectStore(this.metaStoreName);
 
-      const staged = await requestToPromise<BlobRecord[]>(blobs.index("packageId").getAll());
-      const stagedEntry = staged.filter((entry) => entry.staging).sort((a, b) => b.lastModified.localeCompare(a.lastModified))[0];
+      const staged = await requestToPromise<BlobRecord[]>(
+        blobs.index("packageId").getAll(),
+      );
+      const stagedEntry = staged
+        .filter((entry) => entry.staging)
+        .sort((a, b) => b.lastModified.localeCompare(a.lastModified))[0];
       if (!stagedEntry) {
         tx.abort();
-        return { success: false, error: createBlobStoreError("no-staged-package", "Nenhum pacote em staging para desfazer", false) };
+        return {
+          success: false,
+          error: createBlobStoreError(
+            "no-staged-package",
+            "Nenhum pacote em staging para desfazer",
+            false,
+          ),
+        };
       }
 
-      const active = staged.filter((entry) => entry.packageId === stagedEntry.packageId && !entry.staging)[0];
+      const active = staged.filter(
+        (entry) => entry.packageId === stagedEntry.packageId && !entry.staging,
+      )[0];
       if (!active) {
         tx.abort();
-        return { success: false, error: createBlobStoreError("no-previous-package", "Nenhum pacote anterior para restaurar", false) };
+        return {
+          success: false,
+          error: createBlobStoreError(
+            "no-previous-package",
+            "Nenhum pacote anterior para restaurar",
+            false,
+          ),
+        };
       }
 
       blobs.delete(stagedEntry.key);
 
-      const metadata = await requestToPromise<MetadataRecord | undefined>(meta.get(stagedEntry.packageId));
+      const metadata = await requestToPromise<MetadataRecord | undefined>(
+        meta.get(stagedEntry.packageId),
+      );
       if (metadata) {
-        meta.put({ ...metadata, staging: false, lastModified: active.lastModified } satisfies MetadataRecord);
+        meta.put({
+          ...metadata,
+          staging: false,
+          lastModified: active.lastModified,
+        } satisfies MetadataRecord);
       }
 
       await txDone(tx);
 
-      return { success: true, data: { recovered: true, previousKey: active.key } };
+      return {
+        success: true,
+        data: { recovered: true, previousKey: active.key },
+      };
     } catch (error) {
-      return { success: false, error: createBlobStoreError("rollback-failed", errorMessage(error), true) };
+      return {
+        success: false,
+        error: createBlobStoreError(
+          "rollback-failed",
+          errorMessage(error),
+          true,
+        ),
+      };
     }
   }
 
   async delete(stagingKey: string): Promise<StoreResult<void>> {
     try {
       const db = this.database();
-      const tx = db.transaction([this.blobStoreName, this.metaStoreName], "readwrite");
+      const tx = db.transaction(
+        [this.blobStoreName, this.metaStoreName],
+        "readwrite",
+      );
       const blobs = tx.objectStore(this.blobStoreName);
       const meta = tx.objectStore(this.metaStoreName);
 
-      const record = await requestToPromise<BlobRecord | undefined>(blobs.get(stagingKey));
+      const record = await requestToPromise<BlobRecord | undefined>(
+        blobs.get(stagingKey),
+      );
       blobs.delete(stagingKey);
 
       if (record) {
-        const metadata = await requestToPromise<MetadataRecord | undefined>(meta.get(record.packageId));
-        const hasOtherBlobs = (await requestToPromise<number>(blobs.index("packageId").count(record.packageId))) > 0;
+        const metadata = await requestToPromise<MetadataRecord | undefined>(
+          meta.get(record.packageId),
+        );
+        const hasOtherBlobs =
+          (await requestToPromise<number>(
+            blobs.index("packageId").count(record.packageId),
+          )) > 0;
         if (metadata && !hasOtherBlobs) meta.delete(record.packageId);
       }
 
       await txDone(tx);
       return { success: true, data: undefined };
     } catch (error) {
-      return { success: false, error: createBlobStoreError("delete-failed", errorMessage(error), true) };
+      return {
+        success: false,
+        error: createBlobStoreError("delete-failed", errorMessage(error), true),
+      };
     }
   }
 
@@ -472,47 +716,100 @@ export class IndexedDBBlobStore implements LargeBlobStore {
     try {
       const db = this.database();
       const all = await requestToPromise<MetadataRecord[]>(
-        db.transaction(this.metaStoreName, "readonly").objectStore(this.metaStoreName).getAll(),
+        db
+          .transaction(this.metaStoreName, "readonly")
+          .objectStore(this.metaStoreName)
+          .getAll(),
       );
       return { success: true, data: all.map(stripKey) };
     } catch (error) {
-      return { success: false, error: createBlobStoreError("enumerate-failed", errorMessage(error), false) };
+      return {
+        success: false,
+        error: createBlobStoreError(
+          "enumerate-failed",
+          errorMessage(error),
+          false,
+        ),
+      };
     }
   }
 
-  async getMetadata(packageId: string): Promise<StoreResult<RegionPackageMetadata>> {
+  async getMetadata(
+    packageId: string,
+  ): Promise<StoreResult<RegionPackageMetadata>> {
     try {
       const db = this.database();
       const record = await requestToPromise<MetadataRecord | undefined>(
-        db.transaction(this.metaStoreName, "readonly").objectStore(this.metaStoreName).get(packageId),
+        db
+          .transaction(this.metaStoreName, "readonly")
+          .objectStore(this.metaStoreName)
+          .get(packageId),
       );
       if (!record) {
-        return { success: false, error: createBlobStoreError("not-found", `Pacote inexistente: ${packageId}`, false) };
+        return {
+          success: false,
+          error: createBlobStoreError(
+            "not-found",
+            `Pacote inexistente: ${packageId}`,
+            false,
+          ),
+        };
       }
       return { success: true, data: stripKey(record) };
     } catch (error) {
-      return { success: false, error: createBlobStoreError("get-metadata-failed", errorMessage(error), false) };
+      return {
+        success: false,
+        error: createBlobStoreError(
+          "get-metadata-failed",
+          errorMessage(error),
+          false,
+        ),
+      };
     }
   }
 
-  async updateMetadata(packageId: string, metadata: Partial<RegionPackageMetadata>): Promise<StoreResult<void>> {
+  async updateMetadata(
+    packageId: string,
+    metadata: Partial<RegionPackageMetadata>,
+  ): Promise<StoreResult<void>> {
     try {
       const db = this.database();
       const tx = db.transaction(this.metaStoreName, "readwrite");
       const meta = tx.objectStore(this.metaStoreName);
 
-      const record = await requestToPromise<MetadataRecord | undefined>(meta.get(packageId));
+      const record = await requestToPromise<MetadataRecord | undefined>(
+        meta.get(packageId),
+      );
       if (!record) {
         tx.abort();
-        return { success: false, error: createBlobStoreError("not-found", `Pacote inexistente: ${packageId}`, false) };
+        return {
+          success: false,
+          error: createBlobStoreError(
+            "not-found",
+            `Pacote inexistente: ${packageId}`,
+            false,
+          ),
+        };
       }
 
-      meta.put({ ...record, ...metadata, key: packageId, lastModified: new Date().toISOString() } satisfies MetadataRecord);
+      meta.put({
+        ...record,
+        ...metadata,
+        key: packageId,
+        lastModified: new Date().toISOString(),
+      } satisfies MetadataRecord);
 
       await txDone(tx);
       return { success: true, data: undefined };
     } catch (error) {
-      return { success: false, error: createBlobStoreError("update-metadata-failed", errorMessage(error), true) };
+      return {
+        success: false,
+        error: createBlobStoreError(
+          "update-metadata-failed",
+          errorMessage(error),
+          true,
+        ),
+      };
     }
   }
 
@@ -529,7 +826,10 @@ export class IndexedDBBlobStore implements LargeBlobStore {
   async gc(): Promise<StoreResult<{ collected: number; freedBytes: number }>> {
     try {
       const db = this.database();
-      const tx = db.transaction([this.blobStoreName, this.metaStoreName], "readwrite");
+      const tx = db.transaction(
+        [this.blobStoreName, this.metaStoreName],
+        "readwrite",
+      );
       const blobs = tx.objectStore(this.blobStoreName);
       const meta = tx.objectStore(this.metaStoreName);
 
@@ -537,7 +837,11 @@ export class IndexedDBBlobStore implements LargeBlobStore {
       const staleWindowMs = 24 * 60 * 60 * 1000; // staging abandonado há mais de 24h
 
       const records = await requestToPromise<BlobRecord[]>(blobs.getAll());
-      const orphans = records.filter((record) => record.staging && now - Date.parse(record.lastModified) > staleWindowMs);
+      const orphans = records.filter(
+        (record) =>
+          record.staging &&
+          now - Date.parse(record.lastModified) > staleWindowMs,
+      );
 
       let collected = 0;
       let freedBytes = 0;
@@ -552,7 +856,10 @@ export class IndexedDBBlobStore implements LargeBlobStore {
       await txDone(tx);
       return { success: true, data: { collected, freedBytes } };
     } catch (error) {
-      return { success: false, error: createBlobStoreError("gc-failed", errorMessage(error), true) };
+      return {
+        success: false,
+        error: createBlobStoreError("gc-failed", errorMessage(error), true),
+      };
     }
   }
 }

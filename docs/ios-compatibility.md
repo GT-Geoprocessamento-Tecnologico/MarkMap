@@ -8,16 +8,16 @@ O núcleo é o mesmo aplicativo web instalado a partir de `https://appmarkmap.mt
 
 ## Recursos e limites
 
-| Recurso | Compatibilidade e comportamento |
-| --- | --- |
-| Mapa e GLB | Exigem WebGL2 e memória gráfica disponível. Não há engine alternativa ou garantia de execução após o sistema encerrar uma aba por falta de memória. |
-| PDF/GeoPDF | Main/worker PDF.js usam a mesma variante legada, com fallback para `Promise.withResolvers` somente quando ausente. Metadados, limites de entrada e de rasterização continuam validados. Um PDF sem referência não recebe coordenadas inventadas. |
-| GeoJSON/GPX/KML/KMZ | O seletor não restringe extensões pelo filtro do sistema; a aplicação valida o conteúdo localmente. KMZ comprimido usa Compression Streams, presente no Safari 16.4 ou posterior. |
-| Exportação | O link de download é anexado ao documento e sua URL Blob permanece válida por uma janela de consumo limitada antes de ser liberada. Erros são apresentados; a ação do navegador/Arquivos depende do dispositivo. |
-| Instalação | iPhone/iPad Safari mostram Compartilhar → Adicionar à Tela de Início. iPadOS com identidade desktop é reconhecido sem tratar macOS como iPad. |
-| Armazenamento | IndexedDB e caches existentes são preservados. Storage Manager é opcional; suporte completo chega no Safari 17. Persistência depende da plataforma, das permissões e do espaço, e não impede toda remoção pelo sistema. |
-| Busca offline | Usa feições/índices dos dados baixados ou importados e consultas com resultado salvas localmente; não contém todos os endereços/CEPs do país. |
-| Altitude e GPS | Altitude usa dados de terreno online ou grade previamente salva. A imagem/canvas DOM oferece alternativa quando ImageBitmap falha. GPS exige permissão e segue as restrições de execução em segundo plano do iOS. |
+| Recurso             | Compatibilidade e comportamento                                                                                                                                                                                                                  |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Mapa e GLB          | Exigem WebGL2 e memória gráfica disponível. Não há engine alternativa ou garantia de execução após o sistema encerrar uma aba por falta de memória.                                                                                              |
+| PDF/GeoPDF          | Main/worker PDF.js usam a mesma variante legada, com fallback para `Promise.withResolvers` somente quando ausente. Metadados, limites de entrada e de rasterização continuam validados. Um PDF sem referência não recebe coordenadas inventadas. |
+| GeoJSON/GPX/KML/KMZ | O seletor não restringe extensões pelo filtro do sistema; a aplicação valida o conteúdo localmente. KMZ comprimido usa Compression Streams, presente no Safari 16.4 ou posterior.                                                                |
+| Exportação          | O link de download é anexado ao documento e sua URL Blob permanece válida por uma janela de consumo limitada antes de ser liberada. Erros são apresentados; a ação do navegador/Arquivos depende do dispositivo.                                 |
+| Instalação          | iPhone/iPad Safari mostram Compartilhar → Adicionar à Tela de Início. iPadOS com identidade desktop é reconhecido sem tratar macOS como iPad.                                                                                                    |
+| Armazenamento       | IndexedDB e caches existentes são preservados. Storage Manager é opcional; suporte completo chega no Safari 17. Persistência depende da plataforma, das permissões e do espaço, e não impede toda remoção pelo sistema.                          |
+| Busca offline       | Usa feições/índices dos dados baixados ou importados e consultas com resultado salvas localmente; não contém todos os endereços/CEPs do país.                                                                                                    |
+| Altitude e GPS      | Altitude usa dados de terreno online ou grade previamente salva. A imagem/canvas DOM oferece alternativa quando ImageBitmap falha. GPS exige permissão e segue as restrições de execução em segundo plano do iOS.                                |
 
 Safari e o aplicativo adicionado à Tela de Início podem ter armazenamentos separados. Verificar os arquivos no app instalado antes de depender deles em campo; não presumir transferência automática entre as duas instalações.
 

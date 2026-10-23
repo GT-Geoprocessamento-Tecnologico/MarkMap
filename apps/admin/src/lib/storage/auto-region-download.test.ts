@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { offlineDB } from "./offline-db";
-import { getAutomaticRegionDownload, setAutomaticRegionDownload } from "./auto-region-download";
+import {
+  getAutomaticRegionDownload,
+  setAutomaticRegionDownload,
+} from "./auto-region-download";
 
 vi.mock("./offline-db", () => ({ offlineDB: { get: vi.fn(), save: vi.fn() } }));
 
@@ -16,7 +19,9 @@ describe("consent for automatic map downloads", () => {
     expect(await getAutomaticRegionDownload()).toBe(true);
     await setAutomaticRegionDownload(false);
     expect(offlineDB.save).toHaveBeenCalledWith(
-      "permissions", "auto-region-download", { enabled: false },
+      "permissions",
+      "auto-region-download",
+      { enabled: false },
     );
   });
 });

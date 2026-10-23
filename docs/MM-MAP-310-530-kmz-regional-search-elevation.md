@@ -8,11 +8,11 @@ Fechar lacunas offline da M4/M5 e oferecer uma fatia útil de M6 sem mudar React
 
 ## Auditoria antes da mudança
 
-| Área | Classificação anterior | Alteração nesta branch | Estado após |
-| --- | --- | --- | --- |
-| KMZ | NÃO IMPLEMENTADO | Extração local de `doc.kml` ou único KML de arquivo ZIP controlado; reusa validação GeoJSON | PARCIAL: importação implementada, sem round-trip KMZ gerado |
-| Busca regional OSM | PARCIAL, shards produzidos mas descartados na instalação | `searchShards` opcional no contrato, validado por SHA-256+conteúdo, persistido na geração ativa e carregado no Worker do mapa | PARCIAL: integração implementada sem QA E2E IndexedDB/OSM real |
-| Perfil de elevação | PARCIAL, DEM/profile utilitário não exposto no fluxo de dados | Perfil local a partir de trilhas com altitude importada, métricas e gráfico na tela Dados | PARCIAL: não substitui DEM/contours |
+| Área               | Classificação anterior                                        | Alteração nesta branch                                                                                                        | Estado após                                                    |
+| ------------------ | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| KMZ                | NÃO IMPLEMENTADO                                              | Extração local de `doc.kml` ou único KML de arquivo ZIP controlado; reusa validação GeoJSON                                   | PARCIAL: importação implementada, sem round-trip KMZ gerado    |
+| Busca regional OSM | PARCIAL, shards produzidos mas descartados na instalação      | `searchShards` opcional no contrato, validado por SHA-256+conteúdo, persistido na geração ativa e carregado no Worker do mapa | PARCIAL: integração implementada sem QA E2E IndexedDB/OSM real |
+| Perfil de elevação | PARCIAL, DEM/profile utilitário não exposto no fluxo de dados | Perfil local a partir de trilhas com altitude importada, métricas e gráfico na tela Dados                                     | PARCIAL: não substitui DEM/contours                            |
 
 ## Arquivos principais
 

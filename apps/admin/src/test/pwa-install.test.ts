@@ -9,7 +9,11 @@ import {
 } from "../lib/pwa-install";
 
 describe("PWA install prompt lifecycle", () => {
-  function setNavigatorIdentity({ userAgent, platform, maxTouchPoints }: {
+  function setNavigatorIdentity({
+    userAgent,
+    platform,
+    maxTouchPoints,
+  }: {
     userAgent: string;
     platform: string;
     maxTouchPoints: number;
@@ -22,15 +26,48 @@ describe("PWA install prompt lifecycle", () => {
   }
 
   it.each([
-    ["classic iPhone Safari", "Mozilla/5.0 (iPhone; CPU iPhone OS 16_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1", "iPhone", 5, true],
-    ["classic iPad Safari", "Mozilla/5.0 (iPad; CPU OS 16_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1", "iPad", 5, true],
-    ["desktop-mode iPad Safari", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Safari/605.1.15", "MacIntel", 5, true],
-    ["macOS Safari", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Safari/605.1.15", "MacIntel", 0, false],
-    ["iPad Chrome", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/140.0.0.0 Safari/605.1.15", "MacIntel", 5, false],
-  ])("recognizes %s correctly", (_label, userAgent, platform, maxTouchPoints, expected) => {
-    setNavigatorIdentity({ userAgent, platform, maxTouchPoints });
-    expect(detectIosSafari()).toBe(expected);
-  });
+    [
+      "classic iPhone Safari",
+      "Mozilla/5.0 (iPhone; CPU iPhone OS 16_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1",
+      "iPhone",
+      5,
+      true,
+    ],
+    [
+      "classic iPad Safari",
+      "Mozilla/5.0 (iPad; CPU OS 16_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1",
+      "iPad",
+      5,
+      true,
+    ],
+    [
+      "desktop-mode iPad Safari",
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Safari/605.1.15",
+      "MacIntel",
+      5,
+      true,
+    ],
+    [
+      "macOS Safari",
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Safari/605.1.15",
+      "MacIntel",
+      0,
+      false,
+    ],
+    [
+      "iPad Chrome",
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/140.0.0.0 Safari/605.1.15",
+      "MacIntel",
+      5,
+      false,
+    ],
+  ])(
+    "recognizes %s correctly",
+    (_label, userAgent, platform, maxTouchPoints, expected) => {
+      setNavigatorIdentity({ userAgent, platform, maxTouchPoints });
+      expect(detectIosSafari()).toBe(expected);
+    },
+  );
 
   it("treats the old installer URL as a permanent redirect to app home", () => {
     expect(shouldRedirectLegacyInstallPath("/install")).toBe(true);
@@ -82,18 +119,21 @@ describe("PWA install prompt lifecycle", () => {
     const prompt = vi.fn(async () => {
       window.dispatchEvent(new Event("appinstalled"));
     });
-    const event = new Event("beforeinstallprompt", { cancelable: true }) as Event & {
+    const event = new Event("beforeinstallprompt", {
+      cancelable: true,
+    }) as Event & {
       prompt(): Promise<void>;
       userChoice: Promise<{ outcome: "accepted"; platform: string }>;
     };
     Object.defineProperties(event, {
       prompt: { value: prompt },
-      userChoice: { value: Promise.resolve({ outcome: "accepted", platform: "web" }) },
+      userChoice: {
+        value: Promise.resolve({ outcome: "accepted", platform: "web" }),
+      },
     });
     window.dispatchEvent(event);
     await expect(requestPwaInstall()).resolves.toBe("accepted");
     expect(prompt).toHaveBeenCalledTimes(1);
     expect(getPwaInstallSnapshot().installed).toBe(true);
   });
-
 });

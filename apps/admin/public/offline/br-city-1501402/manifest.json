@@ -2,12 +2,7 @@
   "id": "br-city-1501402",
   "version": "1.0.0-brazil.20261019",
   "label": "Belém — mapa offline",
-  "bounds": [
-    -48.6244,
-    -1.5266,
-    -48.3018,
-    -1.0194
-  ],
+  "bounds": [-48.6244, -1.5266, -48.3018, -1.0194],
   "minZoom": 0,
   "maxZoom": 12,
   "archive": {
@@ -31,9 +26,7 @@
   "createdAt": "2026-10-19T22:48:59.812Z",
   "packageVersion": "1.0.0-brazil.20261019",
   "osmDataDate": "2026-10-19T04:00:00.000Z",
-  "capabilities": [
-    "basemap"
-  ],
+  "capabilities": ["basemap"],
   "checksums": {
     "archive": "3689277761e828ab619a400f129febbcb6604c321978701cadfa417cdfe375dd",
     "style": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",

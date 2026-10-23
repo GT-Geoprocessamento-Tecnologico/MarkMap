@@ -49,11 +49,10 @@ A suíte usa `baseURL: http://127.0.0.1:5173` e o `webServer`
   `node`/`vite` antigos e rode de novo (`netstat -ano | findstr :5173` para achar o PID).
 - **Falhas intermitentes só em `webkit`/`firefox`** (elemento não achado em 15 s,
   testes de viewport) → a máquina está carregada. O `@playwright/mcp`, o emulador
-   Android e outros `turbo`/`vitest` simultâneos estouram o `expect.timeout: 15000`.
-   Feche esses processos e rode de novo; a suíte limpa passa 95/0 em ~4 min.
+  Android e outros `turbo`/`vitest` simultâneos estouram o `expect.timeout: 15000`.
+  Feche esses processos e rode de novo; a suíte limpa passa 95/0 em ~4 min.
 
 ## PostGIS
-
 
 Use o workflow de integração ou banco local descartável com PostGIS. Nunca reutilize produção como banco de teste.
 

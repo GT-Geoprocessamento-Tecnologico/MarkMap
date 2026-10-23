@@ -2,12 +2,7 @@
   "id": "br-uf-pa",
   "version": "1.0.0-brazil.20261019",
   "label": "Pará — mapa offline",
-  "bounds": [
-    -58.8955,
-    -9.8412,
-    -46.0634,
-    2.5837
-  ],
+  "bounds": [-58.8955, -9.8412, -46.0634, 2.5837],
   "minZoom": 0,
   "maxZoom": 9,
   "archive": {
@@ -31,9 +26,7 @@
   "createdAt": "2026-10-19T22:49:01.266Z",
   "packageVersion": "1.0.0-brazil.20261019",
   "osmDataDate": "2026-10-19T04:00:00.000Z",
-  "capabilities": [
-    "basemap"
-  ],
+  "capabilities": ["basemap"],
   "checksums": {
     "archive": "2a983461262d76d9ad4cc526b312c394b988ee6dadc20101338e248116794b20",
     "style": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",

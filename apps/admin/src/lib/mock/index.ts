@@ -11,7 +11,7 @@
  * envelope de erro com codes estaveis, latencia de dev e 409
  * `VERSION_CONFLICT` quando `updateFeature` recebe `version` obsoleto.
  */
-import { z } from 'zod';
+import { z } from "zod";
 import {
   DEFAULT_PAGE_LIMIT,
   createFeatureSchema,
@@ -20,7 +20,7 @@ import {
   httpStatusByErrorCode,
   isGeometryCompatibleWith,
   updateFeatureSchema,
-} from '@markmap/contracts';
+} from "@markmap/contracts";
 import type {
   Bbox,
   CreateProject,
@@ -31,20 +31,20 @@ import type {
   Pagination,
   Position,
   Project,
-} from '@markmap/contracts';
-import { ApiError } from '../errors';
+} from "@markmap/contracts";
+import { ApiError } from "../errors";
 import type {
   CreateFeatureInput,
   CreateLayerInput,
   ListFeaturesOptions,
   ListOptions,
   UpdateFeatureInput,
-} from '../api-types';
-import { getDb, persist } from './storage';
+} from "../api-types";
+import { getDb, persist } from "./storage";
 
-export { MOCK_STORAGE_KEY, resetMockDb } from './storage';
+export { MOCK_STORAGE_KEY, resetMockDb } from "./storage";
 
-const isTest = import.meta.env.MODE === 'test';
+const isTest = import.meta.env.MODE === "test";
 
 async function latency(): Promise<void> {
   if (isTest) return;
@@ -53,37 +53,50 @@ async function latency(): Promise<void> {
 
 function throwIfAborted(signal?: AbortSignal): void {
   if (signal?.aborted === true) {
-    throw new DOMException('The operation was aborted.', 'AbortError');
+    throw new DOMException("The operation was aborted.", "AbortError");
   }
 }
 
 export function newId(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+  if (
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+  ) {
     return crypto.randomUUID();
   }
   // Fallback RFC 4122 v4 para ambientes sem crypto.randomUUID (jsdom antigo).
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (char) => {
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (char) => {
     const random = Math.floor(Math.random() * 16);
-    const value = char === 'x' ? random : (random & 0x3) | 0x8;
+    const value = char === "x" ? random : (random & 0x3) | 0x8;
     return value.toString(16);
   });
 }
 
 function apiError(code: ErrorCode, message: string): ApiError {
-  return new ApiError({ code, message, status: httpStatusByErrorCode[code], requestId: newId() });
+  return new ApiError({
+    code,
+    message,
+    status: httpStatusByErrorCode[code],
+    requestId: newId(),
+  });
 }
 
 function validationError(issues: readonly z.ZodIssue[]): ApiError {
-  const details = issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join('; ');
+  const details = issues
+    .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
+    .join("; ");
   return new ApiError({
-    code: 'VALIDATION_ERROR',
+    code: "VALIDATION_ERROR",
     message: `Dados inválidos: ${details}`,
     status: httpStatusByErrorCode.VALIDATION_ERROR,
     requestId: newId(),
   });
 }
 
-function paginate<T extends { id: string }>(rows: T[], options: ListOptions): Pagination<T> {
+function paginate<T extends { id: string }>(
+  rows: T[],
+  options: ListOptions,
+): Pagination<T> {
   const limit = options.limit ?? DEFAULT_PAGE_LIMIT;
   const cursor = options.cursor;
   let start = 0;
@@ -91,8 +104,8 @@ function paginate<T extends { id: string }>(rows: T[], options: ListOptions): Pa
     const index = rows.findIndex((row) => row.id === cursor);
     if (index === -1) {
       throw new ApiError({
-        code: 'VALIDATION_ERROR',
-        message: 'Cursor de paginação inválido.',
+        code: "VALIDATION_ERROR",
+        message: "Cursor de paginação inválido.",
         status: 400,
         requestId: newId(),
       });
@@ -119,19 +132,21 @@ function geometryBbox(geometry: Geometry): Bbox {
   };
 
   switch (geometry.type) {
-    case 'Point':
+    case "Point":
       push(geometry.coordinates);
       break;
-    case 'MultiPoint':
-    case 'LineString':
+    case "MultiPoint":
+    case "LineString":
       geometry.coordinates.forEach(push);
       break;
-    case 'MultiLineString':
-    case 'Polygon':
+    case "MultiLineString":
+    case "Polygon":
       geometry.coordinates.forEach((line) => line.forEach(push));
       break;
-    case 'MultiPolygon':
-      geometry.coordinates.forEach((polygon) => polygon.forEach((line) => line.forEach(push)));
+    case "MultiPolygon":
+      geometry.coordinates.forEach((polygon) =>
+        polygon.forEach((line) => line.forEach(push)),
+      );
       break;
   }
 
@@ -148,10 +163,14 @@ function intersects(geometry: Geometry, bbox: Bbox): boolean {
   );
 }
 
-export async function listProjects(options: ListOptions = {}): Promise<Pagination<Project>> {
+export async function listProjects(
+  options: ListOptions = {},
+): Promise<Pagination<Project>> {
   throwIfAborted(options.signal);
   await latency();
-  const rows = [...getDb().projects].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  const rows = [...getDb().projects].sort((a, b) =>
+    b.updatedAt.localeCompare(a.updatedAt),
+  );
   return paginate(rows, options);
 }
 
@@ -163,7 +182,7 @@ export async function createProject(input: CreateProject): Promise<Project> {
   const db = getDb();
   const project: Project = {
     id: newId(),
-    status: 'active',
+    status: "active",
     createdAt: now,
     updatedAt: now,
     ...parsed.data,
@@ -173,11 +192,15 @@ export async function createProject(input: CreateProject): Promise<Project> {
   return project;
 }
 
-export async function getProject(projectId: string, signal?: AbortSignal): Promise<Project> {
+export async function getProject(
+  projectId: string,
+  signal?: AbortSignal,
+): Promise<Project> {
   throwIfAborted(signal);
   await latency();
   const project = getDb().projects.find((row) => row.id === projectId);
-  if (project === undefined) throw apiError('PROJECT_NOT_FOUND', 'Projeto não encontrado.');
+  if (project === undefined)
+    throw apiError("PROJECT_NOT_FOUND", "Projeto não encontrado.");
   return project;
 }
 
@@ -189,7 +212,7 @@ export async function listProjectLayers(
   await latency();
   const db = getDb();
   if (!db.projects.some((row) => row.id === projectId)) {
-    throw apiError('PROJECT_NOT_FOUND', 'Projeto não encontrado.');
+    throw apiError("PROJECT_NOT_FOUND", "Projeto não encontrado.");
   }
   const rows = db.layers
     .filter((row) => row.projectId === projectId)
@@ -197,13 +220,16 @@ export async function listProjectLayers(
   return paginate(rows, options);
 }
 
-export async function createLayer(projectId: string, input: CreateLayerInput): Promise<Layer> {
+export async function createLayer(
+  projectId: string,
+  input: CreateLayerInput,
+): Promise<Layer> {
   await latency();
   const parsed = createLayerSchema.safeParse({ ...input, projectId });
   if (!parsed.success) throw validationError(parsed.error.issues);
   const db = getDb();
   if (!db.projects.some((row) => row.id === projectId)) {
-    throw apiError('PROJECT_NOT_FOUND', 'Projeto não encontrado.');
+    throw apiError("PROJECT_NOT_FOUND", "Projeto não encontrado.");
   }
   const now = new Date().toISOString();
   const layer: Layer = {
@@ -218,11 +244,15 @@ export async function createLayer(projectId: string, input: CreateLayerInput): P
   return layer;
 }
 
-export async function getLayer(layerId: string, signal?: AbortSignal): Promise<Layer> {
+export async function getLayer(
+  layerId: string,
+  signal?: AbortSignal,
+): Promise<Layer> {
   throwIfAborted(signal);
   await latency();
   const layer = getDb().layers.find((row) => row.id === layerId);
-  if (layer === undefined) throw apiError('LAYER_NOT_FOUND', 'Camada não encontrada.');
+  if (layer === undefined)
+    throw apiError("LAYER_NOT_FOUND", "Camada não encontrada.");
   return layer;
 }
 
@@ -234,56 +264,77 @@ export async function listFeatures(
   await latency();
   const db = getDb();
   if (!db.layers.some((row) => row.id === layerId)) {
-    throw apiError('LAYER_NOT_FOUND', 'Camada não encontrada.');
+    throw apiError("LAYER_NOT_FOUND", "Camada não encontrada.");
   }
   const rows = db.features
     .filter((row) => row.layerId === layerId)
-    .filter((row) => options.bbox === undefined || intersects(row.geometry, options.bbox))
+    .filter(
+      (row) =>
+        options.bbox === undefined || intersects(row.geometry, options.bbox),
+    )
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   return paginate(rows, options);
 }
 
-export async function createFeature(layerId: string, input: CreateFeatureInput): Promise<Feature> {
+export async function createFeature(
+  layerId: string,
+  input: CreateFeatureInput,
+): Promise<Feature> {
   await latency();
   const parsed = createFeatureSchema.safeParse({ ...input, layerId });
   if (!parsed.success) throw validationError(parsed.error.issues);
   const db = getDb();
   const layer = db.layers.find((row) => row.id === layerId);
-  if (layer === undefined) throw apiError('LAYER_NOT_FOUND', 'Camada não encontrada.');
+  if (layer === undefined)
+    throw apiError("LAYER_NOT_FOUND", "Camada não encontrada.");
   if (!isGeometryCompatibleWith(parsed.data.geometry, layer.geometryType)) {
     throw apiError(
-      'GEOMETRY_TYPE_MISMATCH',
+      "GEOMETRY_TYPE_MISMATCH",
       `A camada aceita apenas geometrias ${layer.geometryType}.`,
     );
   }
   const now = new Date().toISOString();
-  const feature: Feature = { id: newId(), version: 1, createdAt: now, updatedAt: now, ...parsed.data };
+  const feature: Feature = {
+    id: newId(),
+    version: 1,
+    createdAt: now,
+    updatedAt: now,
+    ...parsed.data,
+  };
   db.features.push(feature);
   persist(db);
   return feature;
 }
 
-export async function updateFeature(featureId: string, input: UpdateFeatureInput): Promise<Feature> {
+export async function updateFeature(
+  featureId: string,
+  input: UpdateFeatureInput,
+): Promise<Feature> {
   await latency();
   const parsed = updateFeatureSchema.safeParse({ ...input, id: featureId });
   if (!parsed.success) throw validationError(parsed.error.issues);
   const db = getDb();
   const index = db.features.findIndex((row) => row.id === featureId);
   const current = db.features[index];
-  if (current === undefined) throw apiError('FEATURE_NOT_FOUND', 'Elemento não encontrado.');
+  if (current === undefined)
+    throw apiError("FEATURE_NOT_FOUND", "Elemento não encontrado.");
   if (parsed.data.version !== current.version) {
     throw new ApiError({
-      code: 'VERSION_CONFLICT',
-      message: 'Este item foi alterado em outra sessão. Recarregue antes de salvar.',
+      code: "VERSION_CONFLICT",
+      message:
+        "Este item foi alterado em outra sessão. Recarregue antes de salvar.",
       status: httpStatusByErrorCode.VERSION_CONFLICT,
       requestId: newId(),
     });
   }
   const layer = db.layers.find((row) => row.id === current.layerId);
   const geometry = parsed.data.geometry ?? current.geometry;
-  if (layer !== undefined && !isGeometryCompatibleWith(geometry, layer.geometryType)) {
+  if (
+    layer !== undefined &&
+    !isGeometryCompatibleWith(geometry, layer.geometryType)
+  ) {
     throw apiError(
-      'GEOMETRY_TYPE_MISMATCH',
+      "GEOMETRY_TYPE_MISMATCH",
       `A camada aceita apenas geometrias ${layer.geometryType}.`,
     );
   }
@@ -299,12 +350,16 @@ export async function updateFeature(featureId: string, input: UpdateFeatureInput
   return updated;
 }
 
-export async function deleteFeature(featureId: string, signal?: AbortSignal): Promise<void> {
+export async function deleteFeature(
+  featureId: string,
+  signal?: AbortSignal,
+): Promise<void> {
   throwIfAborted(signal);
   await latency();
   const db = getDb();
   const index = db.features.findIndex((row) => row.id === featureId);
-  if (index === -1) throw apiError('FEATURE_NOT_FOUND', 'Elemento não encontrado.');
+  if (index === -1)
+    throw apiError("FEATURE_NOT_FOUND", "Elemento não encontrado.");
   db.features.splice(index, 1);
   persist(db);
 }

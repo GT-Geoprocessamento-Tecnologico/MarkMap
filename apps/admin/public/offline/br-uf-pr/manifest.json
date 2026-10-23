@@ -2,12 +2,7 @@
   "id": "br-uf-pr",
   "version": "1.0.0-brazil.20261019",
   "label": "Paraná — mapa offline",
-  "bounds": [
-    -54.6191,
-    -26.7171,
-    -48.0961,
-    -22.5269
-  ],
+  "bounds": [-54.6191, -26.7171, -48.0961, -22.5269],
   "minZoom": 0,
   "maxZoom": 9,
   "archive": {
@@ -31,9 +26,7 @@
   "createdAt": "2026-10-19T22:49:45.016Z",
   "packageVersion": "1.0.0-brazil.20261019",
   "osmDataDate": "2026-10-19T04:00:00.000Z",
-  "capabilities": [
-    "basemap"
-  ],
+  "capabilities": ["basemap"],
   "checksums": {
     "archive": "8c536fd78cae08b4b13ba85474922cc917d0f3b8fd0437a43e49822e3e3bdeef",
     "style": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",

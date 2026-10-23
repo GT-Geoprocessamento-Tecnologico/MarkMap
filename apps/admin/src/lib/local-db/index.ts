@@ -1,9 +1,25 @@
-import { LOCAL_DB_NAME, LOCAL_DB_VERSION, type LocalDb, type LocalDbStores, type LocalDbTransaction } from "./types";
+import {
+  LOCAL_DB_NAME,
+  LOCAL_DB_VERSION,
+  type LocalDb,
+  type LocalDbStores,
+  type LocalDbTransaction,
+} from "./types";
 
-const STORES: LocalDbStores[] = ["meta", "entities", "originals", "outbox", "conflicts", "acks"];
+const STORES: LocalDbStores[] = [
+  "meta",
+  "entities",
+  "originals",
+  "outbox",
+  "conflicts",
+  "acks",
+];
 
 function openDatabase(onVersionChange: () => void): Promise<IDBDatabase> {
-  if (typeof indexedDB === "undefined") return Promise.reject(new Error("IndexedDB não está disponível neste navegador."));
+  if (typeof indexedDB === "undefined")
+    return Promise.reject(
+      new Error("IndexedDB não está disponível neste navegador."),
+    );
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(LOCAL_DB_NAME, LOCAL_DB_VERSION);
     // A blocked request can later succeed. Do not keep an orphan connection open.
@@ -12,43 +28,74 @@ function openDatabase(onVersionChange: () => void): Promise<IDBDatabase> {
       const db = request.result;
       for (const name of STORES) {
         if (db.objectStoreNames.contains(name)) continue;
-        const store = db.createObjectStore(name, { keyPath: name === "meta" ? "key" : "key" });
+        const store = db.createObjectStore(name, {
+          keyPath: name === "meta" ? "key" : "key",
+        });
         if (name === "entities") {
           store.createIndex("workspace", "workspaceId", { unique: false });
-          store.createIndex("entity", ["workspaceId", "entity", "entityId"], { unique: true });
+          store.createIndex("entity", ["workspaceId", "entity", "entityId"], {
+            unique: true,
+          });
         } else if (name === "outbox") {
           store.createIndex("workspace", "workspaceId", { unique: false });
-          store.createIndex("entity", ["workspaceId", "entity", "entityId"], { unique: false });
-        } else if (name === "originals" || name === "conflicts" || name === "acks") {
+          store.createIndex("entity", ["workspaceId", "entity", "entityId"], {
+            unique: false,
+          });
+        } else if (
+          name === "originals" ||
+          name === "conflicts" ||
+          name === "acks"
+        ) {
           store.createIndex("workspace", "workspaceId", { unique: false });
         }
-        if (name === "outbox") store.createIndex("workspaceSequence", ["workspaceId", "localSequence"], { unique: true });
+        if (name === "outbox")
+          store.createIndex(
+            "workspaceSequence",
+            ["workspaceId", "localSequence"],
+            { unique: true },
+          );
       }
       if (db.objectStoreNames.contains("acks")) {
         const acks = request.transaction!.objectStore("acks");
-        if (!acks.indexNames.contains("workspace")) acks.createIndex("workspace", "workspaceId", { unique: false });
+        if (!acks.indexNames.contains("workspace"))
+          acks.createIndex("workspace", "workspaceId", { unique: false });
       }
       if (db.objectStoreNames.contains("outbox")) {
         const outbox = request.transaction!.objectStore("outbox");
-        if (!outbox.indexNames.contains("workspaceSequence")) outbox.createIndex("workspaceSequence", ["workspaceId", "localSequence"], { unique: true });
+        if (!outbox.indexNames.contains("workspaceSequence"))
+          outbox.createIndex(
+            "workspaceSequence",
+            ["workspaceId", "localSequence"],
+            { unique: true },
+          );
       }
     };
     request.onsuccess = () => {
       const db = request.result;
-      if (settled) { db.close(); return; }
+      if (settled) {
+        db.close();
+        return;
+      }
       settled = true;
-      db.onversionchange = () => { db.close(); onVersionChange(); };
+      db.onversionchange = () => {
+        db.close();
+        onVersionChange();
+      };
       resolve(db);
     };
     request.onerror = () => {
       if (settled) return;
       settled = true;
-      reject(request.error ?? new Error("Não foi possível abrir o banco local."));
+      reject(
+        request.error ?? new Error("Não foi possível abrir o banco local."),
+      );
     };
     request.onblocked = () => {
       if (settled) return;
       settled = true;
-      reject(new Error("O banco local está bloqueado por outra versão aberta."));
+      reject(
+        new Error("O banco local está bloqueado por outra versão aberta."),
+      );
     };
   });
 }
@@ -78,7 +125,9 @@ class IndexedLocalDb implements LocalDb {
     if (!this.workspacePromise) {
       const pending = this.transact(["meta"], "readwrite", async (tx) => {
         const store = tx.store("meta");
-        const current = await requestValue<{ key: string; value: string }>(store.get("workspaceId"));
+        const current = await requestValue<{ key: string; value: string }>(
+          store.get("workspaceId"),
+        );
         if (current?.value) return current.value;
         const value = crypto.randomUUID();
         store.put({ key: "workspaceId", value });
@@ -87,13 +136,18 @@ class IndexedLocalDb implements LocalDb {
       this.workspacePromise = pending;
       // A failed transaction must be retryable after a resume/version change.
       void pending.catch(() => {
-        if (this.workspacePromise === pending) this.workspacePromise = undefined;
+        if (this.workspacePromise === pending)
+          this.workspacePromise = undefined;
       });
     }
     return this.workspacePromise;
   }
 
-  async transact<T>(stores: LocalDbStores[], mode: IDBTransactionMode, work: (tx: LocalDbTransaction) => Promise<T> | T): Promise<T> {
+  async transact<T>(
+    stores: LocalDbStores[],
+    mode: IDBTransactionMode,
+    work: (tx: LocalDbTransaction) => Promise<T> | T,
+  ): Promise<T> {
     const opening = this.database();
     const db = await opening;
     return new Promise<T>((resolve, reject) => {
@@ -107,32 +161,58 @@ class IndexedLocalDb implements LocalDb {
         // Some WebViews close IDB connections on suspend without firing
         // versionchange. Report the failed operation, then reopen on retry.
         if (
-          error && typeof error === "object" && "name" in error &&
-          error.name === "InvalidStateError" && this.dbPromise === opening
+          error &&
+          typeof error === "object" &&
+          "name" in error &&
+          error.name === "InvalidStateError" &&
+          this.dbPromise === opening
         ) {
           this.dbPromise = undefined;
           this.workspacePromise = undefined;
-          try { db.close(); } catch { /* already closed */ }
+          try {
+            db.close();
+          } catch {
+            /* already closed */
+          }
         }
         // Do not automatically replay readwrite callbacks: they might have
         // side effects and their commit status is not necessarily known.
         reject(error);
         return;
       }
-      const tx: LocalDbTransaction = { store: (name) => transaction.objectStore(name) };
+      const tx: LocalDbTransaction = {
+        store: (name) => transaction.objectStore(name),
+      };
       const fail = (error: unknown) => {
         if (settled) return;
         settled = true;
-        try { transaction.abort(); } catch { /* already completed */ }
-        reject(error instanceof Error ? error : new Error("Transação local falhou."));
+        try {
+          transaction.abort();
+        } catch {
+          /* already completed */
+        }
+        reject(
+          error instanceof Error ? error : new Error("Transação local falhou."),
+        );
       };
-      Promise.resolve().then(() => work(tx)).then((value) => { result = value; callbackDone = true; }, fail);
+      Promise.resolve()
+        .then(() => work(tx))
+        .then((value) => {
+          result = value;
+          callbackDone = true;
+        }, fail);
       transaction.oncomplete = () => {
-        if (!callbackDone) return fail(new Error("Transação local terminou antes da operação."));
-        if (!settled) { settled = true; resolve(result); }
+        if (!callbackDone)
+          return fail(new Error("Transação local terminou antes da operação."));
+        if (!settled) {
+          settled = true;
+          resolve(result);
+        }
       };
-      transaction.onerror = () => fail(transaction.error ?? new Error("Transação local falhou."));
-      transaction.onabort = () => fail(transaction.error ?? new Error("Transação local abortada."));
+      transaction.onerror = () =>
+        fail(transaction.error ?? new Error("Transação local falhou."));
+      transaction.onabort = () =>
+        fail(transaction.error ?? new Error("Transação local abortada."));
     });
   }
 
@@ -141,12 +221,19 @@ class IndexedLocalDb implements LocalDb {
     this.workspacePromise = undefined;
     this.dbPromise = undefined;
     // Handle a failed or still-opening connection without unhandled rejections.
-    if (opening) void opening.then((db) => db.close(), () => undefined);
+    if (opening)
+      void opening.then(
+        (db) => db.close(),
+        () => undefined,
+      );
   }
 }
 
 function requestValue<T>(request: IDBRequest<T>): Promise<T> {
-  return new Promise((resolve, reject) => { request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); });
+  return new Promise((resolve, reject) => {
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
 }
 
 export const localDb: LocalDb = new IndexedLocalDb();

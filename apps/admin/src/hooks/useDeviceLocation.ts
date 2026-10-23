@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useEffect, useState, useRef, useCallback } from 'react';
-import { positionSampleFromBrowser, type PositionSample } from '@markmap/geo';
+import { useEffect, useState, useRef, useCallback } from "react";
+import { positionSampleFromBrowser, type PositionSample } from "@markmap/geo";
 
 export interface DeviceLocationOptions {
   enableHighAccuracy?: boolean;
@@ -14,7 +14,7 @@ export interface DeviceLocationState {
   sample: PositionSample | null;
   heading: number | null; // Compass heading in degrees (0-360)
   error: string | null;
-  permissionState: PermissionState | 'unknown';
+  permissionState: PermissionState | "unknown";
   isTracking: boolean;
   isAutoFollow: boolean;
 }
@@ -35,7 +35,7 @@ export function useDeviceLocation(options: DeviceLocationOptions = {}) {
     sample: null,
     heading: null,
     error: null,
-    permissionState: 'unknown',
+    permissionState: "unknown",
     isTracking: false,
     isAutoFollow: true,
   });
@@ -45,13 +45,22 @@ export function useDeviceLocation(options: DeviceLocationOptions = {}) {
 
   // Check initial permission status if available in browser
   useEffect(() => {
-    if ('permissions' in navigator && typeof navigator.permissions.query === 'function') {
+    if (
+      "permissions" in navigator &&
+      typeof navigator.permissions.query === "function"
+    ) {
       navigator.permissions
-        .query({ name: 'geolocation' as PermissionName })
+        .query({ name: "geolocation" as PermissionName })
         .then((status) => {
-          setState((prev: DeviceLocationState) => ({ ...prev, permissionState: status.state }));
+          setState((prev: DeviceLocationState) => ({
+            ...prev,
+            permissionState: status.state,
+          }));
           status.onchange = () => {
-            setState((prev: DeviceLocationState) => ({ ...prev, permissionState: status.state }));
+            setState((prev: DeviceLocationState) => ({
+              ...prev,
+              permissionState: status.state,
+            }));
           };
         })
         .catch(() => {
@@ -62,9 +71,15 @@ export function useDeviceLocation(options: DeviceLocationOptions = {}) {
 
   // Screen WakeLock handling for mobile/tablet in the field
   const requestWakeLock = useCallback(async () => {
-    if (keepScreenAwake && 'wakeLock' in navigator && (navigator as any).wakeLock) {
+    if (
+      keepScreenAwake &&
+      "wakeLock" in navigator &&
+      (navigator as any).wakeLock
+    ) {
       try {
-        wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
+        wakeLockRef.current = await (navigator as any).wakeLock.request(
+          "screen",
+        );
       } catch {
         // Wake Lock optional or permission denied
       }
@@ -94,34 +109,58 @@ export function useDeviceLocation(options: DeviceLocationOptions = {}) {
         compass = (360 - event.alpha) % 360;
       }
       if (compass !== null && Number.isFinite(compass)) {
-        setState((prev: DeviceLocationState) => ({ ...prev, heading: Math.round(compass!) }));
+        setState((prev: DeviceLocationState) => ({
+          ...prev,
+          heading: Math.round(compass!),
+        }));
       }
     };
 
-    if (typeof window !== 'undefined' && 'DeviceOrientationEvent' in window) {
-      window.addEventListener('deviceorientationabsolute', handleOrientation as any, true);
-      window.addEventListener('deviceorientation', handleOrientation as any, true);
+    if (typeof window !== "undefined" && "DeviceOrientationEvent" in window) {
+      window.addEventListener(
+        "deviceorientationabsolute",
+        handleOrientation as any,
+        true,
+      );
+      window.addEventListener(
+        "deviceorientation",
+        handleOrientation as any,
+        true,
+      );
     }
 
     return () => {
-      if (typeof window !== 'undefined' && 'DeviceOrientationEvent' in window) {
-        window.removeEventListener('deviceorientationabsolute', handleOrientation as any, true);
-        window.removeEventListener('deviceorientation', handleOrientation as any, true);
+      if (typeof window !== "undefined" && "DeviceOrientationEvent" in window) {
+        window.removeEventListener(
+          "deviceorientationabsolute",
+          handleOrientation as any,
+          true,
+        );
+        window.removeEventListener(
+          "deviceorientation",
+          handleOrientation as any,
+          true,
+        );
       }
     };
   }, []);
 
   // Start continuous location tracking
   const startTracking = useCallback(() => {
-    if (!('geolocation' in navigator)) {
+    if (!("geolocation" in navigator)) {
       setState((prev: DeviceLocationState) => ({
         ...prev,
-        error: 'Geolocalização não é suportada por este dispositivo ou navegador.',
+        error:
+          "Geolocalização não é suportada por este dispositivo ou navegador.",
       }));
       return;
     }
 
-    setState((prev: DeviceLocationState) => ({ ...prev, isTracking: true, error: null }));
+    setState((prev: DeviceLocationState) => ({
+      ...prev,
+      isTracking: true,
+      error: null,
+    }));
     requestWakeLock();
 
     if (watchIdRef.current !== null) {
@@ -136,25 +175,29 @@ export function useDeviceLocation(options: DeviceLocationOptions = {}) {
             ...prev,
             sample,
             error: null,
-            permissionState: 'granted',
+            permissionState: "granted",
           }));
         } catch {
           // Stale or invalid fix rejected
         }
       },
       (err) => {
-        let msg = 'Erro ao obter localização.';
+        let msg = "Erro ao obter localização.";
         if (err.code === err.PERMISSION_DENIED) {
-          msg = 'Permissão de localização negada. Por favor, ative a localização nas configurações do seu celular/tablet.';
-          setState((prev: DeviceLocationState) => ({ ...prev, permissionState: 'denied' }));
+          msg =
+            "Permissão de localização negada. Por favor, ative a localização nas configurações do seu celular/tablet.";
+          setState((prev: DeviceLocationState) => ({
+            ...prev,
+            permissionState: "denied",
+          }));
         } else if (err.code === err.POSITION_UNAVAILABLE) {
-          msg = 'Sinal de GPS indisponível ou fraco no momento.';
+          msg = "Sinal de GPS indisponível ou fraco no momento.";
         } else if (err.code === err.TIMEOUT) {
-          msg = 'Tempo limite esgotado ao buscar sinal de GPS.';
+          msg = "Tempo limite esgotado ao buscar sinal de GPS.";
         }
         setState((prev: DeviceLocationState) => ({ ...prev, error: msg }));
       },
-      { enableHighAccuracy, maximumAge, timeout }
+      { enableHighAccuracy, maximumAge, timeout },
     );
   }, [enableHighAccuracy, maximumAge, timeout, requestWakeLock]);
 
@@ -170,7 +213,10 @@ export function useDeviceLocation(options: DeviceLocationOptions = {}) {
 
   // Toggle Auto-Follow mode
   const toggleAutoFollow = useCallback(() => {
-    setState((prev: DeviceLocationState) => ({ ...prev, isAutoFollow: !prev.isAutoFollow }));
+    setState((prev: DeviceLocationState) => ({
+      ...prev,
+      isAutoFollow: !prev.isAutoFollow,
+    }));
   }, []);
 
   // Cleanup on unmount
@@ -190,4 +236,3 @@ export function useDeviceLocation(options: DeviceLocationOptions = {}) {
     toggleAutoFollow,
   };
 }
-

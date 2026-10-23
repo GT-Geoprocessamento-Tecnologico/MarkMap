@@ -1,5 +1,5 @@
-import { z } from 'zod';
-import { featureSchema, layerSchema, projectSchema } from '@markmap/contracts';
+import { z } from "zod";
+import { featureSchema, layerSchema, projectSchema } from "@markmap/contracts";
 
 export const MOCK_DB_VERSION = 1;
 
@@ -13,15 +13,15 @@ export const mockDbSchema = z.object({
 
 export type MockDb = z.infer<typeof mockDbSchema>;
 
-const PROJECT_CENTRO = 'a1b2c3d4-0000-4000-8000-000000000001';
-const PROJECT_LITORAL = 'a1b2c3d4-0000-4000-8000-000000000002';
-const LAYER_PONTOS = 'a1b2c3d4-0001-4000-8000-000000000001';
-const LAYER_TRAJETOS = 'a1b2c3d4-0001-4000-8000-000000000002';
-const LAYER_POLIGONOS = 'a1b2c3d4-0001-4000-8000-000000000003';
-const FEATURE_PONTO_A = 'a1b2c3d4-0002-4000-8000-000000000001';
-const FEATURE_PONTO_B = 'a1b2c3d4-0002-4000-8000-000000000002';
-const FEATURE_LINHA = 'a1b2c3d4-0002-4000-8000-000000000003';
-const FEATURE_POLIGONO = 'a1b2c3d4-0002-4000-8000-000000000004';
+const PROJECT_CENTRO = "a1b2c3d4-0000-4000-8000-000000000001";
+const PROJECT_LITORAL = "a1b2c3d4-0000-4000-8000-000000000002";
+const LAYER_PONTOS = "a1b2c3d4-0001-4000-8000-000000000001";
+const LAYER_TRAJETOS = "a1b2c3d4-0001-4000-8000-000000000002";
+const LAYER_POLIGONOS = "a1b2c3d4-0001-4000-8000-000000000003";
+const FEATURE_PONTO_A = "a1b2c3d4-0002-4000-8000-000000000001";
+const FEATURE_PONTO_B = "a1b2c3d4-0002-4000-8000-000000000002";
+const FEATURE_LINHA = "a1b2c3d4-0002-4000-8000-000000000003";
+const FEATURE_POLIGONO = "a1b2c3d4-0002-4000-8000-000000000004";
 
 /**
  * Demo enxuta: 2 projetos, 3 camadas e 4 features (Belo Horizonte).
@@ -34,92 +34,92 @@ export function createSeedDb(): MockDb {
     projects: [
       {
         id: PROJECT_CENTRO,
-        name: 'Reconhecimento Centro',
-        description: 'Levantamento piloto da região central',
-        status: 'active',
-        createdAt: '2026-01-10T09:00:00.000Z',
-        updatedAt: '2026-01-12T15:30:00.000Z',
+        name: "Reconhecimento Centro",
+        description: "Levantamento piloto da região central",
+        status: "active",
+        createdAt: "2026-01-10T09:00:00.000Z",
+        updatedAt: "2026-01-12T15:30:00.000Z",
       },
       {
         id: PROJECT_LITORAL,
-        name: 'Faixa litorânea',
-        description: 'Mapeamento de áreas costeiras',
-        status: 'active',
-        createdAt: '2026-01-11T10:00:00.000Z',
-        updatedAt: '2026-01-13T08:45:00.000Z',
+        name: "Faixa litorânea",
+        description: "Mapeamento de áreas costeiras",
+        status: "active",
+        createdAt: "2026-01-11T10:00:00.000Z",
+        updatedAt: "2026-01-13T08:45:00.000Z",
       },
     ],
     layers: [
       layerSchema.parse({
         id: LAYER_PONTOS,
         projectId: PROJECT_CENTRO,
-        name: 'Pontos de interesse',
+        name: "Pontos de interesse",
         description: null,
-        kind: 'point',
-        geometryType: 'Point',
-        createdAt: '2026-01-10T09:10:00.000Z',
-        updatedAt: '2026-01-10T09:10:00.000Z',
+        kind: "point",
+        geometryType: "Point",
+        createdAt: "2026-01-10T09:10:00.000Z",
+        updatedAt: "2026-01-10T09:10:00.000Z",
       }),
       layerSchema.parse({
         id: LAYER_TRAJETOS,
         projectId: PROJECT_CENTRO,
-        name: 'Trajetos',
+        name: "Trajetos",
         description: null,
-        kind: 'line',
-        geometryType: 'LineString',
-        createdAt: '2026-01-10T09:20:00.000Z',
-        updatedAt: '2026-01-10T09:20:00.000Z',
+        kind: "line",
+        geometryType: "LineString",
+        createdAt: "2026-01-10T09:20:00.000Z",
+        updatedAt: "2026-01-10T09:20:00.000Z",
       }),
       layerSchema.parse({
         id: LAYER_POLIGONOS,
         projectId: PROJECT_LITORAL,
-        name: 'Polígonos de estudo',
+        name: "Polígonos de estudo",
         description: null,
-        kind: 'polygon',
-        geometryType: 'Polygon',
-        createdAt: '2026-01-11T10:20:00.000Z',
-        updatedAt: '2026-01-11T10:20:00.000Z',
+        kind: "polygon",
+        geometryType: "Polygon",
+        createdAt: "2026-01-11T10:20:00.000Z",
+        updatedAt: "2026-01-11T10:20:00.000Z",
       }),
     ],
     features: [
       {
         id: FEATURE_PONTO_A,
         layerId: LAYER_PONTOS,
-        geometry: { type: 'Point', coordinates: [-43.9378, -19.9167] },
-        properties: { nome: 'Marco zero' },
+        geometry: { type: "Point", coordinates: [-43.9378, -19.9167] },
+        properties: { nome: "Marco zero" },
         version: 1,
-        createdAt: '2026-01-10T09:30:00.000Z',
-        updatedAt: '2026-01-10T09:30:00.000Z',
+        createdAt: "2026-01-10T09:30:00.000Z",
+        updatedAt: "2026-01-10T09:30:00.000Z",
       },
       {
         id: FEATURE_PONTO_B,
         layerId: LAYER_PONTOS,
-        geometry: { type: 'Point', coordinates: [-43.9451, -19.9246] },
-        properties: { nome: 'Ponto de coleta' },
+        geometry: { type: "Point", coordinates: [-43.9451, -19.9246] },
+        properties: { nome: "Ponto de coleta" },
         version: 1,
-        createdAt: '2026-01-10T09:35:00.000Z',
-        updatedAt: '2026-01-10T09:35:00.000Z',
+        createdAt: "2026-01-10T09:35:00.000Z",
+        updatedAt: "2026-01-10T09:35:00.000Z",
       },
       {
         id: FEATURE_LINHA,
         layerId: LAYER_TRAJETOS,
         geometry: {
-          type: 'LineString',
+          type: "LineString",
           coordinates: [
             [-43.95, -19.9],
             [-43.93, -19.92],
           ],
         },
-        properties: { nome: 'Percurso de vistoria' },
+        properties: { nome: "Percurso de vistoria" },
         version: 1,
-        createdAt: '2026-01-10T09:40:00.000Z',
-        updatedAt: '2026-01-10T09:40:00.000Z',
+        createdAt: "2026-01-10T09:40:00.000Z",
+        updatedAt: "2026-01-10T09:40:00.000Z",
       },
       {
         id: FEATURE_POLIGONO,
         layerId: LAYER_POLIGONOS,
         geometry: {
-          type: 'Polygon',
+          type: "Polygon",
           coordinates: [
             [
               [-44.0, -19.95],
@@ -130,10 +130,10 @@ export function createSeedDb(): MockDb {
             ],
           ],
         },
-        properties: { nome: 'Área de estudo' },
+        properties: { nome: "Área de estudo" },
         version: 1,
-        createdAt: '2026-01-11T10:30:00.000Z',
-        updatedAt: '2026-01-11T10:30:00.000Z',
+        createdAt: "2026-01-11T10:30:00.000Z",
+        updatedAt: "2026-01-11T10:30:00.000Z",
       },
     ],
   };

@@ -210,51 +210,97 @@ export async function parseGeoJSON(file: File): Promise<DatasetRecord> {
 export async function parseDatasetFile(file: File): Promise<DatasetRecord> {
   if (/\.(?:geojson|json)$/i.test(file.name)) return parseGeoJSON(file);
   if (!/\.(?:gpx|kml|kmz)$/i.test(file.name))
-    throw new Error('Formato não suportado. Use GeoJSON, GPX, KML ou KMZ.');
-  if (file.size > MAX_DATASET_BYTES) throw new Error('Arquivo excede o limite de 25 MiB.');
-  const raw = /\.kmz$/i.test(file.name) ? await extractKmzKml(file) : await file.text();
+    throw new Error("Formato não suportado. Use GeoJSON, GPX, KML ou KMZ.");
+  if (file.size > MAX_DATASET_BYTES)
+    throw new Error("Arquivo excede o limite de 25 MiB.");
+  const raw = /\.kmz$/i.test(file.name)
+    ? await extractKmzKml(file)
+    : await file.text();
   // Treat XML as untrusted input. Existing parsers are text-only (no network/DTD resolution).
   if (/<!\s*(?:DOCTYPE|ENTITY)\b/i.test(raw))
-    throw new Error('Declarações DTD/ENTITY não são permitidas.');
-  const format = /\.gpx$/i.test(file.name) ? 'GPX' : /\.kmz$/i.test(file.name) ? 'KMZ' : 'KML';
-  if (!(format === 'GPX' ? /<(?:[\w-]+:)?gpx\b/i : /<(?:[\w-]+:)?kml\b/i).test(raw))
-    throw new Error('XML incompatível com o formato informado.');
-  const imported = format === 'GPX' ? parseGpx(raw) : parseKml(raw, { strict: true });
+    throw new Error("Declarações DTD/ENTITY não são permitidas.");
+  const format = /\.gpx$/i.test(file.name)
+    ? "GPX"
+    : /\.kmz$/i.test(file.name)
+      ? "KMZ"
+      : "KML";
+  if (
+    !(format === "GPX" ? /<(?:[\w-]+:)?gpx\b/i : /<(?:[\w-]+:)?kml\b/i).test(
+      raw,
+    )
+  )
+    throw new Error("XML incompatível com o formato informado.");
+  const imported =
+    format === "GPX" ? parseGpx(raw) : parseKml(raw, { strict: true });
   const collection = tracksToGeoJSON(imported);
   if (collection.features.length === 0)
-    throw new Error('O arquivo não contém pontos, linhas ou áreas compatíveis.');
+    throw new Error(
+      "O arquivo não contém pontos, linhas ou áreas compatíveis.",
+    );
   if (collection.features.length > MAX_DATASET_FEATURES)
-    throw new Error(`O arquivo excede o limite de ${MAX_DATASET_FEATURES} feições.`);
+    throw new Error(
+      `O arquivo excede o limite de ${MAX_DATASET_FEATURES} feições.`,
+    );
   // Reuse the same CRS, geometry, feature-count and properties validation as GeoJSON.
   const normalized = JSON.stringify(collection);
-  const jsonFile = new File([normalized], 'converted.geojson', { type: 'application/geo+json' });
+  const jsonFile = new File([normalized], "converted.geojson", {
+    type: "application/geo+json",
+  });
   // jsdom File lacks text(); installed browsers provide it natively.
-  if (typeof jsonFile.text !== 'function') Object.defineProperty(jsonFile, 'text', {value: async () => normalized});
+  if (typeof jsonFile.text !== "function")
+    Object.defineProperty(jsonFile, "text", { value: async () => normalized });
   const validated = await parseGeoJSON(jsonFile);
-  return { ...validated, name: file.name, format, sizeBytes: file.size, originalBlob: file };
+  return {
+    ...validated,
+    name: file.name,
+    format,
+    sizeBytes: file.size,
+    originalBlob: file,
+  };
 }
 
 /** Export validated normalized WGS84 data, independent of the original format. */
-export function normalizedGeoJSONBlob(dataset: Pick<DatasetRecord, 'geojson'>): Blob {
-  return new Blob([JSON.stringify(dataset.geojson)], { type: 'application/geo+json' });
+export function normalizedGeoJSONBlob(
+  dataset: Pick<DatasetRecord, "geojson">,
+): Blob {
+  return new Blob([JSON.stringify(dataset.geojson)], {
+    type: "application/geo+json",
+  });
 }
 
 export async function exportDatasetGeoJSON(id: string): Promise<void> {
   const dataset = await getDataset(id);
-  if (!dataset) throw new Error('Dataset não encontrado.');
+  if (!dataset) throw new Error("Dataset não encontrado.");
   const blob = normalizedGeoJSONBlob(dataset);
-  downloadBlob(blob, dataset.name.replace(/\.[^.]+$/, '') + '.geojson');
+  downloadBlob(blob, dataset.name.replace(/\.[^.]+$/, "") + ".geojson");
 }
 
 export async function saveDataset(dataset: DatasetRecord): Promise<void> {
   const { originalBlob, ...metadata } = dataset;
-  await offlineDB.save("datasets", dataset.id, { ...metadata, originalBytes: await originalBlob.arrayBuffer(), originalType: originalBlob.type });
+  await offlineDB.save("datasets", dataset.id, {
+    ...metadata,
+    originalBytes: await originalBlob.arrayBuffer(),
+    originalType: originalBlob.type,
+  });
 }
 
-type StoredDataset = Omit<DatasetRecord, 'originalBlob'> & { originalBlob?: Blob; originalBytes?: ArrayBuffer; originalType?: string };
+type StoredDataset = Omit<DatasetRecord, "originalBlob"> & {
+  originalBlob?: Blob;
+  originalBytes?: ArrayBuffer;
+  originalType?: string;
+};
 function restoreDataset(record: StoredDataset): DatasetRecord {
-  const originalBlob = record.originalBlob ?? (record.originalBytes instanceof ArrayBuffer ? new Blob([record.originalBytes], { type: record.originalType ?? 'application/geo+json' }) : undefined);
-  if (!originalBlob) throw new Error('O arquivo original deste dataset não está disponível. Importe-o novamente.');
+  const originalBlob =
+    record.originalBlob ??
+    (record.originalBytes instanceof ArrayBuffer
+      ? new Blob([record.originalBytes], {
+          type: record.originalType ?? "application/geo+json",
+        })
+      : undefined);
+  if (!originalBlob)
+    throw new Error(
+      "O arquivo original deste dataset não está disponível. Importe-o novamente.",
+    );
   // Instalações anteriores não gravaram `sourceCrs`; cair para `crs` evita
   // devolver `undefined` sob um tipo declarado como string.
   return { ...record, sourceCrs: record.sourceCrs ?? record.crs, originalBlob };

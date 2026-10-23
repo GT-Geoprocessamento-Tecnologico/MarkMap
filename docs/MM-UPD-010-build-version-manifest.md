@@ -3,20 +3,21 @@
 **Status**: M1 — Em andamento (item MM-UPD-010 da sequência M1)  
 **Task ID**: MM-UPD-010  
 **Predecessor**: MM-MAP-010 (Proveniência/licenças)  
-**Gate M1**: teste unitário de state machine do prompt; E2E de worker waiting → confirmação → controllerchange; teste de Depois; teste com outbox pendente; teste offline após versão já descoberta; sem perda de IndexedDB/outbox  
+**Gate M1**: teste unitário de state machine do prompt; E2E de worker waiting → confirmação → controllerchange; teste de Depois; teste com outbox pendente; teste offline após versão já descoberta; sem perda de IndexedDB/outbox
 
 ## Objetivo
+
 Criar metadata pública de versão contendo: appVersion, buildSha, buildTime, shellProtocolVersion, localSchemaVersion, minimumCompatibleVersion, releaseNotes curtas. O manifest deve ser público e disponível tanto para Web/PWA quanto para builds Capacitor, sincronizando versão entre todas as plataformas sem depender de valores divergentes.
 
 ## Estado Atual do Versionamento
 
 ### Versões existentes (auditadas)
 
-| Pacote | MARKETING_VERSION | CURRENT_PROJECT_VERSION | Observação |
-|--------|-------------------|-------------------------|------------|
-| `apps/admin/package.json` | 0.1.0 | — | Evidência mais próxima de versão do app Web/PWA |
-| Projeto iOS | 1.0 | 1 | Legado; não deve ser tratado como versão canônica do produto |
-| Branch main HEAD | — | — | 156d4e8 (baseline anterior) |
+| Pacote                    | MARKETING_VERSION | CURRENT_PROJECT_VERSION | Observação                                                   |
+| ------------------------- | ----------------- | ----------------------- | ------------------------------------------------------------ |
+| `apps/admin/package.json` | 0.1.0             | —                       | Evidência mais próxima de versão do app Web/PWA              |
+| Projeto iOS               | 1.0               | 1                       | Legado; não deve ser tratado como versão canônica do produto |
+| Branch main HEAD          | —                 | —                       | 156d4e8 (baseline anterior)                                  |
 
 ### Fontes de versão que precisam ser normalizadas
 
@@ -42,15 +43,15 @@ O manifest público de versão deve conter os seguintes campos, no formato JSON,
 
 ### Field definitions
 
-| Campo | Tipo | Descrição |
-|-------|------|-----------|
-| `appVersion` | `string` | Versão de marketing do aplicativo (SemVer). Fonte: `apps/admin/package.json` `version` field. |
-| `buildSha` | `string` | Commit Git exato do build. Fonte: `git rev-parse HEAD`. |
-| `buildTime` | `string` | Timestamp ISO 8601 da conclusão do build. Fonte: `date -u +"%Y-%m-%dT%H:%M:%SZ"` no término do vite build. |
-| `shellProtocolVersion` | `integer` | Versão do protocolo do service worker/app shell. Incrementado quando houver mudança incompatível no shell/IndexedDB schema. Padrão: `1`. |
-| `localSchemaVersion` | `integer` | Versão do schema IndexedDB/local. Incrementado quando houver mudança no estrutura de banco local (objetos, outbox, metadados). Padrão: `1`. |
-| `minimumCompatibleVersion` | `string` | Versão mínima do app capaz de ler/ativar um pacote de mapa versionado. Deve ser ≤ appVersion. |
-| `releaseNotes` | `string` | Release notes curtas (máx. 300 caracteres). Atualizado a cada novo build publicado. |
+| Campo                      | Tipo      | Descrição                                                                                                                                   |
+| -------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `appVersion`               | `string`  | Versão de marketing do aplicativo (SemVer). Fonte: `apps/admin/package.json` `version` field.                                               |
+| `buildSha`                 | `string`  | Commit Git exato do build. Fonte: `git rev-parse HEAD`.                                                                                     |
+| `buildTime`                | `string`  | Timestamp ISO 8601 da conclusão do build. Fonte: `date -u +"%Y-%m-%dT%H:%M:%SZ"` no término do vite build.                                  |
+| `shellProtocolVersion`     | `integer` | Versão do protocolo do service worker/app shell. Incrementado quando houver mudança incompatível no shell/IndexedDB schema. Padrão: `1`.    |
+| `localSchemaVersion`       | `integer` | Versão do schema IndexedDB/local. Incrementado quando houver mudança no estrutura de banco local (objetos, outbox, metadados). Padrão: `1`. |
+| `minimumCompatibleVersion` | `string`  | Versão mínima do app capaz de ler/ativar um pacote de mapa versionado. Deve ser ≤ appVersion.                                               |
+| `releaseNotes`             | `string`  | Release notes curtas (máx. 300 caracteres). Atualizado a cada novo build publicado.                                                         |
 
 ## Implementação
 
@@ -111,10 +112,7 @@ const manifest = {
   releaseNotes: "Versão inicial do Maps Engine v2 offline",
 };
 
-const manifestPath = path.resolve(
-  __dirname,
-  "../.version-manifest.json"
-);
+const manifestPath = path.resolve(__dirname, "../.version-manifest.json");
 fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
 console.log(`Version manifest written to ${manifestPath}`);
 ```
@@ -199,4 +197,4 @@ Após a criação do manifest público (MM-UPD-010), o próximo passo é:
 
 ---
 
-*Este documento é o entregável do MM-UPD-010. Conclui o item 1 da fase M1 "Atualizações do app", preparando o caminho para MM-UPD-020 (Evoluir UpdatePrompt PWA).*
+_Este documento é o entregável do MM-UPD-010. Conclui o item 1 da fase M1 "Atualizações do app", preparando o caminho para MM-UPD-020 (Evoluir UpdatePrompt PWA)._

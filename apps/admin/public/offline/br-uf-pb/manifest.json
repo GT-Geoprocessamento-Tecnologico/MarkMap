@@ -2,12 +2,7 @@
   "id": "br-uf-pb",
   "version": "1.0.0-brazil.20261019",
   "label": "Paraíba — mapa offline",
-  "bounds": [
-    -38.7652,
-    -8.299201,
-    -34.8027,
-    -6.0285
-  ],
+  "bounds": [-38.7652, -8.299201, -34.8027, -6.0285],
   "minZoom": 0,
   "maxZoom": 9,
   "archive": {
@@ -31,9 +26,7 @@
   "createdAt": "2026-10-19T22:49:09.140Z",
   "packageVersion": "1.0.0-brazil.20261019",
   "osmDataDate": "2026-10-19T04:00:00.000Z",
-  "capabilities": [
-    "basemap"
-  ],
+  "capabilities": ["basemap"],
   "checksums": {
     "archive": "ecf7cfe0940c61de265d2f235d170a46d31b520f371c2a41b34a11cc394104bb",
     "style": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",

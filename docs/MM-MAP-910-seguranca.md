@@ -6,6 +6,7 @@
 **Gate M10**: hardening e merge readiness
 
 ## Objetivo
+
 Testar e garantir: path traversal, zip bomb KMZ, manifest adulterado, checksum, pacote truncado, download interrompido, resource exhaustion, arquivos gigantes, XSS em properties/descrições, URLs externas e corrupção IndexedDB/storage.
 
 ## Implementação
@@ -19,33 +20,39 @@ export const SECURITY_LIMITS = {
   maxCompressionRatio: 100,
 } as const;
 
-export function validateAssetPath(path: string): boolean
-export function sanitizeExternalUrl(url: string): string | null
-export function validateFileSize(bytes: number, max: number): boolean
-export function validateXmlDepth(xml: string): boolean   // balanceamento de tags, depth limit
-export function detectXmlBillionLaughs(xml: string): boolean
-export function validateChecksum(data: Uint8Array, expectedSha256: string): Promise<boolean>
-export function validatePmtilesHeader(bytes: Uint8Array): boolean
-export function sanitizeUserInput(input: string): string
-export function detectZipBomb(compressedBytes: number, decompressedBytes: number): boolean
+export function validateAssetPath(path: string): boolean;
+export function sanitizeExternalUrl(url: string): string | null;
+export function validateFileSize(bytes: number, max: number): boolean;
+export function validateXmlDepth(xml: string): boolean; // balanceamento de tags, depth limit
+export function detectXmlBillionLaughs(xml: string): boolean;
+export function validateChecksum(
+  data: Uint8Array,
+  expectedSha256: string,
+): Promise<boolean>;
+export function validatePmtilesHeader(bytes: Uint8Array): boolean;
+export function sanitizeUserInput(input: string): string;
+export function detectZipBomb(
+  compressedBytes: number,
+  decompressedBytes: number,
+): boolean;
 ```
 
 ## Matriz de Testes vs. Defesa
 
-| Vetor | Defesa | Teste |
-|---|---|---|
-| Path traversal | `validateAssetPath` (bloqueia `..`, separadores codificados) | `tests/security/security.test.ts` |
-| Zip bomb KMZ | `detectZipBomb` (ratio > limite) | idem |
-| Manifest adulterado | `offlineMapPackageManifestSchema.safeParse` | fixture test |
-| Checksum | `validateChecksum` (SHA-256) | idem |
-| Pacote truncado | `validatePmtilesHeader` + bytes vs `totalBytes` | offline package test |
-| Download interrompido | staging atômico (valida antes de ativar) | integration |
-| Resource exhaustion | `SECURITY_LIMITS` + `validateFileSize` | idem |
-| Arquivos gigantes | `maxAssetBytes` / `maxDecompressedBytes` | idem |
-| XSS em properties/descrições | `sanitizeUserInput` + `sanitizeWikipediaHtml` (whitelist) | idem |
-| URLs externas | `sanitizeExternalUrl` (allowlist de scheme) | idem |
-| Corrupção IndexedDB | transações + validação de manifest na ativação | integration |
-| XML externo/billion laughs | `validateXmlDepth` + `detectXmlBillionLaughs` | idem |
+| Vetor                        | Defesa                                                       | Teste                             |
+| ---------------------------- | ------------------------------------------------------------ | --------------------------------- |
+| Path traversal               | `validateAssetPath` (bloqueia `..`, separadores codificados) | `tests/security/security.test.ts` |
+| Zip bomb KMZ                 | `detectZipBomb` (ratio > limite)                             | idem                              |
+| Manifest adulterado          | `offlineMapPackageManifestSchema.safeParse`                  | fixture test                      |
+| Checksum                     | `validateChecksum` (SHA-256)                                 | idem                              |
+| Pacote truncado              | `validatePmtilesHeader` + bytes vs `totalBytes`              | offline package test              |
+| Download interrompido        | staging atômico (valida antes de ativar)                     | integration                       |
+| Resource exhaustion          | `SECURITY_LIMITS` + `validateFileSize`                       | idem                              |
+| Arquivos gigantes            | `maxAssetBytes` / `maxDecompressedBytes`                     | idem                              |
+| XSS em properties/descrições | `sanitizeUserInput` + `sanitizeWikipediaHtml` (whitelist)    | idem                              |
+| URLs externas                | `sanitizeExternalUrl` (allowlist de scheme)                  | idem                              |
+| Corrupção IndexedDB          | transações + validação de manifest na ativação               | integration                       |
+| XML externo/billion laughs   | `validateXmlDepth` + `detectXmlBillionLaughs`                | idem                              |
 
 ## Segurança por seção do PRD (12)
 
@@ -63,10 +70,11 @@ export function detectZipBomb(compressedBytes: number, decompressedBytes: number
 - ✅ Telemetria não é requisito para offline
 
 ## Evidência Concreta
+
 - ✅ `packages/maps/src/security/index.ts` — 9 funções + `SECURITY_LIMITS`
 - ✅ `packages/maps/tests/security/security.test.ts`
 - ✅ XML parsers do `geo` sem DOMParser (sem vetor XXE)
 
 ---
 
-*Entregável do MM-MAP-910. Prepara MM-MAP-920 (Compatibilidade).*
+_Entregável do MM-MAP-910. Prepara MM-MAP-920 (Compatibilidade)._

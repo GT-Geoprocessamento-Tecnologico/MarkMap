@@ -4,7 +4,9 @@ export interface RegionRevisionChange {
   to: string | null;
 }
 export declare function subscribeRegionForeground(
-  onWake: () => void, doc?: Document, win?: Window,
+  onWake: () => void,
+  doc?: Document,
+  win?: Window,
 ): () => void;
 export declare function createRegionRevisionReconciler(options: {
   readSelection: () => string | null;

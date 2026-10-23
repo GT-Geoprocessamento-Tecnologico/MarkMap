@@ -3,20 +3,21 @@
 **Status**: M1 — Em andamento (item MM-UPD-030 da sequência M1)  
 **Task ID**: MM-UPD-030  
 **Predecessor**: MM-UPD-020 (UpdatePrompt PWA evoluído)  
-**Gate M1**: teste unitário de state machine do prompt; E2E de worker waiting → confirmação → controllerchange; teste de Depois; teste com outbox pendente; teste offline após versão já descoberta; sem perda de IndexedDB/outbox  
+**Gate M1**: teste unitário de state machine do prompt; E2E de worker waiting → confirmação → controllerchange; teste de Depois; teste com outbox pendente; teste offline após versão já descoberta; sem perda de IndexedDB/outbox
 
 ## Objetivo
+
 Criar aviso equivalente de nova versão em builds Capacitor, abrindo o canal oficial de atualização da plataforma. Diferente do PWA, o service worker não se aplica da mesma forma a apps nativos, então o fluxo de detecção e atualização deve usar APIs nativas do Capacitor e as lojas de respectivas plataformas.
 
 ## Fluxo Diferente entre PWA e Capacitor
 
-| Aspecto | PWA (Web) | Capacitor (Android/iOS) |
-|---------|-----------|------------------------|
-| **Atualização do app** | Através do service worker + `registration.update()` | Através do binário nativo (Play Store / App Store) |
-| **Detecção de versão** | `registration.update()` após `serviceWorker.ready` | Verificar `navigator.userAgent` ou plugin nativo |
-| **Prompt de atualização** | Popup modal dentro do app (UpdatePrompt) | Aviso nativo + abertura de loja |
-| **Reload após update** | `controllerchange` event + `window.location.reload()` | Reinstalação do app ou diálogo "Atualizar" na loja |
-| **Outbox protection** | IndexedDB/outbox local-first | Dados persistentes no armazenamento nativo do app |
+| Aspecto                   | PWA (Web)                                             | Capacitor (Android/iOS)                            |
+| ------------------------- | ----------------------------------------------------- | -------------------------------------------------- |
+| **Atualização do app**    | Através do service worker + `registration.update()`   | Através do binário nativo (Play Store / App Store) |
+| **Detecção de versão**    | `registration.update()` após `serviceWorker.ready`    | Verificar `navigator.userAgent` ou plugin nativo   |
+| **Prompt de atualização** | Popup modal dentro do app (UpdatePrompt)              | Aviso nativo + abertura de loja                    |
+| **Reload após update**    | `controllerchange` event + `window.location.reload()` | Reinstalação do app ou diálogo "Atualizar" na loja |
+| **Outbox protection**     | IndexedDB/outbox local-first                          | Dados persistentes no armazenamento nativo do app  |
 
 ## Especificação MM-UPD-030
 
@@ -65,22 +66,34 @@ export interface VersionCheckResult {
 
 export async function checkForUpdate(
   currentVersion: string,
-  manifestUrl: string
+  manifestUrl: string,
 ): Promise<VersionCheckResult> {
   // 1. Baixar manifest público (mesmo usado pelo PWA)
   const response = await fetch(manifestUrl);
-  if (!response.ok) return { hasUpdate: false, currentVersion, availableVersion: currentVersion, availableStoreUrl: "" };
-  
+  if (!response.ok)
+    return {
+      hasUpdate: false,
+      currentVersion,
+      availableVersion: currentVersion,
+      availableStoreUrl: "",
+    };
+
   const manifest = await response.json();
-  
+
   // 2. Comparar versões (SemVer)
   const needsUpdate = compareVersions(manifest.appVersion, currentVersion) > 0;
-  
-  if (!needsUpdate) return { hasUpdate: false, currentVersion, availableVersion: currentVersion, availableStoreUrl: "" };
-  
+
+  if (!needsUpdate)
+    return {
+      hasUpdate: false,
+      currentVersion,
+      availableVersion: currentVersion,
+      availableStoreUrl: "",
+    };
+
   // 3. Obter URL da loja
   const storeUrl = await getStoreUrlForPlatform();
-  
+
   return {
     hasUpdate: true,
     currentVersion,
@@ -92,7 +105,7 @@ export async function checkForUpdate(
 async function compareVersions(a: string, b: string): number {
   const aParts = a.split(".").map(Number);
   const bParts = b.split(".").map(Number);
-  
+
   for (let i = 0; i < Math.max(aParts.length, bParts.length); i++) {
     const aNum = aParts[i] || 0;
     const bNum = bParts[i] || 0;
@@ -104,7 +117,7 @@ async function compareVersions(a: string, b: string): number {
 
 async function getStoreUrlForPlatform(): Promise<string> {
   const platform = Platform.currentPlatform();
-  
+
   if (platform.isNativePlatform()) {
     if (Platform.isAndroid()) {
       return "https://play.google.com/store/apps/details?id=com.markmap.app";
@@ -113,7 +126,7 @@ async function getStoreUrlForPlatform(): Promise<string> {
       return "https://apps.apple.com/us/app/markmap/id1234567890";
     }
   }
-  
+
   return "";
 }
 ```
@@ -128,12 +141,12 @@ import { Platform } from "@capacitor/platform";
 
 onAppStart(async () => {
   if (!Platform.isNativePlatform()) return;
-  
+
   const currentVersion = await getCurrentCapacitorVersion(); // via plugin
   const manifestUrl = "/version-manifest.json"; // mesmo do PWA ou endpoint específico
-  
+
   const result = await checkForUpdate(currentVersion, manifestUrl);
-  
+
   if (result.hasUpdate) {
     showUpdateAlert(result);
   }
@@ -145,7 +158,7 @@ onAppStart(async () => {
 ```typescript
 function showUpdateAlert(result: VersionCheckResult): void {
   const { availableVersion, availableStoreUrl } = result;
-  
+
   // Android: Alert + Link
   if (Platform.isAndroid()) {
     Alert.alert(
@@ -160,13 +173,13 @@ function showUpdateAlert(result: VersionCheckResult): void {
           text: "Atualizar",
           onPress: () => Linking.openURL(availableStoreUrl),
         },
-      ]
+      ],
     );
   }
-  
+
   // iOS: Use Linking directly (Alert.alert limited on iOS)
   if (Platform.isiOS()) {
-    Linking.openURL(availableStoreUrl).then(success => {
+    Linking.openURL(availableStoreUrl).then((success) => {
       if (!success) {
         Alert.alert(
           "Nova versão do MarkMap disponível",
@@ -180,7 +193,7 @@ function showUpdateAlert(result: VersionCheckResult): void {
               text: "Aceitar",
               onPress: () => {},
             },
-          ]
+          ],
         );
       }
     });
@@ -199,13 +212,16 @@ const SHOWN_UPDATE_VERSIONS_KEY = "markmap_shown_update_versions";
 async function shouldShowUpdate(currentVersion: string): boolean {
   const shown = await AsyncStorage.getItem(SHOWN_UPDATE_VERSIONS_KEY);
   const shownVersions: string[] = shown ? JSON.parse(shown) : [];
-  
+
   if (shownVersions.includes(currentVersion)) return false;
-  
+
   // Atualizar lista
   shownVersions.push(currentVersion);
-  await AsyncStorage.setItem(SHOWN_UPDATE_VERSIONS_KEY, JSON.stringify(shownVersions));
-  
+  await AsyncStorage.setItem(
+    SHOWN_UPDATE_VERSIONS_KEY,
+    JSON.stringify(shownVersions),
+  );
+
   return true;
 }
 ```
@@ -224,22 +240,26 @@ async function shouldShowUpdate(currentVersion: string): boolean {
 ## Evidência Concreta (demonstrada nesta implementation)
 
 ### 1. `version-checker.ts` criado com:
+
 - ✅ Comparação SemVer entre versão current e available
 - ✅ URL da loja correta por plataforma
 - ✅ Aviso nativo com "Depois" e "Atualizar" ações
 - ✅ Integração com `onAppStart` e `Platform` do Capacitor
 
 ### 2. Integração no `onAppStart`
+
 - ✅ Verificação de versão ao iniciar app nativo
 - ✅ Comparação com manifest público (`/version-manifest.json`)
 - ✅ Apenas em builds nativos (`!Platform.isNativePlatform()` retorna false para web)
 
 ### 3. Compatibilidade retroativa
+
 - ✅ O version checker reutiliza o manifest de MM-UPD-010
 - ✅ Não quebra o UpdatePrompt PWA existente
 - ✅ Ambos os flows (PWA service worker + Capacitor nativo) coexistem
 
 ### 4. Testes
+
 - Mock de `Platform.currentPlatform()` em testes unitários
 - `Linking.openURL` verificado nos testes
 - `Alert.alert` calls verificados
@@ -249,6 +269,7 @@ async function shouldShowUpdate(currentVersion: string): boolean {
 Após a detecção de versão em Capacitor (MM-UPD-030), o próximo passo é:
 
 **MM-UPD-040**: Criar modelo de atualização de pacotes de mapa com:
+
 - Staging (download em área temporária)
 - Checksum validation
 - Resume/download intermitente
@@ -271,4 +292,4 @@ Isso completa o gate M1 e habilita a sequência M2 (Storage e Region Package v2)
 
 ---
 
-*Este documento é o entregável do MM-UPD-030. Conclui o item 3 da fase M1 "Atualizações do app", preparando o caminho para MM-UPD-040 (Modelo de atualização de Region Package) e sequência M2 "Storage e Region Package v2".*
+_Este documento é o entregável do MM-UPD-030. Conclui o item 3 da fase M1 "Atualizações do app", preparando o caminho para MM-UPD-040 (Modelo de atualização de Region Package) e sequência M2 "Storage e Region Package v2"._

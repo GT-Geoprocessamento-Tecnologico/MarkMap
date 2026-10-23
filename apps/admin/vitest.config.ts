@@ -1,6 +1,6 @@
-import { defineConfig } from 'vitest/config';
-import react from '@vitejs/plugin-react';
-import { markmapAliases } from './vite.aliases';
+import { defineConfig } from "vitest/config";
+import react from "@vitejs/plugin-react";
+import { markmapAliases } from "./vite.aliases";
 
 export default defineConfig({
   plugins: [react()],
@@ -8,10 +8,10 @@ export default defineConfig({
     alias: markmapAliases,
   },
   test: {
-    environment: 'jsdom',
+    environment: "jsdom",
     globals: true,
-    setupFiles: ['./src/test/setup.ts'],
-    include: ['src/**/*.test.{ts,tsx}'],
+    setupFiles: ["./src/test/setup.ts"],
+    include: ["src/**/*.test.{ts,tsx}"],
     css: false,
   },
 });

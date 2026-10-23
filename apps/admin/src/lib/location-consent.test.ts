@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  get: vi.fn(), save: vi.fn(), granted: vi.fn(),
+  get: vi.fn(),
+  save: vi.fn(),
+  granted: vi.fn(),
 }));
 vi.mock("./storage/offline-db", () => ({
   offlineDB: { get: mocks.get, save: mocks.save },
@@ -10,8 +12,10 @@ vi.mock("./device-location-permission", () => ({
   isLocationPermissionGranted: mocks.granted,
 }));
 import {
-  getFreshDevicePosition, isInsideOfflineRegion,
-  rememberLocationApproval, shouldAutoLocateOnOpen,
+  getFreshDevicePosition,
+  isInsideOfflineRegion,
+  rememberLocationApproval,
+  shouldAutoLocateOnOpen,
 } from "./location-consent";
 
 beforeEach(() => {
@@ -33,7 +37,8 @@ describe("local GPS choice and device authority", () => {
     expect(await shouldAutoLocateOnOpen()).toBe(true);
     await rememberLocationApproval();
     expect(mocks.save).toHaveBeenCalledWith("permissions", "gps", {
-      status: "granted", autoCenter: true,
+      status: "granted",
+      autoCenter: true,
     });
   });
   it("does not trust old permission after OS revocation", async () => {
@@ -53,30 +58,52 @@ describe("local GPS choice and device authority", () => {
   });
   it("requests a current, high accuracy GPS fix without network access", async () => {
     const getCurrentPosition = vi.fn((success: PositionCallback) =>
-      success({ coords: { latitude: -7.18, longitude: -48.22, accuracy: 13 } } as GeolocationPosition));
+      success({
+        coords: { latitude: -7.18, longitude: -48.22, accuracy: 13 },
+      } as GeolocationPosition),
+    );
     vi.stubGlobal("navigator", { geolocation: { getCurrentPosition } });
-    await expect(getFreshDevicePosition()).resolves.toEqual({ lat: -7.18, lon: -48.22, accuracyM: 13 });
+    await expect(getFreshDevicePosition()).resolves.toEqual({
+      lat: -7.18,
+      lon: -48.22,
+      accuracyM: 13,
+    });
     expect(getCurrentPosition).toHaveBeenCalledWith(
-      expect.any(Function), expect.any(Function),
+      expect.any(Function),
+      expect.any(Function),
       { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 },
     );
   });
   it("leaves viewport untouched after sensor errors or invalid coordinates", async () => {
-    vi.stubGlobal("navigator", { geolocation: {
-      getCurrentPosition: (_: PositionCallback, error: PositionErrorCallback) => error({} as GeolocationPositionError),
-    } });
+    vi.stubGlobal("navigator", {
+      geolocation: {
+        getCurrentPosition: (
+          _: PositionCallback,
+          error: PositionErrorCallback,
+        ) => error({} as GeolocationPositionError),
+      },
+    });
     await expect(getFreshDevicePosition()).resolves.toBeNull();
-    vi.stubGlobal("navigator", { geolocation: {
-      getCurrentPosition: (success: PositionCallback) => success({
-        coords: { latitude: 999, longitude: 0, accuracy: 10 },
-      } as GeolocationPosition),
-    } });
+    vi.stubGlobal("navigator", {
+      geolocation: {
+        getCurrentPosition: (success: PositionCallback) =>
+          success({
+            coords: { latitude: 999, longitude: 0, accuracy: 10 },
+          } as GeolocationPosition),
+      },
+    });
     await expect(getFreshDevicePosition()).resolves.toBeNull();
   });
   it("keeps regional offline tiles visible when GPS is outside coverage", () => {
     const bounds = [-49, -8, -47, -6] as const;
-    expect(isInsideOfflineRegion({ lon: -48, lat: -7, accuracyM: 10 }, bounds)).toBe(true);
-    expect(isInsideOfflineRegion({ lon: -50, lat: -7, accuracyM: 10 }, bounds)).toBe(false);
-    expect(isInsideOfflineRegion({ lon: -50, lat: -7, accuracyM: 10 }, null)).toBe(true);
+    expect(
+      isInsideOfflineRegion({ lon: -48, lat: -7, accuracyM: 10 }, bounds),
+    ).toBe(true);
+    expect(
+      isInsideOfflineRegion({ lon: -50, lat: -7, accuracyM: 10 }, bounds),
+    ).toBe(false);
+    expect(
+      isInsideOfflineRegion({ lon: -50, lat: -7, accuracyM: 10 }, null),
+    ).toBe(true);
   });
 });

@@ -10,7 +10,9 @@ describe("crédito do MarkMap", () => {
     render(<AppFooter />);
     const link = screen.getByRole("link", { name: "MtsFerreira" });
     expect(link).toHaveAttribute("href", "https://mtsferreira.dev");
-    expect(link.closest("footer")).toHaveTextContent(`Desenvolvido por MtsFerreira · v${version.split(/[+-]/, 1)[0]}`);
+    expect(link.closest("footer")).toHaveTextContent(
+      `Desenvolvido por MtsFerreira · v${version.split(/[+-]/, 1)[0]}`,
+    );
     expect(appCredits.version).toMatch(/^v\d+\.\d+\.\d+$/);
   });
 });

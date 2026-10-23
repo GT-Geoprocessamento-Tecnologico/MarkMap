@@ -23,18 +23,30 @@ type Options = {
 
 /** Snapshot a selection, install serially, and stop before starting another item after cancellation or failure. */
 export async function runCatalogDownloadQueue(
-  regions: readonly PublicRegion[], options: Options,
+  regions: readonly PublicRegion[],
+  options: Options,
 ): Promise<CatalogQueueResult> {
-  const unique = [...new Map(regions.map(region => [region.id, region])).values()];
-  const skippedIds = unique.filter(region => options.installedIds.has(region.id)).map(region => region.id);
-  const pending = unique.filter(region => !options.installedIds.has(region.id));
+  const unique = [
+    ...new Map(regions.map((region) => [region.id, region])).values(),
+  ];
+  const skippedIds = unique
+    .filter((region) => options.installedIds.has(region.id))
+    .map((region) => region.id);
+  const pending = unique.filter(
+    (region) => !options.installedIds.has(region.id),
+  );
   const installedIds: string[] = [];
-  const finish = (status: CatalogQueueResult["status"]): CatalogQueueResult => ({ status, installedIds, skippedIds });
+  const finish = (
+    status: CatalogQueueResult["status"],
+  ): CatalogQueueResult => ({ status, installedIds, skippedIds });
 
   for (const [index, region] of pending.entries()) {
     if (options.signal.aborted) return finish("cancelled");
     options.onProgress?.({
-      total: pending.length, completed: installedIds.length, index: index + 1, currentId: region.id,
+      total: pending.length,
+      completed: installedIds.length,
+      index: index + 1,
+      currentId: region.id,
     });
     if (options.signal.aborted) return finish("cancelled");
     let result: "installed" | "confirm" | "error";

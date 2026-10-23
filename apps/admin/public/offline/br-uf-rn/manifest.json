@@ -2,12 +2,7 @@
   "id": "br-uf-rn",
   "version": "1.0.0-brazil.20261019",
   "label": "Rio Grande do Norte — mapa offline",
-  "bounds": [
-    -38.5704,
-    -6.9282,
-    -34.9685,
-    -4.8314
-  ],
+  "bounds": [-38.5704, -6.9282, -34.9685, -4.8314],
   "minZoom": 0,
   "maxZoom": 9,
   "archive": {
@@ -31,9 +26,7 @@
   "createdAt": "2026-10-19T22:50:11.233Z",
   "packageVersion": "1.0.0-brazil.20261019",
   "osmDataDate": "2026-10-19T04:00:00.000Z",
-  "capabilities": [
-    "basemap"
-  ],
+  "capabilities": ["basemap"],
   "checksums": {
     "archive": "4709cd802ba8a255d38d33bce0d7ba0904ac84a5634117ffa776c204e8c7028d",
     "style": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",

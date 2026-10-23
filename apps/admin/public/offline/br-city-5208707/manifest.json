@@ -2,12 +2,7 @@
   "id": "br-city-5208707",
   "version": "1.0.0-brazil.20261019",
   "label": "Goiânia — mapa offline",
-  "bounds": [
-    -49.4446,
-    -16.8319,
-    -49.078,
-    -16.4538
-  ],
+  "bounds": [-49.4446, -16.8319, -49.078, -16.4538],
   "minZoom": 0,
   "maxZoom": 12,
   "archive": {
@@ -31,9 +26,7 @@
   "createdAt": "2026-10-19T22:47:42.275Z",
   "packageVersion": "1.0.0-brazil.20261019",
   "osmDataDate": "2026-10-19T04:00:00.000Z",
-  "capabilities": [
-    "basemap"
-  ],
+  "capabilities": ["basemap"],
   "checksums": {
     "archive": "85bc3c5068036bb260ba5bdcc016cf00a00a70c16c74d72ee2d9fff85e3ac138",
     "style": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",

@@ -18,8 +18,17 @@ const mocks = vi.hoisted(() => ({
   ensureBootstrapIdentity: vi.fn(),
 }));
 
-const { listOutbox, acknowledge, saveConflict, applyServerPage, workspaceId, getMeta, setMeta, saveWorkspaceCapability, ensureBootstrapIdentity } =
-  mocks;
+const {
+  listOutbox,
+  acknowledge,
+  saveConflict,
+  applyServerPage,
+  workspaceId,
+  getMeta,
+  setMeta,
+  saveWorkspaceCapability,
+  ensureBootstrapIdentity,
+} = mocks;
 
 vi.mock("../api-client", () => ({
   API_BASE: "https://api.test/api/v1",
@@ -88,10 +97,14 @@ const emptyPull = {
 
 /** jsdom não expõe estado de rede confiável; o motor só lê `navigator.onLine`. */
 const setOnline = (online: boolean): void => {
-  Object.defineProperty(navigator, "onLine", { configurable: true, value: online });
+  Object.defineProperty(navigator, "onLine", {
+    configurable: true,
+    value: online,
+  });
 };
 
-const pathsOf = (): string[] => vi.mocked(fetch).mock.calls.map((call) => String(call[0]));
+const pathsOf = (): string[] =>
+  vi.mocked(fetch).mock.calls.map((call) => String(call[0]));
 
 /**
  * Outbox em memória.
@@ -112,7 +125,8 @@ const resetOutbox = (operations: { operationId: string }[] = []): void => {
   outbox = [...operations];
   conflicted = new Set();
   listOutbox.mockImplementation(
-    async () => outbox.filter((entry) => !conflicted.has(entry.operationId)) as never,
+    async () =>
+      outbox.filter((entry) => !conflicted.has(entry.operationId)) as never,
   );
   acknowledge.mockImplementation(async (operationId: string) => {
     outbox = outbox.filter((entry) => entry.operationId !== operationId);
@@ -124,7 +138,8 @@ const resetOutbox = (operations: { operationId: string }[] = []): void => {
 };
 
 /** Lote de uma operação que deve ser enviada uma única vez. */
-const singlePush = (operationId: string): void => resetOutbox([operation(operationId)]);
+const singlePush = (operationId: string): void =>
+  resetOutbox([operation(operationId)]);
 
 /**
  * Store de metadados em memória.
@@ -145,12 +160,15 @@ const resetMeta = (initial: Record<string, unknown> = {}): void => {
     meta.set("workspaceCapability", value);
     return value;
   });
-  ensureBootstrapIdentity.mockImplementation(async (factory: () => unknown) => factory());
+  ensureBootstrapIdentity.mockImplementation(async (factory: () => unknown) =>
+    factory(),
+  );
 };
 
 const emitStatus = async (): Promise<SyncResult[]> => {
   const seen: SyncResult[] = [];
-  const listener = (event: Event) => seen.push((event as CustomEvent<SyncResult>).detail);
+  const listener = (event: Event) =>
+    seen.push((event as CustomEvent<SyncResult>).detail);
   window.addEventListener("geonexo-sync-status", listener);
   try {
     await syncNow();
@@ -185,7 +203,9 @@ describe("syncNow", () => {
 
   it("não toca na rede e preserva a outbox enquanto offline", async () => {
     setOnline(false);
-    listOutbox.mockResolvedValue([operation("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")]);
+    listOutbox.mockResolvedValue([
+      operation("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"),
+    ]);
 
     const result = await syncNow();
 
@@ -200,7 +220,9 @@ describe("syncNow", () => {
     const b = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
     resetOutbox([operation(a), operation(b)]);
     vi.mocked(fetch)
-      .mockResolvedValueOnce(json({ accepted: [ack(a), ack(b)], alreadyApplied: [], conflicts: [] }))
+      .mockResolvedValueOnce(
+        json({ accepted: [ack(a), ack(b)], alreadyApplied: [], conflicts: [] }),
+      )
       .mockResolvedValueOnce(json(emptyPull));
 
     const result = await syncNow();
@@ -215,7 +237,9 @@ describe("syncNow", () => {
     const a = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
     singlePush(a);
     vi.mocked(fetch)
-      .mockResolvedValueOnce(json({ accepted: [], alreadyApplied: [ack(a)], conflicts: [] }))
+      .mockResolvedValueOnce(
+        json({ accepted: [], alreadyApplied: [ack(a)], conflicts: [] }),
+      )
       .mockResolvedValueOnce(json(emptyPull));
 
     const result = await syncNow();
@@ -226,7 +250,9 @@ describe("syncNow", () => {
   });
 
   it("mantém a outbox intacta quando o push devolve HTTP 500", async () => {
-    listOutbox.mockResolvedValue([operation("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")]);
+    listOutbox.mockResolvedValue([
+      operation("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"),
+    ]);
     vi.mocked(fetch).mockResolvedValue(json({ message: "boom" }, 500));
 
     const result = await syncNow();
@@ -241,7 +267,9 @@ describe("syncNow", () => {
     resetOutbox([operation(a)]);
     vi.mocked(fetch)
       .mockResolvedValueOnce(json({ message: "boom" }, 500))
-      .mockResolvedValueOnce(json({ accepted: [ack(a)], alreadyApplied: [], conflicts: [] }))
+      .mockResolvedValueOnce(
+        json({ accepted: [ack(a)], alreadyApplied: [], conflicts: [] }),
+      )
       .mockResolvedValueOnce(json(emptyPull));
 
     expect((await syncNow()).state).toBe("error");
@@ -250,7 +278,9 @@ describe("syncNow", () => {
   });
 
   it("não confirma nada quando a requisição estoura o tempo limite", async () => {
-    listOutbox.mockResolvedValue([operation("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")]);
+    listOutbox.mockResolvedValue([
+      operation("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"),
+    ]);
     vi.mocked(fetch).mockImplementation((_url, init) => {
       const signal = (init as RequestInit).signal as AbortSignal | undefined;
       return new Promise((_resolve, reject) => {
@@ -305,56 +335,66 @@ describe("syncNow", () => {
       if (key === "syncCursor") return cursor("Y3Vyc29yNw");
       return undefined;
     });
-    vi.mocked(fetch)
-      .mockResolvedValueOnce(
-        json({
-          changes: [
-            {
-              operationId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-              entity: "project",
-              entityId: PROJECT_ID,
-              operation: "upsert",
-              payload: projectPayload(PROJECT_ID),
-              version: 1,
-              sequence: "7",
-            },
-          ],
-          tombstones: [],
-          nextCursor: cursor("bmV4dA"),
-          hasMore: false,
-        }),
-      );
+    vi.mocked(fetch).mockResolvedValueOnce(
+      json({
+        changes: [
+          {
+            operationId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            entity: "project",
+            entityId: PROJECT_ID,
+            operation: "upsert",
+            payload: projectPayload(PROJECT_ID),
+            version: 1,
+            sequence: "7",
+          },
+        ],
+        tombstones: [],
+        nextCursor: cursor("bmV4dA"),
+        hasMore: false,
+      }),
+    );
 
     const result = await syncNow();
 
     expect(result.pulled).toBe(1);
-    expect(pathsOf()[0]).toContain(`cursor=${encodeURIComponent(cursor("Y3Vyc29yNw"))}`);
-    expect(applyServerPage).toHaveBeenCalledWith(expect.anything(), [], cursor("bmV4dA"), { expectedCursor: cursor("Y3Vyc29yNw") });
+    expect(pathsOf()[0]).toContain(
+      `cursor=${encodeURIComponent(cursor("Y3Vyc29yNw"))}`,
+    );
+    expect(applyServerPage).toHaveBeenCalledWith(
+      expect.anything(),
+      [],
+      cursor("bmV4dA"),
+      { expectedCursor: cursor("Y3Vyc29yNw") },
+    );
   });
 
   it("aplica tombstones recebidos do servidor", async () => {
-    vi.mocked(fetch)
-      .mockResolvedValueOnce(
-        json({
-          changes: [],
-          tombstones: [
-            {
-              entity: "feature",
-              entityId: FEATURE_ID,
-              version: 2,
-              sequence: "9",
-              deletedAt: CREATED_AT,
-            },
-          ],
-          nextCursor: cursor("dG9tYg"),
-          hasMore: false,
-        }),
-      );
+    vi.mocked(fetch).mockResolvedValueOnce(
+      json({
+        changes: [],
+        tombstones: [
+          {
+            entity: "feature",
+            entityId: FEATURE_ID,
+            version: 2,
+            sequence: "9",
+            deletedAt: CREATED_AT,
+          },
+        ],
+        nextCursor: cursor("dG9tYg"),
+        hasMore: false,
+      }),
+    );
 
     const result = await syncNow();
 
     expect(result.pulled).toBe(1);
-    expect(applyServerPage).toHaveBeenCalledWith([], expect.any(Array), cursor("dG9tYg"), { expectedCursor: undefined });
+    expect(applyServerPage).toHaveBeenCalledWith(
+      [],
+      expect.any(Array),
+      cursor("dG9tYg"),
+      { expectedCursor: undefined },
+    );
   });
 
   it("provisiona a capability e envia o bearer no push", async () => {
@@ -363,19 +403,22 @@ describe("syncNow", () => {
     singlePush(a);
     vi.mocked(fetch)
       .mockResolvedValueOnce(json(capability)) // provision
-      .mockResolvedValueOnce(json({ accepted: [ack(a)], alreadyApplied: [], conflicts: [] }))
+      .mockResolvedValueOnce(
+        json({ accepted: [ack(a)], alreadyApplied: [], conflicts: [] }),
+      )
       .mockResolvedValueOnce(json(emptyPull));
 
     const result = await syncNow();
 
     expect(result.state).toBe("synced");
-    expect(pathsOf().some((path) => path.endsWith("/workspace/provision"))).toBe(true);
-    const pushCall = vi.mocked(fetch).mock.calls.find((call) =>
-      String(call[0]).endsWith("/sync/push"),
-    );
+    expect(
+      pathsOf().some((path) => path.endsWith("/workspace/provision")),
+    ).toBe(true);
+    const pushCall = vi
+      .mocked(fetch)
+      .mock.calls.find((call) => String(call[0]).endsWith("/sync/push"));
     const headers = (pushCall?.[1] as RequestInit | undefined)?.headers as
-      | Record<string, string>
-      | undefined;
+      Record<string, string> | undefined;
     expect(headers?.Authorization).toBe(`Bearer ${BEARER}`);
   });
 
@@ -387,20 +430,28 @@ describe("syncNow", () => {
       .mockResolvedValueOnce(json(capability)) // provision
       .mockResolvedValueOnce(json({ message: "expired" }, 401)) // push
       .mockResolvedValueOnce(json(capability)) // recover
-      .mockResolvedValueOnce(json({ accepted: [ack(a)], alreadyApplied: [], conflicts: [] }))
+      .mockResolvedValueOnce(
+        json({ accepted: [ack(a)], alreadyApplied: [], conflicts: [] }),
+      )
       .mockResolvedValueOnce(json(emptyPull)); // pull
 
     const result = await syncNow();
 
     expect(result.state).toBe("synced");
-    expect(pathsOf().some((path) => path.endsWith("/workspace/recover"))).toBe(true);
-    expect(meta.get("workspaceCapability")).toMatchObject({ workspaceId: WORKSPACE_ID });
+    expect(pathsOf().some((path) => path.endsWith("/workspace/recover"))).toBe(
+      true,
+    );
+    expect(meta.get("workspaceCapability")).toMatchObject({
+      workspaceId: WORKSPACE_ID,
+    });
   });
 
   it("recusa capability pertencente a outro workspace", async () => {
     resetMeta();
     workspaceId.mockResolvedValue(WORKSPACE_ID);
-    vi.mocked(fetch).mockResolvedValueOnce(json({ ...capability, workspaceId: OTHER_WORKSPACE_ID }));
+    vi.mocked(fetch).mockResolvedValueOnce(
+      json({ ...capability, workspaceId: OTHER_WORKSPACE_ID }),
+    );
 
     const result = await syncNow();
 

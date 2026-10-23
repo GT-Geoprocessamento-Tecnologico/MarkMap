@@ -2,12 +2,7 @@
   "id": "br-uf-ap",
   "version": "1.0.0-brazil.20261019",
   "label": "Amapá — mapa offline",
-  "bounds": [
-    -54.8723,
-    -1.215,
-    -49.8817,
-    4.5088
-  ],
+  "bounds": [-54.8723, -1.215, -49.8817, 4.5088],
   "minZoom": 0,
   "maxZoom": 9,
   "archive": {
@@ -31,9 +26,7 @@
   "createdAt": "2026-10-19T22:45:46.625Z",
   "packageVersion": "1.0.0-brazil.20261019",
   "osmDataDate": "2026-10-19T04:00:00.000Z",
-  "capabilities": [
-    "basemap"
-  ],
+  "capabilities": ["basemap"],
   "checksums": {
     "archive": "2102a4b9072eecf8ea395bbc61853af16c9f995ff979e845cda41e83366827db",
     "style": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",

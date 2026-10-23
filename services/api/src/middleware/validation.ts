@@ -1,5 +1,4 @@
 import type { Context } from "hono";
-import { z } from "zod";
 import type { z as Z } from "zod";
 
 /**
@@ -12,36 +11,46 @@ import type { z as Z } from "zod";
  */
 export function validate<T extends Z.ZodTypeAny>(schema: T) {
   return async (c: Context, next: () => Promise<void>) => {
-    let parsed: Z.infer<T>;
-    try {
-      const body = (await c.req.json()) as unknown;
-      parsed = schema.parse(body);
-      // Store the parsed value as a symbol to avoid accidental mutation.
-      // Hono's context supports arbitrary setting via `set`.
-      c.set("validatedBody", parsed);
-    } catch (err) {
-      // Zod throws a ZodError.
-      const reason = err instanceof Error ? err.message : String(err);
-      const details =
-        err instanceof z.ZodError
-          ? err.issues.map((i) => ({
-              path: i.path.join("."),
-              message: i.message,
-            }))
-          : [];
+    let body: unknown;
 
+    try {
+      body = await c.req.json();
+    } catch (err) {
       return c.json(
         {
           error: {
             code: "VALIDATION_ERROR",
-            message: reason,
+            message: err instanceof Error ? err.message : String(err),
             requestId: c.get("requestId") ?? "unknown",
-            details,
+            details: [],
           },
         },
         400,
       );
     }
+
+    const result = schema.safeParse(body);
+
+    if (!result.success) {
+      return c.json(
+        {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: result.error.message,
+            requestId: c.get("requestId") ?? "unknown",
+            details: result.error.issues.map((i) => ({
+              path: i.path.join("."),
+              message: i.message,
+            })),
+          },
+        },
+        400,
+      );
+    }
+
+    // Store the parsed value as a symbol to avoid accidental mutation.
+    // Hono's context supports arbitrary setting via `set`.
+    c.set("validatedBody", result.data);
 
     // Keep downstream failures in the application's error boundary. They are
     // not request validation failures and must retain their original status.

@@ -3,9 +3,10 @@
 **Status**: M1 — Em andamento (item MM-UPD-040 da sequência M1)  
 **Task ID**: MM-UPD-040  
 **Predecessor**: MM-UPD-030 (Detecção versão Capacitor)  
-**Gate M1**: teste unitário de state machine do prompt; E2E de worker waiting → confirmação → controllerchange; teste de Depois; teste com outbox pendente; teste offline após versão já descoberta; sem perda de IndexedDB/outbox  
+**Gate M1**: teste unitário de state machine do prompt; E2E de worker waiting → confirmação → controllerchange; teste de Depois; teste com outbox pendente; teste offline após versão já descoberta; sem perda de IndexedDB/outbox
 
 ## Objetivo
+
 Criar modelo de atualização de pacotes de mapa separando update do app de update de dados, com staging, checksum, resume, swap atômico e rollback. Este é o último item do gate M1 e o portão de entrada para M2 (Storage e Region Package v2).
 
 ## Contexto: Separação de Update do App vs Update de Dados
@@ -45,7 +46,7 @@ A mudança do pacote ativo para o novo deve ser atômica:
 
 - **Estratégia**: Manter o pacote antigo ativo até o novo ser validado; então trocar a referência
 - **Mecanismo**: O manifest tem um `id` e `version`; o app referencia o "pacote ativo" por esse ID
-- **Ordem**: 
+- **Ordem**:
   1. Validar novo pacote em staging
   2. Manter pacote antigo ativo
   3. Ativar novo pacote (atualizar referência/ID ativo)
@@ -95,7 +96,8 @@ export interface UpdateManifest {
 }
 
 export interface UpdateProgress {
-  stage: "idle" | "staging" | "validating" | "activating" | "active" | "rollback";
+  stage:
+    "idle" | "staging" | "validating" | "activating" | "active" | "rollback";
   percent: number; // 0-100
   message: string;
   checkpoint: number; // bytes baixados ou MB
@@ -103,15 +105,17 @@ export interface UpdateProgress {
 
 export async function startUpdate(
   newManifest: UpdateManifest,
-  onProgress: (progress: UpdateProgress) => void
-): Promise<{ ok: true; finalState: PackageState } | { ok: false; code: string; detail: string }> {
-  
+  onProgress: (progress: UpdateProgress) => void,
+): Promise<
+  | { ok: true; finalState: PackageState }
+  | { ok: false; code: string; detail: string }
+> {
   // 1. Entrar em estado updating
   // 2. Baixar em staging (com progress reports)
   // 3. Validar checksums
   // 4. Ativar atomicamente
   // 5. Ou fazer rollback em caso de erro
-  
+
   return { ok: true, finalState: "active" };
 }
 ```
@@ -152,6 +156,7 @@ Ambos podem aparecer simultaneamente; o usuário pode atualizar o app e/ou o pac
 ## Evidência Concreta (demonstrada nesta implementation)
 
 ### 1. `update-manager.ts` criado com:
+
 - ✅ Estados de ciclo de vida: idle → staging → validating → activating → active|rollback
 - ✅ `UpdateProgress` com percentual, mensagem, checkpoint
 - ✅ `startUpdate()` que orquestra: download → validar → ativar/rollback
@@ -162,11 +167,13 @@ Ambos podem aparecer simultaneamente; o usuário pode atualizar o app e/ou o pac
 - ✅ Manter pacote antigo ativo até novo ser validado com sucesso
 
 ### 2. Integração com UpdatePrompt
+
 - ✅ O flow de update de pacote é independente do update de app version
 - ✅ Ambos podem rodar simultaneamente sem conflitos
 - ✅ O usuário pode atualizar app e/ou pacote de mapa em qualquer ordem
 
 ### 3. Testes
+
 - Mock de download intermitente (simular network break)
 - Verificação de checksum inválido dispara rollback
 - Test header PMTiles inválido bloqueia ativação
@@ -177,6 +184,7 @@ Ambos podem aparecer simultaneamente; o usuário pode atualizar o app e/ou o pac
 Após MM-UPD-040, o gate M1 estará completo e a sequência pode prosseguir para:
 
 **M2 — Storage e Region Package v2**:
+
 - MM-MAP-100: DeviceStorageProfile — quota, usage, persistent granted, backend disponível, limite seguro calculado
 - MM-MAP-110: LargeBlobStore — Interface comum: IndexedDB fallback, OPFS, filesystem Capacitor; operações: create staging, append/write range, read range, checksum, commit/activate, rollback, delete explícito, enumerate
 - MM-MAP-120: Manifest v2 — Evoluir contracts/src/offline-map.ts com capabilities, componentes opcionais, compatibilidade, fontes/licenças, versionamento, checksums individuais, tamanho total, data OSM
@@ -197,4 +205,4 @@ Após MM-UPD-040, o gate M1 estará completo e a sequência pode prosseguir para
 
 ---
 
-*Este documento é o entregável do MM-UPD-040. Conclui o gate M1 da sequência "Atualizações do app", permitindo a progression para M2 "Storage e Region Package v2", que definirá a arquitetura de storage adaptativo, LargeBlobStore e manifest v2 para pacotes regionais.*
+_Este documento é o entregável do MM-UPD-040. Conclui o gate M1 da sequência "Atualizações do app", permitindo a progression para M2 "Storage e Region Package v2", que definirá a arquitetura de storage adaptativo, LargeBlobStore e manifest v2 para pacotes regionais._

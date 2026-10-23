@@ -2,9 +2,7 @@ import { useEffect, useState } from "react";
 import { AppIcon } from "../AppIcon";
 
 type NetworkMessage =
-  | { kind: "offline"; text: string }
-  | { kind: "online"; text: string }
-  | null;
+  { kind: "offline"; text: string } | { kind: "online"; text: string } | null;
 
 export function NetworkStatusBanner() {
   const [message, setMessage] = useState<NetworkMessage>(null);

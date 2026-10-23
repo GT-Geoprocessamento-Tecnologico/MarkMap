@@ -3,9 +3,16 @@
  * by the selected region/revision, so React remounts cannot reset it and loop.
  */
 export function createWebglContextRecovery({ onLost, onRestore, budget }) {
-  if (typeof onLost !== 'function' || typeof onRestore !== 'function' ||
-      !budget || typeof budget !== 'object' || typeof budget.autoRecoveryUsed !== 'boolean') {
-    throw new TypeError('Expected WebGL recovery callbacks and shared retry budget');
+  if (
+    typeof onLost !== "function" ||
+    typeof onRestore !== "function" ||
+    !budget ||
+    typeof budget !== "object" ||
+    typeof budget.autoRecoveryUsed !== "boolean"
+  ) {
+    throw new TypeError(
+      "Expected WebGL recovery callbacks and shared retry budget",
+    );
   }
   let disposed = false;
   let lost = false;
@@ -37,7 +44,7 @@ export function createWebglContextRecovery({ onLost, onRestore, budget }) {
 
 /** A known transient error is cleared only after the recovered map paints. */
 export const WEBGL_CONTEXT_LOST_MESSAGE =
-  'O contexto gráfico foi perdido. Aguarde a restauração ou tente reabrir o mapa.';
+  "O contexto gráfico foi perdido. Aguarde a restauração ou tente reabrir o mapa.";
 
 export function clearRecoveredWebglError(currentMessage) {
   return currentMessage === WEBGL_CONTEXT_LOST_MESSAGE ? null : currentMessage;

@@ -69,15 +69,15 @@ Testes unitários da auto-calibração cobrem:
 Suítes novas da iniciativa `feat/maps-engine-v2-offline`, todas em
 `environment: node` e rolando sem rede:
 
-| Suíte | Pacote | Cobre |
-| --- | --- | --- |
-| `tests/search` | `@markmap/maps` | normalização, sharding, prefixo binário, Levenshtein, relevância/fuzzy |
-| `tests/elevation` | `@markmap/maps` | `sampleDem`/bilinear, perfil (ganho/perda/min/máx), marching squares |
-| `tests/routing` | `@markmap/maps` | snap, restrições de acesso/perfil, Dijkstra, manobras |
-| `tests/security` | `@markmap/maps` | path traversal, checksum, limites, XML depth, zip bomb, sanitização |
-| `tests/pipeline` | `@markmap/maps` | pipeline regional ponta a ponta, sharding de saída, manifest v2, erros de args |
-| `tests/offline` + `tests/fixtures/offline` | `@markmap/maps` | validação de pacote, manifest v2, rejeição de URL remota |
-| `tests/gpx`, `tests/kml` | `@markmap/geo` | parsers GPX/KML, waypoints/tracks/rotas, entrada malformada |
+| Suíte                                      | Pacote          | Cobre                                                                          |
+| ------------------------------------------ | --------------- | ------------------------------------------------------------------------------ |
+| `tests/search`                             | `@markmap/maps` | normalização, sharding, prefixo binário, Levenshtein, relevância/fuzzy         |
+| `tests/elevation`                          | `@markmap/maps` | `sampleDem`/bilinear, perfil (ganho/perda/min/máx), marching squares           |
+| `tests/routing`                            | `@markmap/maps` | snap, restrições de acesso/perfil, Dijkstra, manobras                          |
+| `tests/security`                           | `@markmap/maps` | path traversal, checksum, limites, XML depth, zip bomb, sanitização            |
+| `tests/pipeline`                           | `@markmap/maps` | pipeline regional ponta a ponta, sharding de saída, manifest v2, erros de args |
+| `tests/offline` + `tests/fixtures/offline` | `@markmap/maps` | validação de pacote, manifest v2, rejeição de URL remota                       |
+| `tests/gpx`, `tests/kml`                   | `@markmap/geo`  | parsers GPX/KML, waypoints/tracks/rotas, entrada malformada                    |
 
 Gate executável da iniciativa:
 

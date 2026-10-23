@@ -2,12 +2,7 @@
   "id": "br-uf-to",
   "version": "1.0.0-brazil.20261019",
   "label": "Tocantins — mapa offline",
-  "bounds": [
-    -50.7389,
-    -13.4682,
-    -45.6993,
-    -5.1684
-  ],
+  "bounds": [-50.7389, -13.4682, -45.6993, -5.1684],
   "minZoom": 0,
   "maxZoom": 9,
   "archive": {
@@ -31,9 +26,7 @@
   "createdAt": "2026-10-19T22:51:49.433Z",
   "packageVersion": "1.0.0-brazil.20261019",
   "osmDataDate": "2026-10-19T04:00:00.000Z",
-  "capabilities": [
-    "basemap"
-  ],
+  "capabilities": ["basemap"],
   "checksums": {
     "archive": "2f677aae53b86e6e6400f66f06b3f3043f1b7bd3c6b004d7cfcb03eacd935176",
     "style": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",

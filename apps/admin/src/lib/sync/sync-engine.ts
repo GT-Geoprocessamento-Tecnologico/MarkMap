@@ -9,12 +9,7 @@ import { API_BASE, API_MODE } from "../api-client";
 import { localRepository } from "../local-repositories";
 
 export type SyncState =
-  | "disabled"
-  | "offline"
-  | "idle"
-  | "syncing"
-  | "synced"
-  | "error";
+  "disabled" | "offline" | "idle" | "syncing" | "synced" | "error";
 
 export type SyncResult = {
   state: SyncState;
@@ -86,7 +81,7 @@ const request = async (
     return {
       ok: true,
       status: response.status,
-      payload: text ? JSON.parse(text) as unknown : undefined,
+      payload: text ? (JSON.parse(text) as unknown) : undefined,
     };
   } finally {
     clearTimeout(timeout);
@@ -158,7 +153,8 @@ const withCapability = async (
 
   // A second PWA tab may already have recovered a newer bearer while this
   // request was in flight. Try that durable capability before rotating again.
-  const stored = await localRepository.getMeta<WorkspaceCapability>(META_CAPABILITY);
+  const stored =
+    await localRepository.getMeta<WorkspaceCapability>(META_CAPABILITY);
   if (
     stored?.workspaceId === current.workspaceId &&
     BigInt(stored.generation) > BigInt(current.generation)
@@ -196,9 +192,18 @@ const push = async (
     // Unknown or duplicate IDs could otherwise cause an endless resend loop.
     const sentIds = new Set(batch.map((operation) => operation.operationId));
     const respondedIds = new Set<string>();
-    for (const receipt of [...result.accepted, ...result.alreadyApplied, ...result.conflicts]) {
-      if (!sentIds.has(receipt.operationId) || respondedIds.has(receipt.operationId))
-        throw new Error("Invalid sync push response: unexpected or duplicate operation");
+    for (const receipt of [
+      ...result.accepted,
+      ...result.alreadyApplied,
+      ...result.conflicts,
+    ]) {
+      if (
+        !sentIds.has(receipt.operationId) ||
+        respondedIds.has(receipt.operationId)
+      )
+        throw new Error(
+          "Invalid sync push response: unexpected or duplicate operation",
+        );
       respondedIds.add(receipt.operationId);
     }
     for (const ack of [...result.accepted, ...result.alreadyApplied]) {
@@ -226,7 +231,9 @@ const push = async (
     // Some adapters may fail to remove an ACK from the durable outbox.
     // Avoid re-posting it indefinitely: the next manual sync can retry safely.
     const stillPending = new Set(
-      (await localRepository.listOutbox()).map((operation) => operation.operationId),
+      (await localRepository.listOutbox()).map(
+        (operation) => operation.operationId,
+      ),
     );
     if (batch.every((operation) => stillPending.has(operation.operationId)))
       throw new Error("Sync push response did not advance the local outbox");
@@ -235,7 +242,9 @@ const push = async (
   return { pushed, conflicts };
 };
 
-const pull = async (onProgress?: (applied: number) => void): Promise<number> => {
+const pull = async (
+  onProgress?: (applied: number) => void,
+): Promise<number> => {
   let pulled = 0;
   // Repeated cursors can replay already-applied data and burn network/CPU.
   const seenCursors = new Set<string>();
@@ -246,10 +255,9 @@ const pull = async (onProgress?: (applied: number) => void): Promise<number> => 
     const params = new URLSearchParams({ limit: String(MAX_BATCH) });
     if (cursor) params.set("cursor", cursor);
 
-    const response = await withCapability(
-      `/sync/pull?${params.toString()}`,
-      { method: "GET" },
-    );
+    const response = await withCapability(`/sync/pull?${params.toString()}`, {
+      method: "GET",
+    });
     const payload = response.payload;
     if (!response.ok) {
       // Capability renewal can invalidate the cursor after the URL was built.
@@ -258,7 +266,8 @@ const pull = async (onProgress?: (applied: number) => void): Promise<number> => 
       if (
         response.status === 400 &&
         (await localRepository.getMeta<string>(META_SYNC_CURSOR)) !== cursor
-      ) continue;
+      )
+        continue;
       throw new Error(`Sync pull failed (HTTP ${response.status})`);
     }
     // Another tab may have advanced/reset the cursor during the request.
@@ -326,7 +335,9 @@ const performSync = async (): Promise<SyncResult> => {
       pushedCount += accepted;
       conflictCount += conflicts;
     });
-    await pull((applied) => { pulledCount += applied; });
+    await pull((applied) => {
+      pulledCount += applied;
+    });
     const pending = (await localRepository.listOutbox()).length;
     return emit({
       // A partial/empty server reply must never label unsent edits as synced.

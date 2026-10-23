@@ -48,30 +48,74 @@
   }
 }
 
-.dark canvas.maplibregl-canvas { filter: none; }
+.dark canvas.maplibregl-canvas {
+  filter: none;
+}
 /* Semantic foregrounds stay legible without changing brand-color fills. */
-.text-primary { color: var(--color-primary-ink); }
-.text-secondary { color: var(--color-secondary-ink); }
-:root:not(.dark) .text-emerald-400 { color: #047857; }
-:root:not(.dark) .text-purple-400 { color: #7e22ce; }
-:root:not(.dark) .text-red-500 { color: #b91c1c; }
+.text-primary {
+  color: var(--color-primary-ink);
+}
+.text-secondary {
+  color: var(--color-secondary-ink);
+}
+:root:not(.dark) .text-emerald-400 {
+  color: #047857;
+}
+:root:not(.dark) .text-purple-400 {
+  color: #7e22ce;
+}
+:root:not(.dark) .text-red-500 {
+  color: #b91c1c;
+}
 /* White labels disappear on the cyan end of the brand gradient. */
 .bg-gradient-to-r.from-brand-blue.to-brand-cyan.text-white {
   color: #06131a;
   background-image: linear-gradient(to right, #1c98d1, #00d6db);
 }
-html, body, #root { min-width: 0; min-height: 100%; }
-html { background: var(--bg-main); }
-body { overflow-x: hidden; background: var(--bg-main); color: var(--text-primary); text-rendering: optimizeLegibility; -webkit-overflow-scrolling: touch; }
-::selection { background: rgba(0, 214, 219, 0.25); color: var(--text-primary); }
-button, a, input, select, textarea { touch-action: manipulation; }
-button, a, select { min-height: 44px; }
-button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+html,
+body,
+#root {
+  min-width: 0;
+  min-height: 100%;
+}
+html {
+  background: var(--bg-main);
+}
+body {
+  overflow-x: hidden;
+  background: var(--bg-main);
+  color: var(--text-primary);
+  text-rendering: optimizeLegibility;
+  -webkit-overflow-scrolling: touch;
+}
+::selection {
+  background: rgba(0, 214, 219, 0.25);
+  color: var(--text-primary);
+}
+button,
+a,
+input,
+select,
+textarea {
+  touch-action: manipulation;
+}
+button,
+a,
+select {
+  min-height: 44px;
+}
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
   outline: 2px solid #0075d6;
   outline-offset: 3px;
 }
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
@@ -79,24 +123,31 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   }
 }
 
-
 /* MarkMap unified visual system: landing + operational app */
 .markmap-shell {
   background:
-    radial-gradient(circle at 82% 12%, rgba(0, 214, 219, 0.055), transparent 26%),
+    radial-gradient(
+      circle at 82% 12%,
+      rgba(0, 214, 219, 0.055),
+      transparent 26%
+    ),
     var(--bg-main);
 }
 
 /* The shell respects the selected theme without changing the dark design. */
 .markmap-shell-sidebar {
-  background: linear-gradient(180deg, color-mix(in srgb, var(--bg-sidebar) 97%, var(--color-primary) 3%), var(--bg-sidebar));
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--bg-sidebar) 97%, var(--color-primary) 3%),
+    var(--bg-sidebar)
+  );
   box-shadow: 22px 0 60px var(--shadow-sm);
 }
 .dark .markmap-shell-sidebar {
   --bg-sidebar: #071820;
   --text-primary: #f5fbff;
   --text-secondary: #8fa7b4;
-  --outline-variant: rgba(255, 255, 255, .10);
+  --outline-variant: rgba(255, 255, 255, 0.1);
   --surface-container: #0b1b23;
   --surface-container-high: #10252e;
   --color-primary: #00d6db;
@@ -104,7 +155,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   --color-primary-ink: #00d6db;
   --color-secondary-ink: #00d6db;
   color-scheme: dark;
-  background: linear-gradient(180deg, rgba(7, 24, 32, .98), rgba(5, 18, 25, .98)), #071820;
+  background:
+    linear-gradient(180deg, rgba(7, 24, 32, 0.98), rgba(5, 18, 25, 0.98)),
+    #071820;
 }
 
 .markmap-shell-sidebar::before {
@@ -112,25 +165,33 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   position: absolute;
   inset: 0;
   pointer-events: none;
-  opacity: .1;
+  opacity: 0.1;
   background:
-    radial-gradient(circle at 16% 8%, rgba(0, 214, 219, .22), transparent 18%),
-    repeating-radial-gradient(ellipse at 120% 40%, transparent 0 42px, rgba(0, 214, 219, .08) 43px 44px);
+    radial-gradient(circle at 16% 8%, rgba(0, 214, 219, 0.22), transparent 18%),
+    repeating-radial-gradient(
+      ellipse at 120% 40%,
+      transparent 0 42px,
+      rgba(0, 214, 219, 0.08) 43px 44px
+    );
 }
 
-.dark .markmap-shell-sidebar::before { opacity: .22; }
+.dark .markmap-shell-sidebar::before {
+  opacity: 0.22;
+}
 
 .markmap-shell-sidebar > * {
   position: relative;
   z-index: 1;
 }
 
-.markmap-shell-header { box-shadow: 0 14px 44px var(--shadow-sm); }
+.markmap-shell-header {
+  box-shadow: 0 14px 44px var(--shadow-sm);
+}
 .dark .markmap-shell-header {
-  --bg-header: rgba(6, 19, 26, .90);
+  --bg-header: rgba(6, 19, 26, 0.9);
   --text-primary: #f5fbff;
   --text-secondary: #91a8b4;
-  --outline-variant: rgba(255, 255, 255, .10);
+  --outline-variant: rgba(255, 255, 255, 0.1);
   --surface-container: #0b1b23;
   --surface-container-high: #10252e;
   --color-primary: #00d6db;
@@ -145,24 +206,36 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   position: absolute;
   inset: auto 0 -1px;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(0, 117, 214, .42), rgba(0, 214, 219, .42), transparent);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(0, 117, 214, 0.42),
+    rgba(0, 214, 219, 0.42),
+    transparent
+  );
   pointer-events: none;
 }
 
 .markmap-theme-button {
   border: 1px solid var(--outline-variant);
-  background: color-mix(in srgb, var(--surface-container-high) 45%, transparent);
+  background: color-mix(
+    in srgb,
+    var(--surface-container-high) 45%,
+    transparent
+  );
 }
 
 .markmap-app-main {
   background:
-    radial-gradient(circle at 88% 0%, rgba(0, 117, 214, .06), transparent 28%),
+    radial-gradient(circle at 88% 0%, rgba(0, 117, 214, 0.06), transparent 28%),
     var(--bg-main);
 }
 
 /* The map canvas stays dark even while the rest of the app is light. */
 /* UI and empty/offline canvas adapt; external basemap tiles stay untouched. */
-.markmap-workspace { background: var(--bg-main); }
+.markmap-workspace {
+  background: var(--bg-main);
+}
 .dark .markmap-workspace {
   --text-primary: #f2f7fa;
   --text-secondary: #b2c4cd;
@@ -170,23 +243,33 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   --color-secondary-ink: #00d6db;
   --surface-container: #0b1b23;
   --surface-container-high: #10252e;
-  --outline-variant: rgba(255, 255, 255, .14);
+  --outline-variant: rgba(255, 255, 255, 0.14);
   color: var(--text-primary);
   color-scheme: dark;
   background: #0a1b21;
 }
-.dark .markmap-workspace .text-cyan-700 { color: #a5f3fc; }
+.dark .markmap-workspace .text-cyan-700 {
+  color: #a5f3fc;
+}
 
-.markmap-workspace .maplibregl-map { background: var(--bg-main); }
-.dark .markmap-workspace .maplibregl-map { background: #0a1b21; }
+.markmap-workspace .maplibregl-map {
+  background: var(--bg-main);
+}
+.dark .markmap-workspace .maplibregl-map {
+  background: #0a1b21;
+}
 
 .markmap-map-tools {
-  box-shadow: 0 18px 46px rgba(3, 14, 20, .24);
+  box-shadow: 0 18px 46px rgba(3, 14, 20, 0.24);
 }
 
 .markmap-dashboard {
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--bg-main) 94%, #0075d6 6%), var(--bg-main) 38%),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--bg-main) 94%, #0075d6 6%),
+      var(--bg-main) 38%
+    ),
     var(--bg-main);
 }
 
@@ -197,7 +280,11 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   border: 1px solid var(--outline-variant);
   border-radius: 1.5rem;
   background:
-    radial-gradient(circle at 92% 20%, rgba(0, 214, 219, .11), transparent 24%),
+    radial-gradient(
+      circle at 92% 20%,
+      rgba(0, 214, 219, 0.11),
+      transparent 24%
+    ),
     var(--surface-container);
   box-shadow: 0 18px 50px var(--shadow-sm);
 }
@@ -210,9 +297,12 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   width: 19rem;
   height: 14rem;
   pointer-events: none;
-  opacity: .42;
-  background:
-    repeating-radial-gradient(ellipse at center, transparent 0 18px, rgba(0, 117, 214, .12) 19px 20px);
+  opacity: 0.42;
+  background: repeating-radial-gradient(
+    ellipse at center,
+    transparent 0 18px,
+    rgba(0, 117, 214, 0.12) 19px 20px
+  );
   transform: rotate(-12deg);
 }
 
@@ -236,15 +326,20 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .markmap-shell-sidebar,
   .markmap-shell-header,
   .markmap-dashboard > div > header {
-    animation: markmap-surface-in .45s cubic-bezier(.16,1,.3,1) both;
+    animation: markmap-surface-in 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
   @keyframes markmap-surface-in {
-    from { opacity: .7; transform: translateY(-4px); }
-    to { opacity: 1; transform: none; }
+    from {
+      opacity: 0.7;
+      transform: translateY(-4px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
   }
 }
-
 
 /* Self-contained SVG icon system: stable across browsers, PWA and Capacitor WebViews. */
 .markmap-app-icon {
@@ -256,7 +351,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   vertical-align: middle;
 }
 
-
 /* Desenvolvido por MtsFerreira. Atualização PWA usa os tokens do app. */
 .pwa-update-prompt {
   position: fixed;
@@ -264,14 +358,17 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   right: max(1rem, env(safe-area-inset-right));
   z-index: 90;
   display: grid;
-  gap: .9rem;
+  gap: 0.9rem;
   width: min(25rem, calc(100vw - 2rem));
   padding: 1.2rem;
-  border: 1px solid color-mix(in srgb, var(--color-primary) 30%, var(--outline-variant));
+  border: 1px solid
+    color-mix(in srgb, var(--color-primary) 30%, var(--outline-variant));
   border-radius: 1.15rem;
-  background: radial-gradient(circle at 100% 0, rgba(0, 214, 219, .13), transparent 55%), var(--surface-container);
+  background:
+    radial-gradient(circle at 100% 0, rgba(0, 214, 219, 0.13), transparent 55%),
+    var(--surface-container);
   color: var(--text-primary);
-  box-shadow: 0 24px 64px rgba(3, 14, 20, .28);
+  box-shadow: 0 24px 64px rgba(3, 14, 20, 0.28);
   overflow: hidden;
   backdrop-filter: blur(18px);
 }
@@ -282,45 +379,58 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   height: 3px;
   background: linear-gradient(90deg, #0075d6, #00d6db);
 }
-.pwa-update-prompt__heading { display: flex; align-items: center; gap: .85rem; }
+.pwa-update-prompt__heading {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
 .pwa-update-prompt__icon {
   display: grid;
   flex: 0 0 2.75rem;
   place-items: center;
   height: 2.75rem;
-  border: 1px solid rgba(0, 214, 219, .26);
-  border-radius: .85rem;
-  background: rgba(0, 214, 219, .1);
+  border: 1px solid rgba(0, 214, 219, 0.26);
+  border-radius: 0.85rem;
+  background: rgba(0, 214, 219, 0.1);
   color: var(--color-primary);
 }
 .pwa-update-prompt__eyebrow {
   display: block;
-  margin-bottom: .2rem;
+  margin-bottom: 0.2rem;
   color: var(--text-secondary);
-  font-size: .64rem;
+  font-size: 0.64rem;
   font-weight: 800;
-  letter-spacing: .13em;
+  letter-spacing: 0.13em;
 }
-.pwa-update-prompt__title { display: block; font-size: 1.12rem; line-height: 1.25; }
+.pwa-update-prompt__title {
+  display: block;
+  font-size: 1.12rem;
+  line-height: 1.25;
+}
 .pwa-update-prompt__description {
   margin: 0;
   color: var(--text-secondary);
-  font-size: .83rem;
+  font-size: 0.83rem;
   line-height: 1.55;
 }
-.pwa-update-prompt__actions { display: flex; gap: .55rem; }
+.pwa-update-prompt__actions {
+  display: flex;
+  gap: 0.55rem;
+}
 .pwa-update-prompt__actions button {
   display: inline-flex;
   min-height: 44px;
   align-items: center;
   justify-content: center;
-  gap: .45rem;
-  border-radius: .72rem;
-  padding: .65rem .85rem;
-  font-size: .79rem;
+  gap: 0.45rem;
+  border-radius: 0.72rem;
+  padding: 0.65rem 0.85rem;
+  font-size: 0.79rem;
   font-weight: 750;
   cursor: pointer;
-  transition: filter .16s ease, background-color .16s ease;
+  transition:
+    filter 0.16s ease,
+    background-color 0.16s ease;
 }
 .pwa-update-prompt__primary {
   flex: 1;
@@ -333,36 +443,50 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   background: var(--surface-container-high);
   color: var(--text-primary);
 }
-.pwa-update-prompt__actions button:hover:not(:disabled) { filter: brightness(.96); }
-.pwa-update-prompt__actions button:disabled { opacity: .7; cursor: wait; }
-.pwa-update-prompt__note { color: var(--text-secondary); font-size: .7rem; text-align: center; }
+.pwa-update-prompt__actions button:hover:not(:disabled) {
+  filter: brightness(0.96);
+}
+.pwa-update-prompt__actions button:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+.pwa-update-prompt__note {
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+  text-align: center;
+}
 .pwa-update-prompt__error {
   display: flex;
   align-items: flex-start;
-  gap: .5rem;
+  gap: 0.5rem;
   margin: 0;
-  padding: .7rem;
-  border: 1px solid rgba(249, 115, 22, .4);
-  border-radius: .7rem;
-  background: rgba(249, 115, 22, .09);
+  padding: 0.7rem;
+  border: 1px solid rgba(249, 115, 22, 0.4);
+  border-radius: 0.7rem;
+  background: rgba(249, 115, 22, 0.09);
   color: var(--text-primary);
-  font-size: .76rem;
+  font-size: 0.76rem;
   line-height: 1.4;
 }
-.pwa-update-prompt__error svg { margin-top: .1rem; flex-shrink: 0; }
+.pwa-update-prompt__error svg {
+  margin-top: 0.1rem;
+  flex-shrink: 0;
+}
 @media (max-width: 640px) {
   .pwa-update-prompt {
     top: auto;
-    right: max(.75rem, env(safe-area-inset-right));
+    right: max(0.75rem, env(safe-area-inset-right));
     bottom: calc(5.25rem + env(safe-area-inset-bottom));
-    left: max(.75rem, env(safe-area-inset-left));
+    left: max(0.75rem, env(safe-area-inset-left));
     width: auto;
     max-height: calc(100dvh - 7rem - env(safe-area-inset-bottom));
     overflow-y: auto;
   }
 }
 @media (prefers-reduced-motion: no-preference) {
-  .pwa-update-prompt { animation: markmap-surface-in .3s ease-out both; }
+  .pwa-update-prompt {
+    animation: markmap-surface-in 0.3s ease-out both;
+  }
 }
 /* PWA install prompt */
 .pwa-install-prompt {
@@ -372,45 +496,45 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   z-index: 80;
   display: grid;
   width: min(420px, calc(100vw - 2rem));
-  gap: .9rem;
+  gap: 0.9rem;
   padding: 1rem;
   border: 1px solid var(--outline-variant);
   border-radius: 1rem;
   background:
-    radial-gradient(circle at 100% 0, rgba(0, 214, 219, .12), transparent 35%),
+    radial-gradient(circle at 100% 0, rgba(0, 214, 219, 0.12), transparent 35%),
     color-mix(in srgb, var(--surface-container) 96%, transparent);
-  box-shadow: 0 22px 60px rgba(3, 14, 20, .28);
+  box-shadow: 0 22px 60px rgba(3, 14, 20, 0.28);
   backdrop-filter: blur(18px);
 }
 
 .pwa-install-prompt__copy {
   display: grid;
-  gap: .25rem;
+  gap: 0.25rem;
 }
 
 .pwa-install-prompt__copy strong {
   color: var(--text-primary);
-  font-size: .95rem;
+  font-size: 0.95rem;
 }
 
 .pwa-install-prompt__copy span {
   color: var(--text-secondary);
-  font-size: .8rem;
+  font-size: 0.8rem;
   line-height: 1.45;
 }
 
 .pwa-install-prompt__actions {
   display: flex;
   justify-content: flex-end;
-  gap: .65rem;
+  gap: 0.65rem;
 }
 
 .pwa-install-prompt__primary,
 .pwa-install-prompt__secondary {
   min-height: 42px;
-  border-radius: .75rem;
-  padding: .6rem .9rem;
-  font-size: .8rem;
+  border-radius: 0.75rem;
+  padding: 0.6rem 0.9rem;
+  font-size: 0.8rem;
   font-weight: 700;
 }
 
@@ -428,13 +552,12 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 @media (max-width: 640px) {
   .pwa-install-prompt {
-    left: max(.75rem, env(safe-area-inset-left));
-    right: max(.75rem, env(safe-area-inset-right));
+    left: max(0.75rem, env(safe-area-inset-left));
+    right: max(0.75rem, env(safe-area-inset-right));
     bottom: max(5rem, calc(env(safe-area-inset-bottom) + 5rem));
     width: auto;
   }
 }
-
 
 /* Native-like PWA shell refinements */
 :root {
@@ -469,12 +592,17 @@ body {
   z-index: 45;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  min-height: calc(var(--markmap-mobile-tabbar-height) + env(safe-area-inset-bottom));
-  padding: .35rem .45rem env(safe-area-inset-bottom);
+  min-height: calc(
+    var(--markmap-mobile-tabbar-height) + env(safe-area-inset-bottom)
+  );
+  padding: 0.35rem 0.45rem env(safe-area-inset-bottom);
   border-top: 1px solid var(--outline-variant);
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--surface-container) 92%, transparent), var(--surface-container));
-  box-shadow: 0 -14px 34px rgba(3, 14, 20, .14);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--surface-container) 92%, transparent),
+    var(--surface-container)
+  );
+  box-shadow: 0 -14px 34px rgba(3, 14, 20, 0.14);
   backdrop-filter: blur(18px);
 }
 
@@ -485,10 +613,10 @@ body {
   align-items: center;
   justify-content: center;
   flex-direction: column;
-  gap: .2rem;
-  border-radius: .9rem;
+  gap: 0.2rem;
+  border-radius: 0.9rem;
   color: var(--text-secondary);
-  font-size: .68rem;
+  font-size: 0.68rem;
   font-weight: 650;
   text-decoration: none;
   transition:
@@ -500,9 +628,9 @@ body {
 .markmap-mobile-tab::before {
   content: "";
   position: absolute;
-  top: .18rem;
+  top: 0.18rem;
   width: 1.4rem;
-  height: .15rem;
+  height: 0.15rem;
   border-radius: 999px;
   background: transparent;
   transition: background-color 160ms ease;
@@ -518,20 +646,25 @@ body {
 }
 
 .markmap-mobile-tab:active {
-  transform: scale(.96);
+  transform: scale(0.96);
 }
 
 .markmap-sync-status {
-  bottom: max(.75rem, env(safe-area-inset-bottom));
+  bottom: max(0.75rem, env(safe-area-inset-bottom));
 }
 
 @media (max-width: 1023px) {
   .markmap-app-main {
-    padding-bottom: calc(var(--markmap-mobile-tabbar-height) + env(safe-area-inset-bottom));
+    padding-bottom: calc(
+      var(--markmap-mobile-tabbar-height) + env(safe-area-inset-bottom)
+    );
   }
 
   .markmap-sync-status {
-    bottom: calc(var(--markmap-mobile-tabbar-height) + env(safe-area-inset-bottom) + .75rem);
+    bottom: calc(
+      var(--markmap-mobile-tabbar-height) + env(safe-area-inset-bottom) +
+        0.75rem
+    );
   }
 
   input,
@@ -541,7 +674,10 @@ body {
   }
 
   .pwa-install-prompt {
-    bottom: calc(var(--markmap-mobile-tabbar-height) + env(safe-area-inset-bottom) + .75rem);
+    bottom: calc(
+      var(--markmap-mobile-tabbar-height) + env(safe-area-inset-bottom) +
+        0.75rem
+    );
   }
 }
 
@@ -563,35 +699,34 @@ body {
   }
 }
 
-
 .markmap-network-status {
   position: fixed;
   left: 50%;
-  top: calc(env(safe-area-inset-top) + .75rem);
+  top: calc(env(safe-area-inset-top) + 0.75rem);
   z-index: 90;
   display: inline-flex;
   max-width: calc(100vw - 1.5rem);
   min-height: 42px;
   transform: translateX(-50%);
   align-items: center;
-  gap: .55rem;
+  gap: 0.55rem;
   border: 1px solid var(--outline-variant);
   border-radius: 999px;
-  padding: .55rem .85rem;
+  padding: 0.55rem 0.85rem;
   background: color-mix(in srgb, var(--surface-container) 94%, transparent);
   color: var(--text-primary);
-  box-shadow: 0 12px 34px rgba(3, 14, 20, .2);
+  box-shadow: 0 12px 34px rgba(3, 14, 20, 0.2);
   backdrop-filter: blur(16px);
-  font-size: .76rem;
+  font-size: 0.76rem;
   font-weight: 700;
 }
 
 .markmap-network-status.is-offline {
-  border-color: rgba(251, 191, 36, .35);
+  border-color: rgba(251, 191, 36, 0.35);
 }
 
 .markmap-network-status.is-online {
-  border-color: rgba(0, 214, 219, .35);
+  border-color: rgba(0, 214, 219, 0.35);
 }
 
 html {
@@ -604,8 +739,8 @@ html.dark {
 
 @media (max-width: 640px) {
   .markmap-network-status {
-    top: calc(env(safe-area-inset-top) + .5rem);
-    font-size: .72rem;
+    top: calc(env(safe-area-inset-top) + 0.5rem);
+    font-size: 0.72rem;
   }
 }
 
@@ -622,7 +757,13 @@ html.dark {
     max(1.25rem, env(safe-area-inset-right))
     max(1.25rem, env(safe-area-inset-bottom))
     max(1.25rem, env(safe-area-inset-left));
-  background: radial-gradient(circle at 60% 15%, rgba(0, 214, 219, .12), transparent 45%), var(--bg-main);
+  background:
+    radial-gradient(
+      circle at 60% 15%,
+      rgba(0, 214, 219, 0.12),
+      transparent 45%
+    ),
+    var(--bg-main);
 }
 .pwa-install-gate .pwa-install-prompt--dialog {
   position: static;
@@ -640,13 +781,13 @@ html.dark {
   border-radius: 22%;
 }
 .pwa-install-gate .pwa-install-prompt__copy {
-  gap: .75rem;
+  gap: 0.75rem;
 }
 .pwa-install-gate .pwa-install-prompt__copy strong {
   font-size: clamp(1.25rem, 3vw, 1.65rem);
 }
 .pwa-install-gate .pwa-install-prompt__copy span {
-  font-size: .95rem;
+  font-size: 0.95rem;
 }
 .pwa-install-gate .pwa-install-prompt__actions {
   width: 100%;

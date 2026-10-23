@@ -25,7 +25,10 @@ export default function AnalyticsPage() {
         const layer = layerSchema.parse(entity.payload.data);
         return owned.has(layer.projectId) ? [layer] : [];
       });
-      return { rows: allRows.slice(0, 10_000), truncated: allRows.length > 10_000 };
+      return {
+        rows: allRows.slice(0, 10_000),
+        truncated: allRows.length > 10_000,
+      };
     },
     enabled: projects.isSuccess && ids.length > 0,
   });
@@ -73,7 +76,11 @@ export default function AnalyticsPage() {
             onClick={exportCsv}
             className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-brand-blue to-brand-cyan px-4 py-2 font-semibold text-white hover:brightness-110 disabled:opacity-50"
           >
-            {loading ? <AppIcon name="loading" size="sm" className="animate-pulse" /> : <AppIcon name="download" size="sm" />}
+            {loading ? (
+              <AppIcon name="loading" size="sm" className="animate-pulse" />
+            ) : (
+              <AppIcon name="download" size="sm" />
+            )}
             Exportar CSV
           </button>
         </div>
@@ -83,8 +90,8 @@ export default function AnalyticsPage() {
           role="status"
           className="rounded-xl border border-outline-variant p-3 text-sm"
         >
-          Resumo parcial: até 100 projetos e 10.000 camadas locais.
-          As métricas e o CSV consideram somente os dados consultados.
+          Resumo parcial: até 100 projetos e 10.000 camadas locais. As métricas
+          e o CSV consideram somente os dados consultados.
         </p>
       )}
       {error ? (

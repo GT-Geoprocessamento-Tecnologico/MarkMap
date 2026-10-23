@@ -2,12 +2,7 @@
   "id": "br-araguaina",
   "version": "1.0.0-araguaina.20261019",
   "label": "Araguaína — mapa offline",
-  "bounds": [
-    -48.3,
-    -7.3,
-    -48.1,
-    -7.1
-  ],
+  "bounds": [-48.3, -7.3, -48.1, -7.1],
   "minZoom": 0,
   "maxZoom": 12,
   "archive": {
@@ -31,9 +26,7 @@
   "createdAt": "2026-10-19T13:18:11.694Z",
   "packageVersion": "1.0.0-araguaina.20261019",
   "osmDataDate": "2026-10-19T04:00:00.000Z",
-  "capabilities": [
-    "basemap"
-  ],
+  "capabilities": ["basemap"],
   "checksums": {
     "archive": "f0e0c9c8290a7000a563a6b27a95001b4225e9beec493377e6557d48581a807d",
     "style": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",

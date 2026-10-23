@@ -38,7 +38,8 @@ export function SyncController() {
           if (result.pulled > 0 || result.pushed > 0 || result.conflicts > 0)
             await queryClient.invalidateQueries();
         } while (
-          rerunRequested && !disposed &&
+          rerunRequested &&
+          !disposed &&
           (typeof navigator === "undefined" || navigator.onLine !== false)
         );
       } catch {
@@ -85,7 +86,10 @@ export function SyncController() {
       window.removeEventListener("pageshow", onPageShow);
       window.removeEventListener("focus", onFocus);
       window.removeEventListener("geonexo-local-mutation", onLocalMutation);
-      window.removeEventListener("geonexo-conflict-resolved", onConflictResolved);
+      window.removeEventListener(
+        "geonexo-conflict-resolved",
+        onConflictResolved,
+      );
       document.removeEventListener("visibilitychange", onVisibility);
       if (periodic) clearInterval(periodic);
       if (debounce) clearTimeout(debounce);

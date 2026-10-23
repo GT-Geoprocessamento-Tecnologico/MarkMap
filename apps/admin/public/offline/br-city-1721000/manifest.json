@@ -2,12 +2,7 @@
   "id": "br-city-1721000",
   "version": "1.0.0-brazil.20261019",
   "label": "Palmas — mapa offline",
-  "bounds": [
-    -48.4219,
-    -10.4601,
-    -47.7938,
-    -9.9234
-  ],
+  "bounds": [-48.4219, -10.4601, -47.7938, -9.9234],
   "minZoom": 0,
   "maxZoom": 12,
   "archive": {
@@ -31,9 +26,7 @@
   "createdAt": "2026-10-19T22:51:49.421Z",
   "packageVersion": "1.0.0-brazil.20261019",
   "osmDataDate": "2026-10-19T04:00:00.000Z",
-  "capabilities": [
-    "basemap"
-  ],
+  "capabilities": ["basemap"],
   "checksums": {
     "archive": "96b3304dc00eca9e1f85097a0db52516cb96baa0bbaba46909315f11073554ec",
     "style": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",

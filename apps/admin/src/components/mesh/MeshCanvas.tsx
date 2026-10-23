@@ -119,8 +119,10 @@ export function MeshCanvas({ blob, view, onError }: MeshCanvasProps) {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     // Sync only the WebGL backdrop; never recreate the loaded mesh or camera.
     const syncBackground = () => {
-      const color = getComputedStyle(document.documentElement)
-        .getPropertyValue("--surface-container-high").trim() || "#0b1b23";
+      const color =
+        getComputedStyle(document.documentElement)
+          .getPropertyValue("--surface-container-high")
+          .trim() || "#0b1b23";
       renderer.setClearColor(color, 1);
     };
     syncBackground();

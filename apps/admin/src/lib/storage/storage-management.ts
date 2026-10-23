@@ -8,10 +8,7 @@ import { offlineMapStore } from "./offline-map-store";
 import { localDb } from "../local-db";
 
 export type StorageCategory =
-  | "soft-deleted-datasets"
-  | "telemetry"
-  | "offline-maps"
-  | "original-pdfs";
+  "soft-deleted-datasets" | "telemetry" | "offline-maps" | "original-pdfs";
 
 export interface CategoryBreakdown {
   category: StorageCategory;
@@ -78,7 +75,7 @@ export async function getStorageBreakdown(): Promise<StorageBreakdown> {
     const telemetry = (await offlineDB.getAll("telemetry")) as unknown[];
     const bytes = telemetry.reduce<number>(
       (sum, record) => sum + JSON.stringify(record).length * 2,
-      0
+      0,
     );
 
     categories.push({
@@ -107,14 +104,16 @@ export async function getStorageBreakdown(): Promise<StorageBreakdown> {
         p.manifest.archive.bytes +
         p.manifest.style.blob.bytes +
         p.manifest.glyphs.reduce(
-          (glyphTotal: number, glyph: { blob: { bytes: number } }) => glyphTotal + glyph.blob.bytes,
+          (glyphTotal: number, glyph: { blob: { bytes: number } }) =>
+            glyphTotal + glyph.blob.bytes,
           0,
         ) +
         p.manifest.sprites.reduce(
-          (spriteTotal: number, sprite: { blob: { bytes: number } }) => spriteTotal + sprite.blob.bytes,
+          (spriteTotal: number, sprite: { blob: { bytes: number } }) =>
+            spriteTotal + sprite.blob.bytes,
           0,
         ),
-      0
+      0,
     );
 
     categories.push({
@@ -136,12 +135,15 @@ export async function getStorageBreakdown(): Promise<StorageBreakdown> {
 
   // 4. Original PDFs
   try {
-    const originals = await localDb.transact(["originals"], "readonly", (tx) =>
-      new Promise<Array<{ bytes: number }>>((resolve, reject) => {
-        const req = tx.store("originals").getAll();
-        req.onsuccess = () => resolve(req.result);
-        req.onerror = () => reject(req.error);
-      })
+    const originals = await localDb.transact(
+      ["originals"],
+      "readonly",
+      (tx) =>
+        new Promise<Array<{ bytes: number }>>((resolve, reject) => {
+          const req = tx.store("originals").getAll();
+          req.onsuccess = () => resolve(req.result);
+          req.onerror = () => reject(req.error);
+        }),
     );
     const bytes = originals.reduce((sum, r) => sum + (r.bytes ?? 0), 0);
 
@@ -172,8 +174,11 @@ export async function getStorageBreakdown(): Promise<StorageBreakdown> {
  * NEVER deletes without explicit call from user-confirmed action.
  */
 export async function cleanStorageCategories(
-  categoriesToClean: string[]
-): Promise<{ cleaned: StorageCategory[]; errors: Array<{ category: StorageCategory; error: string }> }> {
+  categoriesToClean: string[],
+): Promise<{
+  cleaned: StorageCategory[];
+  errors: Array<{ category: StorageCategory; error: string }>;
+}> {
   const cleaned: StorageCategory[] = [];
   const errors: Array<{ category: StorageCategory; error: string }> = [];
 
@@ -230,7 +235,11 @@ async function cleanSoftDeletedDatasets(): Promise<void> {
         payload?: { deleted?: boolean };
       }>;
       const toDelete = records.filter(
-        (r) => r.payload && typeof r.payload === "object" && "deleted" in r.payload && r.payload.deleted
+        (r) =>
+          r.payload &&
+          typeof r.payload === "object" &&
+          "deleted" in r.payload &&
+          r.payload.deleted,
       );
 
       for (const record of toDelete) {
@@ -262,7 +271,10 @@ async function cleanTelemetry(): Promise<void> {
     req.onsuccess = () => {
       const records = req.result as Array<{ id: string; collection: string }>;
       for (const record of records) {
-        if (record.collection === "telemetry" || record.id.startsWith("telemetry:")) {
+        if (
+          record.collection === "telemetry" ||
+          record.id.startsWith("telemetry:")
+        ) {
           store.delete(record.id);
         }
       }

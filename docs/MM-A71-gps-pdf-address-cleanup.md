@@ -1,10 +1,13 @@
 # MM-A71 — região GPS, GeoPDF responsivo, busca e higiene de repositório
+
 Data 2026-10-13 · base main@421408cbedb243603c534d75f61dc2837d39ad86
 
 ## Objetivo e contexto
+
 O usuário deseja um mapa correspondente à sua localização, busca de endereços acessível no menu do mapa, GeoPDF ajustado à tela sem perder dados ou qualidade, publicação para testes e limpeza segura das seis branches legadas/referências não usadas. Preserve offline-first, PDF.js/MapLibre/IndexedDB, stack existente e sites separados.
 
 ## Estado auditado
+
 - FUNCIONA: permissão GPS do aparelho; dados offline; catálogo JSON com instalador verificado (A70), ainda vazio; busca offline de nomes/POI/feições; PDF.js raster em canvas local com arquivo original preservado; seis branches antigas à frente da base mas sem commits exclusivos além da main.
 - PARCIAL: catálogo não prioriza a posição real GPS; usa centro do mapa, que pode ser padrão; interface não indica região sugerida.
 - QUEBRADO: `pdf-preview.tsx` usa `relative w-max` com canvas de largura intrínseca, extravasando tela e posicionando markers em pixels fixos que precisam acompanhar a escala CSS.
@@ -12,6 +15,7 @@ O usuário deseja um mapa correspondente à sua localização, busca de endereç
 - SEM EVIDÊNCIA: qualquer pacote regional com licenças/URL/download real em produção. Não anunciar regiões que não existem.
 
 ## Escopo
+
 1. Na UI do catálogo, consultar permissão já concedida (sem reabrir popup); se concedida, obter GPS atual e destacar região cobrindo [lon,lat] do usuário. Botão de localização manual pode solicitar permissão após gesto explícito. Botão de baixar exige aprovação explícita antes de consumir rede/armazenamento; não usar localização para telemetria, analytics ou envio remoto. Não impedir uso sem permissão.
 2. Corrigir PDF em Dados: adaptar ao espaço da tela inteira em altura/largura, sem esticar acima da resolução natural; oferecer zoom para inspeção com rolagem e zoom 'ajustar'. Continuar mostrando original armazenado sem compressão, manter canvas de renderização suficiente (limite de pixels atual) e correta calibração de pontos/markers sobre imagem escalada.
 3. Ampliar `OfflineSearch` existente em atalhos do MapLibre para pesquisar endereços: primeira fonte local instalada; opcional online por ato de clicar em 'Buscar endereço na internet', geocodificação pública Nominatim com limite de 1 requisição / segundo no cliente, cache de sessões e atribuição, nunca autocomplete/requisição automática. Se escalar, migrar para provedor dedicado ou API Hono (fora de escopo).
@@ -19,15 +23,19 @@ O usuário deseja um mapa correspondente à sua localização, busca de endereç
 5. Testar, publicar **somente app** no Vercel ao final com autorização explícita do pedido, checar URL/versão; manter site separado.
 
 ## Fora do escopo e ações proibidas
+
 Gerar/download em massa tiles públicos OSM sem licença, construir cobertura nacional sem fonte, mover app para domínio do site, trocar stack, background GPS, criar nova fonte de verdade, apagar pacotes locais/outbox, regravar GeoPDF, migração destrutiva, force push, excluir main ou branches com commits exclusivos, publicar apps em lojas, mexer em secrets.
 
 ## Segurança, privacidade e licenças
+
 Web GPS grant real é superior a qualquer preferência IndexedDB. Região do catálogo se compara localmente; consultas remotas de endereço enviam apenas o termo informado após clique. Rotas offline sem internet continuam. Nominatim não suporta autocomplete nem alto volume; obedeça até 1req/s, identifique app via Referer de sua origem, mostre atribuição e evite alta carga. PDF original nunca é modificado.
 
 ## Arquivos
+
 `apps/admin/src/components/map/RegionDownloadCatalog.tsx`, `apps/admin/src/lib/location-consent.ts` e/ou módulo GPS local mínimo, `apps/admin/src/lib/pdf/pdf-preview.tsx`, `apps/admin/src/components/map/OfflineSearch.tsx`, `apps/admin/src/lib/search/address-geocoder.ts`, testes e E2E do app, `docs/offline-map-catalog.md`, `docs/repository-audit.md`, Handoff/Checklist.
 
 ## Critérios de aceite
+
 - Sem autorização de GPS: sem popup involuntário, sem download; usuário pode escolher região manualmente.
 - Com GPS já concedido: destaque na região correta se pacote cadastrado, ou aviso honesto de ausência de cobertura sem inventar mapa.
 - Download somente quando usuário tocar no botão; nenhuma instalação em segundo plano forçada.
@@ -37,9 +45,11 @@ Web GPS grant real é superior a qualquer preferência IndexedDB. Região do cat
 - Publicação explícita após build+typecheck+E2E do fluxo crítico aprovados, rollback possível.
 
 ## Testes e QA
+
 Revisar lint/typecheck/build Vercel, Vitest módulos GPS/busca, Playwright largura 390 e desktop/perm denied, testes offline já existentes. GitHub Actions pode falhar por billing: não forjar PASS. Real PDF e download regional real pendentes até arquivo/fonte disponíveis. Registrar comandos, evidência, SHAs e estado final.
 
 ## Git e relatório
+
 Revalidar HEAD antes de gravar na main; não sobrescrever agentes, PRs ou arquivos novos. Atualizar Notion ao completar. Relatório curto: o que mudou, tests, deploy URL/sha, branches removidas vs pendentes, limitações de catálogo.
 
 ## Estado parcial registrado
@@ -73,4 +83,3 @@ A interface adicionou opção **desativada por padrão** para permitir baixar au
 **QA executado, separado por fonte:** (1) Sandbox com código GitHub real: **28/28 Vitest PASS** antes dos commits `a9d`/`0b7` (9 PDF/endereço, 11 catálogo/instalador, 2 preferências, 4 interface catálogo, 2 interface busca). Os testes modificados de `a9d`/`0b7` **ainda não foram executados**, sem alegação de gate completo. (2) Navegador Chromium Playwright CLI com app de produção: vista **393×852**: largura do documento 393 px, GeoPDF de teste 2400×1800 com preview **311×233 px** e canvas PDF.js preservado em **4619×3465 px**; zoom abriu raster integral dentro de scroll interno, página permaneceu em 393 px; ajuste restaurou tamanho. Desktop **1366×850**: PDF **737×553 px** sem overflow; importar fixture não alterou o PDF original. No mapa, botão `Buscar locais neste mapa` abriu painel de busca local, sem erros de console naquele acesso; 0 locais sem pacote baixado, com fallback honesto para provedor remoto não configurado. Não se testou GeoPDF real do usuário nem endereço encontrado em pacote real.
 
 **Pendências e segurança:** QA físico Android/Windows e E2E integral de `main@0b7` ainda necessários, assim como mapas regionais reais com licença/manifest/Range e geocodificação contratada. Seis branches históricas têm 0 commits exclusivos e 0 PR aberto, mas permanecem porque conector GitHub não fornece exclusão de refs; só `.eslintignore` comprovadamente redundante foi removido, `REPOSITORIOS MODELOS/` não é versionado. App/site continuam em origens distintas; não foi usado Browser MTS, nem forçada quota, mudada API/Neon/outbox ou efetuada migração destrutiva.
-

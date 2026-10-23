@@ -2,12 +2,7 @@
   "id": "br-city-2304400",
   "version": "1.0.0-brazil.20261019",
   "label": "Fortaleza — mapa offline",
-  "bounds": [
-    -38.6379,
-    -3.8882,
-    -38.4018,
-    -3.6964
-  ],
+  "bounds": [-38.6379, -3.8882, -38.4018, -3.6964],
   "minZoom": 0,
   "maxZoom": 12,
   "archive": {
@@ -31,9 +26,7 @@
   "createdAt": "2026-10-19T22:46:28.375Z",
   "packageVersion": "1.0.0-brazil.20261019",
   "osmDataDate": "2026-10-19T04:00:00.000Z",
-  "capabilities": [
-    "basemap"
-  ],
+  "capabilities": ["basemap"],
   "checksums": {
     "archive": "762b478bfd0c319468d26bb738dbcc28df4a30cc8bd3c9477effd3b67a98f7ea",
     "style": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",

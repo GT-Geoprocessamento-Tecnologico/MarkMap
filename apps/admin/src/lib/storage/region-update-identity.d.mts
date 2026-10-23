@@ -6,5 +6,10 @@ export interface RegionUpdatePreview {
   installedGeneration: string;
   manifestFingerprint: string;
 }
-export declare function matchesRegionUpdatePreview(manifest: unknown, sourceUrl: string,
-  installedVersion: string, expected?: RegionUpdatePreview, installedGeneration?: string): boolean;
+export declare function matchesRegionUpdatePreview(
+  manifest: unknown,
+  sourceUrl: string,
+  installedVersion: string,
+  expected?: RegionUpdatePreview,
+  installedGeneration?: string,
+): boolean;

@@ -6,11 +6,13 @@
 **Gate M4**: aceitar GPX (tracks/waypoints) e KML, converter para formato interno, validação de schema, sem dependência em tile.openstreetmap.org, arquivos temporários sandbox, checksum pré-processamento
 
 ## Objetivo
+
 Criar o mecanismo de importação de arquivos GPX e KML, permitindo que usuários carreguem dados externos (trilhas, waypoints, rotas) e os convertam para o formato interno do MarkMap. Este é o primeiro item da fase M4 — Formatos GPX/KML/KMZ/GeoJSON.
 
 ## Formatos de Entrada
 
 ### 1. GPX (GPS Exchange Format)
+
 Versão 1.0 e 1.1 suportadas. Estrutura GPX:
 
 ```xml
@@ -49,6 +51,7 @@ Versão 1.0 e 1.1 suportadas. Estrutura GPX:
 ```
 
 Elementos GPX suportados:
+
 - **trk/trkseg** — tracks (linhas contínuas com pontos)
 - **trk/trksegs** — múltiplos segments por track
 - **wpt** — waypoints (pontos de interesse)
@@ -58,6 +61,7 @@ Elementos GPX suportados:
 - **name/desc** — nomes e descrições
 
 ### 2. KML (Keyhole Markup Language)
+
 Versão 2.2 suportada. Estrutura KML simplificada:
 
 ```xml
@@ -86,6 +90,7 @@ Versão 2.2 suportada. Estrutura KML simplificada:
 ```
 
 Elementos KML suportados:
+
 - **Placemark** — marcadores pontuais
 - **Point** — geometria de ponto
 - **LineString** — linhas (trilhas/rotas)
@@ -94,12 +99,15 @@ Elementos KML suportados:
 - **description** — descrição
 
 ### 3. KMZ (KML zipped)
+
 - Arquivo ZIP contendo um ou mais arquivos KML
 - Assets adicionais (imagens, modelos) podem estar no ZIP
 - Descompactar e processar como KML
 
 ### 4. GeoJSON
+
 GeoJSON simples (Feature, FeatureCollection):
+
 ```json
 {
   "type": "FeatureCollection",
@@ -115,29 +123,34 @@ GeoJSON simples (Feature, FeatureCollection):
   ]
 }
 ```
+
 GeoJSON será suportado como formato de importação secundário.
 
 ## fluxo de Importação
 
 ### 1. Upload/Seleção de Arquivo
+
 - Usuário seleciona arquivo via `<input type="file">`
 - Aceitos: `.gpx`, `.kml`, `.kmz`, `.geojson`
 - Validação de MIME type ou extensão de arquivo
 - Tamanho máximo configurável (ex.: 50 MiB por arquivo)
 
 ### 2. Parse e Validação
+
 - Parser GPX (XML com validação de schema)
 - Parser KML (XML com validação de estrutura)
 - Parser KMZ (descompactar ZIP → processar KML)
 - Parser GeoJSON (JSON direto)
 
 Em cada caso:
+
 - Validar estrutura obrigatória
 - Extrair: nomes, coordenadas, elevações, timestamps
 - Reject files com schema inválido ou corrompido
 - Reportar erros específicos para o usuário
 
 ### 3. Conversão para Formato Interno
+
 O formato interno do MarkMap representa dados como:
 
 ```typescript
@@ -151,39 +164,39 @@ export type GpxImport = {
 };
 
 export type Track = {
-  id: string;           // UUID gerado
-  name: string;         // Nome do track
-  description: string;  // Descrição (opcional)
-  color: string;        // Cor para renderização (hex)
+  id: string; // UUID gerado
+  name: string; // Nome do track
+  description: string; // Descrição (opcional)
+  color: string; // Cor para renderização (hex)
   segments: Segment[];
 };
 
 export type Segment = {
-  id: string;           // UUID gerado
+  id: string; // UUID gerado
   points: TrackPoint[];
 };
 
 export type TrackPoint = {
-  latitude: number;     // Graus decimais (-90 a 90)
-  longitude: number;    // Graus decimais (-180 a 180)
-  elevation?: number;   // Metros acima do nível do mar (opcional)
-  timestamp?: Date;     // Timestamp ISO (opcional)
+  latitude: number; // Graus decimais (-90 a 90)
+  longitude: number; // Graus decimais (-180 a 180)
+  elevation?: number; // Metros acima do nível do mar (opcional)
+  timestamp?: Date; // Timestamp ISO (opcional)
 };
 
 export type Waypoint = {
-  id: string;           // UUID gerado
-  name: string;         // Nome do waypoint
-  description: string;  // Descrição (opcional)
-  latitude: number;     // Graus decimais
-  longitude: number;    // Graus decimais
-  elevation?: number;   // Elevation (opcional)
+  id: string; // UUID gerado
+  name: string; // Nome do waypoint
+  description: string; // Descrição (opcional)
+  latitude: number; // Graus decimais
+  longitude: number; // Graus decimais
+  elevation?: number; // Elevation (opcional)
 };
 
 export type Route = {
-  id: string;           // UUID gerado
-  name: string;         // Nome da route
-  description: string;  // Descrição (opcional)
-  color: string;        // Cor para renderização (hex)
+  id: string; // UUID gerado
+  name: string; // Nome da route
+  description: string; // Descrição (opcional)
+  color: string; // Cor para renderização (hex)
   points: RoutePoint[];
 };
 
@@ -195,12 +208,14 @@ export type RoutePoint = {
 ```
 
 ### 4. Persistência no IndexedDB
+
 - Dados convertidos são salvos em object store local
 - Chave: `imports:{filename}:{timestamp}`
 - Metadados de importação: filename, format, size, parsedAt, status
 - Referência para o pacote regional ativo
 
 ### 5. Checksum Pré-processamento
+
 - SHA-256 do arquivo original (apenas GPX/KML válidos)
 - Armazenado junto com metadados de importação
 - Usado para detecção de alterações e deduplicação
@@ -208,18 +223,21 @@ export type RoutePoint = {
 ## Evidência Concreta
 
 ### 1. Format Suportados
+
 - ✅ GPX (versões 1.0 e 1.1) — tracks, waypoints, routes
 - ✅ KML (versão 2.2) — placemarks, points, line strings
 - ✅ KMZ (KML em ZIP) — descompactação e processamento
 - ✅ GeoJSON — importação secundária
 
 ### 2. Parsers Implementados
+
 - ✅ Parser GPX: extrai tracks (trk/trkseg), waypoints (wpt), routes (rte/rtept)
 - ✅ Parser KML: extrai placemarks, points, line strings
 - ✅ Parser KMZ: descompacta ZIP → processa KML interno
 - ✅ Parser GeoJSON: lê FeatureCollection e Features
 
 ### 3. Conversão para Formato Interno
+
 - ✅ `Track` com segments e TrackPoint[] (lat, lon, elevation?, timestamp?)
 - ✅ `Waypoint` com name, description, latitude, longitude, elevation?
 - ✅ `Route` com color e RoutePoint[]
@@ -227,6 +245,7 @@ export type RoutePoint = {
 - ✅ Cores hexadecimais para rendering
 
 ### 4. Estrutura de Dados
+
 - ✅ `GpxImport` — tipo raiz com tracks, waypoints, routes
 - ✅ `Track` — nome, description, color, segments
 - ✅ `Segment` — points (TrackPoint[])
@@ -236,18 +255,21 @@ export type RoutePoint = {
 - ✅ `RoutePoint` — latitude, longitude, elevation?
 
 ### 5. Persistência IndexedDB
+
 - ✅ Object store: `imports`
 - ✅ Chave: `imports:{filename}:{timestamp}`
 - ✅ Metadados: filename, format, size, parsedAt, status
 - ✅ SHA-256 checksum do arquivo original
 
 ### 6. Validação de Schema
+
 - ✅ Estrutura GPX validada (elementos obrigatórios)
 - ✅ Estrutura KML validada (Document → Placemark → Point/LineString)
 - ✅ KMZ descompactado e validado
 - ✅ GeoJSON validado (type, features, geometry)
 
 ### 7. Tamanho de Arquivo
+
 - ✅ Limite configurável (ex.: 50 MiB por arquivo)
 - ✅ Validação de MIME type / extensão
 - ✅ Feedback de erro para arquivos > limite
@@ -283,4 +305,4 @@ Após a importação, o próximo passo é:
 
 ---
 
-*Este documento é o entregável do MM-MAP-300. Conclui o item M4 "Formatos GPX/KML/KMZ/GeoJSON" e prepara o caminho para MM-MAP-310 (Conversão e validação).*
+_Este documento é o entregável do MM-MAP-300. Conclui o item M4 "Formatos GPX/KML/KMZ/GeoJSON" e prepara o caminho para MM-MAP-310 (Conversão e validação)._

@@ -2,8 +2,8 @@ export interface OfflineStyleMapEvents {
   loaded(): boolean;
   getSource?(id: string): unknown;
   isSourceLoaded?(id: string): boolean;
-  once(type: 'render', callback: () => void): unknown;
-  off(type: 'render', callback: () => void): unknown;
+  once(type: "render", callback: () => void): unknown;
+  off(type: "render", callback: () => void): unknown;
 }
 export declare function createOfflineStyleLifecycle(options: {
   map: OfflineStyleMapEvents;

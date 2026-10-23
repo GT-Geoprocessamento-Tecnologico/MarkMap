@@ -15,9 +15,12 @@ describe("GeoPDF preview", () => {
     expect(size.width / 4000).toBe(size.height / 8000);
   });
   it("does not upscale smaller PDFs", () => {
-    expect(fitPdfToViewport(300, 200, 900, 700)).toEqual({width:300,height:200});
+    expect(fitPdfToViewport(300, 200, 900, 700)).toEqual({
+      width: 300,
+      height: 200,
+    });
   });
   it("handles invalid dimensions defensively", () => {
-    expect(fitPdfToViewport(0, 100, 200, 200)).toEqual({width:1,height:1});
+    expect(fitPdfToViewport(0, 100, 200, 200)).toEqual({ width: 1, height: 1 });
   });
 });

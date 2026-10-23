@@ -2,12 +2,7 @@
   "id": "br-uf-es",
   "version": "1.0.0-brazil.20261019",
   "label": "Espírito Santo — mapa offline",
-  "bounds": [
-    -41.8747,
-    -21.3011,
-    -39.6678,
-    -17.8919
-  ],
+  "bounds": [-41.8747, -21.3011, -39.6678, -17.8919],
   "minZoom": 0,
   "maxZoom": 9,
   "archive": {
@@ -31,9 +26,7 @@
   "createdAt": "2026-10-19T22:46:53.061Z",
   "packageVersion": "1.0.0-brazil.20261019",
   "osmDataDate": "2026-10-19T04:00:00.000Z",
-  "capabilities": [
-    "basemap"
-  ],
+  "capabilities": ["basemap"],
   "checksums": {
     "archive": "05dbf3a7f029622a1ab2def45b441992fb5d091270ff4c1677d321651795db13",
     "style": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",

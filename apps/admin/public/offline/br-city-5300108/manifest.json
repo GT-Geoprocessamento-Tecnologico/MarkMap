@@ -2,12 +2,7 @@
   "id": "br-city-5300108",
   "version": "1.0.0-brazil.20261019",
   "label": "Brasília — mapa offline",
-  "bounds": [
-    -48.2818,
-    -16.05,
-    -47.3085,
-    -15.5018
-  ],
+  "bounds": [-48.2818, -16.05, -47.3085, -15.5018],
   "minZoom": 0,
   "maxZoom": 12,
   "archive": {
@@ -31,9 +26,7 @@
   "createdAt": "2026-10-19T22:46:42.702Z",
   "packageVersion": "1.0.0-brazil.20261019",
   "osmDataDate": "2026-10-19T04:00:00.000Z",
-  "capabilities": [
-    "basemap"
-  ],
+  "capabilities": ["basemap"],
   "checksums": {
     "archive": "5f68da5c338b3018edd8898e76c2187f06a3c5e5ad8edfaea17ae068decc49b0",
     "style": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",

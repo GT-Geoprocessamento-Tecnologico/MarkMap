@@ -48,7 +48,11 @@ function overlapsBbox(feature: Feature, bbox?: Bbox): boolean {
 
 async function localLayerGeometryType(layerId: string) {
   const workspaceId = await localRepository.workspaceId();
-  const layerEntity = await localRepository.getEntity(workspaceId, "layer", layerId);
+  const layerEntity = await localRepository.getEntity(
+    workspaceId,
+    "layer",
+    layerId,
+  );
   if (!layerEntity || layerEntity.deleted)
     throw new Error("Camada não encontrada neste dispositivo.");
   return layerSchema.parse(
@@ -58,7 +62,10 @@ async function localLayerGeometryType(layerId: string) {
   ).geometryType;
 }
 
-export async function listLocalFeatures(layerId: string, bbox?: Bbox): Promise<Feature[]> {
+export async function listLocalFeatures(
+  layerId: string,
+  bbox?: Bbox,
+): Promise<Feature[]> {
   const entities = await localRepository.listEntities("feature");
   return entities
     .map((entity) =>
@@ -66,7 +73,9 @@ export async function listLocalFeatures(layerId: string, bbox?: Bbox): Promise<F
         entity.payload?.entity === "feature" ? entity.payload.data : undefined,
       ),
     )
-    .filter((feature) => feature.layerId === layerId && overlapsBbox(feature, bbox))
+    .filter(
+      (feature) => feature.layerId === layerId && overlapsBbox(feature, bbox),
+    )
     .sort((a, b) => a.id.localeCompare(b.id));
 }
 
@@ -120,7 +129,9 @@ export function useCreateFeature(layerId: string) {
     mutationFn: (input: CreateFeatureInput) =>
       createLocalFeature(layerId, input),
     onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: queryKeys.featuresByLayer(layerId) }),
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.featuresByLayer(layerId),
+      }),
   });
 }
 

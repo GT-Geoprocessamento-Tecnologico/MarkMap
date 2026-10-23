@@ -10,31 +10,31 @@ Concentrar **todas as alterações existentes** de Maps Engine v2 em `dev/markma
 
 **Main preservada:** `156d4e819d6d876c6150969057f2fc3b9afdad45`.
 
-**Novo ramo consolidado criado:** `dev/markmap-pwa-v2` a partir de `agent/MM-MAP-600-640-offline-routing@86681a9cfab3adcc70746cf79a16c671656ac41a`. Os cinco ramos de desenvolvimento antigos têm relação *ancestral direta*, verificada por comparações GitHub (`behind_by=0` em cada transição); não há commits divergentes entre eles. Nenhum PR aberto foi encontrado na checagem.
+**Novo ramo consolidado criado:** `dev/markmap-pwa-v2` a partir de `agent/MM-MAP-600-640-offline-routing@86681a9cfab3adcc70746cf79a16c671656ac41a`. Os cinco ramos de desenvolvimento antigos têm relação _ancestral direta_, verificada por comparações GitHub (`behind_by=0` em cada transição); não há commits divergentes entre eles. Nenhum PR aberto foi encontrado na checagem.
 
-| Ramo antigo (candidato à remoção) | HEAD anterior | Posição |
-|---|---|---|
-| `feat/maps-engine-v2-offline` | `eb8f436` | Ancestral |
-| `agent/MM-MAP-200-pwa-regions` | `e0dac95` | Ancestral |
-| `agent/MM-MAP-300-400-pwa-integration` | `706650b` | Ancestral |
-| `agent/MM-MAP-310-420-offline-packages` | `7d97d40` | Ancestral |
-| `agent/MM-MAP-600-640-offline-routing` | `86681a9` | Base exata da consolidação |
+| Ramo antigo (candidato à remoção)       | HEAD anterior | Posição                    |
+| --------------------------------------- | ------------- | -------------------------- |
+| `feat/maps-engine-v2-offline`           | `eb8f436`     | Ancestral                  |
+| `agent/MM-MAP-200-pwa-regions`          | `e0dac95`     | Ancestral                  |
+| `agent/MM-MAP-300-400-pwa-integration`  | `706650b`     | Ancestral                  |
+| `agent/MM-MAP-310-420-offline-packages` | `7d97d40`     | Ancestral                  |
+| `agent/MM-MAP-600-640-offline-routing`  | `86681a9`     | Base exata da consolidação |
 
 **Exclusão remota dos ramos antigos: PENDENTE.** Os conectores GitHub disponíveis não expõem `delete_ref` ou `delete_branch`; tentativa de usar o navegador autenticado falhou por indisponibilidade do serviço, e o browser secundário não possui sessão Github autenticada. **Não afirmar que foram apagados.** Antes da remoção, reconfirmar que os cinco SHAs ainda são ancestrais do novo `dev/markmap-pwa-v2` e que não surgiram PRs/novos commits; depois remover apenas estes cinco ramos pela tela [Branches](https://github.com/mmatteuus/MarkMap/branches) ou por GitHub REST API com permissão `Contents:write`. **Não tocar em `main`.** O histórico permanece acessível no ramo novo.
 
 ## 3. Auditoria de código (FUNCIONA/PARCIAL/QUEBRADO/NÃO IMPLEMENTADO)
 
-| Área | Estado observado | Trabalho realizado |
-|---|---|---|
-| MapLibre, camadas, GeoPDF e outbox | FUNCIONA na baseline histórica, validação integral atual pendente | Sem mudanças estruturais |
-| Instalação por pasta regional | QUEBRADO para `searchShards`, `routingGraph`, `contourLines` | **Corrigido**: todos os artefatos opcionais entram na instalação, com validação anterior à ativação |
-| Pipeline de PMTiles/rotas/curvas | PARCIAL | Preservado e testado com fixtures; continua sem dados reais/E2E |
-| Perfil DEM | QUEBRADO ao converter amostra ausente em 0 m | **Corrigido** para erro explícito, sem altura fictícia |
-| Conteúdo Wikipedia/Transporte | PARCIAL; havia stores em memória mas sem empacotamento/visualização | **M8 iniciado:** contrato de manifest com ativos licenciados, pipeline regional, verificação de integridade, IndexedDB, instaladores por URL/pasta, UI offline |
-| HTML Wikipedia de legado | QUEBRADO na sanitização regex antiga: atributos/event handlers passavam | **Corrigido** com whitelist de tags sem atributos; M8 usa texto React, nunca HTML injetado |
-| Índices de conteúdo | PARCIAL; load acumulava referências antigas | **Corrigido**: substituição completa e limites de busca |
-| Atualizações PWA | PARCIAL: popup existe, testes completos pendentes | Sem mudança neste incremento |
-| Navegação GPS contínua, DEM regional real, fontes transit/Wikipedia reais | NÃO IMPLEMENTADO plenamente | Backlog, não anunciar conclusão |
+| Área                                                                      | Estado observado                                                        | Trabalho realizado                                                                                                                                             |
+| ------------------------------------------------------------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| MapLibre, camadas, GeoPDF e outbox                                        | FUNCIONA na baseline histórica, validação integral atual pendente       | Sem mudanças estruturais                                                                                                                                       |
+| Instalação por pasta regional                                             | QUEBRADO para `searchShards`, `routingGraph`, `contourLines`            | **Corrigido**: todos os artefatos opcionais entram na instalação, com validação anterior à ativação                                                            |
+| Pipeline de PMTiles/rotas/curvas                                          | PARCIAL                                                                 | Preservado e testado com fixtures; continua sem dados reais/E2E                                                                                                |
+| Perfil DEM                                                                | QUEBRADO ao converter amostra ausente em 0 m                            | **Corrigido** para erro explícito, sem altura fictícia                                                                                                         |
+| Conteúdo Wikipedia/Transporte                                             | PARCIAL; havia stores em memória mas sem empacotamento/visualização     | **M8 iniciado:** contrato de manifest com ativos licenciados, pipeline regional, verificação de integridade, IndexedDB, instaladores por URL/pasta, UI offline |
+| HTML Wikipedia de legado                                                  | QUEBRADO na sanitização regex antiga: atributos/event handlers passavam | **Corrigido** com whitelist de tags sem atributos; M8 usa texto React, nunca HTML injetado                                                                     |
+| Índices de conteúdo                                                       | PARCIAL; load acumulava referências antigas                             | **Corrigido**: substituição completa e limites de busca                                                                                                        |
+| Atualizações PWA                                                          | PARCIAL: popup existe, testes completos pendentes                       | Sem mudança neste incremento                                                                                                                                   |
+| Navegação GPS contínua, DEM regional real, fontes transit/Wikipedia reais | NÃO IMPLEMENTADO plenamente                                             | Backlog, não anunciar conclusão                                                                                                                                |
 
 ## 4. M8 — Contrato offline e integração implementada
 

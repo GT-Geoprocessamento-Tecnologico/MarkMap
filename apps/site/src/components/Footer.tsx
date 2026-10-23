@@ -17,8 +17,19 @@ export function Footer() {
         </nav>
       </div>
       <div className="site-container site-footer__bottom">
-        <span>© {new Date().getFullYear()} MarkMap. Todos os direitos reservados.</span>
-        <span>Desenvolvido por <a href="https://mtsferreira.dev" target="_blank" rel="noopener noreferrer">MtsFerreira</a></span>
+        <span>
+          © {new Date().getFullYear()} MarkMap. Todos os direitos reservados.
+        </span>
+        <span>
+          Desenvolvido por{" "}
+          <a
+            href="https://mtsferreira.dev"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            MtsFerreira
+          </a>
+        </span>
       </div>
     </footer>
   );

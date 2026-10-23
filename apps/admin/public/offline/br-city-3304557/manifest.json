@@ -2,12 +2,7 @@
   "id": "br-city-3304557",
   "version": "1.0.0-brazil.20261019",
   "label": "Rio de Janeiro — mapa offline",
-  "bounds": [
-    -43.796,
-    -23.0607,
-    -43.1502,
-    -22.7846
-  ],
+  "bounds": [-43.796, -23.0607, -43.1502, -22.7846],
   "minZoom": 0,
   "maxZoom": 12,
   "archive": {
@@ -31,9 +26,7 @@
   "createdAt": "2026-10-19T22:50:03.181Z",
   "packageVersion": "1.0.0-brazil.20261019",
   "osmDataDate": "2026-10-19T04:00:00.000Z",
-  "capabilities": [
-    "basemap"
-  ],
+  "capabilities": ["basemap"],
   "checksums": {
     "archive": "41fc725d62e6da3e517ca8cd2eddbd9d862aba2c514170ed34db7810fe1eb73f",
     "style": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",

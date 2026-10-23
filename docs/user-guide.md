@@ -81,7 +81,6 @@ do GeoJSON. Os arquivos são tratados como **não confiáveis**: XML é validado
 sem resolução de entidade externa e com limite de profundidade, e caminhos de
 pacote não podem escapar do diretório lógico.
 
-
 ## Encontrar minha região, endereços e visualizar GeoPDF
 
 1. No mapa ou em Configurações, abra **Baixar mapas**. Se o dispositivo já permitir localização, o MarkMap sugere o pacote disponível da área. Senão, toque em **Encontrar mapa da minha localização** ou pesquise o nome da região. Toque em **Baixar mapa** para confirmar. Sem cobertura publicada, aparece o aviso correto (não há download fictício).

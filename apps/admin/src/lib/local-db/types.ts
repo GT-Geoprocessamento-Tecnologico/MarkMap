@@ -1,4 +1,9 @@
-import type { SyncConflict, SyncEntity, SyncEntityPayload, SyncOperation } from "@markmap/contracts";
+import type {
+  SyncConflict,
+  SyncEntity,
+  SyncEntityPayload,
+  SyncOperation,
+} from "@markmap/contracts";
 
 export const LOCAL_DB_NAME = "GeoNexoLocalFirstDB";
 export const LOCAL_DB_VERSION = 2;
@@ -27,14 +32,27 @@ export type OriginalRecord = {
   createdAt: string;
 };
 
-export type OutboxRecord = SyncOperation & { key: string; immutable: true; localSequence: number };
-export type ConflictRecord = SyncConflict & { key: string; workspaceId: string; createdAt: string };
+export type OutboxRecord = SyncOperation & {
+  key: string;
+  immutable: true;
+  localSequence: number;
+};
+export type ConflictRecord = SyncConflict & {
+  key: string;
+  workspaceId: string;
+  createdAt: string;
+};
 
-export type LocalDbStores = "meta" | "entities" | "originals" | "outbox" | "conflicts" | "acks";
+export type LocalDbStores =
+  "meta" | "entities" | "originals" | "outbox" | "conflicts" | "acks";
 
 export type LocalDb = {
   workspaceId(): Promise<string>;
-  transact<T>(stores: LocalDbStores[], mode: IDBTransactionMode, work: (tx: LocalDbTransaction) => Promise<T> | T): Promise<T>;
+  transact<T>(
+    stores: LocalDbStores[],
+    mode: IDBTransactionMode,
+    work: (tx: LocalDbTransaction) => Promise<T> | T,
+  ): Promise<T>;
   close(): void;
 };
 
@@ -42,5 +60,10 @@ export type LocalDbTransaction = {
   store(name: LocalDbStores): IDBObjectStore;
 };
 
-export const entityKey = (workspaceId: string, entity: SyncEntity, entityId: string) => `${workspaceId}:${entity}:${entityId}`;
-export const originalKey = (workspaceId: string, blobId: string) => `${workspaceId}:${blobId}`;
+export const entityKey = (
+  workspaceId: string,
+  entity: SyncEntity,
+  entityId: string,
+) => `${workspaceId}:${entity}:${entityId}`;
+export const originalKey = (workspaceId: string, blobId: string) =>
+  `${workspaceId}:${blobId}`;

@@ -2,12 +2,7 @@
   "id": "br-city-2111300",
   "version": "1.0.0-brazil.20261019",
   "label": "São Luís — mapa offline",
-  "bounds": [
-    -44.41,
-    -2.7992,
-    -44.1618,
-    -2.4739
-  ],
+  "bounds": [-44.41, -2.7992, -44.1618, -2.4739],
   "minZoom": 0,
   "maxZoom": 12,
   "archive": {
@@ -31,9 +26,7 @@
   "createdAt": "2026-10-19T22:47:55.593Z",
   "packageVersion": "1.0.0-brazil.20261019",
   "osmDataDate": "2026-10-19T04:00:00.000Z",
-  "capabilities": [
-    "basemap"
-  ],
+  "capabilities": ["basemap"],
   "checksums": {
     "archive": "d6813884671caaaa489f7ae677697fe3620408b56407d3ce111fe43af3f13dc0",
     "style": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",

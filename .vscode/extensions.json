@@ -1,5 +1,3 @@
 {
-    "recommendations": [
-        "WebNative.webnative"
-    ]
+  "recommendations": ["WebNative.webnative"]
 }

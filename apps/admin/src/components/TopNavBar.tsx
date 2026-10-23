@@ -76,7 +76,10 @@ function NewProjectModal({ onClose }: { onClose: () => void }) {
         tabIndex={-1}
         className="relative bg-surface-container w-full sm:max-w-md max-h-[100dvh] sm:max-h-[calc(100dvh-2rem)] rounded-t-3xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden"
       >
-        <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-on-surface/20 sm:hidden" aria-hidden="true" />
+        <div
+          className="mx-auto mt-2 h-1 w-10 rounded-full bg-on-surface/20 sm:hidden"
+          aria-hidden="true"
+        />
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-outline-variant">
           <div>
@@ -228,7 +231,9 @@ export function TopNavBar() {
   }, []);
 
   useEffect(() => {
-    const themeColor = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+    const themeColor = document.querySelector<HTMLMetaElement>(
+      'meta[name="theme-color"]',
+    );
     if (isDark) {
       document.documentElement.classList.add("dark");
       themeColor?.setAttribute("content", "#06131a");
@@ -288,7 +293,11 @@ export function TopNavBar() {
             {/* Barra de busca */}
             <div className="relative flex-1 hidden sm:block">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <AppIcon name="search" size="sm" className="text-on-surface-variant" />
+                <AppIcon
+                  name="search"
+                  size="sm"
+                  className="text-on-surface-variant"
+                />
               </div>
               <input
                 className="w-full min-h-[40px] pl-9 pr-10 py-1.5 bg-surface-container-high/70 border border-outline-variant text-on-surface text-xs rounded-xl focus:border-brand-cyan/60 focus:ring-1 focus:ring-brand-cyan/25 focus:outline-none transition-colors placeholder:text-on-surface-variant/60"
@@ -414,7 +423,11 @@ export function TopNavBar() {
         <div className="sm:hidden fixed top-[calc(64px+env(safe-area-inset-top))] left-0 right-0 z-40 p-3 bg-header border-b border-outline-variant/10">
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <AppIcon name="search" size="sm" className="text-on-surface-variant" />
+              <AppIcon
+                name="search"
+                size="sm"
+                className="text-on-surface-variant"
+              />
             </div>
             <input
               autoFocus
@@ -484,7 +497,11 @@ export function TopNavBar() {
             </h3>
           </div>
           <div className="px-4 py-6 text-center">
-            <AppIcon name="notificationsOff" size="lg" className="text-on-surface-variant" />
+            <AppIcon
+              name="notificationsOff"
+              size="lg"
+              className="text-on-surface-variant"
+            />
             <p className="text-sm text-on-surface-variant mt-2">
               Sem notificações
             </p>

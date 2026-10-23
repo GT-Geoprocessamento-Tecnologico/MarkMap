@@ -18,10 +18,7 @@ import {
 } from "@markmap/geo/pdf";
 import { useToast } from "@markmap/ui";
 
-import {
-  localRepository,
-  type OriginalRecord,
-} from "../local-repositories";
+import { localRepository, type OriginalRecord } from "../local-repositories";
 import { resolveEmbeddedGeoReference } from "./geopdf-overlay";
 import { fitPdfToViewport } from "./pdf-fit";
 
@@ -144,12 +141,8 @@ const applyAffine = (
   coefficients: readonly number[],
   point: readonly [number, number],
 ): [number, number] => [
-  coefficients[0]! * point[0] +
-    coefficients[1]! * point[1] +
-    coefficients[2]!,
-  coefficients[3]! * point[0] +
-    coefficients[4]! * point[1] +
-    coefficients[5]!,
+  coefficients[0]! * point[0] + coefficients[1]! * point[1] + coefficients[2]!,
+  coefficients[3]! * point[0] + coefficients[4]! * point[1] + coefficients[5]!,
 ];
 
 const createManualReference = (
@@ -180,10 +173,7 @@ const createManualReference = (
 
   const coefficients = fitAffine(controls);
   const errors = controls.map((control) =>
-    distanceMeters(
-      applyAffine(coefficients, control.page),
-      control.ground,
-    ),
+    distanceMeters(applyAffine(coefficients, control.page), control.ground),
   );
   const rmse = Math.sqrt(
     errors.reduce((sum, value) => sum + value * value, 0) / errors.length,
@@ -217,7 +207,10 @@ export function PdfPreview({ record }: { record: OriginalRecord }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
   const [pdfSize, setPdfSize] = useState({ width: 1, height: 1 });
-  const [previewBounds, setPreviewBounds] = useState({ width: 320, height: 500 });
+  const [previewBounds, setPreviewBounds] = useState({
+    width: 320,
+    height: 500,
+  });
   const [fitToScreen, setFitToScreen] = useState(true);
   const viewportRef = useRef<ViewportConverter | null>(null);
   const pageGeometryRef = useRef<PageGeometry | null>(null);
@@ -225,18 +218,28 @@ export function PdfPreview({ record }: { record: OriginalRecord }) {
   useEffect(() => {
     const container = previewRef.current;
     if (!container) return;
-    const update = () => setPreviewBounds({
-      width: Math.max(1, container.clientWidth - 16),
-      height: Math.max(180, Math.round(window.innerHeight * 0.65)),
-    });
-    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(update) : null;
+    const update = () =>
+      setPreviewBounds({
+        width: Math.max(1, container.clientWidth - 16),
+        height: Math.max(180, Math.round(window.innerHeight * 0.65)),
+      });
+    const observer =
+      typeof ResizeObserver !== "undefined" ? new ResizeObserver(update) : null;
     observer?.observe(container);
     window.addEventListener("resize", update);
     update();
-    return () => { observer?.disconnect(); window.removeEventListener("resize", update); };
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", update);
+    };
   }, []);
   const viewSize = fitToScreen
-    ? fitPdfToViewport(pdfSize.width, pdfSize.height, previewBounds.width, previewBounds.height)
+    ? fitPdfToViewport(
+        pdfSize.width,
+        pdfSize.height,
+        previewBounds.width,
+        previewBounds.height,
+      )
     : pdfSize;
   const [inspection, setInspection] = useState<PdfInspection | null>(null);
   const [reason, setReason] = useState<string | null>(null);
@@ -244,14 +247,16 @@ export function PdfPreview({ record }: { record: OriginalRecord }) {
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [calibrating, setCalibrating] = useState(false);
   const [calibration, setCalibration] = useState<CalibrationPoint[]>([]);
-  const [storedReference, setStoredReference] =
-    useState<GeoReference | null>(null);
+  const [storedReference, setStoredReference] = useState<GeoReference | null>(
+    null,
+  );
   const [storedReferenceSource, setStoredReferenceSource] =
     useState<StoredReferenceSource | null>(null);
   const [embeddedReference, setEmbeddedReference] =
     useState<GeoReference | null>(null);
-  const [autoCalibrationReason, setAutoCalibrationReason] =
-    useState<string | null>(null);
+  const [autoCalibrationReason, setAutoCalibrationReason] = useState<
+    string | null
+  >(null);
 
   useEffect(() => {
     let disposed = false;
@@ -279,8 +284,7 @@ export function PdfPreview({ record }: { record: OriginalRecord }) {
   useEffect(() => {
     let disposed = false;
     let renderTask:
-      | { cancel: () => void; promise: Promise<unknown> }
-      | undefined;
+      { cancel: () => void; promise: Promise<unknown> } | undefined;
     let pdfDocument: pdfjs.PDFDocumentProxy | undefined;
     let loadingTask: ReturnType<typeof pdfjs.getDocument> | undefined;
     const canvas = canvasRef.current;
@@ -322,8 +326,7 @@ export function PdfPreview({ record }: { record: OriginalRecord }) {
         const scale = Math.min(
           2,
           Math.sqrt(
-            PDF_MAX_PIXELS /
-              Math.max(1, initial.width * initial.height),
+            PDF_MAX_PIXELS / Math.max(1, initial.width * initial.height),
           ),
         );
         const viewport = page.getViewport({ scale });
@@ -334,20 +337,16 @@ export function PdfPreview({ record }: { record: OriginalRecord }) {
         const view = page.view;
         if (view.length === 4) {
           const rotation = (((page.rotate % 360) + 360) % 360) as
-            | 0
-            | 90
-            | 180
-            | 270;
+            0 | 90 | 180 | 270;
           const geometry: PageGeometry = {
             cropBox: [view[0]!, view[1]!, view[2]!, view[3]!],
             rotation,
           };
           pageGeometryRef.current = geometry;
 
-          const existingReference =
-            await localRepository.getMeta<GeoReference>(
-              referenceKey(record.blobId),
-            );
+          const existingReference = await localRepository.getMeta<GeoReference>(
+            referenceKey(record.blobId),
+          );
           const hasEmbeddedMetadata =
             (inspectionResult?.pages[0]?.viewports.length ?? 0) > 0;
           if (!existingReference && !hasEmbeddedMetadata) {
@@ -438,8 +437,7 @@ export function PdfPreview({ record }: { record: OriginalRecord }) {
       calibration.length >= 3 &&
       calibration.every(
         (point) =>
-          point.longitude.trim().length > 0 &&
-          point.latitude.trim().length > 0,
+          point.longitude.trim().length > 0 && point.latitude.trim().length > 0,
       ),
     [calibration],
   );
@@ -494,8 +492,7 @@ export function PdfPreview({ record }: { record: OriginalRecord }) {
       () =>
         toast({
           title: "Localização não disponível",
-          description:
-            "Ative a permissão de localização e tente novamente.",
+          description: "Ative a permissão de localização e tente novamente.",
           variant: "error",
         }),
       { enableHighAccuracy: true, timeout: 15_000, maximumAge: 5_000 },
@@ -550,7 +547,8 @@ export function PdfPreview({ record }: { record: OriginalRecord }) {
         <div>
           <h2 className="font-bold">Mapa PDF</h2>
           <p className="text-xs text-on-surface-variant">
-            {record.originalName ?? record.blobId} · {pageCount ?? "…"} página(s)
+            {record.originalName ?? record.blobId} · {pageCount ?? "…"}{" "}
+            página(s)
           </p>
         </div>
         <span
@@ -593,9 +591,9 @@ export function PdfPreview({ record }: { record: OriginalRecord }) {
         <section className="mt-4 rounded-xl border border-cyan-500/30 bg-cyan-500/5 p-3">
           <h3 className="font-semibold">Posicionar mapa</h3>
           <p className="mt-1 text-sm text-on-surface-variant">
-            Toque em pelo menos 3 locais conhecidos no PDF e informe a
-            longitude e a latitude de cada ponto. Quatro pontos ou mais ajudam
-            a conferir a qualidade do ajuste.
+            Toque em pelo menos 3 locais conhecidos no PDF e informe a longitude
+            e a latitude de cada ponto. Quatro pontos ou mais ajudam a conferir
+            a qualidade do ajuste.
           </p>
           {calibration.length > 0 && (
             <div className="mt-3 space-y-3">
@@ -610,7 +608,9 @@ export function PdfPreview({ record }: { record: OriginalRecord }) {
                       type="button"
                       onClick={() =>
                         setCalibration((current) =>
-                          current.filter((_, pointIndex) => pointIndex !== index),
+                          current.filter(
+                            (_, pointIndex) => pointIndex !== index,
+                          ),
                         )
                       }
                       className="min-h-[44px] px-2 text-sm text-red-500"
@@ -680,34 +680,54 @@ export function PdfPreview({ record }: { record: OriginalRecord }) {
       )}
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs text-on-surface-variant">
-        <p>Arquivo original preservado. A imagem se adapta à tela sem cortar a carta.</p>
-        <button type="button" onClick={() => setFitToScreen(value => !value)}
-          className="min-h-[44px] rounded-lg border border-outline-variant px-3 font-semibold text-on-surface">
+        <p>
+          Arquivo original preservado. A imagem se adapta à tela sem cortar a
+          carta.
+        </p>
+        <button
+          type="button"
+          onClick={() => setFitToScreen((value) => !value)}
+          className="min-h-[44px] rounded-lg border border-outline-variant px-3 font-semibold text-on-surface"
+        >
           {fitToScreen ? "Ampliar para ler" : "Ajustar à tela"}
         </button>
       </div>
-      <div ref={previewRef}
+      <div
+        ref={previewRef}
         className="mt-2 w-full min-w-0 overflow-auto rounded-lg bg-white p-2"
-        aria-label="Visualização ajustável do GeoPDF">
-        <div className="relative mx-auto" style={{
-          width: viewSize.width, height: viewSize.height,
-        }}>
-          <canvas ref={canvasRef} onClick={addCalibrationPoint}
-            aria-label={calibrating
-              ? "Primeira página do PDF. Toque para marcar um ponto de calibração."
-              : "Primeira página do PDF"}
+        aria-label="Visualização ajustável do GeoPDF"
+      >
+        <div
+          className="relative mx-auto"
+          style={{
+            width: viewSize.width,
+            height: viewSize.height,
+          }}
+        >
+          <canvas
+            ref={canvasRef}
+            onClick={addCalibrationPoint}
+            aria-label={
+              calibrating
+                ? "Primeira página do PDF. Toque para marcar um ponto de calibração."
+                : "Primeira página do PDF"
+            }
             className={`block h-full w-full ${calibrating ? "cursor-crosshair touch-none" : ""}`}
           />
-          {calibrating && calibration.map((point, index) => (
-            <span key={`marker-${index}`} aria-hidden="true"
-              className="pointer-events-none absolute flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white bg-cyan-600 text-xs font-bold text-white shadow"
-              style={{
-                left: `${(point.pixel[0] / pdfSize.width) * 100}%`,
-                top: `${(point.pixel[1] / pdfSize.height) * 100}%`,
-              }}>
-              {index + 1}
-            </span>
-          ))}
+          {calibrating &&
+            calibration.map((point, index) => (
+              <span
+                key={`marker-${index}`}
+                aria-hidden="true"
+                className="pointer-events-none absolute flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white bg-cyan-600 text-xs font-bold text-white shadow"
+                style={{
+                  left: `${(point.pixel[0] / pdfSize.width) * 100}%`,
+                  top: `${(point.pixel[1] / pdfSize.height) * 100}%`,
+                }}
+              >
+                {index + 1}
+              </span>
+            ))}
         </div>
       </div>
     </article>

@@ -2,12 +2,7 @@
   "id": "br-city-1302603",
   "version": "1.0.0-brazil.20261019",
   "label": "Manaus — mapa offline",
-  "bounds": [
-    -60.8027,
-    -3.2171,
-    -59.1953,
-    -1.9545
-  ],
+  "bounds": [-60.8027, -3.2171, -59.1953, -1.9545],
   "minZoom": 0,
   "maxZoom": 12,
   "archive": {
@@ -31,9 +26,7 @@
   "createdAt": "2026-10-19T22:45:27.224Z",
   "packageVersion": "1.0.0-brazil.20261019",
   "osmDataDate": "2026-10-19T04:00:00.000Z",
-  "capabilities": [
-    "basemap"
-  ],
+  "capabilities": ["basemap"],
   "checksums": {
     "archive": "db479b464944136aefa11c4a0a054b73d04d3bcda3b62f1857bdabefd56c8c0e",
     "style": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",

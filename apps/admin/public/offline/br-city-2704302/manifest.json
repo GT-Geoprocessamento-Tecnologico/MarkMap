@@ -2,12 +2,7 @@
   "id": "br-city-2704302",
   "version": "1.0.0-brazil.20261019",
   "label": "Maceió — mapa offline",
-  "bounds": [
-    -35.8144,
-    -9.7112,
-    -35.5585,
-    -9.371
-  ],
+  "bounds": [-35.8144, -9.7112, -35.5585, -9.371],
   "minZoom": 0,
   "maxZoom": 12,
   "archive": {
@@ -31,9 +26,7 @@
   "createdAt": "2026-10-19T22:45:13.313Z",
   "packageVersion": "1.0.0-brazil.20261019",
   "osmDataDate": "2026-10-19T04:00:00.000Z",
-  "capabilities": [
-    "basemap"
-  ],
+  "capabilities": ["basemap"],
   "checksums": {
     "archive": "30a0749acbae7bf96a49f026b27bcb0699bb97d7b16f320a5f81eec6cf4bd0db",
     "style": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",

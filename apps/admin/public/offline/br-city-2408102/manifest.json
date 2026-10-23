@@ -2,12 +2,7 @@
   "id": "br-city-2408102",
   "version": "1.0.0-brazil.20261019",
   "label": "Natal — mapa offline",
-  "bounds": [
-    -35.2913,
-    -5.8998,
-    -35.1541,
-    -5.704
-  ],
+  "bounds": [-35.2913, -5.8998, -35.1541, -5.704],
   "minZoom": 0,
   "maxZoom": 12,
   "archive": {
@@ -31,9 +26,7 @@
   "createdAt": "2026-10-19T22:50:14.717Z",
   "packageVersion": "1.0.0-brazil.20261019",
   "osmDataDate": "2026-10-19T04:00:00.000Z",
-  "capabilities": [
-    "basemap"
-  ],
+  "capabilities": ["basemap"],
   "checksums": {
     "archive": "1e5ddb5097f78a1003a04f1b16c7e94f5ada215ea2e4228d78822a5f9f821f5e",
     "style": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",

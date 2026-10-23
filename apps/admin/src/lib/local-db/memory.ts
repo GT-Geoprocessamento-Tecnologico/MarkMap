@@ -76,9 +76,9 @@ class MemoryStore {
           }
           return true;
         });
-        return new Request(filtered.map((row) => clone(row))) as unknown as RequestLike<
-          Row[]
-        >;
+        return new Request(
+          filtered.map((row) => clone(row)),
+        ) as unknown as RequestLike<Row[]>;
       },
     };
   }
@@ -134,9 +134,8 @@ export class MemoryLocalDb implements LocalDb {
     const result = await work(tx);
     if (
       this.quotaBytes !== undefined &&
-      JSON.stringify(
-        [...copies.values()].map((table) => [...table.values()]),
-      ).length > this.quotaBytes
+      JSON.stringify([...copies.values()].map((table) => [...table.values()]))
+        .length > this.quotaBytes
     )
       throw new DOMException("Quota exceeded", "QuotaExceededError");
     for (const [name, table] of copies) this.tables.set(name, table);

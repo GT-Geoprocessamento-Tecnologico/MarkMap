@@ -2,12 +2,7 @@
   "id": "br-uf-rr",
   "version": "1.0.0-brazil.20261019",
   "label": "Roraima — mapa offline",
-  "bounds": [
-    -64.810501,
-    -1.579,
-    -58.8955,
-    5.2718
-  ],
+  "bounds": [-64.810501, -1.579, -58.8955, 5.2718],
   "minZoom": 0,
   "maxZoom": 9,
   "archive": {
@@ -31,9 +26,7 @@
   "createdAt": "2026-10-19T22:50:58.797Z",
   "packageVersion": "1.0.0-brazil.20261019",
   "osmDataDate": "2026-10-19T04:00:00.000Z",
-  "capabilities": [
-    "basemap"
-  ],
+  "capabilities": ["basemap"],
   "checksums": {
     "archive": "08829d7beb79be32c3ac19473ab455980695ac2e2a56bd864df44365b291cc95",
     "style": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",

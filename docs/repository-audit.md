@@ -59,7 +59,6 @@ Um arquivo só deve ser removido quando houver evidência de que:
 4. não contém decisão arquitetural vigente;
 5. a remoção não exige atualização de lockfile/configuração sem validação.
 
-
 ## Revisão A71 — 2026-10-13
 
 - GitHub HEAD auditado: as 6 branches históricas (`agent/MM-MAP-200-pwa-regions`, `agent/MM-MAP-300-400-pwa-integration`, `agent/MM-MAP-310-420-offline-packages`, `agent/MM-MAP-600-640-offline-routing`, `dev/markmap-pwa-v2`, `feat/maps-engine-v2-offline`) possuem 0 commits exclusivos em relação à main, 0 PR aberto; podem ser excluídas com proteção à `main`. O conector GitHub disponível **não oferece API de apagar branch**; a exclusão ainda não ocorreu.

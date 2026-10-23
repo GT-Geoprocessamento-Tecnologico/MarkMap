@@ -1,6 +1,10 @@
-import { z } from 'zod';
-import { createFeatureSchema, createLayerSchema, updateFeatureSchema } from '@markmap/contracts';
-import type { Bbox } from '@markmap/contracts';
+import { z } from "zod";
+import {
+  createFeatureSchema,
+  createLayerSchema,
+  updateFeatureSchema,
+} from "@markmap/contracts";
+import type { Bbox } from "@markmap/contracts";
 
 /**
  * Tipos compartilhados entre `api-client` (transporte) e `mock` (transporte de
@@ -18,8 +22,17 @@ export interface ListFeaturesOptions extends ListOptions {
   bbox?: Bbox;
 }
 
-export type CreateLayerInput = Omit<z.input<typeof createLayerSchema>, 'projectId'>;
+export type CreateLayerInput = Omit<
+  z.input<typeof createLayerSchema>,
+  "projectId"
+>;
 
-export type CreateFeatureInput = Omit<z.input<typeof createFeatureSchema>, 'layerId'>;
+export type CreateFeatureInput = Omit<
+  z.input<typeof createFeatureSchema>,
+  "layerId"
+>;
 
-export type UpdateFeatureInput = Omit<z.input<typeof updateFeatureSchema>, 'id'>;
+export type UpdateFeatureInput = Omit<
+  z.input<typeof updateFeatureSchema>,
+  "id"
+>;

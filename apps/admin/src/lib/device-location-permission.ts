@@ -18,7 +18,10 @@
 
 export type LocationPermissionState =
   | { readonly state: "granted" }
-  | { readonly state: "denied"; readonly reason: "denied" | "unavailable" | "error" };
+  | {
+      readonly state: "denied";
+      readonly reason: "denied" | "unavailable" | "error";
+    };
 
 interface CapacitorGlobal {
   readonly isNativePlatform?: () => boolean;
@@ -36,10 +39,13 @@ const DENIED: LocationPermissionState = { state: "denied", reason: "denied" };
  */
 const detectNativeShell = (): boolean => {
   if (typeof window === "undefined") return false;
-  const capacitor = (window as unknown as { Capacitor?: CapacitorGlobal }).Capacitor;
+  const capacitor = (window as unknown as { Capacitor?: CapacitorGlobal })
+    .Capacitor;
   if (!capacitor) return false;
-  if (typeof capacitor.isNativePlatform === "function") return capacitor.isNativePlatform();
-  if (typeof capacitor.getPlatform === "function") return capacitor.getPlatform() !== "web";
+  if (typeof capacitor.isNativePlatform === "function")
+    return capacitor.isNativePlatform();
+  if (typeof capacitor.getPlatform === "function")
+    return capacitor.getPlatform() !== "web";
   return false;
 };
 
@@ -49,36 +55,49 @@ const detectNativeShell = (): boolean => {
  * Na web resolve imediatamente como `granted`, preservando o comportamento
  * atual. No nativo consulta o estado e solicita quando ainda é `prompt`.
  */
-export const ensureLocationPermission = async (): Promise<LocationPermissionState> => {
-  if (!detectNativeShell()) return { state: "granted" };
+export const ensureLocationPermission =
+  async (): Promise<LocationPermissionState> => {
+    if (!detectNativeShell()) return { state: "granted" };
 
-  try {
-    const { Geolocation } = await import("@capacitor/geolocation");
+    try {
+      const { Geolocation } = await import("@capacitor/geolocation");
 
-    const current = await Geolocation.checkPermissions();
-    if (current.location === "granted") return { state: "granted" };
-    if (current.location === "denied") return DENIED;
+      const current = await Geolocation.checkPermissions();
+      if (current.location === "granted") return { state: "granted" };
+      if (current.location === "denied") return DENIED;
 
-    const requested = await Geolocation.requestPermissions({
-      permissions: ["location"],
-    });
-    return requested.location === "granted" ? { state: "granted" } : DENIED;
-  } catch {
-    // Serviço de localização indisponível ou plugin nativo inacessível.
-    // O restante do aplicativo deve continuar utilizável offline.
-    return { state: "denied", reason: "unavailable" };
-  }
-};
+      const requested = await Geolocation.requestPermissions({
+        permissions: ["location"],
+      });
+      return requested.location === "granted" ? { state: "granted" } : DENIED;
+    } catch {
+      // Serviço de localização indisponível ou plugin nativo inacessível.
+      // O restante do aplicativo deve continuar utilizável offline.
+      return { state: "denied", reason: "unavailable" };
+    }
+  };
 /** Read actual OS/browser authorization without displaying a new prompt. */
 export async function isLocationPermissionGranted(): Promise<boolean> {
   if (detectNativeShell()) {
     try {
       const { Geolocation } = await import("@capacitor/geolocation");
       return (await Geolocation.checkPermissions()).location === "granted";
-    } catch { return false; }
+    } catch {
+      return false;
+    }
   }
-  if (typeof navigator === "undefined" || !navigator.geolocation || !navigator.permissions?.query) return false;
+  if (
+    typeof navigator === "undefined" ||
+    !navigator.geolocation ||
+    !navigator.permissions?.query
+  )
+    return false;
   try {
-    return (await navigator.permissions.query({ name: "geolocation" })).state === "granted";
-  } catch { return false; }
+    return (
+      (await navigator.permissions.query({ name: "geolocation" })).state ===
+      "granted"
+    );
+  } catch {
+    return false;
+  }
 }

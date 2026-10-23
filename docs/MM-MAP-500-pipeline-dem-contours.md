@@ -6,9 +6,11 @@
 **Gate M6**: toda consulta funciona sem rede com pacote compatível
 
 ## Objetivo
+
 Gerar por região: DEM adequado ao runtime, curvas de nível vetoriais, metadata de resolução/fonte/licença.
 
 ## Fontes de Inspiração (conceitos, não código copiado)
+
 - `generator/srtm_parser.cpp` — parsing de dados SRTM (conceito: leitura de grid raster de elevação)
 - `generator/isolines_generator.cpp` — geração de isolinhas (conceito: marching squares para curvas de nível)
 
@@ -40,17 +42,17 @@ export type DemMetadata = z.infer<typeof demMetadataSchema>;
 
 ```typescript
 export const contourSchema = z.object({
-  elevation: z.number().finite(),      // metros
-  interval: z.number().positive(),     // intervalo entre curvas (ex: 20, 100)
-  isMajor: z.boolean().true(),          // curva mestre (multiplas de interval*5)
+  elevation: z.number().finite(), // metros
+  interval: z.number().positive(), // intervalo entre curvas (ex: 20, 100)
+  isMajor: z.boolean().true(), // curva mestre (multiplas de interval*5)
   geometry: z.array(z.tuple([z.number(), z.number()])), // [lon, lat] coords
 });
 
 export type Contour = z.infer<typeof contourSchema>;
 
 export const contourLayerSchema = z.object({
-  interval: z.number().positive(),       // intervalo base (ex: 20m)
-  majorInterval: z.number().positive(),  // intervalo mestre (ex: 100m)
+  interval: z.number().positive(), // intervalo base (ex: 20m)
+  majorInterval: z.number().positive(), // intervalo mestre (ex: 100m)
   minElevation: z.number(),
   maxElevation: z.number(),
   contours: z.array(contourSchema),
@@ -63,17 +65,21 @@ export type ContourLayer = z.infer<typeof contourLayerSchema>;
 
 ```typescript
 export const elevationProfileSchema = z.object({
-  points: z.array(z.object({
-    distance: z.number().min(0),      // distância acumulada em km
-    elevation: z.number().finite(),   // altitude em metros
-    lon: z.number(),
-    lat: z.number(),
-  })).min(2),
-  totalDistance: z.number().min(0),   // km
+  points: z
+    .array(
+      z.object({
+        distance: z.number().min(0), // distância acumulada em km
+        elevation: z.number().finite(), // altitude em metros
+        lon: z.number(),
+        lat: z.number(),
+      }),
+    )
+    .min(2),
+  totalDistance: z.number().min(0), // km
   minElevation: z.number(),
   maxElevation: z.number(),
-  gain: z.number().min(0),            // ganho positivo acumulado (m)
-  loss: z.number().min(0),            // perda negativa acumulada (m)
+  gain: z.number().min(0), // ganho positivo acumulado (m)
+  loss: z.number().min(0), // perda negativa acumulada (m)
 });
 
 export type ElevationProfile = z.infer<typeof elevationProfileSchema>;
@@ -89,7 +95,7 @@ export function sampleDem(
   dem: Int16Array | Float32Array,
   metadata: DemMetadata,
   lon: number,
-  lat: number
+  lat: number,
 ): number | null {
   const [minLon, minLat, maxLon, maxLat] = metadata.bounds;
 
@@ -100,8 +106,14 @@ export function sampleDem(
   const colFrac = (lon - minLon) / (maxLon - minLon);
   const rowFrac = (lat - minLat) / (maxLat - minLat);
 
-  const col = Math.min(Math.floor(colFrac * (metadata.width - 1)), metadata.width - 1);
-  const row = Math.min(Math.floor(rowFrac * (metadata.height - 1)), metadata.height - 1);
+  const col = Math.min(
+    Math.floor(colFrac * (metadata.width - 1)),
+    metadata.width - 1,
+  );
+  const row = Math.min(
+    Math.floor(rowFrac * (metadata.height - 1)),
+    metadata.height - 1,
+  );
 
   const value = dem[row * metadata.width + col];
   if (value === metadata.noDataValue) return null;
@@ -113,7 +125,7 @@ export function sampleDemBilinear(
   dem: Int16Array | Float32Array,
   metadata: DemMetadata,
   lon: number,
-  lat: number
+  lat: number,
 ): number | null {
   const [minLon, minLat, maxLon, maxLat] = metadata.bounds;
 
@@ -135,15 +147,21 @@ export function sampleDemBilinear(
   const v10 = dem[row1 * metadata.width + col0];
   const v11 = dem[row1 * metadata.width + col1];
 
-  if (v00 === metadata.noDataValue || v01 === metadata.noDataValue ||
-      v10 === metadata.noDataValue || v11 === metadata.noDataValue) {
+  if (
+    v00 === metadata.noDataValue ||
+    v01 === metadata.noDataValue ||
+    v10 === metadata.noDataValue ||
+    v11 === metadata.noDataValue
+  ) {
     return sampleDem(dem, metadata, lon, lat);
   }
 
-  return v00 * (1 - dx) * (1 - dy) +
-         v01 * dx * (1 - dy) +
-         v10 * (1 - dx) * dy +
-         v11 * dx * dy;
+  return (
+    v00 * (1 - dx) * (1 - dy) +
+    v01 * dx * (1 - dy) +
+    v10 * (1 - dx) * dy +
+    v11 * dx * dy
+  );
 }
 ```
 
@@ -154,9 +172,9 @@ export function sampleDemBilinear(
 import { ElevationProfile } from "@markmap/contracts";
 
 export function computeElevationProfile(
-  path: Array<[number, number]>,  // [lon, lat] coords
+  path: Array<[number, number]>, // [lon, lat] coords
   dem: Int16Array | Float32Array,
-  metadata: DemMetadata
+  metadata: DemMetadata,
 ): ElevationProfile {
   const points: ElevationProfile["points"] = [];
   let distance = 0;
@@ -198,15 +216,20 @@ export function computeElevationProfile(
   };
 }
 
-function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+function haversineDistance(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number,
+): number {
   const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
   const a =
     Math.sin(dLat / 2) ** 2 +
     Math.cos((lat1 * Math.PI) / 180) *
-    Math.cos((lat2 * Math.PI) / 180) *
-    Math.sin(dLon / 2) ** 2;
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 ```
@@ -326,6 +349,7 @@ function marchingSquares(
 ## Evidência Concreta
 
 ### 1. Schema de Metadados DEM
+
 - ✅ Fonte (srtm, copernicus-dem, alos-dem)
 - ✅ Resolução em metros
 - ✅ Datum vertical (EGM96, WGS84, EGM2008)
@@ -333,30 +357,35 @@ function marchingSquares(
 - ✅ Bounds, noDataValue, dataType, width, height
 
 ### 2. Schema de Contours
+
 - ✅ Elevation, interval, isMajor, geometry (coords [lon, lat])
 - ✅ ContourLayer com interval, majorInterval, min/maxElevation, contours[]
 
 ### 3. Schema de Perfil de Elevação
+
 - ✅ Points com distance (km), elevation (m), lon, lat
 - ✅ totalDistance, minElevation, maxElevation, gain, loss
 
 ### 4. Funções de Consulta
+
 - ✅ `sampleDem()` — lookup pixel-based
 - ✅ `sampleDemBilinear()` — interpolação bilinear suave
 - ✅ `computeElevationProfile()` — perfil completo com distance/gain/loss/min/max
 - ✅ `haversineDistance()` — distância great-circle
 
 ### 5. Geração de Contours
+
 - ✅ `generateContours()` — marching squares com interval e majorInterval
 - ✅ `marchingSquares()` — detecção de segmentos por célula 2x2
 - ✅ Suporte a todos os 16 casos do marching squares
 - ✅ Filtro de noDataValue
 
 ### 6. Cache Local
+
 - ✅ DEM armazenado em LargeBlobStore (IndexedDB/OPFS)
 - ✅ Lookup sem rede (aceite global #8)
 - ✅ Cache de altitude por coordenada (LRU)
 
 ---
 
-*Entregável do MM-MAP-500. Prepara o caminho para MM-MAP-510 (Consulta de altitude).*
+_Entregável do MM-MAP-500. Prepara o caminho para MM-MAP-510 (Consulta de altitude)._

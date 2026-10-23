@@ -20,18 +20,24 @@ export function ensurePromiseWithResolvers(
   Object.defineProperty(promiseConstructor, "withResolvers", {
     configurable: true,
     writable: true,
-    value: function withResolvers<T>(this: PromiseConstructor): PromiseWithResolvers<T> {
+    value: function withResolvers<T>(
+      this: PromiseConstructor,
+    ): PromiseWithResolvers<T> {
       let resolve!: (value: T | PromiseLike<T>) => void;
       let reject!: (reason?: unknown) => void;
       const constructor = this as PromiseConstructor;
       if (typeof constructor !== "function")
-        throw new TypeError("Promise.withResolvers receiver is not a constructor.");
+        throw new TypeError(
+          "Promise.withResolvers receiver is not a constructor.",
+        );
       const promise = new constructor<T>((nextResolve, nextReject) => {
         resolve = nextResolve;
         reject = nextReject;
       });
       if (typeof resolve !== "function" || typeof reject !== "function")
-        throw new TypeError("Promise constructor did not provide resolving functions.");
+        throw new TypeError(
+          "Promise constructor did not provide resolving functions.",
+        );
       return { promise, resolve, reject };
     },
   });

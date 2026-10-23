@@ -11,11 +11,7 @@
   "background_color": "#07131f",
   "lang": "pt-BR",
   "dir": "ltr",
-  "categories": [
-    "navigation",
-    "utilities",
-    "productivity"
-  ],
+  "categories": ["navigation", "utilities", "productivity"],
   "icons": [
     {
       "src": "/icons/icon-180x180-cf74c7b0.png",
@@ -87,10 +83,7 @@
     }
   ],
   "prefer_related_applications": false,
-  "display_override": [
-    "standalone",
-    "minimal-ui"
-  ],
+  "display_override": ["standalone", "minimal-ui"],
   "launch_handler": {
     "client_mode": "navigate-existing"
   }

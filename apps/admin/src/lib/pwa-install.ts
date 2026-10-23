@@ -17,8 +17,11 @@ let installPrompt: BeforeInstallPromptEvent | null = null;
 let initialized = false;
 
 export function isPwaStandalone(): boolean {
-  if (typeof window === "undefined" || typeof navigator === "undefined") return false;
-  const navigatorWithStandalone = navigator as Navigator & { standalone?: boolean };
+  if (typeof window === "undefined" || typeof navigator === "undefined")
+    return false;
+  const navigatorWithStandalone = navigator as Navigator & {
+    standalone?: boolean;
+  };
   return (
     (typeof window.matchMedia === "function" &&
       window.matchMedia("(display-mode: standalone)").matches) ||
@@ -69,7 +72,10 @@ async function preserveLocalStorageBestEffort(): Promise<void> {
 }
 
 /** Dedicated install route: never render the workspace in a browser install tab. */
-export function shouldShowPwaInstallFlow(search: string, standalone: boolean): boolean {
+export function shouldShowPwaInstallFlow(
+  search: string,
+  standalone: boolean,
+): boolean {
   return !standalone && new URLSearchParams(search).get("install") === "1";
 }
 

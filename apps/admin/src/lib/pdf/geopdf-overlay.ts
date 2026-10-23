@@ -136,24 +136,40 @@ export async function renderGeoPdfOverlay(
     const coordinates = corners.map(([x, y]) => {
       const [pageX, pageY] = viewport.convertToPdfPoint(x, y);
       const [longitude, latitude] = pageToLonLat(reference, [pageX, pageY]);
-      if (!Number.isFinite(longitude) || !Number.isFinite(latitude) ||
-          Math.abs(longitude) > 180 || Math.abs(latitude) > 90)
+      if (
+        !Number.isFinite(longitude) ||
+        !Number.isFinite(latitude) ||
+        Math.abs(longitude) > 180 ||
+        Math.abs(latitude) > 90
+      )
         throw new Error("O posicionamento do PDF gerou coordenadas inválidas.");
       return [longitude, latitude] as [number, number];
     }) as GeoPdfOverlay["coordinates"];
 
     const task = page.render({ canvas, canvasContext: context, viewport });
     await task.promise;
-    const fullPage = frame.x === 0 && frame.y === 0 &&
-      frame.width === width && frame.height === height;
+    const fullPage =
+      frame.x === 0 &&
+      frame.y === 0 &&
+      frame.width === width &&
+      frame.height === height;
     if (!fullPage) {
       cutCanvas = globalThis.document.createElement("canvas");
       cutCanvas.width = frame.width;
       cutCanvas.height = frame.height;
       const cutContext = cutCanvas.getContext("2d", { alpha: false });
       if (!cutContext) throw new Error("Canvas do GeoPDF indisponível.");
-      cutContext.drawImage(canvas, frame.x, frame.y, frame.width, frame.height,
-        0, 0, frame.width, frame.height);
+      cutContext.drawImage(
+        canvas,
+        frame.x,
+        frame.y,
+        frame.width,
+        frame.height,
+        0,
+        0,
+        frame.width,
+        frame.height,
+      );
     }
     const image = await canvasBlob(cutCanvas ?? canvas);
     const url = URL.createObjectURL(image);

@@ -1,4 +1,8 @@
-export type GeoPdfGpsFix = Readonly<{ lon: number; lat: number; accuracyM: number }>;
+export type GeoPdfGpsFix = Readonly<{
+  lon: number;
+  lat: number;
+  accuracyM: number;
+}>;
 export type GeoPdfCorner = readonly [number, number];
 export type GeoPdfGpsOutcome =
   | { status: "inside"; center: [number, number]; accuracyM: number }

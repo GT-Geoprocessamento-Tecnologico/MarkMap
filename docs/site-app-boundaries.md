@@ -4,11 +4,11 @@
 
 ## Separação obrigatória
 
-| Produto | Código | Endereço e finalidade |
-|---|---|---|
-| Site | `apps/site` | Subdomínio próprio. Somente vitrine, conteúdo público e link de instalação. |
-| Aplicativo | `apps/admin` | Outro subdomínio próprio. Única origem da PWA, instalação, dados locais, mapa e sincronização. |
-| Backend | `services/api` | API própria conforme configuração existente; nunca executada pelo site. |
+| Produto    | Código         | Endereço e finalidade                                                                          |
+| ---------- | -------------- | ---------------------------------------------------------------------------------------------- |
+| Site       | `apps/site`    | Subdomínio próprio. Somente vitrine, conteúdo público e link de instalação.                    |
+| Aplicativo | `apps/admin`   | Outro subdomínio próprio. Única origem da PWA, instalação, dados locais, mapa e sincronização. |
+| Backend    | `services/api` | API própria conforme configuração existente; nunca executada pelo site.                        |
 
 O monorepo e os pacotes compartilhados continuam os mesmos, mas **cada frontend possui build e deploy próprios**. Nenhum deve copiar os assets, os cookies, o cache, o IndexedDB ou a identidade PWA do outro.
 

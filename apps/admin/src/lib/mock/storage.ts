@@ -1,8 +1,8 @@
-import { MOCK_DB_VERSION, mockDbSchema } from './seed';
-import type { MockDb } from './seed';
+import { MOCK_DB_VERSION, mockDbSchema } from "./seed";
+import type { MockDb } from "./seed";
 
 /** Chave versionada: trocar a versao invalida dados de demonstracao antigos. */
-export const MOCK_STORAGE_KEY = 'geonexo.admin.mock.v1';
+export const MOCK_STORAGE_KEY = "geonexo.admin.mock.v1";
 
 let cache: MockDb | null = null;
 
@@ -33,7 +33,12 @@ export function getDb(): MockDb {
     cache = stored;
     return cache;
   }
-  return persist({ version: MOCK_DB_VERSION, projects: [], layers: [], features: [] });
+  return persist({
+    version: MOCK_DB_VERSION,
+    projects: [],
+    layers: [],
+    features: [],
+  });
 }
 
 /** Persiste alteracoes feitas pelos endpoints mock. */

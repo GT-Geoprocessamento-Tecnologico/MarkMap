@@ -2,12 +2,7 @@
   "id": "br-city-4106902",
   "version": "1.0.0-brazil.20261019",
   "label": "Curitiba — mapa offline",
-  "bounds": [
-    -49.3835,
-    -25.6432,
-    -49.1852,
-    -25.3495
-  ],
+  "bounds": [-49.3835, -25.6432, -49.1852, -25.3495],
   "minZoom": 0,
   "maxZoom": 12,
   "archive": {
@@ -31,9 +26,7 @@
   "createdAt": "2026-10-19T22:49:51.507Z",
   "packageVersion": "1.0.0-brazil.20261019",
   "osmDataDate": "2026-10-19T04:00:00.000Z",
-  "capabilities": [
-    "basemap"
-  ],
+  "capabilities": ["basemap"],
   "checksums": {
     "archive": "88390e9c7f449137b92251c97a981298cd84202c6961e5e7d175d335c26db74a",
     "style": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",

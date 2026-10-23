@@ -40,14 +40,14 @@ a um erro reproduzido ou a um critério de aceite deste documento.
 
 A tela de importação da base de produção (`origin/main`) anuncia e implementa:
 
-| Tipo | Caminho atual | Aceite de produção |
-| --- | --- | --- |
-| GeoJSON/JSON | `ImportsPage` → `parseGeoJSON` → `saveDataset` | upload válido, inválido, limite, reload e persistência local |
-| GPX | `parseDatasetFile` → `parseGpx` → `saveDataset` | trilha válida, XML inválido/DTD, limite e reload |
-| KML | `parseDatasetFile` → `parseKml` → `saveDataset` | pontos/linhas/polígonos, XML inválido/DTD, limite e reload |
-| KMZ | `parseDatasetFile` → descompressão/`parseKml` → `saveDataset` | pacote válido, entrada maliciosa/limite e reload |
-| PDF, incluindo fluxo GeoPDF quando os metadados passam | `localRepository` + `PdfPreview` | upload, assinatura/corrupção, visualização, posicionamento e reload |
-| GLB | `saveMesh` + validação de malha | upload autocontido, rejeição de externo/corrompido/excedente e reload |
+| Tipo                                                   | Caminho atual                                                 | Aceite de produção                                                    |
+| ------------------------------------------------------ | ------------------------------------------------------------- | --------------------------------------------------------------------- |
+| GeoJSON/JSON                                           | `ImportsPage` → `parseGeoJSON` → `saveDataset`                | upload válido, inválido, limite, reload e persistência local          |
+| GPX                                                    | `parseDatasetFile` → `parseGpx` → `saveDataset`               | trilha válida, XML inválido/DTD, limite e reload                      |
+| KML                                                    | `parseDatasetFile` → `parseKml` → `saveDataset`               | pontos/linhas/polígonos, XML inválido/DTD, limite e reload            |
+| KMZ                                                    | `parseDatasetFile` → descompressão/`parseKml` → `saveDataset` | pacote válido, entrada maliciosa/limite e reload                      |
+| PDF, incluindo fluxo GeoPDF quando os metadados passam | `localRepository` + `PdfPreview`                              | upload, assinatura/corrupção, visualização, posicionamento e reload   |
+| GLB                                                    | `saveMesh` + validação de malha                               | upload autocontido, rejeição de externo/corrompido/excedente e reload |
 
 Shapefile aparece no contrato de importação compartilhado, mas não é fluxo de
 upload implementado pela tela atual; não deve ser apresentado como suportado até
@@ -58,15 +58,15 @@ ação offline explícita existente, não pelo importador de datasets.
 
 ## Grafo de execução e propriedade exclusiva
 
-| ID | Responsável exclusivo | Arquivos/área | Entrega e aceite |
-| --- | --- | --- | --- |
-| PROD-00 | Root/integrador | `docs/`, estado Git e comandos de release | confirmar branch, dirty state, diff protegido, origem remota e versão do bundle; congelar fingerprint antes de publicar |
-| PROD-01 | Root, operador exclusivo do navegador | nenhum arquivo de produto; logs em `TEMP/markmap-production-qa-20261019` | validar domínio real, HTTPS, redirect, shell, rotas, console, rede e viewport desktop/mobile após deploy; revisão técnica permanece independente |
-| PROD-02 | Builder de correção | somente arquivos diretamente ligados a falhas reproduzidas | corrigir falhas com testes focados; não reestruturar UI nem tocar áreas protegidas |
-| PROD-03 | Especialista de importação | `apps/admin/src/pages/imports/**`, stores/import validators e testes correspondentes | exercitar GeoJSON/GPX/KML/KMZ/PDF/GLB e alinhar mensagens ao suporte real; SHP/GeoTIFF continuam claramente limitados |
-| PROD-04 | Especialista PWA/offline | `apps/admin/src/lib/storage/**`, `apps/admin/public/sw.js`, offline E2E | validar instalação, reload, modo offline, pacote Araguaína e rollback sem alterar schema sem gate |
-| PROD-05 | Revisor independente | nenhum arquivo de produto | revisar diff final, segurança, segredos, mudanças protegidas e evidências; registrar findings antes do push |
-| PROD-06 | Root/integrador autorizado | configuração de release e remoto já configurado | commit escopado, push para a mesma branch, deploy no projeto Vercel confirmado e verificação por SHA real |
+| ID      | Responsável exclusivo                 | Arquivos/área                                                                        | Entrega e aceite                                                                                                                                 |
+| ------- | ------------------------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| PROD-00 | Root/integrador                       | `docs/`, estado Git e comandos de release                                            | confirmar branch, dirty state, diff protegido, origem remota e versão do bundle; congelar fingerprint antes de publicar                          |
+| PROD-01 | Root, operador exclusivo do navegador | nenhum arquivo de produto; logs em `TEMP/markmap-production-qa-20261019`             | validar domínio real, HTTPS, redirect, shell, rotas, console, rede e viewport desktop/mobile após deploy; revisão técnica permanece independente |
+| PROD-02 | Builder de correção                   | somente arquivos diretamente ligados a falhas reproduzidas                           | corrigir falhas com testes focados; não reestruturar UI nem tocar áreas protegidas                                                               |
+| PROD-03 | Especialista de importação            | `apps/admin/src/pages/imports/**`, stores/import validators e testes correspondentes | exercitar GeoJSON/GPX/KML/KMZ/PDF/GLB e alinhar mensagens ao suporte real; SHP/GeoTIFF continuam claramente limitados                            |
+| PROD-04 | Especialista PWA/offline              | `apps/admin/src/lib/storage/**`, `apps/admin/public/sw.js`, offline E2E              | validar instalação, reload, modo offline, pacote Araguaína e rollback sem alterar schema sem gate                                                |
+| PROD-05 | Revisor independente                  | nenhum arquivo de produto                                                            | revisar diff final, segurança, segredos, mudanças protegidas e evidências; registrar findings antes do push                                      |
+| PROD-06 | Root/integrador autorizado            | configuração de release e remoto já configurado                                      | commit escopado, push para a mesma branch, deploy no projeto Vercel confirmado e verificação por SHA real                                        |
 
 Agentes não editam arquivos do mesmo proprietário simultaneamente. Correções
 só começam depois de PROD-01 registrar uma falha reproduzível. O gate de
@@ -116,14 +116,14 @@ revisão antes do próximo deploy.
   corrigir na área exclusiva, repetir testes locais, revisar e redeployar.
   Parar quando a mesma evidência passar, sem mascarar a falha com mocks.
 - O push e o deploy inicial autorizado ocorrem após os gates locais e a revisão;
-a validação interativa de produção é executada imediatamente depois do deploy,
-não é um pré-requisito para a primeira publicação autorizada. O plugin de
-browser não está disponível nesta sessão; quando a validação interativa for executada, usar Playwright MCP como fallback autorizado e registrar essa razão e os logs/scripts em `TEMP/markmap-production-qa-20261019`.
+  a validação interativa de produção é executada imediatamente depois do deploy,
+  não é um pré-requisito para a primeira publicação autorizada. O plugin de
+  browser não está disponível nesta sessão; quando a validação interativa for executada, usar Playwright MCP como fallback autorizado e registrar essa razão e os logs/scripts em `TEMP/markmap-production-qa-20261019`.
 
 O release permanece BLOCKED se não houver projeto/domínio verificável,
-  bundle correspondente ao SHA remoto, fluxo real de upload ou evidência de
-  browser pós-deploy. iOS físico e pacotes com busca, rótulos ou roteamento
-  continuam gates separados. O instalador remoto retomável existente é preservado.
+bundle correspondente ao SHA remoto, fluxo real de upload ou evidência de
+browser pós-deploy. iOS físico e pacotes com busca, rótulos ou roteamento
+continuam gates separados. O instalador remoto retomável existente é preservado.
 
 ## Evidência e stop conditions
 
@@ -143,7 +143,6 @@ Nesses casos, preservar evidência e retornar BLOCKED para decisão do integrado
 Esta especificação está **DONE** e pronta para iniciar PROD-00/PROD-01. A
 publicação só pode ser declarada **PASS** após os gates locais, revisão,
 push/deploy verificáveis e navegador real pós-deploy descritos acima.
-
 
 ## Integração na base atual — gate pronto
 

@@ -110,8 +110,7 @@ class FakeSyncServer {
 
   private authorized(route: Route): boolean {
     return (
-      route.request().headers().authorization ===
-      `Bearer ${this.currentBearer}`
+      route.request().headers().authorization === `Bearer ${this.currentBearer}`
     );
   }
 
@@ -205,10 +204,7 @@ class FakeSyncServer {
         }
 
         const current = this.entities.get(operation.entityId);
-        if (
-          current &&
-          operation.baseVersion !== current.version
-        ) {
+        if (current && operation.baseVersion !== current.version) {
           conflicts.push({
             operationId: operation.operationId,
             entity: operation.entity,
@@ -315,21 +311,23 @@ async function seedInstallation(
             ["workspaceId", "entity", "entityId"],
             { unique: true },
           );
-          const originals = db.createObjectStore("originals", { keyPath: "key" });
+          const originals = db.createObjectStore("originals", {
+            keyPath: "key",
+          });
           originals.createIndex("workspace", "workspaceId", { unique: false });
           const outbox = db.createObjectStore("outbox", { keyPath: "key" });
           outbox.createIndex("workspace", "workspaceId", { unique: false });
-          outbox.createIndex(
-            "entity",
-            ["workspaceId", "entity", "entityId"],
-            { unique: false },
-          );
+          outbox.createIndex("entity", ["workspaceId", "entity", "entityId"], {
+            unique: false,
+          });
           outbox.createIndex(
             "workspaceSequence",
             ["workspaceId", "localSequence"],
             { unique: true },
           );
-          const conflicts = db.createObjectStore("conflicts", { keyPath: "key" });
+          const conflicts = db.createObjectStore("conflicts", {
+            keyPath: "key",
+          });
           conflicts.createIndex("workspace", "workspaceId", { unique: false });
           const acks = db.createObjectStore("acks", { keyPath: "key" });
           acks.createIndex("workspace", "workspaceId", { unique: false });
@@ -410,11 +408,8 @@ async function enqueueProjectUpdate(
               sequenceRequest.onsuccess = () => {
                 const localSequence =
                   Number(
-                    (
-                      sequenceRequest.result as
-                        | { value?: number }
-                        | undefined
-                    )?.value ?? 0,
+                    (sequenceRequest.result as { value?: number } | undefined)
+                      ?.value ?? 0,
                   ) + 1;
                 const payload: ProjectPayload = {
                   entity: "project",
@@ -448,8 +443,7 @@ async function enqueueProjectUpdate(
                   baseVersion: current.version,
                   ...(current.predecessorOperationId
                     ? {
-                        predecessorOperationId:
-                          current.predecessorOperationId,
+                        predecessorOperationId: current.predecessorOperationId,
                       }
                     : {}),
                   createdAt: updatedAt,
@@ -524,9 +518,7 @@ test("duas instalações preservam retry/idempotência e expõem conflito sem so
     server.failNextPushAfterCommit = true;
     await contextA.setOffline(false);
 
-    await expect
-      .poll(() => server.stats.committedFailures)
-      .toBe(1);
+    await expect.poll(() => server.stats.committedFailures).toBe(1);
     await expect(
       pageA
         .getByRole("status")
@@ -537,9 +529,7 @@ test("duas instalações preservam retry/idempotência e expõem conflito sem so
     await expect
       .poll(() => server.stats.alreadyApplied)
       .toBeGreaterThanOrEqual(1);
-    await expect
-      .poll(() => server.stats.accepted)
-      .toBe(1);
+    await expect.poll(() => server.stats.accepted).toBe(1);
 
     const projectId = server.lastProjectId;
     expect(projectId).not.toBeNull();
