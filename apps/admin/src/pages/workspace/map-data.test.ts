@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Feature, Layer } from "@markmap/contracts";
 
 import { listLocalFeatures } from "../../lib/hooks/features";
-import { featureBounds, loadProjectFeatures, matchesFeature } from "./map-data";
+import { featureBounds, loadProjectFeatures, matchesFeature, hasPolygonGeometry, hasPointGeometry, shouldDisplayDatasetPoints, filterDatasetFeatures } from "./map-data";
 
 vi.mock("../../lib/hooks/features", () => ({
   listLocalFeatures: vi.fn(),
@@ -106,4 +106,65 @@ describe("project map data", () => {
     expect(matchesFeature(item, "survey", "LineString")).toBe(true);
     expect(matchesFeature(item, "survey", "Point")).toBe(false);
   });
+  it("hides dataset points by default when polygon area is present, keeping area demarcations clean", () => {
+    const polygonFeature: GeoJSON.Feature = {
+      type: "Feature",
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [-48.2, -7.19],
+            [-48.2, -7.2],
+            [-48.21, -7.2],
+            [-48.21, -7.19],
+            [-48.2, -7.19],
+          ],
+        ],
+      },
+      properties: { name: "Área Demarcada" },
+    };
+    const vertexPoint: GeoJSON.Feature = {
+      type: "Feature",
+      geometry: { type: "Point", coordinates: [-48.2, -7.19] },
+      properties: { name: "Vértice V-01" },
+    };
+    const collection = [polygonFeature, vertexPoint];
+
+    expect(hasPolygonGeometry(collection)).toBe(true);
+    expect(hasPointGeometry(collection)).toBe(true);
+
+    // Default must be false when polygon is present (points hidden to preserve demarcation view)
+    expect(shouldDisplayDatasetPoints(collection)).toBe(false);
+
+    // Filter should omit point features when points are hidden
+    const filteredHidden = filterDatasetFeatures(collection, { showPoints: false });
+    expect(filteredHidden).toHaveLength(1);
+    expect(filteredHidden[0]?.geometry.type).toBe("Polygon");
+
+    // Filter should include points when user explicitly turns them on
+    const filteredShown = filterDatasetFeatures(collection, { showPoints: true });
+    expect(filteredShown).toHaveLength(2);
+  });
+
+  it("shows dataset points by default when dataset has only points or lines without polygons", () => {
+    const waypoints: GeoJSON.Feature[] = [
+      {
+        type: "Feature",
+        geometry: { type: "Point", coordinates: [-48.2, -7.19] },
+        properties: { name: "Ponto 1" },
+      },
+      {
+        type: "Feature",
+        geometry: { type: "Point", coordinates: [-48.21, -7.2] },
+        properties: { name: "Ponto 2" },
+      },
+    ];
+
+    expect(hasPolygonGeometry(waypoints)).toBe(false);
+    expect(hasPointGeometry(waypoints)).toBe(true);
+    // When there are no polygons, points are shown by default
+    expect(shouldDisplayDatasetPoints(waypoints)).toBe(true);
+    expect(filterDatasetFeatures(waypoints, { showPoints: true })).toHaveLength(2);
+  });
+
 });

@@ -2,6 +2,21 @@
 
 Fonte da versão do aplicativo: `apps/admin/package.json`. Todos os agentes seguem [a política de versionamento](docs/versioning.md). O [histórico documental anterior](docs/changelog.md) permanece preservado.
 
+## [0.5.2] - 2026-10-23
+
+### Alterações
+
+- Oculta os pontos de apoio e marcos dos vértices por padrão ao carregar datasets com polígonos (KML/KMZ/GeoJSON), evitando que círculos nos vértices prejudiquem a visualização da área demarcada.
+- Adiciona controle dedicado de visibilidade de pontos e marcos no painel de camadas do mapa quando o dataset ativo possui feições pontuais, permitindo ligar ou desligar os pontos com um clique.
+- Mantém a exibição padrão de pontos para datasets que contenham exclusivamente feições pontuais (waypoints, estações, pontos de interesse).
+- Preserva a consulta offline por nomes e atributos na busca de feições e o clique na área demarcada para visualização do popup de propriedades sem interferência dos vértices.
+
+### Validação
+
+- 7 testes unitários em `map-data.test.ts` cobrindo detecção de polígonos, detecção de pontos, regras de visibilidade padrão e filtragem de feições pontuais.
+- 60 suítes de testes do frontend admin (291 testes) aprovadas com 100% de sucesso.
+- Verificação de tipos TypeScript (`tsc --noEmit`) e testes de contraste WCAG AA aprovados nos temas claro e escuro.
+
 ## [0.5.1] - 2026-10-23
 
 ### Alterações

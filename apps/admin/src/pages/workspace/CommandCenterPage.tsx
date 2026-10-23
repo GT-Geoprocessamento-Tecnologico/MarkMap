@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { featureBounds, loadProjectFeatures, matchesFeature } from "./map-data";
+import { featureBounds, loadProjectFeatures, matchesFeature, hasPolygonGeometry, hasPointGeometry, shouldDisplayDatasetPoints, filterDatasetFeatures } from "./map-data";
 import { useParams, useSearch } from "@tanstack/react-router";
 import { useToast } from "@markmap/ui";
 import type { GeoReference, Route, TransitNetwork } from "@markmap/contracts";
@@ -308,11 +308,35 @@ export default function CommandCenterPage() {
   );
   useEffect(() => {
     setDatasetSelection(search.datasetId ?? "none");
+    setLayerVisibility((prev) => {
+      const { datasetPoints: _, ...rest } = prev;
+      return rest;
+    });
   }, [search.datasetId, params.projectId]);
   const activeDataset =
     datasetSelection === "none"
       ? undefined
       : datasets.find((dataset) => dataset.id === datasetSelection);
+  const datasetFeatures = useMemo(
+    () => (activeDataset?.geojson.features as GeoJSON.Feature[]) ?? [],
+    [activeDataset],
+  );
+  const datasetHasPolygons = useMemo(
+    () => hasPolygonGeometry(datasetFeatures),
+    [datasetFeatures],
+  );
+  const datasetHasPoints = useMemo(
+    () => hasPointGeometry(datasetFeatures),
+    [datasetFeatures],
+  );
+  const showDatasetPoints = useMemo(
+    () =>
+      shouldDisplayDatasetPoints(
+        datasetFeatures,
+        layerVisibility.datasetPoints,
+      ),
+    [datasetFeatures, layerVisibility.datasetPoints],
+  );
   const fullFeatures = useMemo(
     () => [
       ...((activeDataset?.geojson.features as GeoJSON.Feature[]) ?? []),
@@ -355,11 +379,11 @@ export default function CommandCenterPage() {
       type: "FeatureCollection" as const,
       features: [
         ...(layerVisibility.dataset
-          ? (
-              (activeDataset?.geojson.features as GeoJSON.Feature[]) ?? []
-            ).filter((feature) =>
-              matchesFeature(feature, filterText, filterType),
-            )
+          ? filterDatasetFeatures(datasetFeatures, {
+              showPoints: showDatasetPoints,
+              filterText,
+              filterType,
+            })
           : []),
         ...projectFeatures.filter(
           (feature) =>
@@ -373,6 +397,8 @@ export default function CommandCenterPage() {
     }),
     [
       activeDataset,
+      datasetFeatures,
+      showDatasetPoints,
       projectFeatures,
       projectLayers,
       layerVisibility,
@@ -969,6 +995,8 @@ export default function CommandCenterPage() {
             { id: "local-dataset-outline", type: "line", source: "local-dataset",
               paint: { "line-color": "#0284c7", "line-width": 2 } },
             { id: "local-dataset-points", type: "circle", source: "local-dataset",
+              filter: ["==", "$type", "Point"],
+              layout: { visibility: showDatasetPoints ? "visible" : "none" },
               paint: { "circle-color": "#0284c7", "circle-radius": 5,
                 "circle-stroke-color": "#fff", "circle-stroke-width": 1 } },
           ]);
@@ -1221,6 +1249,16 @@ export default function CommandCenterPage() {
     observer.observe(mapContainer.current);
     return () => observer.disconnect();
   }, []);
+
+  useEffect(() => {
+    if (mapRef.current?.getLayer("local-dataset-points")) {
+      mapRef.current.setLayoutProperty(
+        "local-dataset-points",
+        "visibility",
+        showDatasetPoints ? "visible" : "none",
+      );
+    }
+  }, [showDatasetPoints]);
 
   useEffect(() => {
     const source = mapRef.current?.getSource("local-dataset") as
@@ -1727,6 +1765,30 @@ export default function CommandCenterPage() {
                   />
                 </button>
               </div>
+              {activeDataset && datasetHasPoints && (
+                <div className="flex items-center justify-between py-2 px-3 pl-6 rounded-lg border border-outline-variant/60 bg-surface-container text-xs text-on-surface">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full flex-shrink-0 bg-cyan-400" />
+                    <span>{datasetHasPolygons ? "Pontos e marcos dos vértices" : "Pontos do dataset"}</span>
+                  </div>
+                  <button
+                    aria-label="Alternar pontos do dataset"
+                    aria-pressed={showDatasetPoints}
+                    disabled={!layerVisibility.dataset}
+                    onClick={() =>
+                      setLayerVisibility((prev) => ({
+                        ...prev,
+                        datasetPoints: !showDatasetPoints,
+                      }))
+                    }
+                    className={`h-5 w-9 rounded-full relative transition-colors duration-200 flex-shrink-0 ${showDatasetPoints && layerVisibility.dataset ? "bg-secondary" : "bg-on-surface/15"}`}
+                  >
+                    <span
+                      className={`block h-4 w-4 rounded-full bg-white shadow transition-transform ${showDatasetPoints && layerVisibility.dataset ? "translate-x-4" : "translate-x-0.5"}`}
+                    />
+                  </button>
+                </div>
+              )}
               {!activeDataset && (
                 <p className="text-on-surface-variant text-sm">
                   Selecione um dataset local abaixo ou importe um arquivo.

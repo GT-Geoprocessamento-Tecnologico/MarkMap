@@ -83,3 +83,52 @@ export function matchesFeature(
         .includes(text.toLowerCase()))
   );
 }
+
+export function hasPolygonGeometry(
+  features: readonly GeoJSON.Feature[],
+): boolean {
+  return features.some(
+    (feature) =>
+      feature.geometry?.type === "Polygon" ||
+      feature.geometry?.type === "MultiPolygon",
+  );
+}
+
+export function hasPointGeometry(
+  features: readonly GeoJSON.Feature[],
+): boolean {
+  return features.some(
+    (feature) =>
+      feature.geometry?.type === "Point" ||
+      feature.geometry?.type === "MultiPoint",
+  );
+}
+
+export function shouldDisplayDatasetPoints(
+  features: readonly GeoJSON.Feature[],
+  userPreference?: boolean,
+): boolean {
+  if (userPreference !== undefined) return userPreference;
+  return !hasPolygonGeometry(features);
+}
+
+export function filterDatasetFeatures(
+  features: readonly GeoJSON.Feature[],
+  options: {
+    showPoints: boolean;
+    filterText?: string;
+    filterType?: string;
+  },
+): GeoJSON.Feature[] {
+  const { showPoints, filterText = "", filterType = "todos" } = options;
+  return features.filter((feature) => {
+    if (
+      !showPoints &&
+      (feature.geometry?.type === "Point" ||
+        feature.geometry?.type === "MultiPoint")
+    ) {
+      return false;
+    }
+    return matchesFeature(feature, filterText, filterType);
+  });
+}
