@@ -124,48 +124,50 @@ export function useCreateFeature(layerId: string) {
   });
 }
 
+export async function updateLocalFeature(variables: UpdateFeatureVariables): Promise<Feature> {
+  const workspaceId = await localRepository.workspaceId();
+  const entity = await localRepository.getEntity(
+    workspaceId,
+    "feature",
+    variables.id,
+  );
+  if (!entity || entity.deleted || entity.payload?.entity !== "feature")
+    throw new Error("Feição não encontrada neste dispositivo.");
+  const current = featureSchema.parse(entity.payload.data);
+  if (current.version !== variables.version)
+    throw new Error(
+      "Esta feição mudou desde a última edição. Reabra os dados antes de salvar.",
+    );
+  const nextGeometry = variables.geometry ?? current.geometry;
+  assertGeometryCompatible(
+    nextGeometry,
+    await localLayerGeometryType(current.layerId),
+  );
+  const next = featureSchema.parse({
+    ...current,
+    geometry: nextGeometry,
+    properties: variables.properties ?? current.properties,
+    version: current.version + 1,
+    updatedAt: new Date().toISOString(),
+  });
+  const payload = syncEntityPayloadSchema.parse({
+    entity: "feature",
+    data: next,
+  });
+  await localRepository.mutate({
+    entity: "feature",
+    entityId: next.id,
+    operation: "upsert",
+    baseVersion: entity.version,
+    payload,
+  });
+  return next;
+}
+
 export function useUpdateFeature() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (variables: UpdateFeatureVariables): Promise<Feature> => {
-      const workspaceId = await localRepository.workspaceId();
-      const entity = await localRepository.getEntity(
-        workspaceId,
-        "feature",
-        variables.id,
-      );
-      if (!entity || entity.deleted || entity.payload?.entity !== "feature")
-        throw new Error("Feição não encontrada neste dispositivo.");
-      const current = featureSchema.parse(entity.payload.data);
-      if (current.version !== variables.version)
-        throw new Error(
-          "Esta feição mudou desde a última edição. Reabra os dados antes de salvar.",
-        );
-      const nextGeometry = variables.geometry ?? current.geometry;
-      assertGeometryCompatible(
-        nextGeometry,
-        await localLayerGeometryType(current.layerId),
-      );
-      const next = featureSchema.parse({
-        ...current,
-        geometry: nextGeometry,
-        properties: variables.properties ?? current.properties,
-        version: current.version + 1,
-        updatedAt: new Date().toISOString(),
-      });
-      const payload = syncEntityPayloadSchema.parse({
-        entity: "feature",
-        data: next,
-      });
-      await localRepository.mutate({
-        entity: "feature",
-        entityId: next.id,
-        operation: "upsert",
-        baseVersion: entity.version,
-        payload,
-      });
-      return next;
-    },
+    mutationFn: updateLocalFeature,
     onSuccess: (feature) =>
       queryClient.invalidateQueries({
         queryKey: queryKeys.featuresByLayer(feature.layerId),
@@ -173,25 +175,27 @@ export function useUpdateFeature() {
   });
 }
 
+export async function deleteLocalFeature(featureId: string): Promise<void> {
+  const workspaceId = await localRepository.workspaceId();
+  const entity = await localRepository.getEntity(
+    workspaceId,
+    "feature",
+    featureId,
+  );
+  if (!entity || entity.deleted)
+    throw new Error("Feição não encontrada neste dispositivo.");
+  await localRepository.mutate({
+    entity: "feature",
+    entityId: featureId,
+    operation: "delete",
+    baseVersion: entity.version,
+  });
+}
+
 export function useDeleteFeature() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (featureId: string): Promise<void> => {
-      const workspaceId = await localRepository.workspaceId();
-      const entity = await localRepository.getEntity(
-        workspaceId,
-        "feature",
-        featureId,
-      );
-      if (!entity || entity.deleted)
-        throw new Error("Feição não encontrada neste dispositivo.");
-      await localRepository.mutate({
-        entity: "feature",
-        entityId: featureId,
-        operation: "delete",
-        baseVersion: entity.version,
-      });
-    },
+    mutationFn: deleteLocalFeature,
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: queryKeys.features() }),
   });
