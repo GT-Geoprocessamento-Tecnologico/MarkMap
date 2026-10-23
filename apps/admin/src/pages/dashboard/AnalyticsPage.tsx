@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { layerSchema } from "@markmap/contracts";
 import { useProjects } from "../../lib/hooks/projects";
 import { localRepository } from "../../lib/local-repositories";
+import { AppIcon } from "../../components/AppIcon";
 
 const csvCell = (value: string) =>
   `"${(/^[=+@-]/.test(value) ? "'" + value : value).replaceAll('"', '""')}"`;
@@ -70,8 +71,9 @@ export default function AnalyticsPage() {
           <button
             disabled={loading || error || rows.length === 0}
             onClick={exportCsv}
-            className="rounded-lg bg-gradient-to-r from-brand-blue to-brand-cyan px-4 py-2 font-semibold text-white hover:brightness-110 disabled:opacity-50"
+            className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-brand-blue to-brand-cyan px-4 py-2 font-semibold text-white hover:brightness-110 disabled:opacity-50"
           >
+            {loading ? <AppIcon name="loading" size="sm" className="animate-pulse" /> : <AppIcon name="download" size="sm" />}
             Exportar CSV
           </button>
         </div>
