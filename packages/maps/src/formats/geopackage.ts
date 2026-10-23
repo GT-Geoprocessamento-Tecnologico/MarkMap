@@ -20,7 +20,7 @@ export function inspectGeoPackageHeader(buffer: ArrayBuffer): GpkgHeaderInfo {
   const headerText = new TextDecoder("ascii").decode(headerBytes);
   const isValidSqlite = headerText.startsWith("SQLite format 3");
 
-  if (!isValidSqlite || buffer.byteLength < 68) {
+  if (!isValidSqlite || buffer.byteLength < 72) {
     return { isValidSqlite };
   }
 
@@ -105,7 +105,8 @@ export function parseWkb(
   const coordTransform = (x: number, y: number): [number, number] => {
     if (srs === targetSrsId) return [x, y];
     const pt = transformCoordinates([x, y], srs, targetSrsId);
-    return pt ? [pt[0], pt[1]] : [x, y];
+    if (!pt) throw new Error(`Não foi possível reprojetar a geometria EPSG:${srs}.`);
+    return [pt[0], pt[1]];
   };
 
   if (type === 1) {
@@ -175,9 +176,10 @@ export async function parseGeoPackageBuffer(
     throw new Error("Arquivo GeoPackage inválido: cabeçalho SQLite 3 não encontrado");
   }
 
-  // Fallback safe FeatureCollection structure
-  return {
-    type: "FeatureCollection",
-    features: [],
-  };
+  if (!header.isGeoPackage) {
+    throw new Error("Arquivo SQLite válido, mas não identificado como GeoPackage OGC.");
+  }
+  // Parsing WKB alone does not load feature tables from SQLite/GeoPackage.
+  // A successful empty collection would silently discard the user's map data.
+  throw new Error("Importação de tabelas GeoPackage ainda não implementada. Nenhuma feição foi importada.");
 }
