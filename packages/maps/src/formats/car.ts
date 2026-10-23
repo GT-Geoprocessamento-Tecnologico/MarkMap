@@ -118,7 +118,7 @@ export function parseCarGeoJson(geoJson: unknown): NormalizedCarFeature[] {
       carCode,
       layerType,
       status,
-      areaHa: Number.isFinite(areaHa) ? areaHa : undefined,
+      ...(typeof areaHa === "number" && Number.isFinite(areaHa) ? { areaHa } : {}),
       municipality,
       state,
       style: OFFICIAL_CAR_STYLES[layerType],
