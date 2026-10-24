@@ -14,7 +14,9 @@ Fonte da versão do aplicativo: `apps/admin/package.json`. Todos os agentes segu
 
 ### Validação
 
-- Candidato em revisão: executar TypeScript, lint, Vitest, build e cenários offline; não declarar aceite antes de resultados verificáveis.
+- QA integrado Vercel Hobby (`dpl_9EJimBLHxegu4QwsJs96BrcnfgMF`): **20/20 tarefas Turbo aprovadas**, incluindo lint, typecheck, testes unitários e build dos pacotes API, banco, GIS e frontend.
+- Testes observados: **246 mapas, 291 frontend, 92 API e 15 banco** aprovados; 26 testes de integração PostGIS foram ignorados por falta de banco de teste, e QA físico Android/iOS continua pendente.
+- Testes adicionais cobrem reassociação de fotos, capability, CORS, request IDs, saúde da API e URLs assinadas S3. Sem migração de schema ou limpeza de dados locais.
 
 ## [0.5.5] - 2026-10-23
 
