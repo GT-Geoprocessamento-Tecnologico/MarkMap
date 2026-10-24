@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Link } from "@tanstack/react-router";
 import {
   Button,
@@ -33,11 +33,14 @@ export default function ProjectsPage() {
   const [description, setDescription] = useState("");
   const [search, setSearch] = useState("");
 
-  const projects = (data?.items ?? []).filter(
-    (p) =>
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      (p.description?.toLowerCase() ?? "").includes(search.toLowerCase()),
-  );
+  const projects = useMemo(() => {
+    const searchLower = search.toLowerCase();
+    return (data?.items ?? []).filter(
+      (p) =>
+        p.name.toLowerCase().includes(searchLower) ||
+        (p.description?.toLowerCase() ?? "").includes(searchLower),
+    );
+  }, [data?.items, search]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
