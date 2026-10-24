@@ -4,7 +4,7 @@ Fonte da versão do aplicativo: `apps/admin/package.json`. Todos os agentes segu
 
 ## [0.5.7] - 2026-10-24
 
-### Correções de integridade offline
+### Alterações
 
 - Recupera a identidade de um único workspace local existente quando o registro de metadados foi perdido, sem reescrever projetos, PDFs originais ou outbox.
 - Bloqueia a criação silenciosa de uma nova identidade quando há dados persistidos de múltiplos workspaces, impedindo ocultação de registros.
