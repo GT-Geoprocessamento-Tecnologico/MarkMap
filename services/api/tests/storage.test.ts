@@ -1,4 +1,8 @@
-import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
+import {
+  GetObjectCommand,
+  PutObjectCommand,
+  S3Client,
+} from "@aws-sdk/client-s3";
 import { Hono } from "hono";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -25,8 +29,10 @@ import { createErrorHandler } from "../src/middleware/error-handler.js";
 import { createLogger } from "../src/middleware/logger.js";
 import { requestId } from "../src/middleware/request-id.js";
 import { storageRoutes } from "../src/routes/storage.js";
-import { generatePresignedPutUrl, generatePresignedGetUrl } from "../src/storage.js";
-import { S3Client } from "@aws-sdk/client-s3";
+import {
+  generatePresignedPutUrl,
+  generatePresignedGetUrl,
+} from "../src/storage.js";
 
 const env: Env = {
   NODE_ENV: "test",
@@ -81,7 +87,7 @@ describe("workspace-scoped storage presign", () => {
     });
     expect(put.status).toBe(200);
 
-    const putCommand = presignMocks.getSignedUrl.mock.calls[0]!?.[1];
+    const putCommand = presignMocks.getSignedUrl.mock.calls[0]?.[1];
     expect(putCommand).toBeInstanceOf(PutObjectCommand);
     expect((putCommand as PutObjectCommand).input.Key).toBe(
       `${workspaceId}/maps/file.pdf`,
@@ -118,12 +124,17 @@ describe("generatePresignedPutUrl", () => {
   });
 
   it("should generate a presigned PUT URL with default expiration", async () => {
-    const url = await generatePresignedPutUrl(mockClient, "test-bucket", "test-key");
+    const url = await generatePresignedPutUrl(
+      mockClient,
+      "test-bucket",
+      "test-key",
+    );
 
     expect(url).toBe("https://signed.example/put");
     expect(presignMocks.getSignedUrl).toHaveBeenCalledTimes(1);
 
-    const [clientArg, commandArg, optionsArg] = presignMocks.getSignedUrl.mock.calls[0]!;
+    const [clientArg, commandArg, optionsArg] =
+      presignMocks.getSignedUrl.mock.calls[0]!;
 
     expect(clientArg).toBe(mockClient);
     expect(commandArg).toBeInstanceOf(PutObjectCommand);
@@ -133,7 +144,12 @@ describe("generatePresignedPutUrl", () => {
   });
 
   it("should generate a presigned PUT URL with custom expiration", async () => {
-    const url = await generatePresignedPutUrl(mockClient, "test-bucket", "test-key", 7200);
+    const url = await generatePresignedPutUrl(
+      mockClient,
+      "test-bucket",
+      "test-key",
+      7200,
+    );
 
     expect(url).toBe("https://signed.example/put");
     expect(presignMocks.getSignedUrl).toHaveBeenCalledTimes(1);
@@ -146,7 +162,9 @@ describe("generatePresignedPutUrl", () => {
 describe("generatePresignedGetUrl", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    presignMocks.getSignedUrl.mockResolvedValue("https://signed.example/get-object");
+    presignMocks.getSignedUrl.mockResolvedValue(
+      "https://signed.example/get-object",
+    );
   });
 
   it("generates a presigned GET URL with default expiration", async () => {
@@ -175,7 +193,12 @@ describe("generatePresignedGetUrl", () => {
     const key = "test-key.txt";
     const expiresIn = 7200;
 
-    const url = await generatePresignedGetUrl(mockClient, bucket, key, expiresIn);
+    const url = await generatePresignedGetUrl(
+      mockClient,
+      bucket,
+      key,
+      expiresIn,
+    );
 
     expect(url).toBe("https://signed.example/get-object");
     expect(presignMocks.getSignedUrl).toHaveBeenCalledTimes(1);

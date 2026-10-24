@@ -202,14 +202,16 @@ describe("health", () => {
     const configuredEnv: Env = {
       ...testEnv,
       hasDatabase: true,
-      DATABASE_URL: "postgres://hidden"
+      DATABASE_URL: "postgres://hidden",
     };
 
     dbMocks.createDb.mockReturnValue({
       db: {
-        execute: dbMocks.execute.mockRejectedValue(new Error("Connection refused"))
+        execute: dbMocks.execute.mockRejectedValue(
+          new Error("Connection refused"),
+        ),
       },
-      close: dbMocks.close.mockResolvedValue(undefined)
+      close: dbMocks.close.mockResolvedValue(undefined),
     });
 
     const probeApp = new Hono();
@@ -226,7 +228,10 @@ describe("health", () => {
     expect(body.database).toBe("error");
     expect(body.dbError).toBe("Database unavailable");
 
-    expect(dbMocks.createDb).toHaveBeenCalledWith(configuredEnv.DATABASE_URL, expect.any(Object));
+    expect(dbMocks.createDb).toHaveBeenCalledWith(
+      configuredEnv.DATABASE_URL,
+      expect.any(Object),
+    );
     expect(dbMocks.close).toHaveBeenCalled();
   });
 });

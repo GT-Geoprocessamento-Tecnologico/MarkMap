@@ -21,7 +21,7 @@ export const resolveWorkspaceCapability = async (
 ): Promise<WorkspaceCapabilityAccess> => {
   const match = AUTH_HEADER_PATTERN.exec(authorization ?? "");
   const bearer = match?.[1];
-  if (!bearer)
+  if (bearer === undefined)
     throw new AppError("Workspace capability is required", {
       status: 401,
       code: ErrorCode.VALIDATION_ERROR,

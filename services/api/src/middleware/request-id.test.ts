@@ -1,7 +1,9 @@
+import { randomUUID } from "node:crypto";
+
 import { Hono } from "hono";
 import { describe, it, expect } from "vitest";
+
 import { requestId, getRequestId, REQUEST_ID_HEADER } from "./request-id.js";
-import { randomUUID } from "node:crypto";
 
 describe("Request ID Middleware", () => {
   it("should generate a new UUID if no request ID is provided", async () => {
@@ -17,7 +19,8 @@ describe("Request ID Middleware", () => {
     const body = await res.json();
 
     // UUID regex check
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const uuidRegex =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     expect(body.id).toMatch(uuidRegex);
     expect(res.headers.get(REQUEST_ID_HEADER)).toBe(body.id);
   });
@@ -34,7 +37,7 @@ describe("Request ID Middleware", () => {
     const res = await app.request("/test", {
       headers: {
         [REQUEST_ID_HEADER]: clientUuid,
-      }
+      },
     });
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -55,12 +58,13 @@ describe("Request ID Middleware", () => {
     const res = await app.request("/test", {
       headers: {
         [REQUEST_ID_HEADER]: invalidId,
-      }
+      },
     });
     expect(res.status).toBe(200);
     const body = await res.json();
 
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const uuidRegex =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     expect(body.id).toMatch(uuidRegex);
     expect(body.id).not.toBe(invalidId);
     expect(res.headers.get(REQUEST_ID_HEADER)).toBe(body.id);

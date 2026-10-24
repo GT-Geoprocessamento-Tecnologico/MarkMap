@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
 import { findWorkspaceByCapabilityHash, getDb } from "@markmap/db";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
 import { resolveWorkspaceCapability, hashCapability } from "./capability.js";
 import { AppError, ErrorCode } from "../lib/errors.js";
@@ -66,7 +66,9 @@ describe("resolveWorkspaceCapability", () => {
       generation: "gen-1",
     };
     vi.mocked(findWorkspaceByCapabilityHash).mockResolvedValue(
-      mockWorkspace as NonNullable<Awaited<ReturnType<typeof findWorkspaceByCapabilityHash>>>,
+      mockWorkspace as NonNullable<
+        Awaited<ReturnType<typeof findWorkspaceByCapabilityHash>>
+      >,
     );
     vi.mocked(getDb).mockReturnValue({} as ReturnType<typeof getDb>);
 
