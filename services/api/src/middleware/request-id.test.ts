@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 
 describe("Request ID Middleware", () => {
   it("should generate a new UUID if no request ID is provided", async () => {
-    const app = new Hono();
+    const app = new Hono<{ Variables: { requestId: string } }>();
     app.use("*", requestId());
     app.get("/test", (c) => {
       const id = getRequestId(c);
@@ -24,7 +24,7 @@ describe("Request ID Middleware", () => {
 
   it("should reuse client-supplied valid UUID", async () => {
     const clientUuid = randomUUID();
-    const app = new Hono();
+    const app = new Hono<{ Variables: { requestId: string } }>();
     app.use("*", requestId());
     app.get("/test", (c) => {
       const id = getRequestId(c);
@@ -45,7 +45,7 @@ describe("Request ID Middleware", () => {
 
   it("should generate a new UUID if client-supplied ID is not a valid UUID", async () => {
     const invalidId = "not-a-valid-uuid";
-    const app = new Hono();
+    const app = new Hono<{ Variables: { requestId: string } }>();
     app.use("*", requestId());
     app.get("/test", (c) => {
       const id = getRequestId(c);

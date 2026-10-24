@@ -81,7 +81,7 @@ describe("workspace-scoped storage presign", () => {
     });
     expect(put.status).toBe(200);
 
-    const putCommand = presignMocks.getSignedUrl.mock.calls[0]?.[1];
+    const putCommand = presignMocks.getSignedUrl.mock.calls[0]!?.[1];
     expect(putCommand).toBeInstanceOf(PutObjectCommand);
     expect((putCommand as PutObjectCommand).input.Key).toBe(
       `${workspaceId}/maps/file.pdf`,
@@ -123,7 +123,7 @@ describe("generatePresignedPutUrl", () => {
     expect(url).toBe("https://signed.example/put");
     expect(presignMocks.getSignedUrl).toHaveBeenCalledTimes(1);
 
-    const [clientArg, commandArg, optionsArg] = presignMocks.getSignedUrl.mock.calls[0];
+    const [clientArg, commandArg, optionsArg] = presignMocks.getSignedUrl.mock.calls[0]!;
 
     expect(clientArg).toBe(mockClient);
     expect(commandArg).toBeInstanceOf(PutObjectCommand);
@@ -138,7 +138,7 @@ describe("generatePresignedPutUrl", () => {
     expect(url).toBe("https://signed.example/put");
     expect(presignMocks.getSignedUrl).toHaveBeenCalledTimes(1);
 
-    const optionsArg = presignMocks.getSignedUrl.mock.calls[0][2];
+    const optionsArg = presignMocks.getSignedUrl.mock.calls[0]![2];
     expect(optionsArg).toEqual({ expiresIn: 7200 });
   });
 });
@@ -159,7 +159,7 @@ describe("generatePresignedGetUrl", () => {
     expect(url).toBe("https://signed.example/get-object");
     expect(presignMocks.getSignedUrl).toHaveBeenCalledTimes(1);
 
-    const callArgs = presignMocks.getSignedUrl.mock.calls[0];
+    const callArgs = presignMocks.getSignedUrl.mock.calls[0]!;
     expect(callArgs[0]).toBe(mockClient);
     expect(callArgs[1]).toBeInstanceOf(GetObjectCommand);
     expect((callArgs[1] as GetObjectCommand).input).toEqual({
@@ -180,7 +180,7 @@ describe("generatePresignedGetUrl", () => {
     expect(url).toBe("https://signed.example/get-object");
     expect(presignMocks.getSignedUrl).toHaveBeenCalledTimes(1);
 
-    const callArgs = presignMocks.getSignedUrl.mock.calls[0];
+    const callArgs = presignMocks.getSignedUrl.mock.calls[0]!;
     expect(callArgs[2]).toEqual({ expiresIn: 7200 });
   });
 });
