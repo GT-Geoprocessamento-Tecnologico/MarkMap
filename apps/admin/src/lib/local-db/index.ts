@@ -53,6 +53,32 @@ function openDatabase(onVersionChange: () => void): Promise<IDBDatabase> {
   });
 }
 
+
+/** Read workspace keys without loading large PDF/blob records. */
+function storedWorkspaceIds(store: IDBObjectStore): Promise<string[]> {
+  return new Promise((resolve, reject) => {
+    const ids: string[] = [];
+    let request: IDBRequest<IDBCursor | null>;
+    try {
+      request = store.index("workspace").openKeyCursor(null, "nextunique");
+    } catch (cause) {
+      reject(cause);
+      return;
+    }
+    request.onsuccess = () => {
+      const cursor = request.result;
+      if (!cursor) { resolve(ids); return; }
+      if (typeof cursor.key !== "string" || !cursor.key) {
+        reject(new Error("Identidade inválida nos dados locais; nenhum workspace novo foi criado."));
+        return;
+      }
+      ids.push(cursor.key);
+      cursor.continue();
+    };
+    request.onerror = () => reject(request.error ?? new Error("Não foi possível verificar os dados locais."));
+  });
+}
+
 class IndexedLocalDb implements LocalDb {
   private dbPromise?: Promise<IDBDatabase>;
   private workspacePromise?: Promise<string>;
@@ -76,12 +102,22 @@ class IndexedLocalDb implements LocalDb {
 
   async workspaceId(): Promise<string> {
     if (!this.workspacePromise) {
-      const pending = this.transact(["meta"], "readwrite", async (tx) => {
-        const store = tx.store("meta");
-        const current = await requestValue<{ key: string; value: string }>(store.get("workspaceId"));
+      const pending = this.transact(STORES, "readwrite", async (tx) => {
+        const meta = tx.store("meta");
+        const current = await requestValue<{ key: string; value: string } | undefined>(meta.get("workspaceId"));
         if (current?.value) return current.value;
-        const value = crypto.randomUUID();
-        store.put({ key: "workspaceId", value });
+
+        // Never invent a new workspace when durable records already refer to
+        // an older identity: that would make saved projects and PDFs disappear.
+        const existing = await Promise.all(
+          (["entities", "originals", "outbox", "conflicts", "acks"] as const)
+            .map((name) => storedWorkspaceIds(tx.store(name))),
+        );
+        const ids = [...new Set(existing.flat())];
+        if (ids.length > 1)
+          throw new Error("Dados de vários workspaces detectados. Recuperação automática bloqueada para evitar ocultar registros.");
+        const value = ids[0] ?? crypto.randomUUID();
+        meta.put({ key: "workspaceId", value });
         return value;
       });
       this.workspacePromise = pending;

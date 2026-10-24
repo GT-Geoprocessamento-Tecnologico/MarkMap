@@ -133,6 +133,9 @@ describe('service worker cache policy', () => {
     await Promise.all(install.waited);
 
     await worker.caches.open('geonexo-cache-v1');
+    await worker.caches.open('geonexo-user-files-v1');
+    await worker.caches.open('markmap-offline-regions-v1');
+    await worker.caches.open('markmap-user-backups-v1');
     await worker.caches.open('other-application-cache');
     const activate = worker.dispatch('activate');
     expect(activate.waited).toHaveLength(1);
@@ -142,6 +145,9 @@ describe('service worker cache policy', () => {
     expect(worker.caches.deleted.some((name) => name.startsWith('markmap-cache-v2-installing-'))).toBe(true);
     expect(worker.caches.deleted).toContain('geonexo-cache-v1');
     expect(worker.caches.stores.has('other-application-cache')).toBe(true);
+    expect(worker.caches.stores.has('geonexo-user-files-v1')).toBe(true);
+    expect(worker.caches.stores.has('markmap-offline-regions-v1')).toBe(true);
+    expect(worker.caches.stores.has('markmap-user-backups-v1')).toBe(true);
   });
 
   it('bypasses APIs, non-GET requests, and arbitrary origins', () => {

@@ -2,6 +2,21 @@
 
 Fonte da versão do aplicativo: `apps/admin/package.json`. Todos os agentes seguem [a política de versionamento](docs/versioning.md). O [histórico documental anterior](docs/changelog.md) permanece preservado.
 
+## [0.5.7] - 2026-10-24
+
+### Correções de integridade offline
+
+- Recupera a identidade de um único workspace local existente quando o registro de metadados foi perdido, sem reescrever projetos, PDFs originais ou outbox.
+- Bloqueia a criação silenciosa de uma nova identidade quando há dados persistidos de múltiplos workspaces, impedindo ocultação de registros.
+- Corrige os eventos de alterações locais e resolução de conflitos que devem disparar a sincronização, mantendo os nomes legados.
+- Limita a retirada automática de caches antigos durante a atualização PWA aos caches de shell, preservando os caches de mapas, backups e arquivos do usuário.
+- Otimiza a renderização dos ícones do aplicativo com memoização de componente, sem alterar dados ou APIs.
+
+### Validação
+
+- Testes de recuperação do banco IndexedDB em Node, regressões de eventos de sincronização, preservação de caches do service worker e suites existentes de mapas/frontend.
+- Homologação na PWA instalada com dados reais e comparação entre perfis/dispositivos ainda é necessária; nenhuma limpeza ou restauração automática de conteúdo.
+
 ## [0.5.6] - 2026-10-24
 
 ### Alterações
