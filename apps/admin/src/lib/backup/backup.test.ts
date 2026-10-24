@@ -115,6 +115,41 @@ describe('T3a: exportacao criptografada do workspace (sem escrita local)', () =>
     }
   });
 
+  it('exporta ACK de sync com predecessor opcional sem copiar undefined', async () => {
+    const data = input();
+    data.stores.acks.push({
+      key: 'ack-1', workspaceId: data.workspaceId, operationId: 'ack-1',
+      version: 1, sequence: '1', predecessorOperationId: undefined,
+    });
+    const opened = await openTestArchive((await exportTest(data)).bytes);
+    const row = (opened.snapshot as unknown as { stores: { acks: Array<Record<string, unknown>> } })
+      .stores.acks[0];
+    expect(row.sequence).toBe('1');
+    expect(Object.hasOwn(row, 'predecessorOperationId')).toBe(false);
+  });
+
+  it('exporta entidade tombstone com payload opcional indefinido', async () => {
+    const data = input();
+    const entity = data.stores.entities[0] as Record<string, unknown>;
+    entity.deleted = true;
+    entity.payload = undefined;
+    const opened = await openTestArchive((await exportTest(data)).bytes);
+    const row = (opened.snapshot as unknown as { stores: { entities: Array<Record<string, unknown>> } })
+      .stores.entities[0];
+    expect(row.deleted).toBe(true);
+    expect(Object.hasOwn(row, 'payload')).toBe(false);
+  });
+
+  it('continua recusando undefined em campos nao documentados', async () => {
+    const data = input();
+    data.stores.acks.push({
+      key: 'ack-1', workspaceId: data.workspaceId, operationId: 'ack-1',
+      version: 1, sequence: '1', predecessorOperationId: undefined,
+      campoDesconhecido: undefined,
+    });
+    await expect(exportTest(data)).rejects.toThrow(/nao serializavel/);
+  });
+
   it('nao fabrica sequencia de outbox em workspace realmente vazio', async () => {
     const data = input();
     data.outboxSequence = null;

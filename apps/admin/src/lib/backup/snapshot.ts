@@ -157,6 +157,13 @@ function strictJson(value: unknown, location: string): unknown {
     for (const [key, nested] of Object.entries(value)) {
       if (key === '__proto__' || key === 'constructor' || key === 'prototype')
         throw new Error(`Chave de registro insegura: ${location}.`);
+      // LocalRepository writes these optional fields as explicit undefined.
+      // In their declared schemas undefined means "absent", so omission is safe.
+      // Keep every other undefined fail-closed instead of silently losing data.
+      if (nested === undefined && (
+        (location === 'acks' && key === 'predecessorOperationId') ||
+        (location === 'entities' && key === 'payload')
+      )) continue;
       next[key] = strictJson(nested, `${location}.${key}`);
     }
     return next;
