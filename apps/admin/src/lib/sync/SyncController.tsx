@@ -74,7 +74,9 @@ export function SyncController() {
     window.addEventListener("pageshow", onPageShow);
     window.addEventListener("focus", onFocus);
     window.addEventListener("geonexo-local-mutation", onLocalMutation);
+    window.addEventListener("markmap-local-mutation", onLocalMutation);
     window.addEventListener("geonexo-conflict-resolved", onConflictResolved);
+    window.addEventListener("markmap-conflict-resolved", onConflictResolved);
     document.addEventListener("visibilitychange", onVisibility);
     const periodic = setInterval(() => void run(), PERIODIC_SYNC_MS);
     void run();
@@ -85,7 +87,9 @@ export function SyncController() {
       window.removeEventListener("pageshow", onPageShow);
       window.removeEventListener("focus", onFocus);
       window.removeEventListener("geonexo-local-mutation", onLocalMutation);
+      window.removeEventListener("markmap-local-mutation", onLocalMutation);
       window.removeEventListener("geonexo-conflict-resolved", onConflictResolved);
+      window.removeEventListener("markmap-conflict-resolved", onConflictResolved);
       document.removeEventListener("visibilitychange", onVisibility);
       if (periodic) clearInterval(periodic);
       if (debounce) clearTimeout(debounce);
