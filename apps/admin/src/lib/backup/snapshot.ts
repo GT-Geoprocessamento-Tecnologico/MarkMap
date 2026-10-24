@@ -195,6 +195,33 @@ async function portableOriginal(value: Record<string, unknown>): Promise<Record<
   return { ...(strictJson(metadata, 'original') as Record<string, unknown>), originalBytesBase64: toBase64(bytes) };
 }
 
+/** A corrupt IndexedDB key must not be laundered into a seemingly valid backup. */
+function assertCanonicalRecordKey(name: DataStore, row: Record<string, unknown>, workspaceId: string): void {
+  const validId = (id: unknown): id is string => typeof id === 'string' && id.length > 0;
+  let expected: string;
+  switch (name) {
+    case 'entities':
+      if (!validId(row.entity) || !validId(row.entityId))
+        throw new Error('Entidade local sem identificadores validos.');
+      expected = `${workspaceId}:${row.entity}:${row.entityId}`;
+      break;
+    case 'originals':
+      if (!validId(row.blobId)) throw new Error('Original local sem blobId.');
+      expected = `${workspaceId}:${row.blobId}`;
+      break;
+    case 'outbox':
+    case 'acks':
+      if (!validId(row.operationId)) throw new Error('Operacao local sem identificador.');
+      expected = row.operationId;
+      break;
+    case 'conflicts':
+      if (!validId(row.operationId)) throw new Error('Conflito local sem identificador.');
+      expected = `${workspaceId}:${row.operationId}`;
+      break;
+  }
+  if (row.key !== expected) throw new Error(`Chave inconsistente no store ${name}; backup bloqueado.`);
+}
+
 /** Normalizes legacy Blob PDFs without changing the records in IndexedDB. */
 export async function makePortableLocalFirst(raw: RawLocalFirstSnapshot): Promise<PortableLocalFirstSnapshot> {
   if (typeof raw.workspaceId !== 'string' || !raw.workspaceId)
@@ -208,6 +235,7 @@ export async function makePortableLocalFirst(raw: RawLocalFirstSnapshot): Promis
     for (const [index, row] of raw.stores[name].entries()) {
       if (!object(row) || row.workspaceId !== raw.workspaceId || typeof row.key !== 'string' || !row.key)
         throw new Error(`Registro invalido ou de outro workspace em ${name}[${index}].`);
+      assertCanonicalRecordKey(name, row, raw.workspaceId);
       if (name === 'outbox') {
         if (typeof row.localSequence !== 'number' || !Number.isSafeInteger(row.localSequence) || row.localSequence < 1)
           throw new Error('Outbox sem sequencia local valida.');

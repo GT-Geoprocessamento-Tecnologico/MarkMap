@@ -64,7 +64,7 @@ describe('T3a: exportacao criptografada do workspace (sem escrita local)', () =>
   it('verifica SHA real de PDF Blob legado', async () => {
     const data = input();
     const pdf = new TextEncoder().encode('%PDF-1.4\nsintetico\n%%EOF');
-    data.stores.originals.push({ key: 'workspace-de-teste:pdf:1', workspaceId: data.workspaceId,
+    data.stores.originals.push({ key: 'workspace-de-teste:1', workspaceId: data.workspaceId,
       blobId: '1', bytes: pdf.byteLength, mediaType: 'application/pdf', sha256: await digestHex(pdf),
       blob: new Blob([pdf], { type: 'application/pdf' }) });
     const result = await exportTest(data);
@@ -76,13 +76,28 @@ describe('T3a: exportacao criptografada do workspace (sem escrita local)', () =>
   it('rejeita alteracao de conteudo de PDF ou outro workspace', async () => {
     const data = input();
     const pdf = new TextEncoder().encode('dados-corrompidos');
-    data.stores.originals.push({ key: 'workspace-de-teste:pdf:1', workspaceId: data.workspaceId,
+    data.stores.originals.push({ key: 'workspace-de-teste:1', workspaceId: data.workspaceId,
       blobId: '1', bytes: pdf.byteLength, mediaType: 'application/pdf', sha256: '0'.repeat(64),
       originalBytes: pdf.buffer });
     await expect(exportTest(data)).rejects.toThrow(/SHA-256/);
     const mixed = input();
     (mixed.stores.entities[0] as Record<string, unknown>).workspaceId = 'outro-workspace';
     await expect(exportTest(mixed)).rejects.toThrow(/outro workspace/);
+  });
+
+  it('bloqueia chaves inconsistentes em entidades, originais, outbox, conflitos e ACKs', async () => {
+    const examples: Array<{ store: keyof RawLocalFirstSnapshot['stores']; row: Record<string, unknown> }> = [
+      { store: 'entities', row: { key: 'chave-errada', workspaceId: 'workspace-de-teste', entity: 'project', entityId: 'p2' } },
+      { store: 'originals', row: { key: 'chave-errada', workspaceId: 'workspace-de-teste', blobId: 'doc' } },
+      { store: 'outbox', row: { key: 'chave-errada', workspaceId: 'workspace-de-teste', operationId: 'op2', localSequence: 1 } },
+      { store: 'conflicts', row: { key: 'chave-errada', workspaceId: 'workspace-de-teste', operationId: 'op2' } },
+      { store: 'acks', row: { key: 'chave-errada', workspaceId: 'workspace-de-teste', operationId: 'op2' } },
+    ];
+    for (const { store, row } of examples) {
+      const data = input();
+      data.stores[store].push(row);
+      await expect(makePortableLocalFirst(data)).rejects.toThrow(/Chave inconsistente/);
+    }
   });
 
   it('nao fabrica sequencia de outbox em workspace realmente vazio', async () => {
