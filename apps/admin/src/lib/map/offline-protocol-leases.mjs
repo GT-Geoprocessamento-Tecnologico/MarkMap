@@ -7,13 +7,9 @@ const leases = new Map();
 let registered = false;
 let sequence = 0;
 const prefix = (() => {
-  try {
-    const values = new Uint32Array(1);
-    globalThis.crypto.getRandomValues(values);
-    return values[0].toString(36);
-  } catch {
-    return Math.floor(Math.random() * 0x100000000).toString(36);
-  }
+  const values = new Uint32Array(1);
+  globalThis.crypto.getRandomValues(values);
+  return values[0].toString(36);
 })();
 
 function leaseFromUrl(scheme, url) {
