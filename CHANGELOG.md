@@ -2,6 +2,20 @@
 
 Fonte da versão do aplicativo: `apps/admin/package.json`. Todos os agentes seguem [a política de versionamento](docs/versioning.md). O [histórico documental anterior](docs/changelog.md) permanece preservado.
 
+## [0.5.6] - 2026-10-24
+
+### Alterações
+
+- Integra melhorias auditadas dos PRs #13, #16 (com correção de reassociação de fotos), #17, #18-#22, #25-#28, #30-#33 e #35, preservando a arquitetura offline-first.
+- Corrige geração de IDs inseguros, endurece validação de token de capacidade e mantém compatibilidade de armazenamento local.
+- Refatora importação/conversão GPX, hooks locais de camada/feição e busca visível sem alterar contratos; otimiza filtros das telas de projetos e CRS.
+- Amplia regressões de CORS, saúde da API, logs, identificador de solicitação, capabilities, assinaturas S3 e índice de fotos.
+- Mantém PRs de alto risco (#15 GeoPDF, #36 sync transacional) fora do release até teste específico.
+
+### Validação
+
+- Candidato em revisão: executar TypeScript, lint, Vitest, build e cenários offline; não declarar aceite antes de resultados verificáveis.
+
 ## [0.5.5] - 2026-10-23
 
 ### Alterações
