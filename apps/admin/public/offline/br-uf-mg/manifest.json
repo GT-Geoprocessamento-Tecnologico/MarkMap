@@ -2,7 +2,12 @@
   "id": "br-uf-mg",
   "version": "1.0.0-brazil.20261019",
   "label": "Minas Gerais — mapa offline",
-  "bounds": [-51.0382, -22.9052, -39.8568, -14.2532],
+  "bounds": [
+    -51.0382,
+    -22.9052,
+    -39.8568,
+    -14.2532
+  ],
   "minZoom": 0,
   "maxZoom": 9,
   "archive": {
@@ -26,7 +31,9 @@
   "createdAt": "2026-10-19T22:48:15.620Z",
   "packageVersion": "1.0.0-brazil.20261019",
   "osmDataDate": "2026-10-19T04:00:00.000Z",
-  "capabilities": ["basemap"],
+  "capabilities": [
+    "basemap"
+  ],
   "checksums": {
     "archive": "338ef4500b4d1dd16cfa1c72353ff02d63ff708c0fd983a272b1ca4cca8538ac",
     "style": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",

@@ -14,13 +14,15 @@ const tabs: TabItem[] = [
     to: "/workspace",
     icon: "map",
     active: (pathname) =>
-      pathname === "/workspace" || /^\/projects\/[^/]+\/map$/.test(pathname),
+      pathname === "/workspace" ||
+      /^\/projects\/[^/]+\/map$/.test(pathname),
   },
   {
     label: "Projetos",
     to: "/",
     icon: "projects",
-    active: (pathname) => pathname === "/" || pathname.startsWith("/projects"),
+    active: (pathname) =>
+      pathname === "/" || pathname.startsWith("/projects"),
   },
   {
     label: "Dados",
@@ -53,7 +55,10 @@ export function MobileTabBar() {
             key={tab.label}
             to={tab.to}
             aria-current={selected ? "page" : undefined}
-            className={"markmap-mobile-tab" + (selected ? " is-active" : "")}
+            className={
+              "markmap-mobile-tab" +
+              (selected ? " is-active" : "")
+            }
           >
             <AppIcon name={tab.icon} size="md" />
             <span>{tab.label}</span>

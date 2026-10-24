@@ -498,19 +498,15 @@ Os IDs abaixo definem a ordem. Um agente não deve iniciar um item bloqueado por
 # M1 — Atualizações do app
 
 ### MM-UPD-010
-
 Implementar build/version manifest.
 
 ### MM-UPD-020
-
 Evoluir UpdatePrompt PWA.
 
 ### MM-UPD-030
-
 Adicionar detecção de nova versão em Capacitor.
 
 ### MM-UPD-040
-
 Criar modelo de atualização de Region Package.
 
 **Gate M1:**

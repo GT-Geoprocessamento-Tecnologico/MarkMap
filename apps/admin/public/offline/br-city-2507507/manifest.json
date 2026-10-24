@@ -2,7 +2,12 @@
   "id": "br-city-2507507",
   "version": "1.0.0-brazil.20261019",
   "label": "João Pessoa — mapa offline",
-  "bounds": [-34.9706, -7.2445, -34.7932, -7.056],
+  "bounds": [
+    -34.9706,
+    -7.2445,
+    -34.7932,
+    -7.056
+  ],
   "minZoom": 0,
   "maxZoom": 12,
   "archive": {
@@ -26,7 +31,9 @@
   "createdAt": "2026-10-19T22:49:11.728Z",
   "packageVersion": "1.0.0-brazil.20261019",
   "osmDataDate": "2026-10-19T04:00:00.000Z",
-  "capabilities": ["basemap"],
+  "capabilities": [
+    "basemap"
+  ],
   "checksums": {
     "archive": "eba270f5dd92b4d488421bd0e6044d8ab4c7b50bd5fc63cab1d3a0a683c8efbe",
     "style": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",

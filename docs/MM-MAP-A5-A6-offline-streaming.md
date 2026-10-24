@@ -11,13 +11,13 @@ Continuar Maps Engine v2 sem parar o desenvolvimento por ausência de dispositiv
 
 ## Auditoria (HEAD antes do incremento)
 
-| Área                                                               | Estado                                                                                                                   |
-| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| Área | Estado |
+|---|---|
 | `downloadVerifiedAsset` HTTP Range / SHA e retomada por checkpoint | FUNCIONA parcialmente: tests Node M10, mas usava `Response.arrayBuffer()` para HTTP 200 e `Blob.arrayBuffer()` para hash |
-| `validateOfflinePackage`                                           | PARCIAL: convertia PMTiles completo em `Uint8Array` para checar header e checksum                                        |
-| `RegionDownloadCheckpoints.getDownloadedBytes`                     | PARCIAL: `getAll(sha)` materializava todo histórico de chunks na memória                                                 |
-| Importação HTTPS de região até 250 MiB                             | NÃO IMPLEMENTADO: cap artificial 64 MiB agregado e 48 MiB por arquivo                                                    |
-| Quota/rollback e operação offline                                  | FUNCIONA em código: pré-checagem, staging e ativação transacional; dispositivo real não validado                         |
+| `validateOfflinePackage` | PARCIAL: convertia PMTiles completo em `Uint8Array` para checar header e checksum |
+| `RegionDownloadCheckpoints.getDownloadedBytes` | PARCIAL: `getAll(sha)` materializava todo histórico de chunks na memória |
+| Importação HTTPS de região até 250 MiB | NÃO IMPLEMENTADO: cap artificial 64 MiB agregado e 48 MiB por arquivo |
+| Quota/rollback e operação offline | FUNCIONA em código: pré-checagem, staging e ativação transacional; dispositivo real não validado |
 
 ## Escopo implementado
 

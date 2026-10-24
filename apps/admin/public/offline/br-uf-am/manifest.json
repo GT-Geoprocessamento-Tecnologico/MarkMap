@@ -2,7 +2,12 @@
   "id": "br-uf-am",
   "version": "1.0.0-brazil.20261019",
   "label": "Amazonas — mapa offline",
-  "bounds": [-73.8016, -9.818, -56.0987, 2.244],
+  "bounds": [
+    -73.8016,
+    -9.818,
+    -56.0987,
+    2.244
+  ],
   "minZoom": 0,
   "maxZoom": 9,
   "archive": {
@@ -26,7 +31,9 @@
   "createdAt": "2026-10-19T22:45:34.474Z",
   "packageVersion": "1.0.0-brazil.20261019",
   "osmDataDate": "2026-10-19T04:00:00.000Z",
-  "capabilities": ["basemap"],
+  "capabilities": [
+    "basemap"
+  ],
   "checksums": {
     "archive": "5e551a9a84fe8b1ffe7beab7052228c19617639ad6013b81617e00c4c8f738b2",
     "style": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",

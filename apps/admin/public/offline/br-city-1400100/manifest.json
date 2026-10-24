@@ -2,7 +2,12 @@
   "id": "br-city-1400100",
   "version": "1.0.0-brazil.20261019",
   "label": "Boa Vista — mapa offline",
-  "bounds": [-61.0006, 2.4377, -60.2858, 3.5813],
+  "bounds": [
+    -61.0006,
+    2.4377,
+    -60.2858,
+    3.5813
+  ],
   "minZoom": 0,
   "maxZoom": 12,
   "archive": {
@@ -26,7 +31,9 @@
   "createdAt": "2026-10-19T22:50:56.967Z",
   "packageVersion": "1.0.0-brazil.20261019",
   "osmDataDate": "2026-10-19T04:00:00.000Z",
-  "capabilities": ["basemap"],
+  "capabilities": [
+    "basemap"
+  ],
   "checksums": {
     "archive": "30d41b52027f0a1d47e9bca319743997368bdc572362071ca39c810c5fe641a2",
     "style": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",

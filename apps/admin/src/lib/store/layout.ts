@@ -1,6 +1,6 @@
-import { create } from "zustand";
+import { create } from 'zustand';
 
-export type LayoutMode = "dashboard" | "command-center" | "canvas";
+export type LayoutMode = 'dashboard' | 'command-center' | 'canvas';
 
 interface LayoutState {
   mode: LayoutMode;
@@ -11,7 +11,7 @@ interface LayoutState {
 }
 
 export const useLayoutStore = create<LayoutState>((set) => ({
-  mode: "dashboard",
+  mode: 'dashboard',
   sidebarOpen: false,
   setMode: (mode) => set({ mode }),
   toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),

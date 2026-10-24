@@ -1,11 +1,4 @@
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PwaInstallPrompt } from "./PwaInstallPrompt";
 import { initializePwaInstall } from "../../lib/pwa-install";
@@ -29,9 +22,7 @@ afterEach(() => {
 describe("PWA native install consent flow", () => {
   it("shows an installation-only screen while the browser has no install prompt", () => {
     render(<PwaInstallPrompt fullScreen />);
-    expect(
-      screen.getByRole("dialog", { name: "Instalar MarkMap" }),
-    ).toBeTruthy();
+    expect(screen.getByRole("dialog", { name: "Instalar MarkMap" })).toBeTruthy();
     expect(screen.queryByText("Projetos carregados")).toBeNull();
   });
 
@@ -40,30 +31,20 @@ describe("PWA native install consent flow", () => {
     const { event, prompt } = installEvent();
     expect(event.defaultPrevented).toBe(true);
     render(<PwaInstallPrompt fullScreen />);
-    fireEvent.click(
-      screen.getByRole("button", { name: "Instalar aplicativo" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Instalar aplicativo" }));
     await waitFor(() => expect(prompt).toHaveBeenCalledTimes(1));
-    expect(
-      await screen.findByRole("dialog", { name: "Instalação autorizada" }),
-    ).toBeTruthy();
+    expect(await screen.findByRole("dialog", { name: "Instalação autorizada" })).toBeTruthy();
     expect(screen.getByText(/abra por ele/)).toBeTruthy();
-    expect(
-      screen.queryByRole("button", { name: "Instalar aplicativo" }),
-    ).toBeNull();
+    expect(screen.queryByRole("button", { name: "Instalar aplicativo" })).toBeNull();
   });
 
   it("respects cancelled consent without claiming the app is installed", async () => {
     initializePwaInstall();
     const { prompt } = installEvent("dismissed");
     render(<PwaInstallPrompt fullScreen />);
-    fireEvent.click(
-      screen.getByRole("button", { name: "Instalar aplicativo" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Instalar aplicativo" }));
     await waitFor(() => expect(prompt).toHaveBeenCalledTimes(1));
-    expect(
-      await screen.findByRole("dialog", { name: "Instalação cancelada" }),
-    ).toBeTruthy();
+    expect(await screen.findByRole("dialog", { name: "Instalação cancelada" })).toBeTruthy();
     expect(screen.queryByText("MarkMap instalado")).toBeNull();
   });
 

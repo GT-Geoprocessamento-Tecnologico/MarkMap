@@ -2,7 +2,12 @@
   "id": "br-city-3106200",
   "version": "1.0.0-brazil.20261019",
   "label": "Belo Horizonte — mapa offline",
-  "bounds": [-44.0629, -20.0567, -43.862, -19.7772],
+  "bounds": [
+    -44.0629,
+    -20.0567,
+    -43.862,
+    -19.7772
+  ],
   "minZoom": 0,
   "maxZoom": 12,
   "archive": {
@@ -26,7 +31,9 @@
   "createdAt": "2026-10-19T22:48:15.349Z",
   "packageVersion": "1.0.0-brazil.20261019",
   "osmDataDate": "2026-10-19T04:00:00.000Z",
-  "capabilities": ["basemap"],
+  "capabilities": [
+    "basemap"
+  ],
   "checksums": {
     "archive": "058d20b458f5f13f2b59b1cffcffe60664e9f8b98b56ffeb46f127b88814d0e3",
     "style": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",

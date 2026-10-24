@@ -2,7 +2,12 @@
   "id": "br-city-1200401",
   "version": "1.0.0-brazil.20261019",
   "label": "Rio Branco — mapa offline",
-  "bounds": [-69.3638, -10.4853, -67.4822, -9.5052],
+  "bounds": [
+    -69.3638,
+    -10.4853,
+    -67.4822,
+    -9.5052
+  ],
   "minZoom": 0,
   "maxZoom": 12,
   "archive": {
@@ -26,7 +31,9 @@
   "createdAt": "2026-10-19T22:43:38.580Z",
   "packageVersion": "1.0.0-brazil.20261019",
   "osmDataDate": "2026-10-19T04:00:00.000Z",
-  "capabilities": ["basemap"],
+  "capabilities": [
+    "basemap"
+  ],
   "checksums": {
     "archive": "7d0d52598818d1fee664b21ae22abec003798374779fc4b2c80e89db9c8b7d27",
     "style": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",

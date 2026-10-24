@@ -6,13 +6,11 @@
 **Gate M5**: índice sharded funcional, API de busca HTTP/local implementada, fuzzy matching com Levenshtein, busca por proximidade com haversine, cache de resultados frequentes, tipos de retorno compatíveis com MapLibre search, sem dependência em tile.openstreetmap.org
 
 ## Objetivo
-
 Implementar o índice de busca sharded de fato e a API de busca local. Este é o segundo item da fase M5 — Busca Offline. Contém o código e a lógica que transforma a estrutura definida em MM-MAP-400 em um sistema funcional.
 
 ## Índice Sharded (Implementation)
 
 ### 1. Estrutura de Arquivos no IndexedDB
-
 O índice será armazenado em object store `searchIndex` no IndexedDB com este structure:
 
 ```typescript
@@ -20,21 +18,15 @@ O índice será armazenado em object store `searchIndex` no IndexedDB com este s
 const db = await openDB("markmap-db", 1, {
   upgrade: (db) => {
     // Metadados do índice
-    const metadataStore = db.createObjectStore("searchMeta", {
-      keyPath: "version",
-    });
+    const metadataStore = db.createObjectStore("searchMeta", { keyPath: "version" });
     metadataStore.createIndex("byRegion", "regionId", { unique: false });
 
     // Shards A-Z e # (primeira letra do nome)
-    const shardsStore = db.createObjectStore("searchShards", {
-      keyPath: "shardId",
-    });
+    const shardsStore = db.createObjectStore("searchShards", { keyPath: "shardId" });
     shardsStore.createIndex("byFirstLetter", "firstLetter", { unique: false });
 
     // Nomes normalizados por shard (binary search friendly)
-    const namesStore = db.createObjectStore("searchNames", {
-      keyPath: "normalized",
-    });
+    const namesStore = db.createObjectStore("searchNames", { keyPath: "normalized" });
     namesStore.createIndex("byOffset", "offset", { unique: false });
 
     // Índice de categorias
@@ -42,10 +34,8 @@ const db = await openDB("markmap-db", 1, {
     categoriesStore.createIndex("byCategory", "category", { unique: false });
 
     // Resultados em cache (LRU de tamanho fixo)
-    const cacheStore = db.createObjectStore("searchCache", {
-      keyPath: "queryHash",
-    });
-  },
+    const cacheStore = db.createObjectStore("searchCache", { keyPath: "queryHash" });
+  }
 });
 ```
 
@@ -53,10 +43,10 @@ const db = await openDB("markmap-db", 1, {
 
 ```typescript
 interface SearchShard {
-  shardId: string; // "A", "B", ..., "Z", "#"
-  firstLetter: string; // 'A', 'B', ..., 'Z', '#'
+  shardId: string;           // "A", "B", ..., "Z", "#"
+  firstLetter: string;       // 'A', 'B', ..., 'Z', '#'
   normalizedNames: string[]; // strings lowercase, sem acentos, ordenadas
-  offsets: Uint32Array; // offsets para names.bin data
+  offsets: Uint32Array;      // offsets para names.bin data
   recordCounts: Uint32Array; // quantos records por nome no names.bin
 }
 
@@ -145,8 +135,7 @@ function computeOffsets(sortedNames: string[]): Uint32Array {
   offsets[0] = 0;
   for (let i = 0; i < sortedNames.length; i++) {
     // Offset para o próximo nome = offset atual + tamanho do nome + 1 (nulo terminator)
-    offsets[i + 1] =
-      offsets[i] + new TextEncoder().encode(sortedNames[i]).length + 1;
+    offsets[i + 1] = offsets[i] + new TextEncoder().encode(sortedNames[i]).length + 1;
   }
   return offsets;
 }
@@ -158,7 +147,7 @@ function computeOffsets(sortedNames: string[]): Uint32Array {
 function binarySearchExact(
   names: string[],
   target: string,
-  offsets: Uint32Array,
+  offsets: Uint32Array
 ): { found: boolean; startOffset: number; endOffset: number } {
   // Busca binária para encontrar o range de nomes que correspondem ao target exato
   let low = 0;
@@ -184,11 +173,7 @@ function binarySearchExact(
       // Expandir para direita
       while (end < names.length - 1 && names[end + 1] === target) end++;
 
-      return {
-        found: true,
-        startOffset: offsets[start],
-        endOffset: offsets[end + 1],
-      };
+      return { found: true, startOffset: offsets[start], endOffset: offsets[end + 1] };
     }
   }
 
@@ -266,22 +251,21 @@ function haversineDistance(
   lat1: number,
   lon1: number,
   lat2: number,
-  lon2: number,
+  lon2: number
 ): number {
   const R = 6371; // Raio da Terra em km
   const dLat = toRad(lat2 - lat1);
   const dLon = toRad(lon2 - lon1);
 
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  const a = Math.sin(dLat / 2) ** 2 +
+            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
   const c = 2 * Math.asin(Math.sqrt(a));
 
   return R * c; // Distância em km
 }
 
 function toRad(deg: number): number {
-  return (deg * Math.PI) / 180;
+  return deg * Math.PI / 180;
 }
 ```
 
@@ -436,7 +420,7 @@ async function performSearch({
 function calculateRelevanceScore(
   candidate: { name: string; original: string; distance: number },
   query: string,
-  types?: string[],
+  types?: string[]
 ): number {
   let score = 0;
   const lowerQuery = query.toLowerCase();
@@ -449,8 +433,7 @@ function calculateRelevanceScore(
   if (lowerName.startsWith(lowerQuery)) score += 0.8;
 
   // Query contendo no nome
-  if (lowerName.includes(lowerQuery) && !lowerName.startsWith(lowerQuery))
-    score += 0.7;
+  if (lowerName.includes(lowerQuery) && !lowerName.startsWith(lowerQuery)) score += 0.7;
 
   // Match no início de palavra (primeira palavra começa com query)
   const firstWord = lowerName.split(" ")[0];
@@ -470,9 +453,9 @@ function calculateRelevanceScore(
 
 ```typescript
 interface SearchCacheEntry {
-  queryHash: string; // hash SHA-256 da query normalizada
+  queryHash: string;     // hash SHA-256 da query normalizada
   results: SearchResult[];
-  timestamp: number; // ms desde epoch
+  timestamp: number;     // ms desde epoch
 }
 
 const CACHE_TTL = 1000 * 60 * 5; // 5 minutos
@@ -480,11 +463,9 @@ const MAX_CACHE_SIZE = 50; // entries
 
 async function getCachedSearch(
   db: IDBDatabase,
-  query: string,
+  query: string
 ): Promise<SearchResult[] | null> {
-  const queryHash = sha256(
-    query.normalize("NFD").replace(/[\u0300-\u036f]/g, ""),
-  ).substring(0, 16);
+  const queryHash = sha256(query.normalize("NFD").replace(/[\u0300-\u036f]/g, "")).substring(0, 16);
 
   const tx = db.transaction("searchCache", "readonly");
   const entry = await tx.store.get(queryHash);
@@ -509,11 +490,9 @@ async function getCachedSearch(
 async function setCachedSearch(
   db: IDBDatabase,
   query: string,
-  results: SearchResult[],
+  results: SearchResult[]
 ): Promise<void> {
-  const queryHash = sha256(
-    query.normalize("NFD").replace(/[\u0300-\u036f]/g, ""),
-  ).substring(0, 16);
+  const queryHash = sha256(query.normalize("NFD").replace(/[\u0300-\u036f]/g, "")).substring(0, 16);
   const timestamp = Date.now();
 
   // Remover se já existir (para atualizar ordem)
@@ -525,21 +504,17 @@ async function setCachedSearch(
     await evictOldestEntry(db);
   }
 
-  await db.transaction("searchCache", "readwrite").store.put(
-    {
-      queryHash,
-      results,
-      timestamp,
-    },
+  await db.transaction("searchCache", "readwrite").store.put({
     queryHash,
-  );
+    results,
+    timestamp,
+  }, queryHash);
 }
 ```
 
 ## Evidência Concreta
 
 ### 1. Estrutura de Indexação no IndexedDB
-
 - ✅ `searchMeta` — metadados (version, regionId, generatedAt, recordCount, tipos, etc.)
 - ✅ `searchShards` — shards A-Z e # (firstLetter, normalizedNames, offsets, recordCounts)
 - ✅ `searchNames` — nomes normalizados para binary search (normalized, offset)
@@ -547,7 +522,6 @@ async function setCachedSearch(
 - ✅ `searchCache` — cache LRU de resultados frequentes (queryHash, results, timestamp)
 
 ### 2. Funções Auxiliares Implementadas
-
 - ✅ `normalizeName()` — lowercase, remover acentos (NFD), remover chars especiais, trim
 - ✅ `partitionByFirstLetter()` — particionar nomes por primeira letra
 - ✅ `computeOffsets()` — calcular offsets para names.bin layout
@@ -558,7 +532,6 @@ async function setCachedSearch(
 - ✅ `toRad()` — converter graus para radianos
 
 ### 3. API de Busca
-
 - ✅ `searchHandler()` — handler HTTP GET /api/search
 - ✅ Parâmetros: q (query), loc (location), r (radius), types, f (fuzzy), l (limit)
 - ✅ `performSearch()` — orquestrar busca exata/fuzzy + filtros + relevance + sort
@@ -566,14 +539,12 @@ async function setCachedSearch(
 - ✅ `getCachedSearch()` / `setCachedSearch()` — cache LRU TTL-based
 
 ### 4. Algoritmos de Busca
-
 - ✅ Busca exata (binary search no names[] ordenado)
 - ✅ Busca fuzzy (Levenshtein distance ≤ maxEditDistance=2)
 - ✅ Busca por proximidade (haversine formula + radius filter)
 - ✅ Filtros: tipos, categoria, location+radius
 
 ### 5. Scoring de Relevance
-
 - ✅ Nome exato no início: +1.0
 - ✅ Nome começando com query: +0.8
 - ✅ Query contendo no nome: +0.7
@@ -582,7 +553,6 @@ async function setCachedSearch(
 - ✅ Distância proximity: 1 - (dist/km / radius)
 
 ### 6. Cache
-
 - ✅ TTL: 5 minutos (1000 * 60 * 5)
 - ✅ Tamanho máximo: 50 entries
 - ✅ LRU: remover entry mais velho quando cheio
@@ -590,7 +560,6 @@ async function setCachedSearch(
 - ✅ Persistência em IndexedDB `searchCache`
 
 ### 7. Coordenada Order (lon/lat)
-
 - ✅ No GeoJSON/entrada: coordinates = [lon, lat]
 - ✅ Interno: latitude (y) e longitude (x)
 - ✅ No haversine e matching: consistente com lat/lon
@@ -630,4 +599,4 @@ Após a implementação do índice sharded e API de busca, o último item da fas
 
 ---
 
-_Este documento é o entregável do MM-MAP-410. Conclui o item M5 "Busca Offline" parcialmente e posiciona o caminho para MM-MAP-420 (Result cards e highlighting na UI de busca)._
+*Este documento é o entregável do MM-MAP-410. Conclui o item M5 "Busca Offline" parcialmente e posiciona o caminho para MM-MAP-420 (Result cards e highlighting na UI de busca).*

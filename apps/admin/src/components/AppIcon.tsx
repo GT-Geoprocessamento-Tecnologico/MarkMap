@@ -236,18 +236,15 @@ const icons: Record<AppIconName, ReactNode> = {
       <path d="M12 11v6M12 7.5h.01" />
     </>
   ),
-  favorite: (
-    <path
-      d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9Z"
-      fill="currentColor"
-    />
-  ),
-  favoriteOutline: (
-    <path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9Z" />
-  ),
+  favorite: <path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9Z" fill="currentColor" />,
+  favoriteOutline: <path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9Z" />,
 };
 
-export function AppIcon({ name, className = "", size = "md" }: AppIconProps) {
+export function AppIcon({
+  name,
+  className = "",
+  size = "md",
+}: AppIconProps) {
   return (
     <svg
       viewBox="0 0 24 24"

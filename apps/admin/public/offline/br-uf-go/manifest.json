@@ -2,7 +2,12 @@
   "id": "br-uf-go",
   "version": "1.0.0-brazil.20261019",
   "label": "Goiás — mapa offline",
-  "bounds": [-53.242, -19.4733, -45.9072, -12.3954],
+  "bounds": [
+    -53.242,
+    -19.4733,
+    -45.9072,
+    -12.3954
+  ],
   "minZoom": 0,
   "maxZoom": 9,
   "archive": {
@@ -26,7 +31,9 @@
   "createdAt": "2026-10-19T22:47:06.712Z",
   "packageVersion": "1.0.0-brazil.20261019",
   "osmDataDate": "2026-10-19T04:00:00.000Z",
-  "capabilities": ["basemap"],
+  "capabilities": [
+    "basemap"
+  ],
   "checksums": {
     "archive": "a2d2af49d950243807333ec7260f995c8ea868bc130410b3b0dafe79585d395b",
     "style": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",

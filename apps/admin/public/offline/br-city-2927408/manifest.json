@@ -2,7 +2,12 @@
   "id": "br-city-2927408",
   "version": "1.0.0-brazil.20261019",
   "label": "Salvador — mapa offline",
-  "bounds": [-38.6986, -13.0149, -38.3043, -12.7339],
+  "bounds": [
+    -38.6986,
+    -13.0149,
+    -38.3043,
+    -12.7339
+  ],
   "minZoom": 0,
   "maxZoom": 12,
   "archive": {
@@ -26,7 +31,9 @@
   "createdAt": "2026-10-19T22:46:11.933Z",
   "packageVersion": "1.0.0-brazil.20261019",
   "osmDataDate": "2026-10-19T04:00:00.000Z",
-  "capabilities": ["basemap"],
+  "capabilities": [
+    "basemap"
+  ],
   "checksums": {
     "archive": "0fc33cf266b265cf09a8771ecae719211e62df399531a770b5e4d464160d4630",
     "style": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",

@@ -32,10 +32,7 @@ export default function ProjectPage() {
 
   return (
     <div className="min-h-screen space-y-6 bg-background p-6 text-on-surface">
-      <Link
-        to="/projects"
-        className="inline-flex text-sm font-medium text-cyan-500 hover:text-cyan-400"
-      >
+      <Link to="/projects" className="inline-flex text-sm font-medium text-cyan-500 hover:text-cyan-400">
         ← Voltar para Projetos
       </Link>
 
@@ -51,52 +48,31 @@ export default function ProjectPage() {
             {project.status}
           </span>
         </div>
-        <p
-          role="status"
-          className="mt-4 rounded-lg bg-background p-3 text-sm text-on-surface-variant"
-        >
-          Projeto salvo neste dispositivo. A sincronização com servidor ainda
-          não está ativa.
+        <p role="status" className="mt-4 rounded-lg bg-background p-3 text-sm text-on-surface-variant">
+          Projeto salvo neste dispositivo. A sincronização com servidor ainda não está ativa.
         </p>
       </section>
 
       <section className="rounded-xl border border-outline-variant bg-surface-container p-6">
         <h2 className="text-lg font-semibold">Camadas do projeto</h2>
         {layersQuery.isLoading ? (
-          <p role="status" className="mt-2 text-sm text-on-surface-variant">
-            Carregando camadas locais…
-          </p>
+          <p role="status" className="mt-2 text-sm text-on-surface-variant">Carregando camadas locais…</p>
         ) : layersQuery.isError ? (
           <p role="alert" className="mt-2 text-sm text-error">
             Não foi possível carregar as camadas locais.
-            <button
-              type="button"
-              className="ml-2 underline"
-              onClick={() => void layersQuery.refetch()}
-            >
-              Tentar novamente
-            </button>
+            <button type="button" className="ml-2 underline" onClick={() => void layersQuery.refetch()}>Tentar novamente</button>
           </p>
         ) : layersQuery.data?.items.length === 0 ? (
           <p className="mt-2 text-sm text-on-surface-variant">
-            Ainda não há camadas neste projeto local. Você já pode importar
-            GeoJSON e visualizá-lo no mapa.
+            Ainda não há camadas neste projeto local. Você já pode importar GeoJSON e visualizá-lo no mapa.
           </p>
         ) : (
           <>
-            <ul
-              aria-label="Camadas locais do projeto"
-              className="mt-3 space-y-2"
-            >
+            <ul aria-label="Camadas locais do projeto" className="mt-3 space-y-2">
               {layersQuery.data?.items.map((layer) => (
-                <li
-                  key={layer.id}
-                  className="rounded-lg border border-outline-variant bg-background p-3 text-sm"
-                >
+                <li key={layer.id} className="rounded-lg border border-outline-variant bg-background p-3 text-sm">
                   <span className="font-semibold">{layer.name}</span>
-                  <span className="ml-2 text-on-surface-variant">
-                    {layer.geometryType ?? layer.kind}
-                  </span>
+                  <span className="ml-2 text-on-surface-variant">{layer.geometryType ?? layer.kind}</span>
                 </li>
               ))}
             </ul>

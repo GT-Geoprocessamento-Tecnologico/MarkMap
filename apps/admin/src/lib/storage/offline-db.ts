@@ -2,13 +2,12 @@
  * IndexedDB storage for local records. Writes resolve after transaction commit.
  */
 
-const DB_NAME = "GeoNexoLocalEngineDB";
+const DB_NAME = 'GeoNexoLocalEngineDB';
 const DB_VERSION = 1;
 
 export interface LocalRecord {
   id: string;
-  collection:
-    "layers" | "datasets" | "telemetry" | "preferences" | "permissions";
+  collection: 'layers' | 'datasets' | 'telemetry' | 'preferences' | 'permissions';
   payload: unknown;
   updatedAt: string;
 }
@@ -24,9 +23,9 @@ class OfflineLocalDB {
 
       request.onupgradeneeded = (event) => {
         const db = (event.target as IDBOpenDBRequest).result;
-        if (!db.objectStoreNames.contains("store")) {
-          const store = db.createObjectStore("store", { keyPath: "id" });
-          store.createIndex("collection", "collection", { unique: false });
+        if (!db.objectStoreNames.contains('store')) {
+          const store = db.createObjectStore('store', { keyPath: 'id' });
+          store.createIndex('collection', 'collection', { unique: false });
         }
       };
 
@@ -46,15 +45,11 @@ class OfflineLocalDB {
     return this.dbPromise;
   }
 
-  async save(
-    collection: LocalRecord["collection"],
-    id: string,
-    payload: unknown,
-  ): Promise<void> {
+  async save(collection: LocalRecord['collection'], id: string, payload: unknown): Promise<void> {
     const db = await this.init();
     return new Promise((resolve, reject) => {
-      const tx = db.transaction("store", "readwrite");
-      const store = tx.objectStore("store");
+      const tx = db.transaction('store', 'readwrite');
+      const store = tx.objectStore('store');
       const record: LocalRecord = {
         id: `${collection}:${id}`,
         collection,
@@ -63,44 +58,34 @@ class OfflineLocalDB {
       };
       const req = store.put(record);
       tx.oncomplete = () => resolve();
-      tx.onabort = () =>
-        reject(tx.error ?? new Error("A gravação local foi abortada."));
-      tx.onerror = () =>
-        reject(
-          tx.error ?? new Error("Não foi possível gravar os dados locais."),
-        );
+      tx.onabort = () => reject(tx.error ?? new Error('A gravação local foi abortada.'));
+      tx.onerror = () => reject(tx.error ?? new Error('Não foi possível gravar os dados locais.'));
       req.onerror = () => reject(req.error);
     });
   }
 
-  async get(
-    collection: LocalRecord["collection"],
-    id: string,
-  ): Promise<unknown | null> {
+  async get(collection: LocalRecord['collection'], id: string): Promise<unknown | null> {
     const db = await this.init();
     return new Promise((resolve, reject) => {
-      const tx = db.transaction("store", "readonly");
-      const store = tx.objectStore("store");
+      const tx = db.transaction('store', 'readonly');
+      const store = tx.objectStore('store');
       const req = store.get(`${collection}:${id}`);
       req.onsuccess = () => resolve(req.result ? req.result.payload : null);
       req.onerror = () => reject(req.error);
-      tx.onabort = () =>
-        reject(tx.error ?? new Error("A leitura local foi abortada."));
+      tx.onabort = () => reject(tx.error ?? new Error('A leitura local foi abortada.'));
     });
   }
 
-  async getAll(collection: LocalRecord["collection"]): Promise<unknown[]> {
+  async getAll(collection: LocalRecord['collection']): Promise<unknown[]> {
     const db = await this.init();
     return new Promise((resolve, reject) => {
-      const tx = db.transaction("store", "readonly");
-      const store = tx.objectStore("store");
-      const index = store.index("collection");
+      const tx = db.transaction('store', 'readonly');
+      const store = tx.objectStore('store');
+      const index = store.index('collection');
       const req = index.getAll(collection);
-      req.onsuccess = () =>
-        resolve(req.result.map((r: LocalRecord) => r.payload));
+      req.onsuccess = () => resolve(req.result.map((r: LocalRecord) => r.payload));
       req.onerror = () => reject(req.error);
-      tx.onabort = () =>
-        reject(tx.error ?? new Error("A leitura local foi abortada."));
+      tx.onabort = () => reject(tx.error ?? new Error('A leitura local foi abortada.'));
     });
   }
 }

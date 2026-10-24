@@ -3,20 +3,12 @@
  * manual attempts are explicit and never erase region selection or field data.
  */
 export function createOfflineMapRecovery(requestRetry) {
-  if (typeof requestRetry !== "function")
-    throw new TypeError("Expected retry callback");
+  if (typeof requestRetry !== 'function') throw new TypeError('Expected retry callback');
   let attemptedAutomatically = false;
   let disposed = false;
   return {
     onForeground({ hasError, hasLocalContext, visible = true }) {
-      if (
-        disposed ||
-        attemptedAutomatically ||
-        !hasError ||
-        !hasLocalContext ||
-        !visible
-      )
-        return false;
+      if (disposed || attemptedAutomatically || !hasError || !hasLocalContext || !visible) return false;
       attemptedAutomatically = true;
       requestRetry();
       return true;
@@ -28,22 +20,13 @@ export function createOfflineMapRecovery(requestRetry) {
       requestRetry();
       return true;
     },
-    dispose() {
-      disposed = true;
-    },
+    dispose() { disposed = true; },
   };
 }
 
 /** Neutral style is scoped to the exact region and revision; GeoPDF wins. */
-export function resolveOfflineBasemap({
-  regionId,
-  revision,
-  neutralFor,
-  geoPdfId,
-}) {
+export function resolveOfflineBasemap({ regionId, revision, neutralFor, geoPdfId }) {
   const localRegionId = geoPdfId ? null : (regionId ?? null);
-  const neutralActive = Boolean(
-    localRegionId && neutralFor === `${localRegionId}:${revision}`,
-  );
+  const neutralActive = Boolean(localRegionId && neutralFor === `${localRegionId}:${revision}`);
   return { regionId: neutralActive ? null : localRegionId, neutralActive };
 }

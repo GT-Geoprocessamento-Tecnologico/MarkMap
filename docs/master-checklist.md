@@ -10,6 +10,7 @@
 
 **Pendências e segurança:** QA físico Android/Windows e E2E integral de `main@0b7` ainda necessários, assim como mapas regionais reais com licença/manifest/Range e geocodificação contratada. Seis branches históricas têm 0 commits exclusivos e 0 PR aberto, mas permanecem porque conector GitHub não fornece exclusão de refs; só `.eslintignore` comprovadamente redundante foi removido, `REPOSITORIOS MODELOS/` não é versionado. App/site continuam em origens distintas; não foi usado Browser MTS, nem forçada quota, mudada API/Neon/outbox ou efetuada migração destrutiva.
 
+
 ## A71.2 — opção de download automático com aceite e testes (2026-10-13)
 
 **Alteração:** checkbox opcional `Baixar automaticamente o mapa da minha região` (padrão desligado), consentimento booleano guardado apenas no IndexedDB. GPS já autorizado sugere a menor região publicada que contém a posição; depois do aceite, tenta 1 download por região ao abrir o catálogo com rede e sem `saveData`, preservando dados antigos e o instalador verificado. O clique manual permanece disponível. Sem pacote publicado no catálogo vazio, nenhuma região real é baixada.
@@ -17,6 +18,7 @@
 **QA com evidência:** Vitest isolado (React Testing Library/JSDOM) **28/28 testes PASS** em 7 arquivos (fit PDF 4, índice local 2, provedor endereço 3, catálogo 7, instalador 4, preferência 2, interface catálogo 4, interface busca 2). Compilação sintática TypeScript `transpileModule` em 6 fontes A70/A71 PASS (não substitui typecheck semantic/monorepo). Os testes de interface usaram mocks de GPS/IndexedDB/rede, não dispositivos físicos. O código permaneceu na `main`.
 
 **Bloqueios atuais:** Vercel não permite criar novo deployment (HTTP 402, cota diária >100), então build completo/E2E do código novo, publicação e testes Android/Windows físicos permanecem **pendentes**. Catálogo real de PMTiles licenciados e provedor de endereços remoto continuam não configurados. Seis branches legadas inteiramente integradas à main permanecem sem exclusão, pois não há ferramenta com delete de refs; `REPOSITORIOS MODELOS` é ignorada e não está versionada. **Nunca alegar deploy pronto ou branches apagadas** até ter comprovação.
+
 
 ## A71 — GPS regional, GeoPDF responsivo, endereços locais e higiene segura — 2026-10-13
 
@@ -30,6 +32,7 @@
 
 **Próximos passos:** após liberação da quota, executar build/typecheck, testes unitários e E2E Windows/Android emulados, publicar apenas `markmap-app` para teste e validar domínio; depois permitir teste real físico. Para baixar uma região, é preciso publicar os mapas reais A72. Para manter só `main`, excluir as 6 branches manualmente no GitHub com proteção/checagem dos SHAs. Não usar Browser MTS. Referências: `docs/MM-A71-gps-pdf-address-cleanup.md`, `docs/offline-map-catalog.md`, `docs/repository-audit.md`.
 
+
 ## A70 — catálogo simples de mapas offline (2026-10-13)
 
 **Pedido:** remover a necessidade de `manifest.json`, PMTiles e URLs para usuários comuns; permitir escolher a região e baixar **diretamente no mapa**, semelhante ao fluxo de catálogo de aplicativos de mapas offline.
@@ -41,6 +44,7 @@
 **Estado verificável:** código integrado e testes de esquema, fluxo do instalador e E2E versionados. O catálogo inicial contém `{"version":1,"regions":[]}` de propósito: ainda não há pacotes com fonte, licença e distribuição comprovadas. **Não prometer downloads disponíveis antes de publicar pacotes reais (A71).** Até o momento desta nota, o último deployment Vercel observado inclui `04453c61` READY, anterior à UI completa, e GitHub Actions falha por bloqueio externo; build/E2E da UI final NÃO verificados. Manter pendência aberta até evidência.
 
 **Regras:** não inventar regiões nem URLs, não copiar/baixar em massa tiles de terceiros, manter licenças, HTTPS/CORS/Range, hash verificado, orçamento 250 MiB, mapas anteriores/outbox, GPS, GeoPDF e subdomínios separados. QA físico Android/Windows e download real somente após primeiro pacote válido.
+
 
 ## A69 — atalhos offline integrados ao menu do mapa (2026-10-13)
 
@@ -54,6 +58,7 @@
 
 **Regra/rollback:** não voltar a posicionar recursos offline como cards fixos; manter o mesmo componente montado para não interromper navegação. Reversão via `git revert` dos commits A69, sem perder dados de campo.
 
+
 ## A68 — GeoPDF: quadro geográfico versus página inteira (2026-10-13)
 
 **Problema de código confirmado:** o parser ISO 32000 possuía `/BBox` (quadro georreferenciado), mas o modelo usava pontos `/LPTS` como contorno da imagem; o renderer PDF.js exportava a página inteira e projetava os quatro cantos do papel sobre o MapLibre, incluindo margens, legenda e outros elementos fora do mapa. O `fitBounds` do overlay se baseava na página inteira. Isso aumenta/desloca o enquadramento visível e pode criar aparente desregistro em mapas com quadros internos.
@@ -63,6 +68,7 @@
 **Evidência:** 5 testes locais de geometria em Node PASS (margem interna, rotação 90°, caso página inteira, arredondamento de pixels, erro de coordenadas); adicionados testes Vitest de recorte e fixture ISO com `/BBox` interno e `LPTS` internos. Build Vercel `markmap-app` do SHA exato `c82d122` = **READY** (TypeScript + Vite). **Limite importante:** não havia anexo do GeoPDF específico do usuário neste contexto, portanto deslocamento real em metros, produtor do PDF, georreferenciamento pré-salvo e confirmação visual de superposição ainda não foram validados; os novos testes Vitest estão versionados, mas não executados em CI bloqueado. Um GeoPDF com metadados errados ou transformação não afim ainda pode exigir calibração.
 
 **Reteste recomendado:** importar novamente o arquivo original (sem apagar o existente), conferir contorno/feições coincidentes e medir deslocamento usando dois pontos identificáveis em relação ao mapa-base. Se referência manual já estava armazenada em `pdfGeoref:<blobId>`, ela permanece prioritária e precisa de validação separada.
+
 
 ## A67 — GPS atual e consentimento local (2026-10-13)
 
@@ -74,6 +80,7 @@
 
 **Fonte e rollback:** `docs/MM-GPS-A67-local-permission-autocenter.md`. Reverter commits A67 com `git revert` se necessário; nunca sobrescrever dados locais/outbox ou realizar deploy manual. Browser MTS proibido.
 
+
 ## A66 — propagação completa do tema (2026-10-13)
 
 **Problema confirmado:** mesmo após A65 (contraste), menu lateral, cabeçalho, ferramentas do mapa, fallback do mapa, viewport 3D, tela de instalação e cor inicial da PWA forçavam tons escuros no tema claro. **Estado:** QUEBRADO/PARCIAL → CORRIGIDO no código `main@3cca284ad77106f92a092a4dfd38610f1d3bb380`.
@@ -83,6 +90,7 @@
 **QA executado:** 4/4 testes estáticos em sandbox, sintaxe TSX validada; build `markmap-app` no SHA de código acima observado **READY** (`dpl_H8RULaWgXFLSfQbGzVMNYejq2mBh`). Playwright Chromium real contra produção verificou a alternância escuro→claro em **16 combinações de tela** (8 rotas × Windows e Android emulados), incluindo header/sidebar/conteúdo, mapa e malha; também conferiu tela de instalação separada em tema claro. Tudo conforme critérios verificados. **Não equivale à homologação em dispositivos físicos, nem cobre todos os estados condicionais ou estilos dos tiles GIS**. Adicionados `scripts/theme-surfaces.test.mjs`, E2E `apps/admin/e2e/theme-surfaces.spec.ts` e gate do CI para regressão. GitHub Actions ainda bloqueado por cobrança; E2E adicionados mas pipeline não executou.
 
 **Rollback:** git revert normal do commit de código, sem reset/force push. Browser MTS proibido; validação usou Playwright em sandbox. Proteger a separação de origens site/app, versão e autoria definidos anteriormente.
+
 
 ## UI-Contrast — textos visíveis em ambos os temas (2026-10-13)
 
@@ -94,6 +102,7 @@
 
 **Pendente:** GitHub Actions ainda bloqueado por faturamento/limite; QA visual final nos dispositivos e estados condicionais. Sem deploy manual ou alteração de domínios/PWA. Browser MTS permanece proibido.
 
+
 ## UI-PWA — Aviso de atualização do MarkMap (2026-10-13)
 
 **Estado:** `main@786bc850ecc61b6abf04538b7f393f9ae4e6abf3`. Popup `apps/admin/src/components/pwa/UpdatePrompt.tsx` redesenhado com tokens do tema azul/ciano, ícone do `AppIcon`, título destacado, texto explicativo, mensagem de falha clara e botões `Atualizar agora` / `Depois`. CSS responsivo em `apps/admin/src/styles/main.css` (safe-area, mobile acima da barra inferior e respeito a `prefers-reduced-motion`). **Não houve mudança na ativação do Service Worker**, handshake de compatibilidade, verificação de escrita durável, IndexedDB/outbox, API ou design do restante do app.
@@ -101,6 +110,7 @@
 **Evidência:** testes do componente em ambiente isolado Vercel + React/jsdom/Vitest: **6/6 PASS**; build automático Vercel `markmap-app` para o commit exato `786bc85` = **READY** (`dpl_6e1TLDgz19W6BgknwihsyGLnuXEw`). Checagem visual do aviso em PWA instalada permanece **NÃO EXECUTADA** (o aviso só aparece com novo Service Worker aguardando ativação); não confundir testes de componente com homologação física. GitHub Actions permanece bloqueado por cobrança/limite de gastos.
 
 **Regra de continuidade:** manter popup consistente com cores/tokens do MarkMap e sem ativação automática ou perda de alterações offline. Browser MTS foi expressamente vetado pelo responsável; **não utilizar** esse conector em QA futuro. Usar Playwright/TinyFish e testes automatizados quando aplicável, sem inventar resultados.
+
 
 ## A64 — fronteira permanente site/app, autoria e versão (2026-10-13)
 
@@ -114,21 +124,25 @@
 
 **Próximo:** regularizar GitHub Actions para rodar as novas regressões, testar instalação standalone no dispositivo e refatorar módulos legados grandes sem tocar em design/funcionalidade comprovada. Não houve deploy manual, migration, release/tag ou force push.
 
+
 ## A63 — autorização nativa para instalar MarkMap (2026-10-13)
 
 **Origem operacional:** `https://appmarkmap.mtsferreira.dev/`; o site permanece apenas vitrine em `https://markmap.mtsferreira.dev/`. **Fluxo implantado:** `?install=1` mostra tela dedicada de instalação, não monta workspace nem sincronizador; ao clicar em **Instalar aplicativo**, usa `BeforeInstallPromptEvent.prompt()` na mesma interação (navegadores que suportam). Aceite/cancelamento/erro tratados; `appinstalled` não é desfeito por `userChoice` tardio. Após autorização, página confirma o pedido e orienta abrir pelo ícone; PWA instalada mantém manifest `start_url=/`, `display=standalone`. Não existe API web confiável para forçar launch automático da janela instalada ou para apresentar prompt nativo em Safari/iOS; fallback oferece orientação manual. Visual do workspace, IndexedDB, SW offline, Neon e backend preservados.
 
 **Evidências executadas:** Vitest isolado em sandbox Vercel Node/React/jsdom: **8/8 PASS** (4 testes originais/ampliados de ciclo de instalação + 4 UI). Vercel build automático do app no commit `fa0c6a7f75450df14a76d17f4adb1177581f7469` `READY` (`dpl_BRL9AWSq83E8Q7PUav1dUhW99T1r`). TinyFish renderizou `/?install=1` como tela exclusiva **Instalar MarkMap**, sem workspace, e `/` como aplicativo operacional. **Não é prova** de prompt nativo ou instalação física; testes físicos e CI GitHub completos permanecem pendentes. PRD: `docs/MM-PWA-A63-native-install-consent.md`. Rollback: `git revert` sem force push.
 
+
 ## A62 — PWA instalada abre o aplicativo operacional (2026-10-13)
 
 **Incidente confirmado:** `https://markmap.mtsferreira.dev/app/` retornava HTTP 404 no teste HTTP renderizado TinyFish, enquanto `https://appmarkmap.mtsferreira.dev/` carregava a interface funcional de projetos. A vitrine instalava seu próprio manifest com `start_url=/app/` e identidade errada. **Correção na main:** CTA do marketing agora usa link direto para `https://appmarkmap.mtsferreira.dev/?install=1`; `apps/site` não registra novo SW nem vincula manifest instalável; suas rotas `/app*` redirecionam para a origem operacional; worker legado redireciona acessos de ícones antigos e descarta cache da vitrine, sem tocar IndexedDB. App `apps/admin` conserva manifest próprio, `start_url=/`, scope e service worker offline, e oferece ajuda de instalação. UI visual principal não modificada. Testes de contrato de site atualizados; **execução automatizada e deploy ainda a validar**. Usuários com ícone antigo instalado na origem de marketing devem reinstalar o app a partir da origem canônica para obter identidade PWA correta; não é possível transferir automaticamente a instalação entre origens. PRD `docs/MM-PWA-A62-canonical-install-origin.md`. Sem migração de dados/Neon ou alteração de domínio Vercel.
+
 
 ## A61 — impedir conflitos ressuscitados por push atrasado (2026-10-13)
 
 **Estado final validado:** `main@96f753e78833aa836f24a983a4210a6dc9d79af2`; PRD `docs/MM-MAP-A61-late-push-conflict-after-resolution.md`. **QUEBRADO→CORRIGIDO:** `saveConflict` podia persistir respostas tardias para `operationId` excluído após ACK ou `resolveConflict`, reabrindo decisões antigas e podendo afetar operações sucessoras. Agora outbox/ACK/conflito são verificados na mesma transação, e entity/base precisam coincidir. **FUNCIONA:** conflitos atuais, versionamento monotônico, preservação de sucessores, operações offline e cursor sem alteração de contrato. **QA REAL:** 12/12 testes Node no sandbox isolado Vercel PASS após corrigir apenas uma comparação de arrays de realms distintos; 0 skips/falhas. Build automatizado `markmap-app` para o commit exato `96f753e`: **READY** (`dpl_7QetUTVfGmJw27KNaWcFtwdEBPWS`). Não representa suíte integral do monorepo nem teste de IndexedDB browser.
 
 **Branches:** seis referências além de main ainda existem, todas com `ahead_by=0` contra main e totalmente ancestrais. Exclusão por conector ainda não disponível, não declarar limpeza concluída. **Gates release:** GitHub Actions bloqueado por cobrança/limite; navegador offline instalado/duas instalações/Neon integrado/Android-iOS físicos, signing e privacidade pública ainda pendentes. Nenhum deploy manual, release, migration ou force push.
+
 
 ## Consolidação de código para main — QA limitado (2026-10-13)
 
@@ -140,16 +154,14 @@
 
 **LIMPEZA DE REFS PENDENTE:** as seis branches adicionais ainda existem, todas integradas historicamente; exclusão segura não disponível no conector. **PENDENTE para distribuição:** corrigir cobrança/limite do GitHub Actions e reexecutar gates completos; PWA instalada/navegador real, Android/iOS físico e duas instalações, Hono/Neon integrado remoto, signing/provisioning, política de privacidade pública aprovada e URL/domínio final. Não houve deploy, tag/release, migration nem publicação. **Código integrado em main não homologa distribuição.**
 
-## A60 — ignorar upserts históricos anteriores à base conhecida (2026-10-13)
 
+## A60 — ignorar upserts históricos anteriores à base conhecida (2026-10-13)
 - [x] **A60 REPRODUZIDA/CORRIGIDA:** upsert histórico `change.version <= pending.baseVersion` não cria falso conflito; ACK exato, predecessor e conflito de versão realmente superior continuam válidos. Antes 5/10 FAIL, depois 10/10 PASS. Commit `3deef67` [skip ci], PRD `docs/MM-MAP-A60-stale-upsert-pull-guard.md`.
 
 ## A59 — conflitos monotônicos também no saveConflict do push (2026-10-13)
-
 - [x] **A59 REPRODUZIDA/CORRIGIDA:** `saveConflict` não rebaixa versão durável por resposta atrasada de push (v5 para v3/v0), mantém payload antigo contra replay de mesma versão; transação local e outbox preservadas. Antes 4/10 FAIL, depois 10/10 PASS. Commit `f8420bb` [skip ci], PRD `docs/MM-MAP-A59-monotonic-push-conflict-receipts.md`.
 
 ## A58 — tombstones ambíguos sem ACK inferido (2026-10-13)
-
 - [x] **A58 REPRODUZIDA/CORRIGIDA:** tombstone sem operationId, exatamente `baseVersion+1` de `delete` pendente, não gera ACK falso nem conflito precoce; preserva outbox para push autoritativo. Tombstone obsoleto `<=baseVersion` não trava operação; tombstone efetivamente nova conflita. Antes 5/10 FAIL, depois 10/10 PASS. Commit `40cf7ce` [skip ci], PRD `docs/MM-MAP-A58-pending-tombstone-authoritative-ack.md`.
 - [x] **QA LOCAL CONSOLIDADO, SEM GitHub CI:** A58 55/55 PASS 2 rodadas, A59 65/65 PASS, A60 **75/75 PASS em 3 execuções** do recorte A53–A60, TS strict isolado com stubs PASS, `node --check` PASS; hashes fonte final/testes GitHub iguais aos validados.
 - [ ] **GATE A38/RC NÃO APROVADO:** full lint/typecheck/build/Vitest/Playwright monorepo, Postgres/Neon/Hono real, browser IndexedDB/PWA instalada, Android/iOS físico e 2 instalações, política e signing pendentes. **Não bloqueia próximas fases de código.**
@@ -157,7 +169,6 @@
 - [ ] **A61 LIVRE:** auditar encadeamento de operações locais e resolução após ACK tardio; corrigir só regressão reproduzida.
 
 ## A57 — versões monotônicas dos conflitos no pull (2026-10-13)
-
 - [x] **BUG REPRODUZIDO:** exclusão v2 podia sobrescrever conflito de upsert remoto mais novo v3 (mesma página ou próxima); `use-server` podia marcar como deletada uma recriação remota.
 - [x] **A57 CORRIGIDA:** conflito por operationId só avança em serverVersion, em transação local; versões inferiores/iguais não substituem. Tombstone realmente mais nova substitui upsert, sem apagar outbox.
 - [x] **QA REAL LOCAL SEM CI:** baseline 3/7 falhas, após patch **10/10 novos PASS** e **45/45 testes Node A53–A57 PASS em três rodadas**, TS strict isolado com stubs e `node --check` PASS; SHA dos 3 arquivos versionados iguais aos testados. Commit `df45018` [skip ci]. PRD `docs/MM-MAP-A57-monotonic-pull-conflicts.md`.
@@ -166,7 +177,6 @@
 - [ ] **A58 LIVRE:** auditar conciliação de tombstones de operações locais pendentes (contrato sem operationId), reproduzir antes de qualquer mudança.
 
 ## A56 — conflitos válidos para predecessor inválido e entidade ausente (2026-10-12)
-
 - [x] **BUG REPRODUZIDO:** predecessor inválido ou versão explícita positiva sobre entidade ausente retornava `VERSION_CONFLICT` com `serverVersion:0`, envelope recusado por `syncConflictSchema`.
 - [x] **CORRIGIDO SEM MUDAR CONTRATO:** sem versão remota retorna `SCOPE_REJECTED` versão 0 e nenhum serverPayload; com versão positiva continua `VERSION_CONFLICT`; mantém idempotência, isolamento, tombstones e reativação por predecessor válido.
 - [x] **QA LOCAL SEM GitHub CI:** baseline 3/8 FAIL; após 8/8 A56 PASS, 11/11 A55 PASS, **35/35 backend A53–A56 PASS em três execuções**. `node --check` PASS e TS strict isolado/stubs PASS; SHA código `ef0082d`, teste `fadbc67` e PRD `6c7ee59` conferidos no GitHub. Commit `8435d0d` [skip ci]. Não reexecutou 257/257 histórico do monorepo.
@@ -175,7 +185,6 @@
 - [ ] **A57 LIVRE:** auditar consistência de tombstones/pull e contrato de API com bugs reproduzidos; preservar stack offline-first.
 
 ## A55 — bloqueio de sobrescrita por baseVersion nula (2026-10-12)
-
 - [x] **A55 BUG REPRODUZIDO/CORRIGIDO:** `baseVersion:null` permitia overwrite/delete cego da versão remota, inclusive quando outra instalação já havia criado registro. Agora só aceita como criação sem versão anterior (versão 0); retorna `VERSION_CONFLICT` em versão remota positiva **antes de qualquer escrita**.
 - [x] **COMPATIBILIDADE PRESERVADA:** versão explícita atualiza/deleta, predecessor confirmado encadeia, replay exato retorna `already_applied`, workspace isolado, outbox e dados locais não descartados. Risco documentado: cliente legado sem versão passa a precisar resolver conflito.
 - [x] **QA LOCAL EXECUTADO SEM CI:** baseline 3/9 falhas; 11/11 regressões A55 PASS; **27/27 testes Node backend A53+A54+A55 em três rodadas**, TS `strict` isolado com stubs e `node --check` PASS. SHA dos 2 arquivos versionados comparados com os testados. `257/257` da A54 são resultado histórico, não reexecutado agora. PRD `docs/MM-MAP-A55-null-base-guard.md`, commits `cf61e2a`/`8221e91`/`eca3dfe`, [skip ci].
@@ -184,7 +193,6 @@
 - [ ] **A56 LIVRE:** auditar replays de predecessor inválido e tombstones; implementar somente com evidência e QA.
 
 ## A54 — rejeição atômica de IDs duplicados por lote no backend (2026-10-12)
-
 - [x] **A54 QUEBRADO→CORRIGIDO:** `/sync/push` podia aplicar um prefixo do lote antes de perceber operationId duplicado. Agora verifica todos os IDs após Zod e responde `400 VALIDATION_ERROR` antes de qualquer chamada à camada DB.
 - [x] **PRESERVADO:** lote único retorna ACKs na ordem, replay do ID numa requisição **posterior** segue idempotente, conflitos continuam explícitos, lote vazio não escreve, outbox local nunca é descartada.
 - [x] **QA LOCAL, SEM CI:** 3/7 regressões falharam no baseline; após patch 7/7 PASS e `node --test scripts/*.test.mjs` **257/257 PASS, 3 rodadas**; TS estrito isolado/stubs e `node --check` PASS. Hash do código/teste versionado verificado. Branch `dev/markmap-pwa-v2@967fe5d` [skip ci]; PRD `docs/MM-MAP-A54-sync-batch-idempotency.md`.
@@ -193,7 +201,6 @@
 - [ ] **PRÓXIMO LIVRE A55:** auditar `baseVersion:null` do backend sob concorrência e avaliar risco de sobrescrita, com contrato e reprodução antes de qualquer mudança.
 
 ## A53 — integridade do provisionamento workspace (2026-10-12)
-
 - [x] **A53 BUG REPRODUZIDO (mock SQLSTATE):** `workspaces.id` tem unicidade independente; `ON CONFLICT(proof_digest)` não captura colisão de ID com outra prova, causando `23505` e HTTP 500 na rota em vez de 409.
 - [x] **CORRIGIDO:** query classifica `23505` (inclusive `DrizzleQueryError.cause`), preserva detalhes SQL fora do cliente; erros DB não únicos não são mascarados. Nenhuma alteração de schema, migrations, API ou dados offline.
 - [x] **QA SEM GITHUB CI:** baseline 4/9 falhando, após 9/9 PASS; **250/250 testes Node PASS duas rodadas**; `node --check` e typecheck TS estrito isolado (stubs Drizzle e sync/PWA) PASS. Blobs SHA GitHub iguais às versões testadas. Commits `b28ae4c`, `0a042c0` [skip ci], PRD `docs/MM-MAP-A53-workspace-binding-409.md`.
@@ -201,7 +208,6 @@
 - [x] **GOVERNANÇA:** somente `dev/markmap-pwa-v2`; sem CI GitHub, main, deploy, alterações Neon, migrações, segredos, tags, releases, publicação ou exclusão de dados.
 
 ## A52 — cursor assinado após renovação de capability (2026-10-12)
-
 - [x] **A52 CORRIGIDA:** cursor antigo assinado com capability anterior provocava HTTP 400 após renovação. Transação `saveWorkspaceCapability` invalida apenas `syncCursor` junto com bearer novo; não apaga dados/outbox, não regride generation.
 - [x] **RETOMADA SEGURA:** `pull` detecta mudança concorrente de cursor (incluindo rotação enquanto a chamada está em voo), repete com cursor persistido; erro 400 genuinamente inválido continua falhando fechado, sem reset arbitrário.
 - [x] **QA LOCAL SEM CI:** baseline 3/6 falhas; após patch 6/6 direcionados PASS e **241/241 testes Node PASS em 3 rodadas**, `node --check` PASS, TS strict isolado com stubs de sync/PWA PASS; hashes SHA dos 4 arquivos versionados iguais aos testados. Commits `81389eb` e `af8cd02` [skip ci].
@@ -209,7 +215,6 @@
 - [x] **GOVERNANÇA:** branch `dev/markmap-pwa-v2`, `main` e produção intactas; sem GitHub Actions/CI, deploy, Neon/migrations, secrets, tag/release, lojas, force push ou exclusões de dados. PRD `docs/MM-MAP-A52-signed-cursor-recovery.md`.
 
 ## A50–A51 — bearer entre abas e edições durante sync ativo (2026-10-12)
-
 - [x] **A50 reproduzida/corrigida:** outro tab já rotacionou bearer? Após 401, `withCapability` lê token novo do IndexedDB, tenta uma vez e evita /workspace/recover desnecessário; se falhar 401 ou não existir, mantém recovery normal. Sem rebaixar generation.
 - [x] **A51 reproduzida/corrigida:** edição local durante sync ativo não fica esperando 60 segundos: flag de nova rodada ao finalizar; múltiplos gatilhos são coalescidos; offline e unmount não disparam rede.
 - [x] **QA local (nenhum CI remoto executado por nós):** antes A50 **3/4 falhas** e A51 **2/4 falhas**; depois 8/8 novos PASS; **235/235 Node PASS duas execuções**; `node --check` PASS; TS estrito isolado com stubs `tsconfig.qa.json`/`tsconfig.foreground.qa.json` PASS; SHA dos 4 arquivos GitHub corresponde ao testado. Commits `0c711de`/`6628c02`, [skip ci], branch `dev/markmap-pwa-v2`.
@@ -217,7 +222,6 @@
 - [x] **Sem alterações de produção:** main, Neon, migrations, deploy, releases, secrets, lojas, force push e operações destrutivas intocados. PRD `docs/MM-MAP-A50-A51-sync-concurrency.md`.
 
 ## A48–A49 — identidade de instalação e credenciais de sync atômicas (2026-10-12)
-
 - [x] **A48 REPRODUZIDA/CORRIGIDA:** `installationId` e `workspaceBootstrapProof` antes eram lidos/gravados separados; duas abas podiam enviar provas diferentes e uma receber 409. Agora único par gerado/persistido atomicamente sob `readwrite`; valores existentes permanecem estáveis.
 - [x] **A49 CORRIGIDA:** resposta HTTP tardia não regride bearer/generation; valida workspace e grava somente quando a versão não é inferior, com compare-and-set transacional.
 - [x] **QA REAL LOCAL, SEM GitHub CI:** 9/9 novas regressões e **227/227 Node PASS**, reconferência após commits com cinco blobs SHA idênticos; TypeScript estrito isolado com stubs (sync e PWA/IDB) e JS check PASS. HEAD `dev/markmap-pwa-v2@3cf57b3`; PRD `docs/MM-MAP-A48-A49-atomic-bootstrap.md`.
@@ -225,15 +229,14 @@
 - [x] **GOVERNANÇA:** apenas branch dev e commits `[skip ci]`, sem Github Actions, merge main, Vercel, Neon, migração, segredos, release/tag, force push ou publicação.
 
 ## A46–A47 — transações recuperáveis e retorno da PWA (2026-10-12)
-
 - [x] **A46 REPRODUZIDO/CORRIGIDO:** `InvalidStateError` na criação da transação por conexão fechada sem `versionchange` permanecia cacheado. Cache invalidado somente para esse handle, nova tentativa reabre banco e mantém workspace/dados; callback de gravação não é reexecutado silenciosamente.
 - [x] **A47 REPRODUZIDO/CORRIGIDO:** retorno por `pageshow.persisted`/foco visível agora dispara sync, mas não ao estar hidden/offline; `result.conflicts>0` invalida consultas React; listeners removidos no unmount.
 - [x] **QA REAL LOCAL SEM CI:** baseline 6/10 falharam; depois **10/10 novos PASS + 218/218 testes Node PASS duas vezes**; `tsc --strict --noEmit` isolado com stubs e `node --check` PASS; hashes de 5 arquivos confirmados no GitHub. Branch `dev/markmap-pwa-v2`, commits `7261c8d`/`ebea8de` `[skip ci]`; PRD `docs/MM-MAP-A46-A47-offline-resume.md`.
 - [ ] **RELEASE A38/MM-MAP-940 ainda NÃO HOMOLOGADO:** full monorepo lint/typecheck/build/Vitest/Playwright, browser IndexedDB/BFCache, Android/iOS, 2 instalações e política/signing. Não travar próximas fases de código por esses testes físicos.
 - [x] **GOVERNANÇA:** sem GitHub Actions, merge main, deploy, Neon/PostGIS/migration, secrets, força push, release/tag ou publicação.
 
-## A45 — recuperação de IndexedDB após falha/suspensão (2026-10-12)
 
+## A45 — recuperação de IndexedDB após falha/suspensão (2026-10-12)
 - [x] **BUG REPRODUZIDO:** 5/6 regressões falharam no HEAD A44: falha transitória de `indexedDB.open`, exceção ao criar transação de workspace, `versionchange` com conexão fechada cacheada, `close()` após rejeição e `onblocked` seguido de abertura tardia.
 - [x] **CORRIGIDO sem migrations:** cache `dbPromise` e `workspacePromise` invalidado em erro/versão; conexão tardia bloqueada fechada; `close()` não cria `unhandledRejection`; mantém ID workspace e outbox. Não envia dados nem toca nas entidades por recuperação.
 - [x] **QA realmente executado:** alvo 6/6 PASS, `node --test scripts/*.test.mjs` **208/208 PASS em três execuções**; `node --check` e `tsc --strict --noEmit` isolado de local-db e sync (stubs) PASS. Blobs code/tests do GitHub batem com QA. Novo `scripts/local-db-reopen.test.mjs`; PRD `docs/MM-MAP-A45-idb-recovery.md`; branch dev commit `a839446` [skip ci].
@@ -241,7 +244,6 @@
 - [x] **GOVERNANÇA:** sem GitHub Actions, merge main, deploy Vercel, Neon/migrations, secrets, force push, tag/release, lojas, exclusão de dados.
 
 ## A44 — CAS do cursor pull entre abas (2026-10-12)
-
 - [x] **BUG REPRODUZIDO:** duas abas em paralelo podiam escrever cursores remotos fora de ordem: aba atrasada sobrescrevia um `syncCursor` já avançado, causando replays/requisições desnecessárias.
 - [x] **CORREÇÃO ATÔMICA:** `LocalRepository.applyServerPage` compara `expectedCursor` com `meta.syncCursor` na mesma transação IndexedDB `readwrite` ANTES de inserir entidades/ACKs/tombstones. `sync-engine.pull` envia cursor utilizado na requisição; chamada legada com três argumentos segue compatível. Não alterar schemas, dados, backend ou outbox.
 - [x] **QA sem GitHub CI:** caso novo 3/5 falhando antes do patch. Após: 5/5 PASS e **202/202 testes Node em três execuções**, mais **202/202 PASS** no HEAD conferido via hashes GitHub. `node --check` PASS, `tsc --strict --noEmit` isolado com stubs PASS.
@@ -249,9 +251,7 @@
 - [ ] **GATE A38 BLOQUEADO SOMENTE PARA RELEASE:** full lint/typecheck/build/Vitest/Playwright, navegador IndexedDB multiabas real, Android/iOS físicos, dois dispositivos e privacidade/signing pendentes. Não interromper desenvolvimento seguinte.
 
 ## A41–A43 — timeout integral, ACK durável e QA determinística (2026-10-12)
-
 **Base:** `dev/markmap-pwa-v2@16906cd` verificada com Notion, HEAD e PRs/issues 0; mudança em dois commits `79968dc` e `b7ac5c5`, sempre `[skip ci]`.
-
 - [x] **A41 — QUEBRADO → CORRIGIDO:** timeout HTTP de 15 s encerrava depois dos headers, deixando body lento prender a promessa única `syncNow`. O timeout agora abrange `fetch` + `response.text()` + parse. Respostas HTTP não OK não aguardam/parseiam body; refresh 401 continua funcionando.
 - [x] **A42 — QUEBRADO → CORRIGIDO:** retorno `false`/`undefined` do `LocalRepository.acknowledge` era contado como push aceito. Agora somente `true` confirmado gera `pushed`; falha preserva outbox, resultado de erro e possibilidade de retry. Mock Vitest passa a refletir contrato booleano.
 - [x] **A43 — PARCIAL → QA ESTÁVEL:** testes A34 de Worker/React tinham esperas fixas 20/35 ms e falhavam esporadicamente durante execução paralela. Esperam condição observável com deadline 3 s, sem sleeps arbitrários.
@@ -260,15 +260,14 @@
 - [x] **Governança:** `main`, produção, Neon, migrations, CI GitHub, Vercel, secrets, releases, tags e lojas intocados. PRD `docs/MM-MAP-A41-A43-sync-durability.md`.
 
 ## A39/A40 — sync pull e progresso parcial (2026-10-11)
-
 - [x] **A39 código:** cursor repetido ou cíclico com `hasMore=true` causa erro seguro ANTES de reaplicar página; página final com cursor inalterado é válida; limite de 50 páginas mantido.
 - [x] **A40 código:** ACKs/conflitos e páginas remotas já persistidas contam no resultado mesmo se outra página falhar; `SyncController` pode invalidar consultas sem dizer `synced`.
 - [x] **QA real local sem GitHub Actions:** 3/6 regressões novas inicialmente falharam no código antigo (reprodução), após a correção 8/8 novos PASS e regressão `node --test scripts/*.test.mjs` **189/189 PASS**, `node --check` e TypeScript isolado com stubs PASS. HEAD de código `a9eae4c1834bc25367b5ffdc6927d2ab26eb3884`.
 - [ ] **HOMOLOGAÇÃO NÃO BLOQUEANTE PARA CODAR:** full lint/typecheck/build/Vitest/Playwright, browser WebGL/IndexedDB/PMTiles, devices Android/iOS, 2 instalações reais, privacidade final/segurança e gate RC ainda pendentes. Não declarar PASS sem execução.
 - [x] **Governança:** `dev/markmap-pwa-v2`, `[skip ci]`; sem CI remoto, deploy, `main`, Neon, migrations, tag/release, secret, force push ou remoções. PRD `docs/MM-MAP-A39-A40-sync-resilience.md`.
 
-## A35–A38 — hardening nativo e sincronização (2026-10-11)
 
+## A35–A38 — hardening nativo e sincronização (2026-10-11)
 - [x] **A35 código:** script Android identifica permissões realmente declaradas (não comentários/atributos não relacionados), recusa manifesto incompleto e permanece idempotente.
 - [x] **A36 código:** script iOS agora persiste correções em chaves existentes, evita duplicação/chaves inválidas e utiliza o nome MarkMap. `Info.plist` nativo atual permaneceu byte a byte inalterado e foi validado com `plistlib`.
 - [x] **A37 código:** motor de push só aceita receipts dos IDs enviados uma única vez, interrompe falta de progresso e não anuncia `synced` com outbox ainda pendente; preserva conflitos para resolução explícita.
@@ -279,8 +278,8 @@
 - [ ] **A38 e RC:** lint/typecheck/build/Vitest/Playwright monorepo, integração PostGIS/Neon autorizada, privacidade pública aprovada (`docs/privacy.md` lista 10 itens abertos), revisão final de segurança, signing, domínio e publicações pendentes. **Release Candidate NÃO APROVADO.**
 - [x] **Governança:** somente `dev/markmap-pwa-v2`, commits `[skip ci]`; nenhum GitHub Actions disparado, sem merge main, deploy, Neon, migração, tag/release, publicação ou operação destrutiva.
 
-## A34 — leitores offline presos à geração ativa (2026-10-11)
 
+## A34 — leitores offline presos à geração ativa (2026-10-11)
 - [x] **CÓDIGO:** busca regional, roteamento Worker, Wikipedia/transporte e DEM passam a vincular manifest e Blob por `getActiveRevision` + `assetAtRevision`. Revalidam a geração antes de publicar resultados e recusam mistura após atualização concorrente.
 - [x] **SEGURANÇA:** erros inesperados de IndexedDB/JSON/engine não exibem URL, path ou token na UI regional. Mensagens conhecidas de recuperação permanecem úteis.
 - [x] **QA LOCAL, SEM CI:** Node 22.16.0 `node --test scripts/*.test.mjs`: **164/164 PASS** (150 anteriores +14 novos). Testes reproduziram falhas antes da correção, cobrem atualização entre leituras, dados antigos e vazamentos. `tsc --strict --noEmit` com stubs isolados de quatro módulos: **4/4 PASS**; parsing TSX de CommandCenterPage: PASS. Código/testes versionados até `3e11fb7`.
@@ -289,7 +288,6 @@
 - [x] **GOVERNANÇA:** commits somente em `dev/markmap-pwa-v2` com `[skip ci]`, **nenhum GitHub Actions/CI utilizado**, main, Neon, Vercel, migrations e releases intocados.
 
 ## A32/A33 — auditoria e mensagens seguras no worker de rotas (2026-10-11)
-
 - [x] A32 Node: 144/144 testes versionados no HEAD original; ciclo MapLibre, leases e worker auditados no código.
 - [x] A33: erro bruto no worker reproduzido com token; alterado para allowlist de mensagens conhecidas e resposta genérica. Após a correção: 150/150 testes Node PASS (6 novos), declaração TypeScript e parsing sintático PASS.
 - [ ] A32/A34: monorepo lint/typecheck/build/Vitest/Playwright e WebGL/PMTiles/IndexedDB reais pendentes por ausência de checkout, dependências e DNS npm/GitHub.
@@ -306,6 +304,7 @@
 - [ ] **PRÓXIMO:** inspecionar HEAD real para novos problemas de eventos de estilo/worker e resolver apenas lacunas reproduzíveis, sem reescrever fluxo funcional.
 - [ ] **SEM PRODUÇÃO:** sem GitHub CI remoto, Vercel deploy, merge main, Neon/migration, tag/release/loja ou exclusões. PRD `docs/MM-MAP-A30-A31-source-readiness.md`.
 
+
 ## A28/A29 — estilo MapLibre e camadas locais recuperáveis (2026-10-10)
 
 - [x] **A28 EM CÓDIGO:** eventos `style.load`/`sourcedata`/`render` coordenados por geração; um callback de paint por estilo, descarta renders atrasados após style swap, cancelamento e perda WebGL; não marca mapa antigo como pronto.
@@ -316,6 +315,7 @@
 - [ ] **PRÓXIMO CÓDIGO:** auditar estabilidade do worker/protocolo e gatilhos de `mapReady` em MapLibre real; corrigir somente lacunas comprovadas no HEAD.
 - [ ] **SEM PUBLICAÇÃO/PRODUÇÃO:** nenhum CI remoto, deploy Vercel, merge main, Neon/migration, release/tag, exclusão ou force-push. PRD `docs/MM-MAP-A28-A29-style-hydration.md`.
 
+
 ## A26/A27 — cancelar I/O da view antiga e recuperar WebGL sem loops (2026-10-10)
 
 - [x] **A26 EM CÓDIGO:** cada lease MapLibre rastreia seus requests e AbortControllers; release aborta leituras pendentes (PMTiles e assets), remove listeners e não afeta outros mapas. Requests atrasados continuam bloqueados; APIs existentes mantidas.
@@ -324,6 +324,7 @@
 - [ ] **HOMOLOGAÇÃO NÃO BLOQUEANTE PARA CÓDIGO:** testes reais de WebGL lost/restored, MapLibre e PMTiles/IndexedDB, Playwright/E2E, lint/typecheck/build monorepo, Android/iOS físico, RAM em aparelho. Não marcar gate de release como verde.
 - [ ] **PRÓXIMO DESENVOLVIMENTO:** diagnosticar worker/protocol teardown após restaurações consecutivas e UX sem WebGL; avançar apenas onde existir lacuna comprovada no HEAD.
 - [ ] **SEM AÇÕES DE PRODUÇÃO:** não executar CI GitHub, Vercel deploy, merge main, Neon/migration, tag/release, lojas ou exclusões. PRD `docs/MM-MAP-A26-A27-webgl-lifecycle.md`.
+
 
 ## A24/A25 — segurança do ciclo de protocolos MapLibre (2026-10-10)
 
@@ -335,6 +336,7 @@
 - [ ] **PRÓXIMO CÓDIGO:** revisar eventos de perda WebGL e teardown de requisições concorrentes sem redesenhar a arquitetura.
 - [ ] **SEM AUTORIZAÇÃO DE PRODUÇÃO:** não fazer CI GitHub, merge main, deploy Vercel, Neon/migration, tag/release/loja ou exclusões/force-push. PRD `docs/MM-MAP-A24-A25-protocol-lifecycle.md`.
 
+
 ## A22/A23 — integridade do protocolo e recuperação de erros locais (2026-10-10)
 
 - [x] **A22 CÓDIGO:** validar intervalo PMTiles inteiro dentro de `File.size`, limite máximo 4 MiB, rejeitar bytes truncados; validar blobs do protocolo local e comprimento exato, sem alterar contratos.
@@ -344,6 +346,7 @@
 - [ ] **QA NÃO BLOQUEANTE PARA DESENVOLVIMENTO:** executar novo teste Vitest real `packages/maps/tests/offline/offline-protocol-integrity.test.ts`, full monorepo lint/typecheck/build/E2E e navegação MapLibre/IndexedDB/WebView/Android/iOS em ambiente apto. Não marcar como PASS sem executar.
 - [ ] **PRÓXIMA FASE DE CÓDIGO:** revisar remount de protocolos/recursos e perda de contexto gráfico, preservando local-first.
 - [ ] **RELEASE/PRODUÇÃO NÃO AUTORIZADOS:** não houve CI, deploy, merge main, Neon/migration, tag/release/loja ou exclusões. PRD `docs/MM-MAP-A22-A23-protocol-recovery.md`.
+
 
 ## A20/A21 — recuperação de falhas do mapa e alternativa offline (2026-10-10)
 
@@ -355,6 +358,7 @@
 - [ ] **PRÓXIMA FASE:** diagnosticar erros residuais de protocolo/recuperação visual e UX de armazenamento sem criar novo estado global; iniciar sobre HEAD real.
 - [ ] **PUBLICAÇÃO NÃO AUTORIZADA:** sem merge `main`, Vercel deploy, GitHub CI remoto, Neon/migration, lojas, tags/releases ou exclusão/force-push. PRD `docs/MM-MAP-A20-A21-map-recovery.md`.
 
+
 ## A18/A19 — reconciliação ao retomar e assets da geração correta (2026-10-10)
 
 - [x] **A18 CÓDIGO:** seleção do localStorage reavaliada ao retornar do background mesmo se `storage` foi perdido; verificação do ID+geração ativo IndexedDB em focus/pageshow/visibilitychange visível, sem rede, timers nem polling.
@@ -364,6 +368,7 @@
 - [ ] **QA NÃO BLOQUEANTE PARA CONTINUAR CÓDIGO:** lint/typecheck/build/E2E monorepo, IndexedDB/MapLibre/WebView real, suspensão real de WebView e aparelhos Android/iOS.
 - [ ] **PRÓXIMO DESENVOLVIMENTO:** diagnosticar fluxo de reconciliação de UI em retorno do background e tratar casos confirmados sem substituir store nem arquitetura.
 - [ ] **SEM PUBLICAÇÃO:** não foi autorizado merge `main`, GitHub CI, Vercel deploy, Neon/migration, tag/release, app stores, exclusão ou force-push. PRD `docs/MM-MAP-A18-A19-foreground-generation.md`.
+
 
 ## A16/A17 — seleção ativa e mapa offline reativos (2026-10-10)
 
@@ -375,6 +380,7 @@
 - [ ] **PRÓXIMO CÓDIGO:** reconciliar alterações perdidas ao voltar do background/aba suspensa lendo geração ativa, sem polls contínuos ou rede.
 - [ ] **PRODUÇÃO NÃO AUTORIZADA:** não fazer GitHub CI, deploy, merge main, Neon/migration, tag/release ou exclusões. PRD `docs/MM-MAP-A16-A17-reactive-map-selection.md`.
 
+
 ## A14/A15 — geração transacional e aviso entre abas (2026-10-10)
 
 - [x] **A14 CÓDIGO:** snapshot de geração ativa com manifest; preview exige geração local; atualização reconfirma sob Web Lock e passa geração esperada para `OfflineMapStore`.
@@ -385,6 +391,7 @@
 - [ ] **PRÓXIMO CÓDIGO:** seleção de mapa fora de Configurações, atualização de catálogo na navegação e recuperação ao reabrir; checar HEAD/PRs antes de iniciar.
 - [ ] **RELEASE SEPARADO:** não realizar CI remoto, deploy Vercel, merge main, tag/release, banco Neon/migração ou exclusão de dados sem autorização expressa. PRD `docs/MM-MAP-A14-A15-cross-tab-consistency.md`.
 
+
 ## A12/A13 — Recuperação de instalação e confirmação segura de versão (2026-10-10)
 
 - [x] **A12 — IMPLEMENTADO EM CÓDIGO:** ao voltar para Configurações restaura URL pública de manifest na aba ou origem do mapa selecionado, sem rede automática; sessionStorage ignora tokens/credenciais/query/hash e não armazena bytes.
@@ -394,6 +401,7 @@
 - [ ] **PRÓXIMA FASE:** consistência do estado de atualização e integridade entre abas/navegação, usando HEAD real e evitando reimplementação.
 - [ ] **RELEASE/PUBLICAÇÃO:** não autorizado merge main, CI remoto, deploy Vercel, Neon, tag/release e exclusões. Evidência: `docs/MM-MAP-A12-A13-region-continuity.md`.
 
+
 ## A10/A11 — Retomada na interface e quota segura (2026-10-10)
 
 - [x] **A10 CÓDIGO + NODE:** consulta read-only do manifest e contagem de blocos com versão/hash correspondentes; botão retomar e confirmação explícita para staging de outra versão; estados UI checking/downloading/validating/activating/canceling e barra de progresso.
@@ -402,6 +410,7 @@
 - [x] **TESTE LOCAL DIRECIONADO:** 8/8 Node PASS (5 novos + 3 históricos), JS `node --check`, TS/TSX `transpileModule` sintático sem erros.
 - [ ] **DÍVIDA DE HOMOLOGAÇÃO NÃO BLOQUEANTE PARA DESENVOLVIMENTO:** full lint/typecheck/Vitest/build, E2E UI/IndexedDB/Capacitor, Android/iOS e medição RAM/quota com pacotes regionais reais. Não declarar essas verificações aprovadas nem fechar gate de release.
 - [ ] **CONTINUIDADE:** verificar UX de recuperação após navegação/reentrada, fonte remota e diagnosticar pendências de código antes de próxima fase; respeitar `dev/markmap-pwa-v2`. Nenhum CI/deploy/merge/tag/Neon autorizado.
+
 
 ## A8/A9 — memória e retomada segura (2026-10-10)
 
@@ -413,6 +422,7 @@
 - [ ] **PRÓXIMO DESENVOLVIMENTO:** auditar fluxo de instalação regional na interface e recuperação amigável em erros/quota, preservar mapa ativo, outbox e operação offline.
 - [ ] **GATE DE RELEASE SEPARADO:** nenhum merge main, deploy, CI remoto, tag, release, publicação móvel ou operação Neon sem autorização. PRD: `docs/MM-MAP-A8-A9-checkpoint-recovery.md`.
 
+
 ## A7 — instalação offline sem concorrência no mesmo origin (2026-10-10)
 
 - [x] **IMPLEMENTADO + NODE:** Web Locks com `ifAvailable` por ID para impedir instalação simultânea da mesma região em abas do mesmo origin que suportem essa API; guarda por instância definida antes do primeiro `await`.
@@ -420,6 +430,7 @@
 - [x] **Node direcionado:** `46/46` testes verdes, incluindo 3 cenários simulados da A7. Sintaxe JS/TS dos arquivos alterados sem erro.
 - [ ] **QA opcional/não bloqueante para desenvolvimento:** duas abas reais, Safari/WebView, quota em pressão, npm lint/typecheck/build/Playwright, Android/iOS. Não afirmar homologação.
 - [ ] **PRÓXIMA FASE DE CÓDIGO:** reduzir pico de RAM do Blob final e tratar continuidade de checkpoint; sem deploy/tag/main/CI/Neon nesta etapa.
+
 
 ## Continuidade após M10 — A5/A6 (2026-10-10)
 
@@ -432,6 +443,7 @@
 - [ ] **PRÓXIMO DESENVOLVIMENTO:** concorrência entre abas e redução de pico de RAM na montagem de arquivos; preservar integração existente e registrar evidências locais.
 - [ ] **RELEASE/PUBLICAÇÃO:** não foi solicitado deploy, merge main, tag ou loja; não executar sem autorização explícita. Relatório `docs/MM-MAP-A5-A6-offline-streaming.md`.
 
+
 ## M10 — MM-MAP-900/940, execução local parcial (2026-10-10)
 
 - [x] **QA REAL / Node:** `node --check` do recorte de módulos `.mjs`; suíte começou 25/29 e depois de consertar fixtures PMTiles/contagem e adicionar regressões passou **37/37**, 0 falhas/0 skipped.
@@ -441,12 +453,14 @@
 - [ ] **BLOQUEADO:** fonte externa real exige timestamp OSM/data de produção verificado (QA local usou placeholder), assets licenciados e leitor PMTiles independente; nada foi redistribuído ou publicado.
 - [ ] **GATE MM-MAP-940 VERMELHO:** não abrir PR para main, não acionar CI, Vercel, tag/release ou produção sem evidência integral e autorização.
 
+
 ## A4 — Publicador de mapas seguro (2026-10-10)
 
 - [x] **PARCIAL EM CÓDIGO, NÃO VALIDADO:** pipeline monta pacote completo em staging isolado; valida caminhos, tamanho e SHA-256 antes de promover a pasta final; erro não publica pacote incompleto.
 - [x] **PARCIAL EM CÓDIGO, NÃO VALIDADO:** destino com conteúdo é preservado/recusado (`OUTPUT_NOT_EMPTY`), diretório vazio ainda suportado; stage de `Blob` evita materialização duplicada na cópia para IndexedDB.
 - [ ] **M10 / TESTES:** Node testes do pipeline, erro tardio e saída não vazia, conteúdo real PMTiles/OSM, lint/typecheck/build/Playwright, duas abas, IndexedDB/outbox, crash/interrupção, quota e dispositivo.
 - [ ] **BLOQUEIOS:** fontes OSM/PMTiles com permissão de redistribuição, glyphs/sprites licenciados e validação de pacote em leitor independente; download remoto 64 MiB, conversor PBF 32 MiB, SHA browser consome memória.
+
 
 ## A3 — MM-MAP-200/210/400/430 (2026-10-10)
 
@@ -456,12 +470,14 @@
 - [ ] **M10 QA FINAL:** fontes e licenças OSM reais; PMTiles leitor independente; lint/typecheck/unit/build/E2E; leitura MapLibre e busca offline no Worker após reinício; IndexedDB/outbox, memória e quota do dispositivo; cobertura de glyphs/sprites; sem GitHub Actions.
 - [ ] **LIMITAÇÃO ATUAL:** distribuição remota limitada a 64 MiB e importação grande em memória; não liberar mapas grandes em produção nem fechar gate MM-MAP-940.
 
+
 ## A2 — MM-UPD-030/040 (2026-10-09)
 
 - [x] **CÓDIGO PARCIAL, NÃO VALIDADO:** reload do update PWA só na aba que autorizou; controllerchange de outra aba não força reload.
 - [x] **CÓDIGO PARCIAL, NÃO VALIDADO:** validação de scope/worker waiting antes de ativação; SW requer handshake same-origin recente para `SKIP_WAITING`.
 - [ ] **QA M10:** verificar outbox, IndexedDB, duas abas, site/app same-origin, atualização online/offline, compatibilidade SW, Safari/Chromium e persistência após reload.
 - [ ] **PRÓXIMO A3:** ampliar pipeline OSM/PMTiles e busca regional, sem dados inventados.
+
 
 ## Continuidade A1 — MM-MAP-135/140/145 (2026-10-09)
 
@@ -487,6 +503,7 @@
 
 ---
 
+
 ## M8 estação no mapa — incremento adicional (2026-10-09)
 
 - [x] `MM-MAP-710` **CÓDIGO:** sobrepor estações verificadas de transporte público ao MapLibre com cores de linha e popup, sem internet (commit `e905ebc`).
@@ -494,6 +511,7 @@
 - [ ] Testes e QA integral continuam reservados ao `MM-MAP-940` final.
 
 ---
+
 
 ## Atualização prioritária — 2026-10-09 — após M6/M2/M1/M7 (PREVALECE)
 
@@ -513,6 +531,7 @@
 
 ---
 
+
 ## Incremento M3/M5/M7 - extratos OSM para busca e rotas basicas - 2026-10-09
 
 - [x] **Em codigo, NAO VALIDADO:** gerador pequeno `osm.pbf` -> POIs nomeados e grafo basico walk/bicycle com limites estritos; sem grafo de carro, sem relations/turn restrictions condicionais.
@@ -521,6 +540,7 @@
 - [ ] Pipeline para regioes grandes, acesso legal complexo e DEM com licencas permanecem pendentes.
 
 **Handoff:** `docs/MM-MAP-200-610-small-osm-builder.md`. **Branch:** `dev/markmap-pwa-v2`. Sem GitHub CI, deploy, main, tag ou migration.
+
 
 ## Incremento de desenvolvimento MM-MAP-630/640 e hardening M8 - 2026-10-09
 
@@ -538,6 +558,7 @@
 **Documento tecnico/PRD de continuidade:** `docs/MM-MAP-630-640-gps-navigation-handoff.md`.
 **Regras:** nao criar novo ramo; nao fazer CI do GitHub, deploy Vercel, tag/release, merge main, migration ou operacao irreversivel. Limpeza de 5 branches antigos continua PENDENTE.
 
+
 ## Governança vigente — 2026-10-09 — branch única PWA
 
 **Fonte operacional:** `docs/MARKMAP_CONSOLIDATION_M8_HANDOFF.md`. **Única branch de desenvolvimento:** `dev/markmap-pwa-v2`, criada a partir do HEAD `86681a9` (todos os cinco branches anteriores em cadeia linear). **main:** `156d4e8` intocada. **Versão de desenvolvimento:** `0.2.0-dev.0`.
@@ -550,6 +571,7 @@
 - [ ] Gate M10: lint/typecheck/Vitest/build/Playwright em checkout completo, pacotes reais, rollback/outbox e QA de licença/segurança.
 
 Regra **substitui para próximos agentes** quaisquer instruções históricas abaixo que mandem abrir novos ramos; manter apenas `main` e `dev/markmap-pwa-v2` após a limpeza autorizada. **Sem deploy/CI/tag/release/migration.**
+
 
 ### Incremento M7 — algoritmo de rotas corrigido, ainda PARCIAL (2026-10-09)
 
@@ -570,6 +592,7 @@ Regra **substitui para próximos agentes** quaisquer instruções históricas ab
 
 Sem CI GitHub, sem deploy/release, sem alteração em `main` ou na branch de integração. Versão oficial permanece `0.1.0` em `main`.
 
+
 ## Progresso M4/M5 — 2026-10-09 (ainda PARCIAL)
 
 **Branch de continuidade:** `agent/MM-MAP-300-400-pwa-integration`, derivada de `agent/MM-MAP-200-pwa-regions@e0dac95`; sem alteração em `feat/maps-engine-v2-offline` ou `main`. **Versão de trabalho:** `0.2.0-dev.0`.
@@ -585,6 +608,7 @@ Sem CI GitHub, sem deploy/release, sem alteração em `main` ou na branch de int
 
 **Documento de continuidade:** `docs/MM-MAP-300-420-pwa-continuity.md`. Nenhum deploy, release/tag, migration ou merge na `main`.
 
+
 ## Incremento 2026-10-09 — M1/M2/M3 PWA-first, ainda PARCIAL
 
 - **Branch de trabalho:** `agent/MM-MAP-200-pwa-regions`, derivada de `feat/maps-engine-v2-offline@eb8f436` (HEAD de integração não modificado).
@@ -595,6 +619,7 @@ Sem CI GitHub, sem deploy/release, sem alteração em `main` ou na branch de int
 - **QA direcionada:** `node --test` = 12/12 aprovados (PBF sintético, PMTiles diretório, HTTP Range, URL, SHA, shell); `node --check` verde. `tsc` isolado com mocks anteriores NÃO é typecheck do monorepo. **NÃO executados:** lint/typecheck/build/Vitest/E2E completos, distribuição real OSM e PWA offline em dispositivo/navegador.
 - **Gate:** testes físicos Android/iOS não bloqueiam desenvolvimento PWA, mas a integração em `main` ainda é proibida enquanto o gate Web, revisão de segurança e controle de deploy não estiverem verdes. Nenhum deploy, migration, release ou produção autorizados/executados.
 - **Próximo:** validar pacote com extrato PBF real e leitor PMTiles, validar IndexedDB/Playwright, corrigir o pipeline conforme evidência, completar catálogo/update e testes de integração. M4→M8 permanecem parciais/históricos e M9 nativo fora do escopo PWA.
+
 
 > Documento mestre único da iniciativa Maps Engine v2: `docs/MARKMAP_MASTER.md`.
 > Versão baseline em `main`: `0.1.0`. Linha de desenvolvimento ativa: `0.2.0-dev.0` em `feat/maps-engine-v2-offline`.
@@ -725,13 +750,13 @@ Sem CI GitHub, sem deploy/release, sem alteração em `main` ou na branch de int
 - [ ] **P1** Release notes e versão candidata.
 - [ ] **P2** Processo operacional pós-distribuição depende do ambiente real; runbook em `docs/release-runbook.md`.
 
+
 ## Auditoria 2026-10-09 — estado verificado (prevalece sobre os registros históricos abaixo)
 
 **main:** `156d4e8`; **branch de desenvolvimento:** `feat/maps-engine-v2-offline`; **versão de trabalho:** `0.2.0-dev.0`.
 **Situação:** MERGE PARA MAIN BLOQUEADO, por segurança funcional e para impedir publicação Vercel automática. Ambos os projetos Vercel (`markmap-site`, `markmap-app`) continuam ligados ao GitHub. Nenhum deploy Vercel nem CI GitHub foi iniciado manualmente nesta auditoria.
 
 **Classificação:**
-
 - **FUNCIONA (evidência histórica):** núcleo MapLibre/Terra Draw, operações locais IndexedDB/outbox, GeoPDF e PMTiles/PWA pré-existentes. Resultados históricos no gate são anteriores a esta auditoria.
 - **PARCIAL:** gerador regional (agora exige arquivo PMTiles e manifest corretos, mas não gera tiles OSM); prompt PWA (correção de checagem de atualização, sem E2E novo); parsers GPX/KML, busca, roteamento, elevação e conteúdo offline (implementações no código sem comprovação completa em aparelho e distribuição regional).
 - **BLOQUEADO:** instalador regional `MM-MAP-130` explicitamente desativado/fail-closed depois de identificar download simulado e ativação de staging vazio; gestão de atualização/reparo regional `MM-MAP-140` sem serviço real; gate `MM-MAP-940` ainda não satisfeito.

@@ -12,14 +12,14 @@ Avançar M6 e M7 sem alterar React/Vite/TypeScript, MapLibre/Terra Draw, Indexed
 
 ## Auditoria e classificação antes/depois
 
-| Área                                        | Antes                          | Nesta branch                                                                                    | Status final                                 |
-| ------------------------------------------- | ------------------------------ | ----------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| PMTiles / GeoJSON / IndexedDB local         | FUNCIONA historicamente        | Base preservada                                                                                 | **PARCIAL** até smoke/E2E atual              |
-| Grafo em manifesto / instalador / IndexedDB | NÃO IMPLEMENTADO               | Ref opcional com hash/tamanho e capability por perfil; download + pasta local + staging íntegro | **PARCIAL**, sem E2E IndexedDB real          |
-| Planejamento offline                        | PARCIAL, algoritmo puro        | Worker isolado, pontos GPS/mapa, escolha de perfil, trilha MapLibre e ETA                       | **PARCIAL**, dados regionais reais faltam    |
-| `turnRestrictions`                          | NÃO IMPLEMENTADO               | Estado Dijkstra `{nó, via anterior}`, regras `no_*` e `only_*` para carro                       | **PARCIAL**, sem perfis por restrição em OSM |
-| Curvas de nível                             | NÃO IMPLEMENTADO na UI         | Dados regionais opcionais validados e renderizados como linhas no MapLibre                      | **PARCIAL**, sem DEM ou levantamento real    |
-| Voz / navegação                             | NÃO IMPLEMENTADO ponta a ponta | Prévia falada da primeira instrução por ação do usuário, quando TTS disponível                  | **PARCIAL**, não é guia GPS turn-by-turn     |
+| Área | Antes | Nesta branch | Status final |
+|---|---|---|---|
+| PMTiles / GeoJSON / IndexedDB local | FUNCIONA historicamente | Base preservada | **PARCIAL** até smoke/E2E atual |
+| Grafo em manifesto / instalador / IndexedDB | NÃO IMPLEMENTADO | Ref opcional com hash/tamanho e capability por perfil; download + pasta local + staging íntegro | **PARCIAL**, sem E2E IndexedDB real |
+| Planejamento offline | PARCIAL, algoritmo puro | Worker isolado, pontos GPS/mapa, escolha de perfil, trilha MapLibre e ETA | **PARCIAL**, dados regionais reais faltam |
+| `turnRestrictions` | NÃO IMPLEMENTADO | Estado Dijkstra `{nó, via anterior}`, regras `no_*` e `only_*` para carro | **PARCIAL**, sem perfis por restrição em OSM |
+| Curvas de nível | NÃO IMPLEMENTADO na UI | Dados regionais opcionais validados e renderizados como linhas no MapLibre | **PARCIAL**, sem DEM ou levantamento real |
+| Voz / navegação | NÃO IMPLEMENTADO ponta a ponta | Prévia falada da primeira instrução por ação do usuário, quando TTS disponível | **PARCIAL**, não é guia GPS turn-by-turn |
 
 ## Escopo implementado
 

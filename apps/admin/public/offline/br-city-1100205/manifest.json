@@ -2,7 +2,12 @@
   "id": "br-city-1100205",
   "version": "1.0.0-brazil.20261019",
   "label": "Porto Velho — mapa offline",
-  "bounds": [-66.8103, -10.0004, -62.2385, -7.9759],
+  "bounds": [
+    -66.8103,
+    -10.0004,
+    -62.2385,
+    -7.9759
+  ],
   "minZoom": 0,
   "maxZoom": 12,
   "archive": {
@@ -26,7 +31,9 @@
   "createdAt": "2026-10-19T22:50:42.282Z",
   "packageVersion": "1.0.0-brazil.20261019",
   "osmDataDate": "2026-10-19T04:00:00.000Z",
-  "capabilities": ["basemap"],
+  "capabilities": [
+    "basemap"
+  ],
   "checksums": {
     "archive": "b708e079aef13aed4aac30c3f1d9354f0d67478eb6a0529202e69df8b6050eed",
     "style": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",

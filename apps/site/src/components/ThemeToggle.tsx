@@ -13,9 +13,7 @@ function getInitialTheme(): Theme {
     // Theme still follows the system preference when storage is unavailable.
   }
 
-  return window.matchMedia("(prefers-color-scheme: dark)").matches
-    ? "dark"
-    : "light";
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
 export function ThemeToggle() {
@@ -40,15 +38,11 @@ export function ThemeToggle() {
       aria-label={`Mudar para tema ${nextTheme === "dark" ? "escuro" : "claro"}`}
       title={`Mudar para tema ${nextTheme === "dark" ? "escuro" : "claro"}`}
     >
-      <span className="theme-toggle__sun" aria-hidden="true">
-        ☼
-      </span>
+      <span className="theme-toggle__sun" aria-hidden="true">☼</span>
       <span className="theme-toggle__track" aria-hidden="true">
         <span className="theme-toggle__thumb" />
       </span>
-      <span className="theme-toggle__moon" aria-hidden="true">
-        ◐
-      </span>
+      <span className="theme-toggle__moon" aria-hidden="true">◐</span>
     </button>
   );
 }

@@ -6,21 +6,15 @@ const surfaces = async (page: Page) =>
       getComputedStyle(document.querySelector(selector)!).backgroundColor;
     return {
       header: color(".markmap-shell-header"),
-      sidebarInk: getComputedStyle(
-        document.querySelector(".markmap-shell-sidebar")!,
-      )
-        .getPropertyValue("--text-primary")
-        .trim(),
-      sidebarBackground: getComputedStyle(
-        document.querySelector(".markmap-shell-sidebar")!,
-      ).backgroundImage,
+      sidebarInk: getComputedStyle(document.querySelector(".markmap-shell-sidebar")!)
+        .getPropertyValue("--text-primary").trim(),
+      sidebarBackground: getComputedStyle(document.querySelector(".markmap-shell-sidebar")!)
+        .backgroundImage,
       main: color(".markmap-app-main"),
       dark: document.documentElement.classList.contains("dark"),
     };
   });
-test("theme changes header, sidebar, content and persists on reload", async ({
-  page,
-}) => {
+test("theme changes header, sidebar, content and persists on reload", async ({ page }) => {
   await page.goto("/");
   await page.evaluate(() => localStorage.setItem("theme", "dark"));
   await page.reload();
@@ -38,9 +32,7 @@ test("theme changes header, sidebar, content and persists on reload", async ({
   await page.getByRole("button", { name: "Ativar tema escuro" }).click();
   expect((await surfaces(page)).dark).toBe(true);
 });
-test("map controls and offline canvas respect the current appearance", async ({
-  page,
-}) => {
+test("map controls and offline canvas respect the current appearance", async ({ page }) => {
   await page.goto("/workspace");
   await page.evaluate(() => localStorage.setItem("theme", "dark"));
   await page.reload();
@@ -48,22 +40,16 @@ test("map controls and offline canvas respect the current appearance", async ({
   await expect(map).toBeVisible();
   const dark = await map.evaluate((el) => getComputedStyle(el).backgroundColor);
   await page.getByRole("button", { name: "Ativar tema claro" }).click();
-  const light = await map.evaluate(
-    (el) => getComputedStyle(el).backgroundColor,
-  );
+  const light = await map.evaluate((el) => getComputedStyle(el).backgroundColor);
   expect(light).not.toBe(dark);
   await expect(map).toHaveCSS("color-scheme", "light");
 });
-test("standalone install guide uses the saved light theme", async ({
-  page,
-}) => {
+test("standalone install guide uses the saved light theme", async ({ page }) => {
   await page.goto("/");
   await page.evaluate(() => localStorage.setItem("theme", "light"));
   await page.goto("/?install=1");
   const gate = page.locator(".pwa-install-gate");
   await expect(gate).toBeVisible();
-  expect(
-    await gate.evaluate((el) => getComputedStyle(el).backgroundColor),
-  ).not.toBe("rgb(6, 19, 26)");
+  expect(await gate.evaluate((el) => getComputedStyle(el).backgroundColor)).not.toBe("rgb(6, 19, 26)");
   await expect(page.locator("html")).not.toHaveClass(/dark/);
 });

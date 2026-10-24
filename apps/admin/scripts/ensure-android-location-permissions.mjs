@@ -59,11 +59,10 @@ const main = async () => {
   if (closing === -1 || !/<manifest(?:\s|>)/.test(manifest))
     throw new Error(`Manifesto Android malformado em ${manifestPath}.`);
   const activeXml = manifest.replace(/<!--[\s\S]*?-->/g, "");
-  const missing = REQUIRED_PERMISSIONS.filter(
-    (permission) =>
-      !new RegExp(
-        `<uses-permission\\s+[^>]*\\bandroid:name\\s*=\\s*["']${permission}["'][^>]*>`,
-      ).test(activeXml),
+  const missing = REQUIRED_PERMISSIONS.filter((permission) =>
+    !new RegExp(
+      `<uses-permission\\s+[^>]*\\bandroid:name\\s*=\\s*["']${permission}["'][^>]*>`,
+    ).test(activeXml),
   );
   if (missing.length === 0) return;
 

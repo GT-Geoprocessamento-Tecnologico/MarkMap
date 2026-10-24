@@ -4,21 +4,21 @@ Base principal: raiz ou prefixo `/api/v1`.
 
 ## Rotas públicas/infra
 
-| Método | Rota                           | Estado                               |
-| ------ | ------------------------------ | ------------------------------------ |
-| GET    | `/health`                      | implementada                         |
-| GET    | `/api/v1`                      | implementada                         |
-| GET    | `/storage/presign/put?key=...` | implementada como indisponível (503) |
-| GET    | `/storage/presign/get?key=...` | implementada como indisponível (503) |
+| Método | Rota | Estado |
+|---|---|---|
+| GET | `/health` | implementada |
+| GET | `/api/v1` | implementada |
+| GET | `/storage/presign/put?key=...` | implementada como indisponível (503) |
+| GET | `/storage/presign/get?key=...` | implementada como indisponível (503) |
 
 As rotas de storage validam a chave, mas a capability remota ainda não está disponível.
 
 ## Workspace
 
-| Método | Rota                   | Função                                            |
-| ------ | ---------------------- | ------------------------------------------------- |
-| POST   | `/workspace/provision` | cria/vincula capability anônima de workspace      |
-| POST   | `/workspace/recover`   | recupera/rotaciona capability por bootstrap proof |
+| Método | Rota | Função |
+|---|---|---|
+| POST | `/workspace/provision` | cria/vincula capability anônima de workspace |
+| POST | `/workspace/recover` | recupera/rotaciona capability por bootstrap proof |
 
 O bearer bruto não é armazenado no banco; o servidor guarda digest/hash.
 
@@ -26,10 +26,10 @@ O bearer bruto não é armazenado no banco; o servidor guarda digest/hash.
 
 As rotas abaixo usam middleware de capability:
 
-| Método | Rota         | Função                                  |
-| ------ | ------------ | --------------------------------------- |
-| POST   | `/sync/push` | aplica lote de operações                |
-| GET    | `/sync/pull` | retorna mudanças/tombstones após cursor |
+| Método | Rota | Função |
+|---|---|---|
+| POST | `/sync/push` | aplica lote de operações |
+| GET | `/sync/pull` | retorna mudanças/tombstones após cursor |
 
 ### Push
 

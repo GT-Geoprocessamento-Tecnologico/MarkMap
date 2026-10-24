@@ -10,8 +10,7 @@ export interface AppUpdateRequest {
 export const PWA_UPDATE_REQUEST = "markmap:pwa-update-request";
 
 export function requestAppUpdate(): Promise<AppUpdateResult> {
-  if (typeof window === "undefined")
-    return Promise.resolve({ status: "unavailable" });
+  if (typeof window === "undefined") return Promise.resolve({ status: "unavailable" });
   return new Promise((resolve) => {
     const event = new CustomEvent<AppUpdateRequest>(PWA_UPDATE_REQUEST, {
       cancelable: true,

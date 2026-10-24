@@ -4,7 +4,5 @@ export interface ActiveGenerationRecord {
   generation: string;
 }
 export declare function matchesActiveRegionGeneration(
-  rows: ActiveGenerationRecord[],
-  packageId: string,
-  expectedGeneration?: string,
+  rows: ActiveGenerationRecord[], packageId: string, expectedGeneration?: string,
 ): boolean;

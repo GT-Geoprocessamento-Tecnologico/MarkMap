@@ -33,12 +33,12 @@ Fazer KML/KMZ, GeoJSON e GPX importados aparecerem sobre o MapLibre com suas coo
 
 ## Grafo e ownership
 
-| ID     | Responsável        | Arquivos próprios                                                                                                                | Entrega                                                                                                                                                                   | Dependência        |
-| ------ | ------------------ | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
-| KML-01 | Parser builder     | `packages/geo/src/kml.ts`, `packages/geo/src/gpx-types.ts`, `packages/geo/src/tracks-geojson.ts`, testes `packages/geo/tests/**` | Placemark com atributos/namespaces, MultiGeometry/polígonos, propriedades escalares e limites; extensões opcionais `sourceId`/metadata preservam o contrato GPX existente | esta especificação |
-| KML-02 | Import/map builder | `apps/admin/src/lib/datasets/**`, `ImportsPage`/CommandCenter somente se a reprodução exigir                                     | Fixture real no pipeline, seleção, bounds, persistência e overlay offline                                                                                                 | KML-01             |
-| KML-03 | QA independente    | testes de parser, Vitest/Playwright e matriz WebView                                                                             | desktop + reload offline + Android/iOS real; evidência de posição e erros                                                                                                 | KML-01/02          |
-| KML-04 | Root               | `apps/admin/package.json`, `CHANGELOG.md`, release guard/native quando aplicável                                                 | reservar/publicar `0.3.1` e integrar somente arquivos aprovados                                                                                                           | KML-03             |
+| ID | Responsável | Arquivos próprios | Entrega | Dependência |
+|---|---|---|---|---|
+| KML-01 | Parser builder | `packages/geo/src/kml.ts`, `packages/geo/src/gpx-types.ts`, `packages/geo/src/tracks-geojson.ts`, testes `packages/geo/tests/**` | Placemark com atributos/namespaces, MultiGeometry/polígonos, propriedades escalares e limites; extensões opcionais `sourceId`/metadata preservam o contrato GPX existente | esta especificação |
+| KML-02 | Import/map builder | `apps/admin/src/lib/datasets/**`, `ImportsPage`/CommandCenter somente se a reprodução exigir | Fixture real no pipeline, seleção, bounds, persistência e overlay offline | KML-01 |
+| KML-03 | QA independente | testes de parser, Vitest/Playwright e matriz WebView | desktop + reload offline + Android/iOS real; evidência de posição e erros | KML-01/02 |
+| KML-04 | Root | `apps/admin/package.json`, `CHANGELOG.md`, release guard/native quando aplicável | reservar/publicar `0.3.1` e integrar somente arquivos aprovados | KML-03 |
 
 ## Verificação obrigatória
 

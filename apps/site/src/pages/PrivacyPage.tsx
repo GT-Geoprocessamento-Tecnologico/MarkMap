@@ -11,22 +11,10 @@ export function PrivacyPage() {
         <h2>Estado técnico atual</h2>
         <ul>
           <li>operação principal local-first;</li>
-          <li>
-            localização/GPS pode ser utilizada mediante permissão do
-            dispositivo;
-          </li>
-          <li>
-            projetos, mapas, camadas, feições e arquivos geoespaciais podem ser
-            processados no fluxo da aplicação;
-          </li>
-          <li>
-            sincronização remota pode ocorrer quando houver rede e configuração
-            correspondente;
-          </li>
-          <li>
-            credenciais privilegiadas do banco não são expostas diretamente ao
-            navegador.
-          </li>
+          <li>localização/GPS pode ser utilizada mediante permissão do dispositivo;</li>
+          <li>projetos, mapas, camadas, feições e arquivos geoespaciais podem ser processados no fluxo da aplicação;</li>
+          <li>sincronização remota pode ocorrer quando houver rede e configuração correspondente;</li>
+          <li>credenciais privilegiadas do banco não são expostas diretamente ao navegador.</li>
         </ul>
       </main>
       <Footer />

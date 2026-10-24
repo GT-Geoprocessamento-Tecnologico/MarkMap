@@ -16,10 +16,7 @@ import {
   type MeshRecord,
 } from "../../lib/mesh/mesh-store";
 import { PdfPreview, sha256Blob } from "../../lib/pdf/pdf-preview";
-import {
-  localRepository,
-  type OriginalRecord,
-} from "../../lib/local-repositories";
+import { localRepository, type OriginalRecord } from "../../lib/local-repositories";
 import { AppIcon } from "../../components/AppIcon";
 import { TrackElevationProfile } from "../../components/elevation/TrackElevationProfile";
 
@@ -39,11 +36,7 @@ export default function ImportsPage() {
   const refresh = useCallback(async () => {
     setDatasets(await listDatasets());
     setMeshes(await listMeshes());
-    setPdfs(
-      (await localRepository.listOriginals()).filter(
-        (record) => record.mediaType === "application/pdf",
-      ),
-    );
+    setPdfs((await localRepository.listOriginals()).filter((record) => record.mediaType === "application/pdf"));
   }, []);
   useEffect(() => {
     void refresh().catch((cause) =>
@@ -54,9 +47,7 @@ export default function ImportsPage() {
       ),
     );
   }, [refresh]);
-  const profileDataset = datasets.find(
-    (dataset) => dataset.id === profileDatasetId,
-  );
+  const profileDataset = datasets.find((dataset) => dataset.id === profileDatasetId);
   const filteredDatasets = useMemo(
     () =>
       datasets.filter((dataset) =>
@@ -74,14 +65,7 @@ export default function ImportsPage() {
     try {
       if (/\.pdf$/i.test(file.name) || file.type === "application/pdf") {
         const sha256 = await sha256Blob(file);
-        await localRepository.saveOriginal({
-          blobId: sha256,
-          blob: file,
-          mediaType: "application/pdf",
-          bytes: file.size,
-          sha256,
-          originalName: file.name,
-        });
+        await localRepository.saveOriginal({ blobId: sha256, blob: file, mediaType: "application/pdf", bytes: file.size, sha256, originalName: file.name });
       } else if (/\.glb$/i.test(file.name)) {
         await saveMesh({ file });
       } else {
@@ -132,10 +116,7 @@ export default function ImportsPage() {
     } catch (cause) {
       toast({
         title: "Exportação não concluída",
-        description:
-          cause instanceof Error
-            ? cause.message
-            : "Não foi possível exportar o arquivo.",
+        description: cause instanceof Error ? cause.message : "Não foi possível exportar o arquivo.",
         variant: "error",
       });
     }
@@ -149,8 +130,7 @@ export default function ImportsPage() {
           Conjuntos de dados
         </h1>
         <p className="mt-1 text-sm text-on-surface-variant">
-          Importe GeoJSON, GPX, KML e KMZ para trabalhar offline neste
-          dispositivo.
+          Importe GeoJSON, GPX, KML e KMZ para trabalhar offline neste dispositivo.
         </p>
       </header>
       <div className="relative mb-6 flex min-h-40 flex-col items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-outline-variant bg-surface-container p-6 text-center">
@@ -163,13 +143,10 @@ export default function ImportsPage() {
         />
         <AppIcon name="upload" size="lg" className="mb-3" />
         <h2 className="font-bold">
-          {isUploading
-            ? "Validando arquivo…"
-            : "Selecione GeoJSON, GPX, KML, KMZ, PDF ou GLB"}
+          {isUploading ? "Validando arquivo…" : "Selecione GeoJSON, GPX, KML, KMZ, PDF ou GLB"}
         </h2>
         <p className="mt-1 text-xs text-on-surface-variant">
-          GeoJSON, GPX, KML, KMZ e PDF até 25 MiB. Trilhas e pontos são
-          convertidos em GeoJSON local. PDFs são visualizados localmente; o
+          GeoJSON, GPX, KML, KMZ e PDF até 25 MiB. Trilhas e pontos são convertidos em GeoJSON local. PDFs são visualizados localmente; o
           posicionamento geográfico só é informado quando os metadados passam
           pelas validações. GLB é validado e salvo localmente.
         </p>
@@ -275,27 +252,15 @@ export default function ImportsPage() {
                         <AppIcon name="download" size="md" />
                         <span className="lg:hidden">Exportar GeoJSON</span>
                       </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setProfileDatasetId((id) =>
-                            id === dataset.id ? null : dataset.id,
-                          )
-                        }
-                        title="Perfil de elevação local"
-                        aria-label={`Perfil de elevação de ${dataset.name}`}
-                        className="inline-flex min-h-[44px] items-center rounded-lg border border-outline-variant px-3 py-2 text-xs text-on-surface-variant"
-                      >
+                      <button type="button" onClick={() => setProfileDatasetId((id) => id === dataset.id ? null : dataset.id)}
+                        title="Perfil de elevação local" aria-label={`Perfil de elevação de ${dataset.name}`}
+                        className="inline-flex min-h-[44px] items-center rounded-lg border border-outline-variant px-3 py-2 text-xs text-on-surface-variant">
                         Elevação
                       </button>
                       {dataset.format !== "GeoJSON" && (
-                        <button
-                          type="button"
-                          onClick={() => void handleExport(dataset, true)}
-                          title="Exportar arquivo original"
-                          aria-label="Exportar arquivo original"
-                          className="inline-flex min-h-[44px] items-center rounded-lg border border-outline-variant px-3 py-2 text-xs text-on-surface-variant"
-                        >
+                        <button type="button" onClick={() => void handleExport(dataset, true)}
+                          title="Exportar arquivo original" aria-label="Exportar arquivo original"
+                          className="inline-flex min-h-[44px] items-center rounded-lg border border-outline-variant px-3 py-2 text-xs text-on-surface-variant">
                           Original
                         </button>
                       )}
@@ -317,9 +282,7 @@ export default function ImportsPage() {
           </tbody>
         </table>
       </div>
-      {profileDataset && (
-        <TrackElevationProfile features={profileDataset.geojson.features} />
-      )}
+      {profileDataset && <TrackElevationProfile features={profileDataset.geojson.features} />}
       <section className="mt-6 rounded-2xl border border-outline-variant bg-surface-container p-4">
         <h2 className="font-bold">Malhas 3D locais</h2>
         <p className="mt-1 text-xs text-on-surface-variant">
@@ -371,9 +334,7 @@ export default function ImportsPage() {
           )}
         </div>
       </section>
-      {pdfs.map((pdf) => (
-        <PdfPreview key={pdf.blobId} record={pdf} />
-      ))}
+      {pdfs.map((pdf) => <PdfPreview key={pdf.blobId} record={pdf} />)}
     </div>
   );
 }

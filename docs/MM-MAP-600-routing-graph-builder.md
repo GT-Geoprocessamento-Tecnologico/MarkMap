@@ -6,11 +6,9 @@
 **Gate M7**: rota completa a pé/bike/carro em aparelho sem internet
 
 ## Objetivo
-
 Gerar grafo regional de roteamento a partir de OSM, considerando one-way, access, turn restrictions, surface, tracktype, acessos bicicleta/peão, ferry, velocidades por perfil e bridges/tunnels.
 
 ## Fontes de Inspiração (conceitos, não código copiado)
-
 - `libs/routing/` do Organic Maps — modelo de restrições e perfis (conceitos; **nenhum código GPL copiado**)
 
 ## Estrutura de Dados
@@ -27,7 +25,7 @@ export const graphEdgeSchema = z.object({
   id: z.number().int().nonnegative(),
   from: z.number().int(),
   to: z.number().int(),
-  distance: z.number().positive(), // metros
+  distance: z.number().positive(),       // metros
   speedKph: z.number().positive(),
   highwayType: z.string(),
   oneway: z.boolean(),
@@ -42,14 +40,7 @@ export const turnRestrictionSchema = z.object({
   fromEdge: z.number().int(),
   viaNode: z.number().int(),
   toEdge: z.number().int(),
-  type: z.enum([
-    "no_left_turn",
-    "no_right_turn",
-    "no_u_turn",
-    "only_left_turn",
-    "only_right_turn",
-    "no_straight_on",
-  ]),
+  type: z.enum(["no_left_turn", "no_right_turn", "no_u_turn", "only_left_turn", "only_right_turn", "no_straight_on"]),
 });
 
 export const routingGraphSchema = z.object({
@@ -71,7 +62,6 @@ export const routingGraphSchema = z.object({
 6. **Velocidades**: tabela por perfil (`PROFILE_SPEEDS`) com default por `highwayType`.
 
 ## Evidência Concreta
-
 - ✅ Schema `routingGraphSchema` com nodes/edges/turnRestrictions/bounds/profileSpeeds
 - ✅ `access` como registro flexível (não enum fechado)
 - ✅ `oneway`, `surface`, `bridges`, `tunnels`, `name` modelados
@@ -80,4 +70,4 @@ export const routingGraphSchema = z.object({
 
 ---
 
-_Entregável do MM-MAP-600. Prepara MM-MAP-610 (Runtime router)._
+*Entregável do MM-MAP-600. Prepara MM-MAP-610 (Runtime router).*

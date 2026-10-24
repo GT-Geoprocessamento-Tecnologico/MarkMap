@@ -2,7 +2,12 @@
   "id": "br-uf-rs",
   "version": "1.0.0-brazil.20261019",
   "label": "Rio Grande do Sul — mapa offline",
-  "bounds": [-57.5941, -33.7439, -49.7031, -27.0931],
+  "bounds": [
+    -57.5941,
+    -33.7439,
+    -49.7031,
+    -27.0931
+  ],
   "minZoom": 0,
   "maxZoom": 9,
   "archive": {
@@ -26,7 +31,9 @@
   "createdAt": "2026-10-19T22:51:10.383Z",
   "packageVersion": "1.0.0-brazil.20261019",
   "osmDataDate": "2026-10-19T04:00:00.000Z",
-  "capabilities": ["basemap"],
+  "capabilities": [
+    "basemap"
+  ],
   "checksums": {
     "archive": "54e7fe701ed4751d55ebd63d5ecf2e03586e0a78822ab4271db19c037cbf7521",
     "style": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",

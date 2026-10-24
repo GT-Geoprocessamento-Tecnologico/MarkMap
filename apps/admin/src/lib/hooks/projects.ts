@@ -18,9 +18,7 @@ async function listLocalProjects(): Promise<Project[]> {
       entity.payload?.entity === "project" ? entity.payload.data : undefined,
     );
     if (parsed.id !== entity.entityId) {
-      throw new Error(
-        "O projeto local não corresponde ao identificador armazenado.",
-      );
+      throw new Error("O projeto local não corresponde ao identificador armazenado.");
     }
     return parsed;
   });
@@ -28,19 +26,13 @@ async function listLocalProjects(): Promise<Project[]> {
 
 async function getLocalProject(projectId: string): Promise<Project | null> {
   const workspaceId = await localRepository.workspaceId();
-  const entity = await localRepository.getEntity(
-    workspaceId,
-    "project",
-    projectId,
-  );
+  const entity = await localRepository.getEntity(workspaceId, "project", projectId);
   if (!entity || entity.deleted) return null;
   const parsed = projectSchema.parse(
     entity.payload?.entity === "project" ? entity.payload.data : undefined,
   );
   if (parsed.id !== projectId) {
-    throw new Error(
-      "O projeto local não corresponde ao identificador solicitado.",
-    );
+    throw new Error("O projeto local não corresponde ao identificador solicitado.");
   }
   return parsed;
 }
@@ -52,9 +44,7 @@ export function useProjects(options: { cursor?: string; limit?: number } = {}) {
     queryFn: async () => {
       const items = await listLocalProjects();
       const offset = cursor && /^\d+$/.test(cursor) ? Number(cursor) : 0;
-      const page = limit
-        ? items.slice(offset, offset + limit)
-        : items.slice(offset);
+      const page = limit ? items.slice(offset, offset + limit) : items.slice(offset);
       return { items: page, nextCursor: null };
     },
   });
@@ -63,10 +53,7 @@ export function useProjects(options: { cursor?: string; limit?: number } = {}) {
 export function useProjectPages() {
   const query = useQuery({
     queryKey: [...queryKeys.projects(), "local-pages"],
-    queryFn: async () => ({
-      items: await listLocalProjects(),
-      nextCursor: null,
-    }),
+    queryFn: async () => ({ items: await listLocalProjects(), nextCursor: null }),
   });
   return {
     ...query,

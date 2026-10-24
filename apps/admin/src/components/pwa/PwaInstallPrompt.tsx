@@ -8,11 +8,7 @@ import {
 
 type InstallPhase = "idle" | "accepted" | "dismissed" | "failed";
 
-export function PwaInstallPrompt({
-  fullScreen = false,
-}: {
-  fullScreen?: boolean;
-}) {
+export function PwaInstallPrompt({ fullScreen = false }: { fullScreen?: boolean }) {
   const installState = useSyncExternalStore(
     subscribePwaInstall,
     getPwaInstallSnapshot,
@@ -23,10 +19,8 @@ export function PwaInstallPrompt({
   const [busy, setBusy] = useState(false);
 
   const showFullScreen = fullScreen || phase === "accepted";
-  if (isPwaStandalone() || (!fullScreen && dismissed && phase !== "accepted"))
-    return null;
-  if (installState.installed && phase !== "accepted" && !fullScreen)
-    return null;
+  if (isPwaStandalone() || (!fullScreen && dismissed && phase !== "accepted")) return null;
+  if (installState.installed && phase !== "accepted" && !fullScreen) return null;
 
   // The native browser prompt must be called from this exact click gesture.
   const install = async () => {
@@ -52,26 +46,16 @@ export function PwaInstallPrompt({
         aria-labelledby="markmap-install-title"
       >
         {showFullScreen && (
-          <img
-            className="pwa-install-prompt__icon"
-            src="/icons/icon-192x192-cf74c7b0.png"
-            alt=""
-          />
+          <img className="pwa-install-prompt__icon" src="/icons/icon-192x192-cf74c7b0.png" alt="" />
         )}
         <div className="pwa-install-prompt__copy">
           <strong id="markmap-install-title">{title}</strong>
           <span>{description}</span>
         </div>
-        {actions && (
-          <div className="pwa-install-prompt__actions">{actions}</div>
-        )}
+        {actions && <div className="pwa-install-prompt__actions">{actions}</div>}
       </section>
     );
-    return showFullScreen ? (
-      <main className="pwa-install-gate">{content}</main>
-    ) : (
-      content
-    );
+    return showFullScreen ? <main className="pwa-install-gate">{content}</main> : content;
   };
 
   if (phase === "accepted" || (fullScreen && installState.installed)) {
@@ -84,9 +68,7 @@ export function PwaInstallPrompt({
   if (phase === "dismissed" || phase === "failed") {
     if (!fullScreen) return null;
     return panel(
-      phase === "dismissed"
-        ? "Instalação cancelada"
-        : "Não foi possível solicitar a instalação",
+      phase === "dismissed" ? "Instalação cancelada" : "Não foi possível solicitar a instalação",
       "Use a opção “Instalar aplicativo” no menu do navegador. Se já estiver instalado, abra o MarkMap pelo ícone do dispositivo.",
     );
   }

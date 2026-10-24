@@ -1,4 +1,1 @@
-export function describeOfflineRouteWorkerFailure(
-  cause: unknown,
-  operation?: "load" | "route",
-): string;
+export function describeOfflineRouteWorkerFailure(cause: unknown, operation?: 'load' | 'route'): string;

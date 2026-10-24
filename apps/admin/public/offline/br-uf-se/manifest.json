@@ -2,7 +2,12 @@
   "id": "br-uf-se",
   "version": "1.0.0-brazil.20261019",
   "label": "Sergipe — mapa offline",
-  "bounds": [-38.2383, -11.5686, -36.3959, -9.515],
+  "bounds": [
+    -38.2383,
+    -11.5686,
+    -36.3959,
+    -9.515
+  ],
   "minZoom": 0,
   "maxZoom": 9,
   "archive": {
@@ -26,7 +31,9 @@
   "createdAt": "2026-10-19T22:51:32.818Z",
   "packageVersion": "1.0.0-brazil.20261019",
   "osmDataDate": "2026-10-19T04:00:00.000Z",
-  "capabilities": ["basemap"],
+  "capabilities": [
+    "basemap"
+  ],
   "checksums": {
     "archive": "311b3b18bddeaaf78c8953848d568ad198420c4afdd3a2976c3d7d8064260ab0",
     "style": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",

@@ -7,10 +7,7 @@ type NavigatorWithServiceWorker = Omit<Navigator, "serviceWorker"> & {
   serviceWorker?: unknown;
 };
 
-type WaitingMock = {
-  state: "installed";
-  postMessage: ReturnType<typeof vi.fn>;
-};
+type WaitingMock = { state: 'installed'; postMessage: ReturnType<typeof vi.fn> };
 
 interface MockRegistration {
   scope: string;
@@ -28,17 +25,13 @@ beforeEach(() => {
   vi.restoreAllMocks();
   // jsdom does not consistently provide MessageChannel; emulate the real handshake.
   class TestMessageChannel {
-    port1 = {
-      onmessage: null as ((event: MessageEvent) => void) | null,
-      close() {},
-    };
+    port1 = { onmessage: null as ((event: MessageEvent) => void) | null, close() {} };
     port2 = {
-      postMessage: (data: unknown) =>
-        this.port1.onmessage?.({ data } as MessageEvent),
+      postMessage: (data: unknown) => this.port1.onmessage?.({ data } as MessageEvent),
       close() {},
     };
   }
-  vi.stubGlobal("MessageChannel", TestMessageChannel);
+  vi.stubGlobal('MessageChannel', TestMessageChannel);
 });
 
 afterEach(() => {
@@ -51,29 +44,18 @@ const createServiceWorkerMock = (overrides: {
 }) => {
   const readyObj: MockRegistration = {
     scope: `${window.location.origin}/`,
-    waiting: overrides.waiting
-      ? {
-          state: "installed",
-          postMessage: vi.fn(
-            (
-              message: unknown,
-              ports?: Array<{ postMessage: (data: unknown) => void }>,
-            ) => {
-              if (
-                (message as { type?: string })?.type === "CHECK_COMPATIBILITY"
-              ) {
-                ports?.[0]?.postMessage({
-                  type: "MARKMAP_COMPATIBILITY",
-                  shellProtocolVersion: 1,
-                  localSchemaVersion: 1,
-                  regionPackageSchemaVersion: 2,
-                });
-              }
-              overrides.waiting?.postMessage(message);
-            },
-          ),
+    waiting: overrides.waiting ? {
+      state: 'installed',
+      postMessage: vi.fn((message: unknown, ports?: Array<{ postMessage: (data: unknown) => void }>) => {
+        if ((message as { type?: string })?.type === 'CHECK_COMPATIBILITY') {
+          ports?.[0]?.postMessage({
+            type: 'MARKMAP_COMPATIBILITY', shellProtocolVersion: 1,
+            localSchemaVersion: 1, regionPackageSchemaVersion: 2,
+          });
         }
-      : null,
+        overrides.waiting?.postMessage(message);
+      }),
+    } : null,
     controller: overrides.controller ?? null,
     installing: null,
     update: vi.fn(async () => undefined),
@@ -119,17 +101,13 @@ describe("UpdatePrompt", () => {
 
     render(<UpdatePrompt />);
 
-    await waitFor(() => expect(screen.getByRole("status")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toBeInTheDocument()
+    );
     expect(screen.getByText("MarkMap tem novidades")).toBeInTheDocument();
-    expect(
-      screen.getByText(/dados locais antes de atualizar/),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Atualizar agora" })).toHaveClass(
-      "pwa-update-prompt__primary",
-    );
-    expect(screen.getByRole("button", { name: "Depois" })).toHaveClass(
-      "pwa-update-prompt__secondary",
-    );
+    expect(screen.getByText(/dados locais antes de atualizar/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Atualizar agora" })).toHaveClass("pwa-update-prompt__primary");
+    expect(screen.getByRole("button", { name: "Depois" })).toHaveClass("pwa-update-prompt__secondary");
   });
 
   it("should not show prompt when no waiting registration", () => {
@@ -152,13 +130,11 @@ describe("UpdatePrompt", () => {
       <UpdatePrompt
         durableWritesReady={() => true}
         compatibilityReady={() => true}
-      />,
+      />
     );
 
     await waitFor(() =>
-      expect(
-        screen.getByRole("button", { name: "Atualizar agora" }),
-      ).not.toBeDisabled(),
+      expect(screen.getByRole("button", { name: "Atualizar agora" })).not.toBeDisabled()
     );
 
     const button = screen.getByRole("button", { name: "Atualizar agora" });
@@ -169,7 +145,7 @@ describe("UpdatePrompt", () => {
         type: "SKIP_WAITING",
         durableWritesReady: true,
         compatibilityVersion: 1,
-      }),
+      })
     );
   });
 
@@ -183,12 +159,10 @@ describe("UpdatePrompt", () => {
       <UpdatePrompt
         durableWritesReady={() => false}
         compatibilityReady={() => true}
-      />,
+      />
     );
 
-    const button = await screen.findByRole("button", {
-      name: "Atualizar agora",
-    });
+    const button = await screen.findByRole("button", { name: "Atualizar agora" });
     expect(button).not.toBeDisabled();
 
     await userEvent.click(button);
@@ -197,7 +171,7 @@ describe("UpdatePrompt", () => {
     await waitFor(() => expect(button).toBeEnabled());
     // Compatibility handshake may post a message, but activation must not.
     expect(readyObj.waiting?.postMessage).not.toHaveBeenCalledWith(
-      expect.objectContaining({ type: "SKIP_WAITING" }),
+      expect.objectContaining({ type: "SKIP_WAITING" })
     );
   });
 
@@ -230,23 +204,15 @@ describe("UpdatePrompt", () => {
       controller: true,
     });
     render(
-      <UpdatePrompt
-        durableWritesReady={() => true}
-        compatibilityReady={() => true}
-      />,
+      <UpdatePrompt durableWritesReady={() => true} compatibilityReady={() => true} />
     );
 
     let result: Awaited<ReturnType<typeof requestAppUpdate>> | undefined;
-    await act(async () => {
-      result = await requestAppUpdate();
-    });
+    await act(async () => { result = await requestAppUpdate(); });
     expect(result).toEqual({ status: "updating" });
     expect(readyObj.update).toHaveBeenCalled();
     expect(readyObj.waiting?.postMessage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: "SKIP_WAITING",
-        durableWritesReady: true,
-      }),
+      expect.objectContaining({ type: "SKIP_WAITING", durableWritesReady: true })
     );
   });
 
@@ -258,9 +224,7 @@ describe("UpdatePrompt", () => {
     render(<UpdatePrompt />);
 
     let result: Awaited<ReturnType<typeof requestAppUpdate>> | undefined;
-    await act(async () => {
-      result = await requestAppUpdate();
-    });
+    await act(async () => { result = await requestAppUpdate(); });
     expect(result).toEqual({ status: "current" });
     expect(readyObj.update).toHaveBeenCalled();
   });
@@ -270,20 +234,14 @@ describe("UpdatePrompt", () => {
       waiting: { postMessage: vi.fn() },
       controller: true,
     });
-    render(
-      <UpdatePrompt
-        durableWritesReady={() => false}
-        compatibilityReady={() => true}
-      />,
-    );
+    render(<UpdatePrompt durableWritesReady={() => false} compatibilityReady={() => true} />);
 
     let result: Awaited<ReturnType<typeof requestAppUpdate>> | undefined;
-    await act(async () => {
-      result = await requestAppUpdate();
-    });
+    await act(async () => { result = await requestAppUpdate(); });
     expect(result?.status).toBe("error");
     expect(readyObj.waiting?.postMessage).not.toHaveBeenCalledWith(
-      expect.objectContaining({ type: "SKIP_WAITING" }),
+      expect.objectContaining({ type: "SKIP_WAITING" })
     );
   });
+
 });

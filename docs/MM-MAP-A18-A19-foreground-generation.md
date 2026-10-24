@@ -71,7 +71,7 @@ Não criar backend, sincronização online adicional, armazenamento duplicado, p
 
 ## Riscos, regras Git, ações proibidas e rollback
 
-- `BroadcastChannel` e eventos de foreground são _hints_, não fonte de verdade; IndexedDB é reconsultado. `assetAtRevision` garante coerência do instante da transação, mas não impede que uma aba remova os assets depois; a reconciliação deve solicitar remount.
+- `BroadcastChannel` e eventos de foreground são *hints*, não fonte de verdade; IndexedDB é reconsultado. `assetAtRevision` garante coerência do instante da transação, mas não impede que uma aba remova os assets depois; a reconciliação deve solicitar remount.
 - Retornar do background pode recarregar o basemap se a geração mudou; rotas transitórias associadas ao pacote antigo são reiniciadas por A17. Dados de campo e outbox permanecem.
 - Trabalho apenas na `dev/markmap-pwa-v2`, com HEAD revalidado, update fast-forward e `[skip ci]`. Não sobrescrever branches de agentes.
 - **Proibido sem autorização:** force push, merge na `main`, GitHub Actions remoto, deploy público na Vercel, release/tag, publicação Android/iOS, Neon/migration, operações destrutivas ou exclusão de secrets/dados.

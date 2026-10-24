@@ -7,10 +7,7 @@
     <!-- Site independente, sem manifest nem ícone instalável do aplicativo. -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="robots" content="noindex,nofollow" />
-    <meta
-      name="description"
-      content="MarkMap: mapeamento e coleta geoespacial offline-first para trabalho de campo."
-    />
+    <meta name="description" content="MarkMap: mapeamento e coleta geoespacial offline-first para trabalho de campo." />
     <title>MarkMap — Planejamento Inteligente</title>
     <script>
       (() => {
@@ -20,12 +17,9 @@
         } catch {
           saved = null;
         }
-        const theme =
-          saved === "light" || saved === "dark"
-            ? saved
-            : window.matchMedia("(prefers-color-scheme: dark)").matches
-              ? "dark"
-              : "light";
+        const theme = saved === "light" || saved === "dark"
+          ? saved
+          : (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
         document.documentElement.dataset.theme = theme;
       })();
     </script>

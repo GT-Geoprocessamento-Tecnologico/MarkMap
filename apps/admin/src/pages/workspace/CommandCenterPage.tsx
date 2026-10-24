@@ -1,21 +1,6 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useQuery } from "@tanstack/react-query";
-import {
-  featureBounds,
-  loadProjectFeatures,
-  matchesFeature,
-  hasPolygonGeometry,
-  hasPointGeometry,
-  shouldDisplayDatasetPoints,
-  filterDatasetFeatures,
-} from "./map-data";
+import { featureBounds, loadProjectFeatures, matchesFeature, hasPolygonGeometry, hasPointGeometry, shouldDisplayDatasetPoints, filterDatasetFeatures } from "./map-data";
 import { useParams, useSearch } from "@tanstack/react-router";
 import { useToast } from "@markmap/ui";
 import type { GeoReference, Route, TransitNetwork } from "@markmap/contracts";
@@ -52,20 +37,10 @@ import {
   type GeoPdfOverlay,
 } from "../../lib/pdf/geopdf-overlay";
 import { offlineMapStore } from "../../lib/storage/offline-map-store";
-import {
-  getSelectedOfflineMapId,
-  setSelectedOfflineMapId,
-  subscribeSelectedOfflineMapId,
-} from "../../lib/storage/offline-map-selection";
+import { getSelectedOfflineMapId, setSelectedOfflineMapId, subscribeSelectedOfflineMapId } from "../../lib/storage/offline-map-selection";
 import { subscribeRegionCatalogChanges } from "../../lib/storage/region-catalog-events.mjs";
-import {
-  createRegionRevisionReconciler,
-  subscribeRegionForeground,
-} from "../../lib/storage/region-foreground-reconcile.mjs";
-import {
-  createOfflineMapRecovery,
-  resolveOfflineBasemap,
-} from "../../lib/map/offline-map-recovery.mjs";
+import { createRegionRevisionReconciler, subscribeRegionForeground } from "../../lib/storage/region-foreground-reconcile.mjs";
+import { createOfflineMapRecovery, resolveOfflineBasemap } from "../../lib/map/offline-map-recovery.mjs";
 import {
   createWebglContextRecovery,
   WEBGL_CONTEXT_LOST_MESSAGE,
@@ -77,9 +52,7 @@ import { ensureOfflineSourceLayers } from "../../lib/map/offline-style-layers.mj
 import { describeOfflineMapFailure } from "../../lib/map/offline-map-diagnostics.mjs";
 import { ensureLocationPermission } from "../../lib/device-location-permission";
 import {
-  getFreshDevicePosition,
-  isInsideOfflineRegion,
-  rememberLocationApproval,
+  getFreshDevicePosition, isInsideOfflineRegion, rememberLocationApproval,
   shouldAutoLocateOnOpen,
 } from "../../lib/location-consent";
 import {
@@ -89,28 +62,15 @@ import {
 import { adaptOfflineStyle } from "@markmap/maps/offline/style";
 import { AppIcon, type AppIconName } from "../../components/AppIcon";
 import { OfflineSearch } from "../../components/map/OfflineSearch";
-import {
-  OfflineRouting,
-  type RoutePointSelection,
-} from "../../components/map/OfflineRouting";
+import { OfflineRouting, type RoutePointSelection } from "../../components/map/OfflineRouting";
 import { OfflineKnowledge } from "../../components/map/OfflineKnowledge";
 import { OfflineElevation } from "../../components/map/OfflineElevation";
 import { MapOfflinePanel } from "../../components/map/MapOfflinePanel";
 import { RegionDownloadCatalog } from "../../components/map/RegionDownloadCatalog";
-import {
-  evaluateGeoPdfGps,
-  describeGeoPdfGps,
-} from "../../lib/pdf/geopdf-focus.mjs";
-import {
-  MAX_CONTOUR_BYTES,
-  validateRegionalContours,
-  contoursToGeoJSON,
-} from "@markmap/maps/elevation/contour-package.mjs";
-import {
-  loadRegionalPackageSearch,
-  describeRegionalSearchLoadError,
-} from "../../lib/search/regional-package-search";
-import type { LocalSearchRecord } from "../../lib/search/local-map-search";
+import { evaluateGeoPdfGps, describeGeoPdfGps } from "../../lib/pdf/geopdf-focus.mjs";
+import { MAX_CONTOUR_BYTES, validateRegionalContours, contoursToGeoJSON } from "@markmap/maps/elevation/contour-package.mjs";
+import { loadRegionalPackageSearch, describeRegionalSearchLoadError } from '../../lib/search/regional-package-search';
+import type { LocalSearchRecord } from '../../lib/search/local-map-search';
 import { buildLocalMapSearchRecords } from "../../lib/search/local-map-search";
 import { useVisibleMapSearch } from "../../lib/search/use-visible-map-search";
 
@@ -143,32 +103,15 @@ function formatDistance(m: number) {
   return m >= 1000 ? `${(m / 1000).toFixed(2)} km` : `${m.toFixed(1)} m`;
 }
 
-type SidePanel =
-  | "none"
-  | "ferramentas"
-  | "filtros"
-  | "camadas"
-  | "telemetria"
-  | "busca-offline"
-  | "lugares-offline"
-  | "altitude-offline"
-  | "navegacao-offline"
-  | "baixar-mapas";
+type SidePanel = "none" | "ferramentas" | "filtros" | "camadas" | "telemetria"
+  | "busca-offline" | "lugares-offline" | "altitude-offline" | "navegacao-offline" | "baixar-mapas";
 type MapControls = Awaited<ReturnType<typeof createMapLibreMap>>;
 
 function routeAsGeoJSON(route: Route | null): GeoJSON.FeatureCollection {
-  if (!route || route.geometry.length < 2)
-    return { type: "FeatureCollection", features: [] };
-  return {
-    type: "FeatureCollection",
-    features: [
-      {
-        type: "Feature",
-        properties: {},
-        geometry: { type: "LineString", coordinates: route.geometry },
-      },
-    ],
-  };
+  if (!route || route.geometry.length < 2) return { type: 'FeatureCollection', features: [] };
+  return { type: 'FeatureCollection', features: [{ type: 'Feature', properties: {},
+    geometry: { type: 'LineString', coordinates: route.geometry },
+  }] };
 }
 
 export default function CommandCenterPage() {
@@ -182,39 +125,28 @@ export default function CommandCenterPage() {
   const requestedDatasetRef = useRef(search.datasetId);
   requestedDatasetRef.current = search.datasetId;
   const selectedOfflineMapId = useSyncExternalStore(
-    subscribeSelectedOfflineMapId,
-    getSelectedOfflineMapId,
-    () => null,
+    subscribeSelectedOfflineMapId, getSelectedOfflineMapId, () => null,
   );
   const [catalogRevision, setCatalogRevision] = useState(0);
-  const regionReconcilerRef = useRef<ReturnType<
-    typeof createRegionRevisionReconciler
-  > | null>(null);
+  const regionReconcilerRef = useRef<ReturnType<typeof createRegionRevisionReconciler> | null>(null);
   useEffect(() => {
     const reconciler = createRegionRevisionReconciler({
       readSelection: getSelectedOfflineMapId,
-      readGeneration: async (id) =>
-        (await offlineMapStore.getActiveRevision(id))?.generation ?? null,
+      readGeneration: async (id) => (await offlineMapStore.getActiveRevision(id))?.generation ?? null,
       onChanged: () => setCatalogRevision((value) => value + 1),
     });
     regionReconcilerRef.current = reconciler;
-    const stopForeground = subscribeRegionForeground(() => {
-      void reconciler.check();
-    });
+    const stopForeground = subscribeRegionForeground(() => { void reconciler.check(); });
     const stopCatalog = subscribeRegionCatalogChanges((regionId) => {
       // No unnecessary rerenders for unrelated packages or suspended views.
-      if (
-        regionId === getSelectedOfflineMapId() &&
-        document.visibilityState !== "hidden"
-      )
+      if (regionId === getSelectedOfflineMapId() && document.visibilityState !== 'hidden')
         void reconciler.check();
     });
     return () => {
       stopForeground();
       stopCatalog();
       reconciler.dispose();
-      if (regionReconcilerRef.current === reconciler)
-        regionReconcilerRef.current = null;
+      if (regionReconcilerRef.current === reconciler) regionReconcilerRef.current = null;
     };
   }, []);
   // GeoPDF has precedence and should not be replaced by region changes.
@@ -226,16 +158,13 @@ export default function CommandCenterPage() {
   // The neutral basemap is a temporary view choice, never an installed-package mutation.
   const [neutralFor, setNeutralFor] = useState<string | null>(null);
   const mapSource = resolveOfflineBasemap({
-    regionId: activeRegionPackageId,
-    revision: regionalRenderRevision,
-    neutralFor,
-    geoPdfId: search.pdfId,
+    regionId: activeRegionPackageId, revision: regionalRenderRevision,
+    neutralFor, geoPdfId: search.pdfId,
   });
   useEffect(() => {
     if (!mapSource.neutralActive || !neutralRegionId) return;
     return subscribeRegionCatalogChanges((regionId) => {
-      if (regionId === neutralRegionId)
-        setCatalogRevision((value) => value + 1);
+      if (regionId === neutralRegionId) setCatalogRevision((value) => value + 1);
     });
   }, [mapSource.neutralActive, neutralRegionId]);
   const createLayerMutation = useCreateLayer(params.projectId ?? "");
@@ -269,12 +198,8 @@ export default function CommandCenterPage() {
   const mapErrorRef = useRef<string | null>(null);
   mapErrorRef.current = mapError;
   const webglLostRef = useRef(false);
-  const webglRetryBudgetRef = useRef<{
-    sceneKey: string;
-    autoRecoveryUsed: boolean;
-  }>({
-    sceneKey: "",
-    autoRecoveryUsed: false,
+  const webglRetryBudgetRef = useRef<{ sceneKey: string; autoRecoveryUsed: boolean }>({
+    sceneKey: "", autoRecoveryUsed: false,
   });
   const [mapRetryRevision, setMapRetryRevision] = useState(0);
   const retryMap = useCallback(() => {
@@ -284,18 +209,14 @@ export default function CommandCenterPage() {
     setMapReady(false);
     setMapRetryRevision((value) => value + 1);
   }, []);
-  const mapRecoveryRef = useRef<ReturnType<
-    typeof createOfflineMapRecovery
-  > | null>(null);
+  const mapRecoveryRef = useRef<ReturnType<typeof createOfflineMapRecovery> | null>(null);
   useEffect(() => {
     const policy = createOfflineMapRecovery(retryMap);
     mapRecoveryRef.current = policy;
     const stop = subscribeRegionForeground(() => {
       policy.onForeground({
         hasError: Boolean(mapErrorRef.current) && !webglLostRef.current,
-        hasLocalContext: Boolean(
-          (activeRegionPackageId && !mapSource.neutralActive) || search.pdfId,
-        ),
+        hasLocalContext: Boolean((activeRegionPackageId && !mapSource.neutralActive) || search.pdfId),
       });
     });
     return () => {
@@ -303,54 +224,23 @@ export default function CommandCenterPage() {
       policy.dispose();
       if (mapRecoveryRef.current === policy) mapRecoveryRef.current = null;
     };
-  }, [
-    retryMap,
-    activeRegionPackageId,
-    regionalRenderRevision,
-    mapSource.neutralActive,
-    search.pdfId,
-  ]);
+  }, [retryMap, activeRegionPackageId, regionalRenderRevision, mapSource.neutralActive, search.pdfId]);
   const [mapEpoch, setMapEpoch] = useState(0);
-  const [routingPickMode, setRoutingPickMode] = useState<
-    RoutePointSelection["kind"] | null
-  >(null);
-  const routingPickRef = useRef<RoutePointSelection["kind"] | null>(null);
+  const [routingPickMode, setRoutingPickMode] = useState<RoutePointSelection['kind'] | null>(null);
+  const routingPickRef = useRef<RoutePointSelection['kind'] | null>(null);
   routingPickRef.current = routingPickMode;
-  const [routingPoint, setRoutingPoint] = useState<RoutePointSelection | null>(
-    null,
-  );
-  const [transitNetwork, setTransitNetwork] = useState<TransitNetwork | null>(
-    null,
-  );
+  const [routingPoint, setRoutingPoint] = useState<RoutePointSelection | null>(null);
+  const [transitNetwork, setTransitNetwork] = useState<TransitNetwork | null>(null);
   const transitGeoJSON = useMemo<GeoJSON.FeatureCollection>(() => {
-    const lines = new Map(
-      (transitNetwork?.lines ?? []).map((line) => [line.id, line]),
-    );
-    return {
-      type: "FeatureCollection",
-      features: (transitNetwork?.stations ?? []).map((station) => {
-        const names = station.lines
-          .map((id) => lines.get(id)?.name)
-          .filter((value): value is string => Boolean(value));
-        const color =
-          station.lines.map((id) => lines.get(id)?.color).find(Boolean) ??
-          "#2586a3";
-        return {
-          type: "Feature",
-          geometry: { type: "Point", coordinates: [station.lon, station.lat] },
-          properties: {
-            name: station.name,
-            operator: station.operator ?? "",
-            lines: names.join(", "),
-            color,
-            attribution: transitNetwork?.attribution ?? "",
-            license:
-              (transitNetwork as (TransitNetwork & { license?: string }) | null)
-                ?.license ?? "",
-          },
-        };
-      }),
-    };
+    const lines = new Map((transitNetwork?.lines ?? []).map(line => [line.id, line]));
+    return { type: 'FeatureCollection', features: (transitNetwork?.stations ?? []).map(station => {
+      const names = station.lines.map(id => lines.get(id)?.name).filter((value): value is string => Boolean(value));
+      const color = station.lines.map(id => lines.get(id)?.color).find(Boolean) ?? '#2586a3';
+      return { type: 'Feature', geometry: { type: 'Point', coordinates: [station.lon, station.lat] },
+        properties: { name: station.name, operator: station.operator ?? '',
+          lines: names.join(', '), color,
+          attribution: transitNetwork?.attribution ?? '', license: (transitNetwork as (TransitNetwork & { license?: string }) | null)?.license ?? '' } };
+    }) };
   }, [transitNetwork]);
   const transitGeoJSONRef = useRef(transitGeoJSON);
   transitGeoJSONRef.current = transitGeoJSON;
@@ -368,42 +258,29 @@ export default function CommandCenterPage() {
   const markersRef = useRef<Marker[]>([]);
   const gpsMarkerRef = useRef<Marker | null>(null);
   const navigationActiveRef = useRef(false);
-  const updateNavigationPosition = useCallback(
-    (
-      position: { lon: number; lat: number; accuracyM: number } | null,
-      follow: boolean,
-    ) => {
-      if (!position) {
-        gpsMarkerRef.current?.remove();
-        gpsMarkerRef.current = null;
-        return;
-      }
-      const map = mapRef.current;
-      if (!map) return;
-      if (!gpsMarkerRef.current) {
-        gpsMarkerRef.current = new Marker({ color: "#0075D6", scale: 0.8 })
-          .setLngLat([position.lon, position.lat])
-          .addTo(map);
-      } else {
-        gpsMarkerRef.current.setLngLat([position.lon, position.lat]);
-      }
-      if (follow && navigationActiveRef.current) {
-        map.easeTo({
-          center: [position.lon, position.lat],
-          zoom: Math.max(15, map.getZoom()),
-          duration: 350,
-        });
-      }
-    },
-    [],
-  );
+  const updateNavigationPosition = useCallback((position: { lon: number; lat: number; accuracyM: number } | null, follow: boolean) => {
+    if (!position) {
+      gpsMarkerRef.current?.remove();
+      gpsMarkerRef.current = null;
+      return;
+    }
+    const map = mapRef.current;
+    if (!map) return;
+    if (!gpsMarkerRef.current) {
+      gpsMarkerRef.current = new Marker({ color: '#0075D6', scale: 0.8 })
+        .setLngLat([position.lon, position.lat]).addTo(map);
+    } else {
+      gpsMarkerRef.current.setLngLat([position.lon, position.lat]);
+    }
+    if (follow && navigationActiveRef.current) {
+      map.easeTo({ center: [position.lon, position.lat], zoom: Math.max(15, map.getZoom()), duration: 350 });
+    }
+  }, []);
 
   const [sidePanel, setSidePanel] = useState<SidePanel>("none");
   const sidePanelRef = useRef(sidePanel);
   sidePanelRef.current = sidePanel;
-  const [elevationBounds, setElevationBounds] = useState<
-    [number, number, number, number] | undefined
-  >();
+  const [elevationBounds, setElevationBounds] = useState<[number, number, number, number] | undefined>();
   const [telemetry, setTelemetry] = useState<TelemetryData>({
     lat: -15.785,
     lng: -47.92,
@@ -414,22 +291,10 @@ export default function CommandCenterPage() {
   const [measuring, setMeasuring] = useState(false);
   const [measurePoints, setMeasurePoints] = useState<MeasurePoint[]>([]);
   const [totalDistance, setTotalDistance] = useState(0);
-  const elevationCenter = useMemo<[number, number]>(
-    () => [telemetry.lng, telemetry.lat],
-    [telemetry.lng, telemetry.lat],
-  );
-  const elevationGeometry = useMemo(
-    () =>
-      measurePoints.length >= 2
-        ? measurePoints.map(
-            (point) => [point.lng, point.lat] as [number, number],
-          )
-        : undefined,
-    [measurePoints],
-  );
-  const [drawingSession, setDrawingSession] = useState<DrawingSession | null>(
-    null,
-  );
+  const elevationCenter = useMemo<[number, number]>(() => [telemetry.lng, telemetry.lat], [telemetry.lng, telemetry.lat]);
+  const elevationGeometry = useMemo(() => measurePoints.length >= 2
+    ? measurePoints.map(point => [point.lng, point.lat] as [number, number]) : undefined, [measurePoints]);
+  const [drawingSession, setDrawingSession] = useState<DrawingSession | null>(null);
   const drawingSessionRef = useRef<DrawingSession | null>(null);
   const drawLayerIdRef = useRef<string | null>(null);
   const [layerVisibility, setLayerVisibility] = useState<
@@ -479,16 +344,9 @@ export default function CommandCenterPage() {
     ],
     [activeDataset, projectFeatures],
   );
-  const localSearchRecords = useMemo(
-    () => buildLocalMapSearchRecords(fullFeatures),
-    [fullFeatures],
-  );
-  const [regionalSearchRecords, setRegionalSearchRecords] = useState<
-    LocalSearchRecord[]
-  >([]);
-  const [regionalSearchError, setRegionalSearchError] = useState<string | null>(
-    null,
-  );
+  const localSearchRecords = useMemo(() => buildLocalMapSearchRecords(fullFeatures), [fullFeatures]);
+  const [regionalSearchRecords, setRegionalSearchRecords] = useState<LocalSearchRecord[]>([]);
+  const [regionalSearchError, setRegionalSearchError] = useState<string | null>(null);
   useEffect(() => {
     // Routes and transit data belong to the previous map generation.
     navigationActiveRef.current = false;
@@ -503,38 +361,17 @@ export default function CommandCenterPage() {
     setRegionalSearchError(null);
     if (!activeRegionPackageId) return;
     void loadRegionalPackageSearch(offlineMapStore, activeRegionPackageId)
-      .then((records) => {
-        if (!cancelled) {
-          setRegionalSearchRecords(records);
-          setRegionalSearchError(null);
-        }
-      })
-      .catch((cause) => {
-        if (!cancelled) {
-          setRegionalSearchRecords([]);
-          setRegionalSearchError(describeRegionalSearchLoadError(cause));
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
+      .then((records) => { if (!cancelled) { setRegionalSearchRecords(records); setRegionalSearchError(null); } })
+      .catch((cause) => { if (!cancelled) { setRegionalSearchRecords([]); setRegionalSearchError(describeRegionalSearchLoadError(cause)); } });
+    return () => { cancelled = true; };
   }, [activeRegionPackageId, regionalRenderRevision]);
-  const [searchRegionLabel, setSearchRegionLabel] = useState("");
+  const [searchRegionLabel, setSearchRegionLabel] = useState('');
   const visibleMapSearchRecords = useVisibleMapSearch(
-    mapRef,
-    mapSource.regionId,
-    regionalRenderRevision,
-    mapEpoch,
-    mapReady,
-    sidePanel === "busca-offline" && regionalSearchRecords.length === 0,
-    searchRegionLabel,
+    mapRef, mapSource.regionId, regionalRenderRevision, mapEpoch, mapReady,
+    sidePanel === 'busca-offline' && regionalSearchRecords.length === 0, searchRegionLabel,
   );
   const combinedSearchRecords = useMemo(
-    () => [
-      ...regionalSearchRecords,
-      ...localSearchRecords,
-      ...visibleMapSearchRecords,
-    ],
+    () => [...regionalSearchRecords, ...localSearchRecords, ...visibleMapSearchRecords],
     [regionalSearchRecords, localSearchRecords, visibleMapSearchRecords],
   );
   const activeGeoJson = useMemo(
@@ -764,7 +601,12 @@ export default function CommandCenterPage() {
         });
       }
     },
-    [createLayerMutation, params.projectId, projectLayers, toast],
+    [
+      createLayerMutation,
+      params.projectId,
+      projectLayers,
+      toast,
+    ],
   );
 
   const undoDrawing = useCallback(() => {
@@ -784,14 +626,10 @@ export default function CommandCenterPage() {
     const center = map.getCenter();
     const bounds = map.getBounds();
     const area: [number, number, number, number] = [
-      Math.max(-180, bounds.getWest()),
-      Math.max(-85.051128, bounds.getSouth()),
-      Math.min(180, bounds.getEast()),
-      Math.min(85.051128, bounds.getNorth()),
+      Math.max(-180, bounds.getWest()), Math.max(-85.051128, bounds.getSouth()),
+      Math.min(180, bounds.getEast()), Math.min(85.051128, bounds.getNorth()),
     ];
-    setElevationBounds(
-      area[0] < area[2] && area[1] < area[3] ? area : undefined,
-    );
+    setElevationBounds(area[0] < area[2] && area[1] < area[3] ? area : undefined);
     setTelemetry({
       lat: center.lat,
       lng: center.lng,
@@ -805,17 +643,14 @@ export default function CommandCenterPage() {
   useEffect(() => {
     if (!mapContainer.current || mapRef.current) return;
     setMapReady(false);
-    setSearchRegionLabel("");
+    setSearchRegionLabel('');
     setGeoPdfReady(false);
     setGeoPdfMessage(null);
     geoPdfManualFocusRef.current = false;
     fittedKeyRef.current = "";
     let cancelled = false;
     const sceneKey = JSON.stringify([
-      search.pdfId ?? null,
-      activeRegionPackageId,
-      regionalRenderRevision,
-      mapSource.neutralActive,
+      search.pdfId ?? null, activeRegionPackageId, regionalRenderRevision, mapSource.neutralActive,
     ]);
     if (webglRetryBudgetRef.current.sceneKey !== sceneKey) {
       webglRetryBudgetRef.current = { sceneKey, autoRecoveryUsed: false };
@@ -838,8 +673,7 @@ export default function CommandCenterPage() {
     });
     let fallbackActive = !navigator.onLine;
     let releaseProtocolLease: (() => void) | null = null;
-    let styleLifecycle: ReturnType<typeof createOfflineStyleLifecycle> | null =
-      null;
+    let styleLifecycle: ReturnType<typeof createOfflineStyleLifecycle> | null = null;
     let geoPdfOverlay: GeoPdfOverlay | null = null;
     let regionalContours: GeoJSON.FeatureCollection | null = null;
     // Fitting the image and moving to a reliable GPS point are independent.
@@ -859,8 +693,7 @@ export default function CommandCenterPage() {
       let zoom = 14;
       let offlinePackageSelected = false;
       let displayedGeneration: string | null = null;
-      let offlineBounds: readonly [number, number, number, number] | null =
-        null;
+      let offlineBounds: readonly [number, number, number, number] | null = null;
       let offlineMaxZoom = 16;
       let basemap = getDefaultBasemaps()[0];
       const selectedPackageId = mapSource.regionId;
@@ -880,9 +713,10 @@ export default function CommandCenterPage() {
         const record = await localRepository.getOriginal(search.pdfId);
         if (!record)
           throw new Error("Este PDF não está mais salvo neste dispositivo.");
-        const storedReference = await localRepository.getMeta<GeoReference>(
-          `pdfGeoref:${search.pdfId}`,
-        );
+        const storedReference =
+          await localRepository.getMeta<GeoReference>(
+            `pdfGeoref:${search.pdfId}`,
+          );
         const resolved = storedReference
           ? { reference: storedReference, pageCount: null, reason: null }
           : await resolveEmbeddedGeoReference(record.blob);
@@ -910,128 +744,67 @@ export default function CommandCenterPage() {
       if (selectedPackageId && !search.pdfId) {
         offlinePackageSelected = true;
         fallbackActive = true;
-        const installed =
-          await offlineMapStore.getActiveRevision(selectedPackageId);
+        const installed = await offlineMapStore.getActiveRevision(selectedPackageId);
         if (cancelled) return;
         if (!installed) {
           // A package might have been installed during the first lookup.
-          const latest =
-            await offlineMapStore.getActiveRevision(selectedPackageId);
+          const latest = await offlineMapStore.getActiveRevision(selectedPackageId);
           if (cancelled) return;
-          if (latest) {
-            setCatalogRevision((value) => value + 1);
-            return;
-          }
+          if (latest) { setCatalogRevision((value) => value + 1); return; }
           if (getSelectedOfflineMapId() === selectedPackageId) {
-            try {
-              setSelectedOfflineMapId(null);
-            } catch {
-              /* storage may be denied */
-            }
+            try { setSelectedOfflineMapId(null); } catch { /* storage may be denied */ }
           }
-          throw new Error(
-            "O mapa selecionado foi removido ou não está disponível. Selecione outro em Configurações.",
-          );
+          throw new Error("O mapa selecionado foi removido ou não está disponível. Selecione outro em Configurações.");
         }
         displayedGeneration = installed.generation;
-        setSearchRegionLabel(
-          installed.manifest.label.replace(/\s*—\s*mapa offline\s*$/i, ""),
-        );
+        setSearchRegionLabel(installed.manifest.label.replace(/\s*—\s*mapa offline\s*$/i, ""));
         const [archive, styleBlob] = await Promise.all([
-          offlineMapStore.assetAtRevision(
-            selectedPackageId,
-            "package.pmtiles",
-            installed.generation,
-          ),
-          offlineMapStore.assetAtRevision(
-            selectedPackageId,
-            installed.manifest.style.path,
-            installed.generation,
-          ),
+          offlineMapStore.assetAtRevision(selectedPackageId, "package.pmtiles", installed.generation),
+          offlineMapStore.assetAtRevision(selectedPackageId, installed.manifest.style.path, installed.generation),
         ]);
         if (cancelled) return;
         if (!archive || !styleBlob) {
           // Do not mix archived tiles with the style from a newer activation.
-          if (
-            (await offlineMapStore.getActiveRevision(selectedPackageId))
-              ?.generation !== installed.generation
-          ) {
+          if ((await offlineMapStore.getActiveRevision(selectedPackageId))?.generation !== installed.generation) {
             if (!cancelled) setCatalogRevision((value) => value + 1);
             return;
           }
-          throw new Error(
-            "O pacote offline está incompleto neste dispositivo.",
-          );
+          throw new Error("O pacote offline está incompleto neste dispositivo.");
         }
         let sourceStyle: Record<string, unknown>;
         try {
-          sourceStyle = JSON.parse(await styleBlob.text()) as Record<
-            string,
-            unknown
-          >;
+          sourceStyle = JSON.parse(await styleBlob.text()) as Record<string, unknown>;
         } catch {
           throw new Error("O estilo do pacote offline não é um JSON válido.");
         }
         if (installed.manifest.contourLines) {
           const contourRef = installed.manifest.contourLines;
-          const contourBlob = await offlineMapStore.assetAtRevision(
-            selectedPackageId,
-            contourRef.path,
-            installed.generation,
-          );
-          if (
-            !contourBlob ||
-            contourBlob.size !== contourRef.blob.bytes ||
-            contourBlob.size > MAX_CONTOUR_BYTES
-          )
-            throw new Error(
-              "Curvas de nível incompletas; reinstale o pacote regional.",
-            );
-          const digest = await crypto.subtle.digest(
-            "SHA-256",
-            await contourBlob.arrayBuffer(),
-          );
-          const digestHex = [...new Uint8Array(digest)]
-            .map((byte) => byte.toString(16).padStart(2, "0"))
-            .join("");
+          const contourBlob = await offlineMapStore.assetAtRevision(selectedPackageId, contourRef.path, installed.generation);
+          if (!contourBlob || contourBlob.size !== contourRef.blob.bytes || contourBlob.size > MAX_CONTOUR_BYTES)
+            throw new Error('Curvas de nível incompletas; reinstale o pacote regional.');
+          const digest = await crypto.subtle.digest('SHA-256', await contourBlob.arrayBuffer());
+          const digestHex = [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
           if (digestHex !== contourRef.blob.sha256)
-            throw new Error(
-              "Falha de integridade nas curvas de nível regionais.",
-            );
-          const parsedContours = validateRegionalContours(
-            JSON.parse(await contourBlob.text()),
-            installed.manifest.bounds,
-          );
+            throw new Error('Falha de integridade nas curvas de nível regionais.');
+          const parsedContours = validateRegionalContours(JSON.parse(await contourBlob.text()), installed.manifest.bounds);
           regionalContours = contoursToGeoJSON(parsedContours);
         }
         // Changes in another tab may have canceled this initialization while
         // assets were being read. Never register protocols for a stale map.
         if (cancelled) return;
-        const file = new File([archive], "package.pmtiles", {
-          type: "application/vnd.pmtiles",
-        });
+        const file = new File([archive], "package.pmtiles", { type: "application/vnd.pmtiles" });
         const lease = acquireOfflineProtocolLease({
           addProtocol: (scheme, handler) =>
             addProtocol(scheme, handler as Parameters<typeof addProtocol>[1]),
           removeProtocol,
           createHandlers: (leaseId) => {
-            const tileProtocol = createOfflineProtocol(
-              installed.manifest,
-              file,
-              leaseId,
-            );
+            const tileProtocol = createOfflineProtocol(installed.manifest, file, leaseId);
             return {
               tile: (params, controller) =>
-                tileProtocol.tile(params, controller) as Promise<{
-                  data: unknown;
-                }>,
+                tileProtocol.tile(params, controller) as Promise<{ data: unknown }>,
               asset: createOfflineAssetProtocol((requestedId, path) =>
                 requestedId === leaseId
-                  ? offlineMapStore.assetAtRevision(
-                      selectedPackageId,
-                      path,
-                      installed.generation,
-                    )
+                  ? offlineMapStore.assetAtRevision(selectedPackageId, path, installed.generation)
                   : Promise.resolve(null),
               ),
             };
@@ -1040,17 +813,9 @@ export default function CommandCenterPage() {
         releaseProtocolLease = lease.release;
         // Unique source URLs bind tile, style and glyph loads to the same map
         // instance, even while the previous MapLibre worker is stopping.
-        const adaptedStyle = adaptOfflineStyle(
-          sourceStyle,
-          installed.manifest,
-          lease.id,
-        );
+        const adaptedStyle = adaptOfflineStyle(sourceStyle, installed.manifest, lease.id);
         basemap = {
-          ...(basemap ?? {
-            id: "offline",
-            name: installed.manifest.label,
-            attribution: installed.manifest.attribution,
-          }),
+          ...(basemap ?? { id: "offline", name: installed.manifest.label, attribution: installed.manifest.attribution }),
           styleUrl: `data:application/json,${encodeURIComponent(JSON.stringify(adaptedStyle))}`,
         };
         offlineBounds = installed.manifest.bounds;
@@ -1068,8 +833,7 @@ export default function CommandCenterPage() {
       }
 
       const resolvedBasemap = basemap;
-      if (!resolvedBasemap)
-        throw new Error("Nenhum mapa base está disponível.");
+      if (!resolvedBasemap) throw new Error("Nenhum mapa base está disponível.");
       if (cancelled) {
         releaseProtocols();
         return;
@@ -1109,35 +873,21 @@ export default function CommandCenterPage() {
       mapRef.current = map;
       // Show the downloaded region at a useful scale; explicit project/data bounds still take precedence.
       if (offlineBounds && !fitRef.current.bounds && !search.pdfId) {
-        map.fitBounds(
-          [
-            [offlineBounds[0], offlineBounds[1]],
-            [offlineBounds[2], offlineBounds[3]],
-          ],
-          { padding: 48, maxZoom: offlineMaxZoom, duration: 0 },
-        );
+        map.fitBounds([[offlineBounds[0], offlineBounds[1]], [offlineBounds[2], offlineBounds[3]]],
+          { padding: 48, maxZoom: offlineMaxZoom, duration: 0 });
       }
       geolocate.on("geolocate", (position) => {
         void rememberLocationApproval().catch(() => undefined);
         if (!geoPdfOverlay || cancelled) return;
         geoPdfManualFocusRef.current = true;
         updateNavigationPosition(null, false); // Avoid a duplicate marker from initial auto-center.
-        const {
-          latitude: lat,
-          longitude: lon,
-          accuracy: accuracyM,
-        } = position.coords;
+        const { latitude: lat, longitude: lon, accuracy: accuracyM } = position.coords;
         geoPdfGpsNotice = describeGeoPdfGps(
           evaluateGeoPdfGps({ lat, lon, accuracyM }, geoPdfOverlay.coordinates),
         );
         setGeoPdfMessage(geoPdfGpsNotice);
       });
-      if (
-        geoPdfOverlay ||
-        (!search.pdfId &&
-          !requestedDatasetRef.current &&
-          !fitRef.current.bounds)
-      ) {
+      if (geoPdfOverlay || (!search.pdfId && !requestedDatasetRef.current && !fitRef.current.bounds)) {
         let userMoved = false;
         const canvas = map.getCanvas();
         const events = ["pointerdown", "wheel", "keydown"];
@@ -1146,30 +896,21 @@ export default function CommandCenterPage() {
           geoPdfUserMoved = true;
           pendingGeoPdfGpsCenter = null;
         };
-        for (const event of events)
-          canvas.addEventListener(event, markUserMove);
+        for (const event of events) canvas.addEventListener(event, markUserMove);
         const cancel = () => {
           // Finishing a GPS request is not a gesture on the map. Do not
           // disable the initial PDF fit when GPS is absent or imprecise.
           userMoved = true;
-          for (const event of events)
-            canvas.removeEventListener(event, markUserMove);
-          if (cancelAutoCenterRef.current === cancel)
-            cancelAutoCenterRef.current = null;
+          for (const event of events) canvas.removeEventListener(event, markUserMove);
+          if (cancelAutoCenterRef.current === cancel) cancelAutoCenterRef.current = null;
         };
         cancelAutoCenterRef.current = cancel;
         void (async () => {
           try {
             if (!(await shouldAutoLocateOnOpen())) return;
             const fix = await getFreshDevicePosition();
-            if (
-              !fix ||
-              cancelled ||
-              userMoved ||
-              mapRef.current !== map ||
-              navigationActiveRef.current
-            )
-              return;
+            if (!fix || cancelled || userMoved || mapRef.current !== map ||
+                navigationActiveRef.current) return;
             if (geoPdfOverlay) {
               const result = evaluateGeoPdfGps(fix, geoPdfOverlay.coordinates);
               geoPdfGpsNotice = describeGeoPdfGps(result);
@@ -1180,20 +921,13 @@ export default function CommandCenterPage() {
               pendingGeoPdfGpsCenter = result.center;
               updateNavigationPosition(fix, false);
               if (geoPdfHasFitted && !userMoved) {
-                map.jumpTo({
-                  center: result.center,
-                  zoom: Math.max(15, map.getZoom()),
-                });
+                map.jumpTo({ center: result.center, zoom: Math.max(15, map.getZoom()) });
                 pendingGeoPdfGpsCenter = null;
               }
               void rememberLocationApproval().catch(() => undefined);
               return;
             }
-            if (
-              fitRef.current.bounds ||
-              !isInsideOfflineRegion(fix, offlineBounds)
-            )
-              return;
+            if (fitRef.current.bounds || !isInsideOfflineRegion(fix, offlineBounds)) return;
             map.jumpTo({
               center: [fix.lon, fix.lat],
               zoom: Math.min(Math.max(14, map.getZoom()), offlineMaxZoom),
@@ -1207,10 +941,7 @@ export default function CommandCenterPage() {
           }
         })().catch(() => undefined); // Revoked sensor permission must not break the map.
       }
-      regionReconcilerRef.current?.noteRendered(
-        selectedPackageId,
-        displayedGeneration,
-      );
+      regionReconcilerRef.current?.noteRendered(selectedPackageId, displayedGeneration);
       // MapLibre emits these typed events from the underlying WebGL canvas.
       map.on("webglcontextlost", (event) => {
         if (cancelled) return;
@@ -1228,11 +959,7 @@ export default function CommandCenterPage() {
       });
       map.on("error", (event) => {
         if (cancelled || webglLostRef.current) return;
-        if (
-          offlinePackageSelected ||
-          mapSource.neutralActive ||
-          (Boolean(search.pdfId) && fallbackActive)
-        ) {
+        if (offlinePackageSelected || mapSource.neutralActive || (Boolean(search.pdfId) && fallbackActive)) {
           // Selection changes abort outstanding tiles: cancellation is not corruption.
           const issue = describeOfflineMapFailure(event);
           if (!issue) return;
@@ -1249,344 +976,218 @@ export default function CommandCenterPage() {
         }
       });
 
-      const onMove = () => updateTelemetry(map);
-      map.on("move", onMove);
-      map.on("zoom", onMove);
-      map.on("pitch", onMove);
-      map.on("rotate", onMove);
+        const onMove = () => updateTelemetry(map);
+        map.on("move", onMove);
+        map.on("zoom", onMove);
+        map.on("pitch", onMove);
+        map.on("rotate", onMove);
 
-      const ensureSource = () => {
-        if (cancelled || webglLostRef.current || mapRef.current !== map) return;
-        // Recover individual missing layers even when a previous partial
-        // style.load already created their shared source.
-        ensureOfflineSourceLayers(
-          map,
-          "local-dataset",
-          {
+        const ensureSource = () => {
+          if (cancelled || webglLostRef.current || mapRef.current !== map) return;
+          // Recover individual missing layers even when a previous partial
+          // style.load already created their shared source.
+          ensureOfflineSourceLayers(map, "local-dataset", {
             type: "geojson",
             data: activeGeoJsonRef.current as unknown as GeoJSON.FeatureCollection,
-          },
-          [
-            {
-              id: "local-dataset-fill",
-              type: "fill",
-              source: "local-dataset",
-              paint: { "fill-color": "#0ea5e9", "fill-opacity": 0.4 },
-            },
-            {
-              id: "local-dataset-outline",
-              type: "line",
-              source: "local-dataset",
-              paint: { "line-color": "#0284c7", "line-width": 2 },
-            },
-            {
-              id: "local-dataset-points",
-              type: "circle",
-              source: "local-dataset",
+          }, [
+            { id: "local-dataset-fill", type: "fill", source: "local-dataset",
+              paint: { "fill-color": "#0ea5e9", "fill-opacity": 0.4 } },
+            { id: "local-dataset-outline", type: "line", source: "local-dataset",
+              paint: { "line-color": "#0284c7", "line-width": 2 } },
+            { id: "local-dataset-points", type: "circle", source: "local-dataset",
               filter: ["==", "$type", "Point"],
               layout: { visibility: showDatasetPoints ? "visible" : "none" },
-              paint: {
-                "circle-color": "#0284c7",
-                "circle-radius": 5,
-                "circle-stroke-color": "#fff",
-                "circle-stroke-width": 1,
-              },
-            },
-          ],
-        );
-        if (geoPdfOverlay) {
-          const overlay = ensureOfflineSourceLayers(
-            map,
-            "geopdf-overlay",
-            {
-              type: "image",
-              url: geoPdfOverlay.url,
+              paint: { "circle-color": "#0284c7", "circle-radius": 5,
+                "circle-stroke-color": "#fff", "circle-stroke-width": 1 } },
+          ]);
+          if (geoPdfOverlay) {
+            const overlay = ensureOfflineSourceLayers(map, "geopdf-overlay", {
+              type: "image", url: geoPdfOverlay.url,
               coordinates: geoPdfOverlay.coordinates,
-            },
-            [
-              {
-                id: "geopdf-overlay",
-                type: "raster",
-                source: "geopdf-overlay",
-                paint: { "raster-opacity": 1 },
-              },
-            ],
-          );
-          if (overlay.sourceAdded || overlay.layersAdded) {
-            if (map.getLayer("local-dataset-fill"))
-              map.moveLayer("geopdf-overlay", "local-dataset-fill");
-            if (!geoPdfHasFitted) {
-              geoPdfHasFitted = true;
-              // A person may pan while PDF.js finishes rasterization.
-              // Never snap their camera back just because the image loaded.
-              if (!geoPdfUserMoved && !geoPdfManualFocusRef.current) {
-                const lngs = geoPdfOverlay.coordinates.map(([lng]) => lng);
-                const lats = geoPdfOverlay.coordinates.map(([, lat]) => lat);
-                map.fitBounds(
-                  [
+            }, [
+              { id: "geopdf-overlay", type: "raster", source: "geopdf-overlay",
+                paint: { "raster-opacity": 1 } },
+            ]);
+            if (overlay.sourceAdded || overlay.layersAdded) {
+              if (map.getLayer("local-dataset-fill"))
+                map.moveLayer("geopdf-overlay", "local-dataset-fill");
+              if (!geoPdfHasFitted) {
+                geoPdfHasFitted = true;
+                // A person may pan while PDF.js finishes rasterization.
+                // Never snap their camera back just because the image loaded.
+                if (!geoPdfUserMoved && !geoPdfManualFocusRef.current) {
+                  const lngs = geoPdfOverlay.coordinates.map(([lng]) => lng);
+                  const lats = geoPdfOverlay.coordinates.map(([, lat]) => lat);
+                  map.fitBounds([
                     [Math.min(...lngs), Math.min(...lats)],
                     [Math.max(...lngs), Math.max(...lats)],
-                  ],
-                  { padding: 32, duration: 0 },
-                );
-                if (pendingGeoPdfGpsCenter) {
-                  map.jumpTo({
-                    center: pendingGeoPdfGpsCenter,
-                    zoom: Math.max(15, map.getZoom()),
-                  });
-                  pendingGeoPdfGpsCenter = null;
-                  cancelAutoCenterRef.current?.();
+                  ], { padding: 32, duration: 0 });
+                  if (pendingGeoPdfGpsCenter) {
+                    map.jumpTo({
+                      center: pendingGeoPdfGpsCenter,
+                      zoom: Math.max(15, map.getZoom()),
+                    });
+                    pendingGeoPdfGpsCenter = null;
+                    cancelAutoCenterRef.current?.();
+                  }
                 }
               }
             }
+            setGeoPdfReady(true);
+            setGeoPdfMessage(geoPdfGpsNotice ?? (fallbackActive
+              ? "GeoPDF disponível offline. Para ver ruas ao redor, conecte-se à internet."
+              : "GeoPDF sobre o mapa-base. Use Minha localização para centralizar."));
           }
-          setGeoPdfReady(true);
-          setGeoPdfMessage(
-            geoPdfGpsNotice ??
-              (fallbackActive
-                ? "GeoPDF disponível offline. Para ver ruas ao redor, conecte-se à internet."
-                : "GeoPDF sobre o mapa-base. Use Minha localização para centralizar."),
-          );
-        }
-        ensureOfflineSourceLayers(
-          map,
-          "draw-preview",
-          {
-            type: "geojson",
-            data: drawingPreviewRef.current,
-          },
-          [
-            {
-              id: "draw-preview-fill",
-              type: "fill",
-              source: "draw-preview",
-              paint: { "fill-color": "#f59e0b", "fill-opacity": 0.2 },
-            },
-            {
-              id: "draw-preview-line",
-              type: "line",
-              source: "draw-preview",
-              paint: { "line-color": "#f59e0b", "line-width": 3 },
-            },
-            {
-              id: "draw-preview-points",
-              type: "circle",
-              source: "draw-preview",
-              paint: {
-                "circle-color": "#f59e0b",
-                "circle-radius": 6,
-                "circle-stroke-color": "#fff",
-                "circle-stroke-width": 2,
-              },
-            },
-          ],
-        );
-        if (regionalContours) {
-          ensureOfflineSourceLayers(
-            map,
-            "regional-contours",
-            {
-              type: "geojson",
-              data: regionalContours,
-            },
-            [
-              {
-                id: "regional-contours-line",
-                type: "line",
-                source: "regional-contours",
-                paint: {
-                  "line-color": "#9a754e",
-                  "line-width": ["case", ["get", "major"], 1.6, 0.8],
-                  "line-opacity": 0.75,
-                },
-              },
-            ],
-          );
-        }
-        ensureOfflineSourceLayers(
-          map,
-          "regional-transit",
-          {
-            type: "geojson",
-            data: transitGeoJSONRef.current,
-          },
-          [
-            {
-              id: "regional-transit-points",
-              type: "circle",
-              source: "regional-transit",
-              paint: {
-                "circle-radius": 5,
-                "circle-color": ["coalesce", ["get", "color"], "#2586a3"],
-                "circle-stroke-color": "#ffffff",
-                "circle-stroke-width": 1.4,
-                "circle-opacity": 0.9,
-              },
-            },
-          ],
-        );
-        ensureOfflineSourceLayers(
-          map,
-          "offline-route",
-          {
-            type: "geojson",
-            data: routeAsGeoJSON(plannedRouteRef.current),
-          },
-          [
-            {
-              id: "offline-route-line",
-              type: "line",
-              source: "offline-route",
-              paint: {
-                "line-color": "#dc2626",
-                "line-width": 5,
-                "line-opacity": 0.9,
-              },
-              layout: { "line-join": "round", "line-cap": "round" },
-            },
-          ],
-        );
-        if (!search.pdfId) fitSelection(map);
-        setMapEpoch((value) => value + 1);
-      };
-      styleLifecycle = createOfflineStyleLifecycle({
-        map,
-        isActive: () =>
-          !cancelled && !webglLostRef.current && mapRef.current === map,
-        onHydrate: ensureSource,
-        onStyleReset: () => {
-          setMapReady(false);
-          setGeoPdfReady(false);
-        },
-        onReady: () => {
-          // Dismiss only a recovered WebGL warning, not a genuine asset or
-          // style failure. Restoration alone is insufficient until painted.
-          const remainingError = clearRecoveredWebglError(mapErrorRef.current);
-          if (!webglLostRef.current && remainingError !== mapErrorRef.current) {
-            mapErrorRef.current = remainingError;
-            setMapError(remainingError);
-          }
-          updateTelemetry(map);
-          setMapReady(true);
-          setAppliedCount(activeGeoJsonRef.current.features.length);
-        },
-        onError: (cause) => {
-          const issue = describeOfflineMapFailure(cause);
-          if (!issue || !canReportMapError(mapErrorRef.current)) return;
-          mapErrorRef.current = issue.message;
-          setMapError(issue.message);
-        },
-      });
-      // Listen to source changes BEFORE hydrating; tiny local GeoJSON
-      // sources may finish loading immediately in offline WebViews.
-      map.on("style.load", styleLifecycle.styleLoad);
-      map.on("sourcedata", styleLifecycle.sourceData);
-      if (map.isStyleLoaded()) styleLifecycle.styleLoad();
-
-      map.on("click", "local-dataset-fill", (e) => {
-        if (
-          !e.features?.length ||
-          measuringRef.current ||
-          drawingSessionRef.current
-        )
-          return;
-        const props = e.features[0]?.properties ?? {};
-        new Popup()
-          .setLngLat(e.lngLat)
-          .setDOMContent(createPropertyPopupContent(props))
-          .addTo(map);
-      });
-
-      map.on("mouseenter", "local-dataset-fill", () => {
-        map.getCanvas().style.cursor = "pointer";
-      });
-      map.on("mouseleave", "local-dataset-fill", () => {
-        map.getCanvas().style.cursor = "";
-      });
-      map.on("click", "local-dataset-points", (e) => {
-        if (
-          !e.features?.length ||
-          measuringRef.current ||
-          drawingSessionRef.current
-        )
-          return;
-        new Popup()
-          .setLngLat(e.lngLat)
-          .setDOMContent(
-            createPropertyPopupContent(e.features[0]?.properties ?? {}),
-          )
-          .addTo(map);
-      });
-      map.on("mouseenter", "local-dataset-points", () => {
-        map.getCanvas().style.cursor = "pointer";
-      });
-      map.on("mouseleave", "local-dataset-points", () => {
-        map.getCanvas().style.cursor = "";
-      });
-
-      map.on("click", "regional-transit-points", (event) => {
-        if (
-          measuringRef.current ||
-          drawingSessionRef.current ||
-          !event.features?.length
-        )
-          return;
-        new Popup()
-          .setLngLat(event.lngLat)
-          .setDOMContent(
-            createPropertyPopupContent(event.features[0]?.properties ?? {}),
-          )
-          .addTo(map);
-      });
-
-      // Listener de clique para medição
-      map.on("click", (e) => {
-        const currentDrawing = drawingSessionRef.current;
-        if (currentDrawing) {
-          const next = addDrawingVertex(currentDrawing, [
-            e.lngLat.lng,
-            e.lngLat.lat,
+          ensureOfflineSourceLayers(map, "draw-preview", {
+            type: "geojson", data: drawingPreviewRef.current,
+          }, [
+            { id: "draw-preview-fill", type: "fill", source: "draw-preview",
+              paint: { "fill-color": "#f59e0b", "fill-opacity": 0.2 } },
+            { id: "draw-preview-line", type: "line", source: "draw-preview",
+              paint: { "line-color": "#f59e0b", "line-width": 3 } },
+            { id: "draw-preview-points", type: "circle", source: "draw-preview",
+              paint: { "circle-color": "#f59e0b", "circle-radius": 6,
+                "circle-stroke-color": "#fff", "circle-stroke-width": 2 } },
           ]);
-          drawingSessionRef.current = next;
-          setDrawingSession(next);
-          if (next.type === "Point") void persistDrawingRef.current(next);
-          return;
-        }
-        const picking = routingPickRef.current;
-        if (picking) {
-          setRoutingPoint({
-            kind: picking,
-            location: [e.lngLat.lng, e.lngLat.lat],
-          });
-          setRoutingPickMode(null);
-          return;
-        }
-        if (!measuringRef.current) {
-          // Altitude uses the visible center; a tap selects that point without recording a GPS trail.
-          if (sidePanelRef.current === "altitude-offline")
-            map.panTo(e.lngLat, { duration: 0 });
-          return;
-        }
-        const newPoint: MeasurePoint = {
-          lng: e.lngLat.lng,
-          lat: e.lngLat.lat,
+          if (regionalContours) {
+            ensureOfflineSourceLayers(map, "regional-contours", {
+              type: "geojson", data: regionalContours,
+            }, [
+              { id: "regional-contours-line", type: "line", source: "regional-contours",
+                paint: { "line-color": "#9a754e", "line-width": ['case', ['get', 'major'], 1.6, 0.8],
+                  "line-opacity": 0.75 } },
+            ]);
+          }
+          ensureOfflineSourceLayers(map, "regional-transit", {
+            type: "geojson", data: transitGeoJSONRef.current,
+          }, [
+            { id: "regional-transit-points", type: "circle", source: "regional-transit",
+              paint: { "circle-radius": 5, "circle-color": ['coalesce', ['get', 'color'], '#2586a3'],
+                "circle-stroke-color": "#ffffff", "circle-stroke-width": 1.4,
+                "circle-opacity": 0.9 } },
+          ]);
+          ensureOfflineSourceLayers(map, "offline-route", {
+            type: "geojson", data: routeAsGeoJSON(plannedRouteRef.current),
+          }, [
+            { id: "offline-route-line", type: "line", source: "offline-route",
+              paint: { "line-color": "#dc2626", "line-width": 5, "line-opacity": 0.9 },
+              layout: { "line-join": "round", "line-cap": "round" } },
+          ]);
+          if (!search.pdfId) fitSelection(map);
+          setMapEpoch((value) => value + 1);
         };
-        const prev = measurePointsRef.current;
-        const newPoints = [...prev, newPoint];
-        measurePointsRef.current = newPoints;
-        setMeasurePoints(newPoints);
+        styleLifecycle = createOfflineStyleLifecycle({
+          map,
+          isActive: () => !cancelled && !webglLostRef.current && mapRef.current === map,
+          onHydrate: ensureSource,
+          onStyleReset: () => { setMapReady(false); setGeoPdfReady(false); },
+          onReady: () => {
+            // Dismiss only a recovered WebGL warning, not a genuine asset or
+            // style failure. Restoration alone is insufficient until painted.
+            const remainingError = clearRecoveredWebglError(mapErrorRef.current);
+            if (!webglLostRef.current && remainingError !== mapErrorRef.current) {
+              mapErrorRef.current = remainingError;
+              setMapError(remainingError);
+            }
+            updateTelemetry(map);
+            setMapReady(true);
+            setAppliedCount(activeGeoJsonRef.current.features.length);
+          },
+          onError: (cause) => {
+            const issue = describeOfflineMapFailure(cause);
+            if (!issue || !canReportMapError(mapErrorRef.current)) return;
+            mapErrorRef.current = issue.message;
+            setMapError(issue.message);
+          },
+        });
+        // Listen to source changes BEFORE hydrating; tiny local GeoJSON
+        // sources may finish loading immediately in offline WebViews.
+        map.on("style.load", styleLifecycle.styleLoad);
+        map.on("sourcedata", styleLifecycle.sourceData);
+        if (map.isStyleLoaded()) styleLifecycle.styleLoad();
 
-        let dist = 0;
-        for (let i = 1; i < newPoints.length; i++) {
-          dist += haversineMeters(newPoints[i - 1]!, newPoints[i]!);
-        }
-        setTotalDistance(dist);
+        map.on("click", "local-dataset-fill", (e) => {
+          if (!e.features?.length || measuringRef.current || drawingSessionRef.current) return;
+          const props = e.features[0]?.properties ?? {};
+          new Popup()
+            .setLngLat(e.lngLat)
+            .setDOMContent(createPropertyPopupContent(props))
+            .addTo(map);
+        });
 
-        const marker = new Marker({ color: "#f59e0b", scale: 0.8 })
-          .setLngLat([newPoint.lng, newPoint.lat])
-          .addTo(map);
-        markersRef.current.push(marker);
-      });
+        map.on("mouseenter", "local-dataset-fill", () => {
+          map.getCanvas().style.cursor = "pointer";
+        });
+        map.on("mouseleave", "local-dataset-fill", () => {
+          map.getCanvas().style.cursor = "";
+        });
+        map.on("click", "local-dataset-points", (e) => {
+          if (!e.features?.length || measuringRef.current || drawingSessionRef.current) return;
+          new Popup()
+            .setLngLat(e.lngLat)
+            .setDOMContent(
+              createPropertyPopupContent(e.features[0]?.properties ?? {}),
+            )
+            .addTo(map);
+        });
+        map.on("mouseenter", "local-dataset-points", () => {
+          map.getCanvas().style.cursor = "pointer";
+        });
+        map.on("mouseleave", "local-dataset-points", () => {
+          map.getCanvas().style.cursor = "";
+        });
+
+        map.on('click', 'regional-transit-points', (event) => {
+          if (measuringRef.current || drawingSessionRef.current || !event.features?.length) return;
+          new Popup().setLngLat(event.lngLat)
+            .setDOMContent(createPropertyPopupContent(event.features[0]?.properties ?? {})).addTo(map);
+        });
+
+        // Listener de clique para medição
+        map.on("click", (e) => {
+          const currentDrawing = drawingSessionRef.current;
+          if (currentDrawing) {
+            const next = addDrawingVertex(currentDrawing, [
+              e.lngLat.lng,
+              e.lngLat.lat,
+            ]);
+            drawingSessionRef.current = next;
+            setDrawingSession(next);
+            if (next.type === "Point")
+              void persistDrawingRef.current(next);
+            return;
+          }
+          const picking = routingPickRef.current;
+          if (picking) {
+            setRoutingPoint({ kind: picking, location: [e.lngLat.lng, e.lngLat.lat] });
+            setRoutingPickMode(null);
+            return;
+          }
+          if (!measuringRef.current) {
+            // Altitude uses the visible center; a tap selects that point without recording a GPS trail.
+            if (sidePanelRef.current === 'altitude-offline') map.panTo(e.lngLat, { duration: 0 });
+            return;
+          }
+          const newPoint: MeasurePoint = {
+            lng: e.lngLat.lng,
+            lat: e.lngLat.lat,
+          };
+          const prev = measurePointsRef.current;
+          const newPoints = [...prev, newPoint];
+          measurePointsRef.current = newPoints;
+          setMeasurePoints(newPoints);
+
+          let dist = 0;
+          for (let i = 1; i < newPoints.length; i++) {
+            dist += haversineMeters(newPoints[i - 1]!, newPoints[i]!);
+          }
+          setTotalDistance(dist);
+
+          const marker = new Marker({ color: "#f59e0b", scale: 0.8 })
+            .setLngLat([newPoint.lng, newPoint.lat])
+            .addTo(map);
+          markersRef.current.push(marker);
+        });
     };
     void initialize().catch((cause) => {
       if (cancelled) return;
@@ -1597,11 +1198,7 @@ export default function CommandCenterPage() {
       regionReconcilerRef.current?.resetPending();
       if (mapRef.current) {
         // A partially configured map must not block a later retry/remount.
-        try {
-          mapRef.current.remove();
-        } catch {
-          /* keep original failure */
-        }
+        try { mapRef.current.remove(); } catch { /* keep original failure */ }
         mapRef.current = null;
         locationControlRef.current = null;
       }
@@ -1612,12 +1209,12 @@ export default function CommandCenterPage() {
       // Do not expose raw file paths or remote URLs in UI/toasts.
       mapErrorRef.current = issue.message;
       setMapError(issue.message);
-      toast({
-        title: "Mapa indisponível",
-        description:
-          "Confira o pacote offline em Configurações. Os arquivos locais continuam disponíveis na página de importações.",
-        variant: "error",
-      });
+        toast({
+          title: "Mapa indisponível",
+          description:
+            "Confira o pacote offline em Configurações. Os arquivos locais continuam disponíveis na página de importações.",
+          variant: "error",
+        });
     });
 
     return () => {
@@ -1629,47 +1226,22 @@ export default function CommandCenterPage() {
       webglLostRef.current = false;
       // Teardown is best-effort per resource; failed MapLibre/WebGL cleanup
       // cannot strand the protocol lease or poison the next React mount.
-      try {
-        gpsMarkerRef.current?.remove();
-      } catch {
-        /* detached by WebGL */
-      }
+      try { gpsMarkerRef.current?.remove(); } catch { /* detached by WebGL */ }
       gpsMarkerRef.current = null;
       for (const marker of markersRef.current) {
-        try {
-          marker.remove();
-        } catch {
-          /* detached map */
-        }
+        try { marker.remove(); } catch { /* detached map */ }
       }
       markersRef.current = [];
       locationControlRef.current = null;
       const oldMap = mapRef.current;
       mapRef.current = null;
-      try {
-        oldMap?.remove();
-      } catch {
-        /* context may already be lost */
-      }
-      try {
-        geoPdfOverlay?.release();
-      } catch {
-        /* release continues */
-      }
+      try { oldMap?.remove(); } catch { /* context may already be lost */ }
+      try { geoPdfOverlay?.release(); } catch { /* release continues */ }
       geoPdfManualFocusRef.current = false;
       releaseProtocols();
     };
-  }, [
-    toast,
-    updateTelemetry,
-    fitSelection,
-    search.pdfId,
-    activeRegionPackageId,
-    regionalRenderRevision,
-    mapSource.neutralActive,
-    mapRetryRevision,
-    updateNavigationPosition,
-  ]);
+  }, [toast, updateTelemetry, fitSelection, search.pdfId, activeRegionPackageId, regionalRenderRevision,
+    mapSource.neutralActive, mapRetryRevision, updateNavigationPosition]);
 
   useEffect(() => {
     if (!mapContainer.current) return;
@@ -1705,27 +1277,16 @@ export default function CommandCenterPage() {
   }, [drawingPreview, mapEpoch]);
 
   useEffect(() => {
-    const source = mapRef.current?.getSource("offline-route") as
-      GeoJSONSource | undefined;
+    const source = mapRef.current?.getSource('offline-route') as GeoJSONSource | undefined;
     source?.setData(routeAsGeoJSON(plannedRoute));
-    if (
-      plannedRoute?.geometry.length &&
-      mapRef.current &&
-      !navigationActiveRef.current
-    ) {
+    if (plannedRoute?.geometry.length && mapRef.current && !navigationActiveRef.current) {
       const bounds = featureBounds(routeAsGeoJSON(plannedRoute).features);
-      if (bounds)
-        mapRef.current.fitBounds(bounds, {
-          padding: 72,
-          duration: 0,
-          maxZoom: 16,
-        });
+      if (bounds) mapRef.current.fitBounds(bounds, { padding: 72, duration: 0, maxZoom: 16 });
     }
   }, [plannedRoute, mapEpoch]);
 
   useEffect(() => {
-    const source = mapRef.current?.getSource("regional-transit") as
-      GeoJSONSource | undefined;
+    const source = mapRef.current?.getSource('regional-transit') as GeoJSONSource | undefined;
     source?.setData(transitGeoJSON);
   }, [transitGeoJSON, mapEpoch]);
 
@@ -1820,62 +1381,37 @@ export default function CommandCenterPage() {
           </p>
           {mapError && (
             <div className="mt-3 flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  if (!mapRecoveryRef.current?.retryManually()) retryMap();
-                }}
-                className="min-h-[44px] rounded-lg border border-outline-variant px-3 py-2 text-sm font-semibold"
-              >
+              <button type="button" onClick={() => {
+                if (!mapRecoveryRef.current?.retryManually()) retryMap();
+              }} className="min-h-[44px] rounded-lg border border-outline-variant px-3 py-2 text-sm font-semibold">
                 Tentar novamente
               </button>
-              {activeRegionPackageId &&
-                !mapSource.neutralActive &&
-                !search.pdfId && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setNeutralFor(
-                        `${activeRegionPackageId}:${regionalRenderRevision}`,
-                      );
-                      mapErrorRef.current = null;
-                      setMapError(null);
-                    }}
-                    className="min-h-[44px] rounded-lg border border-outline-variant px-3 py-2 text-sm font-semibold"
-                  >
-                    Usar fundo simples offline
-                  </button>
-                )}
+              {activeRegionPackageId && !mapSource.neutralActive && !search.pdfId && (
+                <button type="button" onClick={() => {
+                  setNeutralFor(`${activeRegionPackageId}:${regionalRenderRevision}`);
+                  mapErrorRef.current = null;
+                  setMapError(null);
+                }} className="min-h-[44px] rounded-lg border border-outline-variant px-3 py-2 text-sm font-semibold">
+                  Usar fundo simples offline
+                </button>
+              )}
             </div>
           )}
         </div>
       )}
-      {mapSource.neutralActive &&
-        !mapError &&
-        !localReadError &&
-        !projectFeatureError &&
-        !search.pdfId && (
-          <div
-            role="status"
-            className="absolute left-4 right-4 top-4 z-30 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-outline-variant bg-surface-container/95 p-3 text-sm text-on-surface shadow-lg"
-          >
-            <p>
-              Fundo simples offline em uso. O mapa regional e os dados de campo
-              foram preservados.
-            </p>
-            <button
-              type="button"
-              onClick={() => {
-                setNeutralFor(null);
-                mapErrorRef.current = null;
-                setMapError(null);
-              }}
-              className="min-h-[44px] rounded-lg border border-outline-variant px-3 py-2 text-sm font-semibold"
-            >
-              Voltar ao mapa regional
-            </button>
-          </div>
-        )}
+      {mapSource.neutralActive && !mapError && !localReadError && !projectFeatureError && !search.pdfId && (
+        <div role="status"
+          className="absolute left-4 right-4 top-4 z-30 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-outline-variant bg-surface-container/95 p-3 text-sm text-on-surface shadow-lg">
+          <p>Fundo simples offline em uso. O mapa regional e os dados de campo foram preservados.</p>
+          <button type="button" onClick={() => {
+            setNeutralFor(null);
+            mapErrorRef.current = null;
+            setMapError(null);
+          }} className="min-h-[44px] rounded-lg border border-outline-variant px-3 py-2 text-sm font-semibold">
+            Voltar ao mapa regional
+          </button>
+        </div>
+      )}
       {projectFeatureTruncated && (
         <p
           role="status"
@@ -1892,63 +1428,24 @@ export default function CommandCenterPage() {
         data-testid="map-canvas"
       />
 
-      <OfflineSearch
-        key={`search:${activeRegionPackageId ?? "none"}:${regionalRenderRevision}`}
-        open={sidePanel === "busca-offline"}
-        onClose={() => setSidePanel("none")}
-        records={combinedSearchRecords}
-        regionalCount={regionalSearchRecords.length}
-        mapRecordCount={visibleMapSearchRecords.length}
-        warning={regionalSearchError}
-        onChoose={(place) => {
-          const map = mapRef.current;
-          if (map)
-            map.flyTo({
-              center: [place.lon, place.lat],
-              zoom: Math.max(15, map.getZoom()),
-            });
-        }}
-      />
+      <OfflineSearch key={`search:${activeRegionPackageId ?? 'none'}:${regionalRenderRevision}`} open={sidePanel === "busca-offline"} onClose={() => setSidePanel("none")} records={combinedSearchRecords} regionalCount={regionalSearchRecords.length} mapRecordCount={visibleMapSearchRecords.length} warning={regionalSearchError} onChoose={(place) => {
+        const map = mapRef.current;
+        if (map) map.flyTo({ center: [place.lon, place.lat], zoom: Math.max(15, map.getZoom()) });
+      }} />
 
-      <OfflineKnowledge
-        key={`knowledge:${activeRegionPackageId ?? "none"}:${regionalRenderRevision}`}
-        open={sidePanel === "lugares-offline"}
-        onClose={() => setSidePanel("none")}
-        packageId={activeRegionPackageId}
-        onTransit={setTransitNetwork}
-        onStation={(lon, lat) => {
-          const map = mapRef.current;
-          if (map)
-            map.flyTo({
-              center: [lon, lat],
-              zoom: Math.max(15, map.getZoom()),
-            });
-        }}
-      />
+      <OfflineKnowledge key={`knowledge:${activeRegionPackageId ?? 'none'}:${regionalRenderRevision}`} open={sidePanel === "lugares-offline"} onClose={() => setSidePanel("none")} packageId={activeRegionPackageId} onTransit={setTransitNetwork} onStation={(lon, lat) => {
+        const map = mapRef.current;
+        if (map) map.flyTo({ center: [lon, lat], zoom: Math.max(15, map.getZoom()) });
+      }} />
 
-      <OfflineElevation
-        key={`elevation:${activeRegionPackageId ?? "none"}:${regionalRenderRevision}`}
-        open={sidePanel === "altitude-offline"}
-        onClose={() => setSidePanel("none")}
-        packageId={activeRegionPackageId}
-        route={plannedRoute}
-        center={elevationCenter}
-        viewportBounds={elevationBounds}
-        profileGeometry={elevationGeometry}
-      />
+      <OfflineElevation key={`elevation:${activeRegionPackageId ?? 'none'}:${regionalRenderRevision}`} open={sidePanel === "altitude-offline"} onClose={() => setSidePanel("none")} packageId={activeRegionPackageId} route={plannedRoute} center={elevationCenter} viewportBounds={elevationBounds} profileGeometry={elevationGeometry} />
 
-      <OfflineRouting
-        key={`routing:${activeRegionPackageId ?? "none"}:${regionalRenderRevision}`}
-        packageId={activeRegionPackageId}
-        open={sidePanel === "navegacao-offline"}
-        onClose={() => setSidePanel("none")}
+      <OfflineRouting key={`routing:${activeRegionPackageId ?? 'none'}:${regionalRenderRevision}`} packageId={activeRegionPackageId}
+        open={sidePanel === "navegacao-offline"} onClose={() => setSidePanel("none")}
         pickedPoint={routingPoint}
         onRequestPick={(kind) => {
           if (drawingSessionRef.current) {
-            toast({
-              title: "Conclua ou cancele o desenho antes de escolher a rota.",
-              variant: "error",
-            });
+            toast({ title: 'Conclua ou cancele o desenho antes de escolher a rota.', variant: 'error' });
             return;
           }
           if (measuringRef.current) toggleMeasure();
@@ -1956,41 +1453,19 @@ export default function CommandCenterPage() {
         }}
         onRoute={setPlannedRoute}
         onPosition={updateNavigationPosition}
-        onTrackingChange={(active) => {
-          navigationActiveRef.current = active;
-        }}
+        onTrackingChange={(active) => { navigationActiveRef.current = active; }}
       />
-      <MapOfflinePanel
-        open={sidePanel === "baixar-mapas"}
-        onClose={() => setSidePanel("none")}
-        title="Baixar mapas"
-        icon="download"
-      >
+      <MapOfflinePanel open={sidePanel === "baixar-mapas"}
+        onClose={() => setSidePanel("none")} title="Baixar mapas" icon="download">
         <RegionDownloadCatalog mapCenter={[telemetry.lng, telemetry.lat]} />
       </MapOfflinePanel>
-      {routingPickMode && (
-        <div
-          role="status"
-          className="absolute left-1/2 top-20 z-30 -translate-x-1/2 rounded-lg bg-surface-container p-3 text-sm shadow-lg"
-        >
-          Toque no mapa para escolher{" "}
-          {routingPickMode === "origin" ? "a origem" : "o destino"} da rota.
-          <button
-            type="button"
-            className="ml-2 underline"
-            onClick={() => setRoutingPickMode(null)}
-          >
-            Cancelar
-          </button>
-        </div>
-      )}
+      {routingPickMode && <div role="status" className="absolute left-1/2 top-20 z-30 -translate-x-1/2 rounded-lg bg-surface-container p-3 text-sm shadow-lg">
+        Toque no mapa para escolher {routingPickMode === 'origin' ? 'a origem' : 'o destino'} da rota.
+        <button type="button" className="ml-2 underline" onClick={() => setRoutingPickMode(null)}>Cancelar</button>
+      </div>}
 
       {/* ── Barra de ferramentas flutuante ── */}
-      <div
-        role="toolbar"
-        aria-label="Atalhos do mapa"
-        className="absolute bottom-[calc(4rem+env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 lg:bottom-auto lg:top-6 lg:left-4 lg:translate-x-0 markmap-map-tools bg-surface-container/90 backdrop-blur-xl border border-outline-variant rounded-2xl p-2 flex lg:flex-col gap-1.5 shadow-2xl z-10 w-max max-w-[92vw] overflow-x-auto lg:max-h-[calc(100%-3rem)] lg:overflow-x-hidden lg:overflow-y-auto"
-      >
+      <div role="toolbar" aria-label="Atalhos do mapa" className="absolute bottom-[calc(4rem+env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 lg:bottom-auto lg:top-6 lg:left-4 lg:translate-x-0 markmap-map-tools bg-surface-container/90 backdrop-blur-xl border border-outline-variant rounded-2xl p-2 flex lg:flex-col gap-1.5 shadow-2xl z-10 w-max max-w-[92vw] overflow-x-auto lg:max-h-[calc(100%-3rem)] lg:overflow-x-hidden lg:overflow-y-auto">
         {/* Telemetria */}
         <ToolBtn
           active={sidePanel === "telemetria"}
@@ -2024,42 +1499,17 @@ export default function CommandCenterPage() {
           color="slate"
         />
         {/* Escolha uma região e baixe diretamente do mapa. */}
-        <ToolBtn
-          active={sidePanel === "baixar-mapas"}
-          onClick={() => togglePanel("baixar-mapas")}
-          icon="download"
-          label="Baixar mapas"
-          color="emerald"
-        />
+        <ToolBtn active={sidePanel === "baixar-mapas"}
+          onClick={() => togglePanel("baixar-mapas")} icon="download" label="Baixar mapas" color="emerald" />
         {/* Atalhos offline no mesmo menu; os serviços seguem montados ao fechar. */}
-        <ToolBtn
-          active={sidePanel === "busca-offline"}
-          onClick={() => togglePanel("busca-offline")}
-          icon="search"
-          label="Buscar locais neste mapa"
-          color="cyan"
-        />
-        <ToolBtn
-          active={sidePanel === "lugares-offline"}
-          onClick={() => togglePanel("lugares-offline")}
-          icon="map"
-          label="Lugares e transporte offline"
-          color="blue"
-        />
-        <ToolBtn
-          active={sidePanel === "altitude-offline"}
-          onClick={() => togglePanel("altitude-offline")}
-          icon="analytics"
-          label="Altitude"
-          color="emerald"
-        />
-        <ToolBtn
-          active={sidePanel === "navegacao-offline"}
-          onClick={() => togglePanel("navegacao-offline")}
-          icon="coordinates"
-          label="Navegação GPS offline"
-          color="amber"
-        />
+        <ToolBtn active={sidePanel === "busca-offline"}
+          onClick={() => togglePanel("busca-offline")} icon="search" label="Buscar locais neste mapa" color="cyan" />
+        <ToolBtn active={sidePanel === "lugares-offline"}
+          onClick={() => togglePanel("lugares-offline")} icon="map" label="Lugares e transporte offline" color="blue" />
+        <ToolBtn active={sidePanel === "altitude-offline"}
+          onClick={() => togglePanel("altitude-offline")} icon="analytics" label="Altitude" color="emerald" />
+        <ToolBtn active={sidePanel === "navegacao-offline"}
+          onClick={() => togglePanel("navegacao-offline")} icon="coordinates" label="Navegação GPS offline" color="amber" />
         {/* Separador */}
         <div className="w-full h-px md:block hidden bg-outline-variant my-0.5" />
         <div className="w-px h-8 md:hidden block bg-outline-variant mx-0.5" />
@@ -2155,452 +1605,437 @@ export default function CommandCenterPage() {
       )}
 
       {/* ── Painel lateral (branco, texto escuro) ── */}
-      {sidePanel !== "none" &&
-        sidePanel !== "baixar-mapas" &&
-        !sidePanel.endsWith("-offline") && (
-          <div
-            className={`${panelBg} ${panelPos} ${panelRound} flex flex-col max-h-[55vh] lg:max-h-full overflow-y-auto`}
-          >
-            {/* Header do painel */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-outline-variant flex-shrink-0">
-              <span className="text-on-surface font-bold text-base flex items-center gap-2">
-                <AppIcon
-                  name={
-                    sidePanel === "telemetria"
-                      ? "telemetry"
-                      : sidePanel === "camadas"
-                        ? "layers"
-                        : sidePanel === "filtros"
-                          ? "filters"
-                          : "tools"
-                  }
-                  size="md"
-                />
-                {sidePanel === "telemetria"
-                  ? "Telemetria"
-                  : sidePanel === "camadas"
-                    ? "Camadas"
-                    : sidePanel === "filtros"
-                      ? "Filtros"
-                      : "Ferramentas"}
-              </span>
-              <button
-                aria-label="Fechar painel do mapa"
-                onClick={() => setSidePanel("none")}
-                className="w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-variant transition-colors"
-              >
-                <AppIcon name="close" size="sm" />
-              </button>
-            </div>
+      {sidePanel !== "none" && sidePanel !== "baixar-mapas" && !sidePanel.endsWith("-offline") && (
+        <div
+          className={`${panelBg} ${panelPos} ${panelRound} flex flex-col max-h-[55vh] lg:max-h-full overflow-y-auto`}
+        >
+          {/* Header do painel */}
+          <div className="flex items-center justify-between px-5 py-4 border-b border-outline-variant flex-shrink-0">
+            <span className="text-on-surface font-bold text-base flex items-center gap-2">
+              <AppIcon
+                name={
+                  sidePanel === "telemetria"
+                    ? "telemetry"
+                    : sidePanel === "camadas"
+                      ? "layers"
+                      : sidePanel === "filtros"
+                        ? "filters"
+                        : "tools"
+                }
+                size="md"
+              />
+              {sidePanel === "telemetria"
+                ? "Telemetria"
+                : sidePanel === "camadas"
+                  ? "Camadas"
+                  : sidePanel === "filtros"
+                    ? "Filtros"
+                    : "Ferramentas"}
+            </span>
+            <button
+              aria-label="Fechar painel do mapa"
+              onClick={() => setSidePanel("none")}
+              className="w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-variant transition-colors"
+            >
+              <AppIcon name="close" size="sm" />
+            </button>
+          </div>
 
-            {/* Conteúdo: TELEMETRIA */}
-            {sidePanel === "telemetria" && (
-              <div className="p-5 space-y-4">
-                <div>
-                  <p
-                    className={subtitleClass + " mb-2 uppercase tracking-wider"}
-                  >
-                    Posição do mapa
-                  </p>
-                  <div className="space-y-2">
-                    <Row
-                      label="Latitude"
-                      value={`${telemetry.lat.toFixed(6)}°`}
-                      labelCls={labelClass}
-                      valueCls={valueClass}
-                    />
-                    <Row
-                      label="Longitude"
-                      value={`${telemetry.lng.toFixed(6)}°`}
-                      labelCls={labelClass}
-                      valueCls={valueClass}
-                    />
-                  </div>
-                </div>
-                <div className="h-px bg-surface-variant" />
-                <div>
-                  <p
-                    className={subtitleClass + " mb-2 uppercase tracking-wider"}
-                  >
-                    Câmera
-                  </p>
-                  <div className="space-y-2">
-                    <Row
-                      label="Zoom"
-                      value={telemetry.zoom.toFixed(2)}
-                      labelCls={labelClass}
-                      valueCls="text-cyan-700 font-mono font-bold text-sm"
-                    />
-                    <Row
-                      label="Inclinação (Pitch)"
-                      value={`${telemetry.pitch.toFixed(1)}°`}
-                      labelCls={labelClass}
-                      valueCls="text-cyan-700 font-mono font-bold text-sm"
-                    />
-                    <Row
-                      label="Rotação (Bearing)"
-                      value={`${telemetry.bearing.toFixed(1)}°`}
-                      labelCls={labelClass}
-                      valueCls="text-cyan-700 font-mono font-bold text-sm"
-                    />
-                  </div>
-                </div>
-                {measuring && (
-                  <>
-                    <div className="h-px bg-surface-variant" />
-                    <div>
-                      <p
-                        className={
-                          subtitleClass + " mb-2 uppercase tracking-wider"
-                        }
-                      >
-                        Medição ativa
-                      </p>
-                      <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-2">
-                        <Row
-                          label="Pontos"
-                          value={String(measurePoints.length)}
-                          labelCls="text-amber-800 font-semibold text-sm"
-                          valueCls="text-amber-900 font-mono font-bold text-sm"
-                        />
-                        <Row
-                          label="Distância total"
-                          value={formatDistance(totalDistance)}
-                          labelCls="text-amber-800 font-semibold text-sm"
-                          valueCls="text-amber-900 font-mono font-bold text-base"
-                        />
-                      </div>
-                      <button
-                        onClick={toggleMeasure}
-                        className="mt-3 w-full py-2 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 text-sm font-semibold hover:bg-amber-100 transition-colors"
-                      >
-                        Encerrar medição
-                      </button>
-                    </div>
-                  </>
-                )}
-                {!measuring && (
-                  <button
-                    onClick={toggleMeasure}
-                    className="w-full py-2.5 rounded-xl border border-outline-variant bg-surface-container-high text-on-surface-variant text-sm font-semibold hover:bg-surface-variant transition-colors flex items-center justify-center gap-2"
-                  >
-                    <AppIcon name="measure" size="sm" />
-                    Iniciar medição de distância
-                  </button>
-                )}
-              </div>
-            )}
-
-            {/* Conteúdo: CAMADAS */}
-            {sidePanel === "camadas" && (
-              <div className="p-5 space-y-3">
-                <p className={subtitleClass + " uppercase tracking-wider"}>
-                  Gerenciar camadas visíveis
+          {/* Conteúdo: TELEMETRIA */}
+          {sidePanel === "telemetria" && (
+            <div className="p-5 space-y-4">
+              <div>
+                <p className={subtitleClass + " mb-2 uppercase tracking-wider"}>
+                  Posição do mapa
                 </p>
-                <div className="flex items-center justify-between py-2.5 px-3 rounded-xl border border-outline-variant bg-surface-container-high hover:bg-surface-variant transition-colors">
-                  <div className="flex items-center gap-3">
-                    <span className="w-3 h-3 rounded-full flex-shrink-0 bg-cyan-500" />
-                    <span className="text-on-surface text-sm font-medium">
-                      {activeDataset?.name ?? "Dataset selecionado"}
-                    </span>
+                <div className="space-y-2">
+                  <Row
+                    label="Latitude"
+                    value={`${telemetry.lat.toFixed(6)}°`}
+                    labelCls={labelClass}
+                    valueCls={valueClass}
+                  />
+                  <Row
+                    label="Longitude"
+                    value={`${telemetry.lng.toFixed(6)}°`}
+                    labelCls={labelClass}
+                    valueCls={valueClass}
+                  />
+                </div>
+              </div>
+              <div className="h-px bg-surface-variant" />
+              <div>
+                <p className={subtitleClass + " mb-2 uppercase tracking-wider"}>
+                  Câmera
+                </p>
+                <div className="space-y-2">
+                  <Row
+                    label="Zoom"
+                    value={telemetry.zoom.toFixed(2)}
+                    labelCls={labelClass}
+                    valueCls="text-cyan-700 font-mono font-bold text-sm"
+                  />
+                  <Row
+                    label="Inclinação (Pitch)"
+                    value={`${telemetry.pitch.toFixed(1)}°`}
+                    labelCls={labelClass}
+                    valueCls="text-cyan-700 font-mono font-bold text-sm"
+                  />
+                  <Row
+                    label="Rotação (Bearing)"
+                    value={`${telemetry.bearing.toFixed(1)}°`}
+                    labelCls={labelClass}
+                    valueCls="text-cyan-700 font-mono font-bold text-sm"
+                  />
+                </div>
+              </div>
+              {measuring && (
+                <>
+                  <div className="h-px bg-surface-variant" />
+                  <div>
+                    <p
+                      className={
+                        subtitleClass + " mb-2 uppercase tracking-wider"
+                      }
+                    >
+                      Medição ativa
+                    </p>
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-2">
+                      <Row
+                        label="Pontos"
+                        value={String(measurePoints.length)}
+                        labelCls="text-amber-800 font-semibold text-sm"
+                        valueCls="text-amber-900 font-mono font-bold text-sm"
+                      />
+                      <Row
+                        label="Distância total"
+                        value={formatDistance(totalDistance)}
+                        labelCls="text-amber-800 font-semibold text-sm"
+                        valueCls="text-amber-900 font-mono font-bold text-base"
+                      />
+                    </div>
+                    <button
+                      onClick={toggleMeasure}
+                      className="mt-3 w-full py-2 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 text-sm font-semibold hover:bg-amber-100 transition-colors"
+                    >
+                      Encerrar medição
+                    </button>
+                  </div>
+                </>
+              )}
+              {!measuring && (
+                <button
+                  onClick={toggleMeasure}
+                  className="w-full py-2.5 rounded-xl border border-outline-variant bg-surface-container-high text-on-surface-variant text-sm font-semibold hover:bg-surface-variant transition-colors flex items-center justify-center gap-2"
+                >
+                  <AppIcon name="measure" size="sm" />
+                  Iniciar medição de distância
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Conteúdo: CAMADAS */}
+          {sidePanel === "camadas" && (
+            <div className="p-5 space-y-3">
+              <p className={subtitleClass + " uppercase tracking-wider"}>
+                Gerenciar camadas visíveis
+              </p>
+              <div className="flex items-center justify-between py-2.5 px-3 rounded-xl border border-outline-variant bg-surface-container-high hover:bg-surface-variant transition-colors">
+                <div className="flex items-center gap-3">
+                  <span className="w-3 h-3 rounded-full flex-shrink-0 bg-cyan-500" />
+                  <span className="text-on-surface text-sm font-medium">
+                    {activeDataset?.name ?? "Dataset selecionado"}
+                  </span>
+                </div>
+                <button
+                  aria-label="Alternar dataset local"
+                  aria-pressed={layerVisibility.dataset}
+                  disabled={!activeDataset}
+                  onClick={() =>
+                    setLayerVisibility((prev) => ({
+                      ...prev,
+                      dataset: !prev.dataset,
+                    }))
+                  }
+                  className={`w-11 h-6 rounded-full relative transition-colors duration-200 flex-shrink-0 ${layerVisibility.dataset ? "bg-secondary" : "bg-on-surface/15"}`}
+                >
+                  <span
+                    className={`absolute top-0.5 w-5 h-5 rounded-full bg-surface-container shadow transition-all duration-200 ${layerVisibility.dataset ? "left-[calc(100%-22px)]" : "left-0.5"}`}
+                  />
+                </button>
+              </div>
+              {activeDataset && datasetHasPoints && (
+                <div className="flex items-center justify-between py-2 px-3 pl-6 rounded-lg border border-outline-variant/60 bg-surface-container text-xs text-on-surface">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full flex-shrink-0 bg-cyan-400" />
+                    <span>{datasetHasPolygons ? "Pontos e marcos dos vértices" : "Pontos do dataset"}</span>
                   </div>
                   <button
-                    aria-label="Alternar dataset local"
-                    aria-pressed={layerVisibility.dataset}
-                    disabled={!activeDataset}
+                    aria-label="Alternar pontos do dataset"
+                    aria-pressed={showDatasetPoints}
+                    disabled={!layerVisibility.dataset}
                     onClick={() =>
                       setLayerVisibility((prev) => ({
                         ...prev,
-                        dataset: !prev.dataset,
+                        datasetPoints: !showDatasetPoints,
                       }))
                     }
-                    className={`w-11 h-6 rounded-full relative transition-colors duration-200 flex-shrink-0 ${layerVisibility.dataset ? "bg-secondary" : "bg-on-surface/15"}`}
+                    className={`h-5 w-9 rounded-full relative transition-colors duration-200 flex-shrink-0 ${showDatasetPoints && layerVisibility.dataset ? "bg-secondary" : "bg-on-surface/15"}`}
                   >
                     <span
-                      className={`absolute top-0.5 w-5 h-5 rounded-full bg-surface-container shadow transition-all duration-200 ${layerVisibility.dataset ? "left-[calc(100%-22px)]" : "left-0.5"}`}
+                      className={`block h-4 w-4 rounded-full bg-white shadow transition-transform ${showDatasetPoints && layerVisibility.dataset ? "translate-x-4" : "translate-x-0.5"}`}
                     />
                   </button>
                 </div>
-                {activeDataset && datasetHasPoints && (
-                  <div className="flex items-center justify-between py-2 px-3 pl-6 rounded-lg border border-outline-variant/60 bg-surface-container text-xs text-on-surface">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full flex-shrink-0 bg-cyan-400" />
-                      <span>
-                        {datasetHasPolygons
-                          ? "Pontos e marcos dos vértices"
-                          : "Pontos do dataset"}
-                      </span>
-                    </div>
-                    <button
-                      aria-label="Alternar pontos do dataset"
-                      aria-pressed={showDatasetPoints}
-                      disabled={!layerVisibility.dataset}
-                      onClick={() =>
-                        setLayerVisibility((prev) => ({
-                          ...prev,
-                          datasetPoints: !showDatasetPoints,
-                        }))
-                      }
-                      className={`h-5 w-9 rounded-full relative transition-colors duration-200 flex-shrink-0 ${showDatasetPoints && layerVisibility.dataset ? "bg-secondary" : "bg-on-surface/15"}`}
-                    >
-                      <span
-                        className={`block h-4 w-4 rounded-full bg-white shadow transition-transform ${showDatasetPoints && layerVisibility.dataset ? "translate-x-4" : "translate-x-0.5"}`}
-                      />
-                    </button>
-                  </div>
-                )}
-                {!activeDataset && (
-                  <p className="text-on-surface-variant text-sm">
-                    Selecione um dataset local abaixo ou importe um arquivo.
-                  </p>
-                )}
-                <label className="block text-xs font-semibold text-on-surface-variant">
-                  Dataset local (opcional)
-                  <select
-                    aria-label="Selecionar dataset local"
-                    value={datasetSelection}
-                    onChange={(event) =>
-                      setDatasetSelection(event.target.value)
-                    }
-                    className="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container px-2 py-2 text-sm text-on-surface"
-                  >
-                    <option value="none">Nenhum dataset</option>
-                    {datasets.map((dataset) => (
-                      <option key={dataset.id} value={dataset.id}>
-                        {dataset.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                {projectLayers.map((layer) => (
-                  <div
-                    key={layer.id}
-                    className="flex items-center justify-between rounded-lg border border-outline-variant px-3 py-2 text-sm text-on-surface"
-                  >
-                    <span>{layer.name}</span>
-                    <button
-                      aria-label={`Alternar camada ${layer.name}`}
-                      aria-pressed={
-                        layerVisibility[layer.id] ?? layer.visibleByDefault
-                      }
-                      onClick={() =>
-                        setLayerVisibility((prev) => ({
-                          ...prev,
-                          [layer.id]: !(
-                            prev[layer.id] ?? layer.visibleByDefault
-                          ),
-                        }))
-                      }
-                      className={`h-5 w-9 rounded-full ${(layerVisibility[layer.id] ?? layer.visibleByDefault) ? "bg-secondary" : "bg-on-surface/15"}`}
-                    >
-                      <span
-                        className={`block h-4 w-4 rounded-full bg-white transition-transform ${(layerVisibility[layer.id] ?? layer.visibleByDefault) ? "translate-x-4" : "translate-x-0.5"}`}
-                      />
-                    </button>
-                  </div>
-                ))}
-                {projectFeatureError && (
-                  <p role="alert" className="text-sm text-red-400">
-                    Não foi possível carregar as feições do projeto:{" "}
-                    {projectFeatureError instanceof Error
-                      ? projectFeatureError.message
-                      : "erro desconhecido"}
-                  </p>
-                )}
-                {projectFeatureTruncated && (
-                  <p className="text-xs text-on-surface-variant">
-                    Consulta parcial: até 100 camadas e 10.000 feições por
-                    projeto.
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* Conteúdo: FILTROS */}
-            {sidePanel === "filtros" && (
-              <div className="p-5 space-y-4">
-                <p className={subtitleClass + " uppercase tracking-wider"}>
-                  Filtrar feições no mapa
+              )}
+              {!activeDataset && (
+                <p className="text-on-surface-variant text-sm">
+                  Selecione um dataset local abaixo ou importe um arquivo.
                 </p>
-                <div>
-                  <label className={labelClass + " block mb-1.5"}>
-                    Busca por nome
-                  </label>
-                  <input
-                    aria-label="Buscar nas propriedades das feições"
-                    type="text"
-                    value={filterText}
-                    onChange={(e) => setFilterText(e.target.value)}
-                    placeholder="Ex: Fazenda, Sítio..."
-                    className="w-full px-3 py-2.5 rounded-xl border border-outline-variant bg-surface-container text-on-surface text-sm placeholder:text-on-surface-variant focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100 transition-all"
-                  />
-                </div>
-                <div>
-                  <label className={labelClass + " block mb-1.5"}>
-                    Tipo de feição
-                  </label>
-                  <select
-                    aria-label="Tipo de feição"
-                    value={filterType}
-                    onChange={(e) => setFilterType(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl border border-outline-variant bg-surface-container text-on-surface text-sm focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100 transition-all"
-                  >
-                    <option value="todos">Todos os tipos</option>
-                    <option value="Point">Pontos</option>
-                    <option value="LineString">Linhas</option>
-                    <option value="Polygon">Polígonos</option>
-                    <option value="Multi">Multi-geometrias</option>
-                  </select>
-                </div>
-                <div className="h-px bg-surface-variant" />
-                {filterText && (
-                  <div className="space-y-2">
-                    <p className={subtitleClass}>
-                      Resultados para "{filterText}":
-                    </p>
-                    {activeGeoJson.features
-                      .slice(0, 100)
-                      .map((feature, index) => (
-                        <div
-                          key={String(feature.id ?? index)}
-                          className="px-3 py-2.5 rounded-xl bg-surface-container-high border border-outline-variant"
-                        >
-                          <p className="text-on-surface font-semibold text-sm">
-                            {String(
-                              feature.properties?.name ??
-                                feature.id ??
-                                `Feição ${index + 1}`,
-                            )}
-                          </p>
-                          <p className="text-on-surface-variant text-xs">
-                            {JSON.stringify(feature.properties)}
-                          </p>
-                        </div>
-                      ))}
-                    {activeGeoJson.features.length === 0 && (
-                      <p className="text-on-surface-variant text-sm text-center py-4">
-                        Nenhuma feição encontrada.
-                      </p>
-                    )}
-                  </div>
-                )}
-                <button
-                  onClick={() => {
-                    setFilterText("");
-                    setFilterType("todos");
-                    toast({ title: "Filtros limpos", variant: "default" });
-                  }}
-                  className="w-full py-2.5 rounded-xl border border-outline-variant bg-surface-container-high text-on-surface-variant text-sm font-medium hover:bg-surface-variant transition-colors"
+              )}
+              <label className="block text-xs font-semibold text-on-surface-variant">
+                Dataset local (opcional)
+                <select
+                  aria-label="Selecionar dataset local"
+                  value={datasetSelection}
+                  onChange={(event) => setDatasetSelection(event.target.value)}
+                  className="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container px-2 py-2 text-sm text-on-surface"
                 >
-                  Limpar filtros
-                </button>
-              </div>
-            )}
-
-            {/* Conteúdo: FERRAMENTAS */}
-            {sidePanel === "ferramentas" && (
-              <div className="p-5 space-y-3">
-                <p className={subtitleClass + " uppercase tracking-wider"}>
-                  Ferramentas disponíveis
+                  <option value="none">Nenhum dataset</option>
+                  {datasets.map((dataset) => (
+                    <option key={dataset.id} value={dataset.id}>
+                      {dataset.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {projectLayers.map((layer) => (
+                <div
+                  key={layer.id}
+                  className="flex items-center justify-between rounded-lg border border-outline-variant px-3 py-2 text-sm text-on-surface"
+                >
+                  <span>{layer.name}</span>
+                  <button
+                    aria-label={`Alternar camada ${layer.name}`}
+                    aria-pressed={
+                      layerVisibility[layer.id] ?? layer.visibleByDefault
+                    }
+                    onClick={() =>
+                      setLayerVisibility((prev) => ({
+                        ...prev,
+                        [layer.id]: !(prev[layer.id] ?? layer.visibleByDefault),
+                      }))
+                    }
+                    className={`h-5 w-9 rounded-full ${(layerVisibility[layer.id] ?? layer.visibleByDefault) ? "bg-secondary" : "bg-on-surface/15"}`}
+                  >
+                    <span
+                      className={`block h-4 w-4 rounded-full bg-white transition-transform ${(layerVisibility[layer.id] ?? layer.visibleByDefault) ? "translate-x-4" : "translate-x-0.5"}`}
+                    />
+                  </button>
+                </div>
+              ))}
+              {projectFeatureError && (
+                <p role="alert" className="text-sm text-red-400">
+                  Não foi possível carregar as feições do projeto:{" "}
+                  {projectFeatureError instanceof Error
+                    ? projectFeatureError.message
+                    : "erro desconhecido"}
                 </p>
-                {[
-                  {
-                    icon: "measure" as AppIconName,
-                    label: "Medir Distância",
-                    desc: "Clique em pontos no mapa para medir.",
-                    action: () => {
-                      toggleMeasure();
-                      setSidePanel("telemetria");
-                    },
+              )}
+              {projectFeatureTruncated && (
+                <p className="text-xs text-on-surface-variant">
+                  Consulta parcial: até 100 camadas e 10.000 feições por
+                  projeto.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Conteúdo: FILTROS */}
+          {sidePanel === "filtros" && (
+            <div className="p-5 space-y-4">
+              <p className={subtitleClass + " uppercase tracking-wider"}>
+                Filtrar feições no mapa
+              </p>
+              <div>
+                <label className={labelClass + " block mb-1.5"}>
+                  Busca por nome
+                </label>
+                <input
+                  aria-label="Buscar nas propriedades das feições"
+                  type="text"
+                  value={filterText}
+                  onChange={(e) => setFilterText(e.target.value)}
+                  placeholder="Ex: Fazenda, Sítio..."
+                  className="w-full px-3 py-2.5 rounded-xl border border-outline-variant bg-surface-container text-on-surface text-sm placeholder:text-on-surface-variant focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100 transition-all"
+                />
+              </div>
+              <div>
+                <label className={labelClass + " block mb-1.5"}>
+                  Tipo de feição
+                </label>
+                <select
+                  aria-label="Tipo de feição"
+                  value={filterType}
+                  onChange={(e) => setFilterType(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-xl border border-outline-variant bg-surface-container text-on-surface text-sm focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100 transition-all"
+                >
+                  <option value="todos">Todos os tipos</option>
+                  <option value="Point">Pontos</option>
+                  <option value="LineString">Linhas</option>
+                  <option value="Polygon">Polígonos</option>
+                  <option value="Multi">Multi-geometrias</option>
+                </select>
+              </div>
+              <div className="h-px bg-surface-variant" />
+              {filterText && (
+                <div className="space-y-2">
+                  <p className={subtitleClass}>
+                    Resultados para "{filterText}":
+                  </p>
+                  {activeGeoJson.features
+                    .slice(0, 100)
+                    .map((feature, index) => (
+                      <div
+                        key={String(feature.id ?? index)}
+                        className="px-3 py-2.5 rounded-xl bg-surface-container-high border border-outline-variant"
+                      >
+                        <p className="text-on-surface font-semibold text-sm">
+                          {String(
+                            feature.properties?.name ??
+                              feature.id ??
+                              `Feição ${index + 1}`,
+                          )}
+                        </p>
+                        <p className="text-on-surface-variant text-xs">
+                          {JSON.stringify(feature.properties)}
+                        </p>
+                      </div>
+                    ))}
+                  {activeGeoJson.features.length === 0 && (
+                    <p className="text-on-surface-variant text-sm text-center py-4">
+                      Nenhuma feição encontrada.
+                    </p>
+                  )}
+                </div>
+              )}
+              <button
+                onClick={() => {
+                  setFilterText("");
+                  setFilterType("todos");
+                  toast({ title: "Filtros limpos", variant: "default" });
+                }}
+                className="w-full py-2.5 rounded-xl border border-outline-variant bg-surface-container-high text-on-surface-variant text-sm font-medium hover:bg-surface-variant transition-colors"
+              >
+                Limpar filtros
+              </button>
+            </div>
+          )}
+
+          {/* Conteúdo: FERRAMENTAS */}
+          {sidePanel === "ferramentas" && (
+            <div className="p-5 space-y-3">
+              <p className={subtitleClass + " uppercase tracking-wider"}>
+                Ferramentas disponíveis
+              </p>
+              {[
+                {
+                  icon: "measure" as AppIconName,
+                  label: "Medir Distância",
+                  desc: "Clique em pontos no mapa para medir.",
+                  action: () => {
+                    toggleMeasure();
+                    setSidePanel("telemetria");
                   },
-                  {
-                    icon: "location" as AppIconName,
-                    label: "Minha Localização",
-                    desc: "Centralizar o mapa na sua posição atual.",
-                    action: handleMyLocation,
-                  },
-                  {
-                    icon: "download" as AppIconName,
-                    label: "Exportar Dados",
-                    desc: "Exportar o dataset selecionado em GeoJSON.",
-                    action: () => {
-                      if (activeDataset)
-                        void exportDatasetGeoJSON(activeDataset.id).catch(
-                          (cause) =>
-                            toast({
-                              title: "Exportação não concluída",
-                              description:
-                                cause instanceof Error
-                                  ? cause.message
-                                  : "Falha ao exportar.",
-                              variant: "error",
-                            }),
-                        );
-                      else
+                },
+                {
+                  icon: "location" as AppIconName,
+                  label: "Minha Localização",
+                  desc: "Centralizar o mapa na sua posição atual.",
+                  action: handleMyLocation,
+                },
+                {
+                  icon: "download" as AppIconName,
+                  label: "Exportar Dados",
+                  desc: "Exportar o dataset selecionado em GeoJSON.",
+                  action: () => {
+                    if (activeDataset)
+                      void exportDatasetGeoJSON(activeDataset.id).catch((cause) =>
                         toast({
-                          title: "Nenhum dataset selecionado",
-                          variant: "error",
-                        });
-                    },
-                  },
-                  {
-                    icon: "copy" as AppIconName,
-                    label: "Copiar coordenadas",
-                    desc: "Copiar o centro atual do mapa.",
-                    action: async () => {
-                      const value = `${telemetry.lat.toFixed(6)}, ${telemetry.lng.toFixed(6)}`;
-                      try {
-                        if (!navigator.clipboard?.writeText)
-                          throw new Error(
-                            "Cópia indisponível neste dispositivo.",
-                          );
-                        await navigator.clipboard.writeText(value);
-                        toast({
-                          title: "Coordenadas copiadas",
-                          description: value,
-                          variant: "success",
-                        });
-                      } catch (cause) {
-                        toast({
-                          title: "Não foi possível copiar",
+                          title: "Exportação não concluída",
                           description:
                             cause instanceof Error
                               ? cause.message
-                              : "Verifique a permissão de cópia.",
+                              : "Falha ao exportar.",
                           variant: "error",
-                        });
-                      }
-                    },
+                        }),
+                      );
+                    else
+                      toast({
+                        title: "Nenhum dataset selecionado",
+                        variant: "error",
+                      });
                   },
-                  {
-                    icon: "upload" as AppIconName,
-                    label: "Importar dataset",
-                    desc: "Abrir a página de importação local.",
-                    action: () => {
-                      window.location.href = "/imports";
-                    },
+                },
+                {
+                  icon: "copy" as AppIconName,
+                  label: "Copiar coordenadas",
+                  desc: "Copiar o centro atual do mapa.",
+                  action: async () => {
+                    const value = `${telemetry.lat.toFixed(6)}, ${telemetry.lng.toFixed(6)}`;
+                    try {
+                      if (!navigator.clipboard?.writeText)
+                        throw new Error(
+                          "Cópia indisponível neste dispositivo.",
+                        );
+                      await navigator.clipboard.writeText(value);
+                      toast({
+                        title: "Coordenadas copiadas",
+                        description: value,
+                        variant: "success",
+                      });
+                    } catch (cause) {
+                      toast({
+                        title: "Não foi possível copiar",
+                        description:
+                          cause instanceof Error
+                            ? cause.message
+                            : "Verifique a permissão de cópia.",
+                        variant: "error",
+                      });
+                    }
                   },
-                ].map((tool) => (
-                  <button
-                    key={tool.icon}
-                    onClick={tool.action}
-                    className="w-full flex items-start gap-3 px-3 py-3 rounded-xl border border-outline-variant bg-surface-container-high hover:bg-primary/10 hover:border-primary/30 transition-colors text-left"
-                  >
-                    <AppIcon name={tool.icon} size="md" className="mt-0.5" />
-                    <div>
-                      <p className="text-on-surface font-semibold text-sm">
-                        {tool.label}
-                      </p>
-                      <p className="text-on-surface-variant text-xs mt-0.5">
-                        {tool.desc}
-                      </p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+                },
+                {
+                  icon: "upload" as AppIconName,
+                  label: "Importar dataset",
+                  desc: "Abrir a página de importação local.",
+                  action: () => {
+                    window.location.href = "/imports";
+                  },
+                },
+              ].map((tool) => (
+                <button
+                  key={tool.icon}
+                  onClick={tool.action}
+                  className="w-full flex items-start gap-3 px-3 py-3 rounded-xl border border-outline-variant bg-surface-container-high hover:bg-primary/10 hover:border-primary/30 transition-colors text-left"
+                >
+                  <AppIcon name={tool.icon} size="md" className="mt-0.5" />
+                  <div>
+                    <p className="text-on-surface font-semibold text-sm">
+                      {tool.label}
+                    </p>
+                    <p className="text-on-surface-variant text-xs mt-0.5">
+                      {tool.desc}
+                    </p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

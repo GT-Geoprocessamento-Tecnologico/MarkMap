@@ -6,13 +6,11 @@
 **Gate M3**: catálogo de regiões versionado, política de atualização "Depois+Atualizar", detecção de versão em builds nativas, URLs de loja corretas, aviso nativo persistente
 
 ## Objetivo
-
 Criar o catálogo de versões regionais e o mecanismo de atualização de dados. Este é o último item da fase M3 — Mapa OSM moderno. Define como as regiões são versionadas, como o app detecta novas versões disponíveis e como o usuário pode adiar/aceitar atualizações.
 
 ## Catálogo de Versões Regionais
 
 ### 1. Estrutura do Catálogo
-
 O catálogo de versões é um arquivo JSON que lista todas as regiões disponíveis com seus metadados:
 
 ```json
@@ -52,27 +50,26 @@ O catálogo de versões é um arquivo JSON que lista todas as regiões disponív
 
 ### 2. Campos do Catálogo
 
-| Campo                      | Tipo          | Descrição                                |
-| -------------------------- | ------------- | ---------------------------------------- |
-| `version`                  | string        | Versão do catálogo (semantic versioning) |
-| `generatedAt`              | string        | Timestamp de geração (ISO 8601)          |
-| `osmDataVersion`           | string        | Versão dos dados OSM (data snapshot)     |
-| `regions[]`                | array         | Lista de regiões disponíveis             |
-| `region.id`                | string        | ID único da região                       |
-| `region.name`              | string        | Nome humano legível                      |
-| `region.bounds`            | array[number] | Bounds WGS84 [minX, minY, maxX, maxY]    |
-| `region.style`             | string        | Estilo aplicado (light/dark/outdoor)     |
-| `region.sizeMiB`           | number        | Tamanho estimado em mebibytes            |
-| `region.checksumSHA256`    | string        | SHA-256 do pacote                        |
-| `region.capabilities`      | string[]      | Capabilities suportadas                  |
-| `region.lastUpdated`       | string        | Quando a região foi atualizada           |
-| `region.description`       | string        | Descrição opcional                       |
-| `minimumAppVersion`        | string        | Versão mínima do app requerida           |
-| `minimumCompatibleVersion` | string        | Versão compatível mínima                 |
-| `releaseNotes`             | string        | Notas da release                         |
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `version` | string | Versão do catálogo (semantic versioning) |
+| `generatedAt` | string | Timestamp de geração (ISO 8601) |
+| `osmDataVersion` | string | Versão dos dados OSM (data snapshot) |
+| `regions[]` | array | Lista de regiões disponíveis |
+| `region.id` | string | ID único da região |
+| `region.name` | string | Nome humano legível |
+| `region.bounds` | array[number] | Bounds WGS84 [minX, minY, maxX, maxY] |
+| `region.style` | string | Estilo aplicado (light/dark/outdoor) |
+| `region.sizeMiB` | number | Tamanho estimado em mebibytes |
+| `region.checksumSHA256` | string | SHA-256 do pacote |
+| `region.capabilities` | string[] | Capabilities suportadas |
+| `region.lastUpdated` | string | Quando a região foi atualizada |
+| `region.description` | string | Descrição opcional |
+| `minimumAppVersion` | string | Versão mínima do app requerida |
+| `minimumCompatibleVersion` | string | Versão compatível mínima |
+| `releaseNotes` | string | Notas da release |
 
 ### 3. Detecção de Nova Versão
-
 O app deve verificar novas versões ao iniciar/abrir. O fluxo:
 
 1. App solicita catálogo remoto (GET /api/regions/catalog)
@@ -82,7 +79,6 @@ O app deve verificar novas versões ao iniciar/abrir. O fluxo:
 5. Se múltiplas regiões têm nova versão → agrupar por estilo/prioridade
 
 ### 4. Política de Atualização "Depois + Atualizar"
-
 O mecanismo de atualização deve suportar:
 
 - **Agora**: Baixar e ativar imediatamente
@@ -90,23 +86,20 @@ O mecanismo de atualização deve suportar:
 - **Não mais perguntar**: Marcar como visto, não mostrar novamente
 
 A política "Depois" deve ser:
-
 - Persistente por região (guardada no IndexedDB/Estado local)
 - Sobrevivre a reinicializações do app
 - Respeitada mesmo após múltiplas aberturas
 - Sobrescrita apenas quando usuário escolher "Agora"
 
 ### 5. URLs das Lojas (Native Builds)
-
 Para builds nativos Android/iOS, o catálogo deve incluir:
 
-| Plataforma | URL da Loja                                                        | Campo no Catálogo |
-| ---------- | ------------------------------------------------------------------ | ----------------- |
-| Android    | `https://play.google.com/store/apps/details?id=com.geonexo.mapmap` | `androidStoreUrl` |
-| iOS        | `https://apps.apple.com/app/id<app-store-id>`                      | `iosStoreUrl`     |
+| Plataforma | URL da Loja | Campo no Catálogo |
+|------------|-------------|-------------------|
+| Android | `https://play.google.com/store/apps/details?id=com.geonexo.mapmap` | `androidStoreUrl` |
+| iOS | `https://apps.apple.com/app/id<app-store-id>` | `iosStoreUrl` |
 
 ### 6. Modelo de Atualização
-
 O fluxo completo de atualização de região:
 
 ```
@@ -142,14 +135,12 @@ O fluxo completo de atualização de região:
 ```
 
 ### 7. Checksum e Validação
-
 - SHA-256 por pacote regional
 - Validação de header PMTiles v3 antes da ativação
 - Download resume (range requests) se interrompido
 - Integridade verificada antes de tornar ativo
 
 ### 8. Teto de 250 MiB Removido
-
 - Limits defensivos por componente (não mais teto fixo)
 - Orçamento calculado por dispositivo
 - Reserva de espaço livre (≥ 100 MiB livres recomendado)
@@ -160,7 +151,6 @@ O fluxo completo de atualização de região:
 ## Implementação Técnica
 
 ### 1. Schema do Catálogo (Zod)
-
 ```typescript
 import { z } from "zod";
 import { importSchema } from "./import.ts";
@@ -172,19 +162,7 @@ const regionSchema = z.object({
   style: z.enum(["light", "dark", "outdoor"]),
   sizeMiB: z.number().int().positive(),
   checksumSHA256: z.string().length(64),
-  capabilities: z.array(
-    z.enum([
-      "basemap",
-      "search",
-      "routing.walk",
-      "routing.bicycle",
-      "routing.car",
-      "elevation",
-      "contours",
-      "wikipedia",
-      "transit",
-    ]),
-  ),
+  capabilities: z.array(z.enum(["basemap", "search", "routing.walk", "routing.bicycle", "routing.car", "elevation", "contours", "wikipedia", "transit"])),
   lastUpdated: z.string().datetime(),
   description: z.string().nullable().optional(),
 });
@@ -204,7 +182,6 @@ export type Region = z.infer<typeof regionSchema>;
 ```
 
 ### 2. Serviço de Catálogo (apps/admin/src/lib/region-catalog.ts)
-
 ```typescript
 import { fetch } from "@hono/node-server";
 import { catalogSchema } from "../contracts/src/offline-map.ts";
@@ -217,28 +194,26 @@ export async function fetchRegionCatalog(): Promise<Catalog> {
 
 export function isNewVersionAvailable(
   localVersion: string,
-  catalog: Catalog,
+  catalog: Catalog
 ): boolean {
   return catalog.version > localVersion;
 }
 
 export function getRegionsWithUpdates(
   localRegions: Region[],
-  catalog: Catalog,
+  catalog: Catalog
 ): Region[] {
-  // Return regions that have newer versions available
-}
+    // Return regions that have newer versions available
+  }
 ```
 
 ### 3. Política "Depois" (Apps/Storage)
-
 - Armazenado em IndexedDB com chave: `updatePolicy:{regionId}`
 - Valor: `"after"` | `"now"` | `"never"`
 - Persiste entre sessões
 - Sobrevivre a reinicializações
 
 ### 4. URLs de Loja (Native)
-
 ```typescript
 export const STORE_URLS = {
   android: "https://play.google.com/store/apps/details?id=com.geonexo.mapmap",
@@ -249,54 +224,46 @@ export const STORE_URLS = {
 ## Evidência Concreta
 
 ### 1. Catálogo de Versões Documentado
-
 - ✅ Estrutura JSON do catálogo com todos os campos
 - ✅ Campos por região (id, name, bounds, style, sizeMiB, checksum, capabilities)
 - ✅ Versionamento semântico (version, generatedAt, osmDataVersion)
 - ✅ minimumAppVersion e minimumCompatibleVersion
 
 ### 2. Política de Atualização "Depois + Atualizar"
-
 - ✅ Fluxo: Now/After/Never
 - ✅ Política persistente por região no IndexedDB
 - ✅ Sobrevivre a reinicializações
 - ✅ Respeitada após múltiplas aberturas
 
 ### 3. URLs das Lojas
-
 - ✅ Android: `https://play.google.com/store/apps/details?id=com.geonexo.mapmap`
 - ✅ iOS: `https://apps.apple.com/app/{id}`
 - ✅ Campos no catálogo: `androidStoreUrl`, `iosStoreUrl`
 
 ### 4. Modelo de Atualização
-
 - ✅ Check fluxo: verificar → comparar → mostrar aviso → usuário escolhe → baixar → ativar
 - ✅ Download resumível com checkpoint
 - ✅ Validação SHA-256 e PMTiles v3
 - ✅ Ativação atômica com rollback
 
 ### 5. Schema Zod do Catálogo
-
 - ✅ `catalogSchema` com validação completa
 - ✅ `regionSchema` com tipos estruturados
 - ✅ Regex para versionamento semântico
 - ✅ Tipos exportados para uso em todo o app
 
 ### 6. Serviço de Catálogo
-
 - ✅ `fetchRegionCatalog()` - busca do servidor
 - ✅ `isNewVersionAvailable()` - compara versões
 - ✅ `getRegionsWithUpdates()` - regiões com updates disponíveis
 
 ### 7. Política "Depois" Implementation
-
 - ✅ Armazenamento em IndexedDB
 - ✅ Chave: `updatePolicy:{regionId}`
 - ✅ Valores: "after" | "now" | "never"
 - ✅ Persistência entre sessões
 
 ### 8. Teto de 250 MiB Removido
-
 - ✅ Limits defensivos por componente
 - ✅ Orçamento calculado por dispositivo
 - ✅ Reserva de espaço livre (≥ 100 MiB)
@@ -335,4 +302,4 @@ Após concluir o catálogo de versões, a sequência continua com:
 
 ---
 
-_Este documento é o entregável do MM-MAP-220. Conclui o item M3 "Mapa OSM moderno" juntamente com MM-MAP-200 e MM-MAP-210, e posiciona a sequência para iniciar M4 (GPX/KML/KMZ/GeoJSON)._
+*Este documento é o entregável do MM-MAP-220. Conclui o item M3 "Mapa OSM moderno" juntamente com MM-MAP-200 e MM-MAP-210, e posiciona a sequência para iniciar M4 (GPX/KML/KMZ/GeoJSON).*

@@ -56,16 +56,12 @@ test.describe("PWA installability and local-data upgrade", () => {
     expect(runtime.display).toBe("standalone");
     expect(runtime.controlled).toBe(true);
     expect(runtime.active).toBe("activated");
-    expect(runtime.iconStatuses.every((icon) => icon.status === 200)).toBe(
-      true,
-    );
+    expect(runtime.iconStatuses.every((icon) => icon.status === 200)).toBe(true);
 
     await context.setOffline(true);
     await page.reload({ waitUntil: "domcontentloaded" });
     await expect(page).toHaveTitle(/MarkMap/i);
-    await expect(
-      page.getByLabel("MarkMap — Planejamento Inteligente").first(),
-    ).toBeVisible();
+    await expect(page.getByLabel("MarkMap — Planejamento Inteligente").first()).toBeVisible();
     await context.setOffline(false);
   });
 
@@ -141,10 +137,7 @@ test.describe("PWA installability and local-data upgrade", () => {
                 updatedAt: createdAt,
               },
             };
-            tx.objectStore("meta").put({
-              key: "workspaceId",
-              value: workspaceId,
-            });
+            tx.objectStore("meta").put({ key: "workspaceId", value: workspaceId });
             tx.objectStore("meta").put({ key: "outboxSequence", value: 1 });
             tx.objectStore("entities").put({
               key: `${workspaceId}:project:${entityId}`,
@@ -223,8 +216,7 @@ test.describe("PWA installability and local-data upgrade", () => {
                 stores: Array.from(db.objectStoreNames),
                 indexes: Array.from(outboxStore.indexNames),
                 workspaceId:
-                  (meta.result as { value?: string } | undefined)?.value ??
-                  null,
+                  (meta.result as { value?: string } | undefined)?.value ?? null,
                 entityPresent: entity.result !== undefined,
                 outboxPresent: outbox.result !== undefined,
               };

@@ -15,6 +15,7 @@
 
 **Documento de continuidade:** `docs/MM-MAP-300-420-pwa-continuity.md`. Nenhum deploy, release/tag, migration ou merge na `main`.
 
+
 ## Incremento 2026-10-09 — M1/M2/M3 PWA-first, ainda PARCIAL
 
 - **Branch de trabalho:** `agent/MM-MAP-200-pwa-regions`, derivada de `feat/maps-engine-v2-offline@eb8f436` (HEAD de integração não modificado).
@@ -25,6 +26,7 @@
 - **QA direcionada:** `node --test` = 12/12 aprovados (PBF sintético, PMTiles diretório, HTTP Range, URL, SHA, shell); `node --check` verde. `tsc` isolado com mocks anteriores NÃO é typecheck do monorepo. **NÃO executados:** lint/typecheck/build/Vitest/E2E completos, distribuição real OSM e PWA offline em dispositivo/navegador.
 - **Gate:** testes físicos Android/iOS não bloqueiam desenvolvimento PWA, mas a integração em `main` ainda é proibida enquanto o gate Web, revisão de segurança e controle de deploy não estiverem verdes. Nenhum deploy, migration, release ou produção autorizados/executados.
 - **Próximo:** validar pacote com extrato PBF real e leitor PMTiles, validar IndexedDB/Playwright, corrigir o pipeline conforme evidência, completar catálogo/update e testes de integração. M4→M8 permanecem parciais/históricos e M9 nativo fora do escopo PWA.
+
 
 **Status**: BLOQUEADO — MM-MAP-940 não aprovado (auditoria de 2026-10-09)
 **Task ID**: MM-MAP-940
@@ -37,7 +39,6 @@
 **Situação:** MERGE PARA MAIN BLOQUEADO, por segurança funcional e para impedir publicação Vercel automática. Ambos os projetos Vercel (`markmap-site`, `markmap-app`) continuam ligados ao GitHub. Nenhum deploy Vercel nem CI GitHub foi iniciado manualmente nesta auditoria.
 
 **Classificação:**
-
 - **FUNCIONA (evidência histórica):** núcleo MapLibre/Terra Draw, operações locais IndexedDB/outbox, GeoPDF e PMTiles/PWA pré-existentes. Resultados históricos no gate são anteriores a esta auditoria.
 - **PARCIAL:** gerador regional (agora exige arquivo PMTiles e manifest corretos, mas não gera tiles OSM); prompt PWA (correção de checagem de atualização, sem E2E novo); parsers GPX/KML, busca, roteamento, elevação e conteúdo offline (implementações no código sem comprovação completa em aparelho e distribuição regional).
 - **BLOQUEADO:** instalador regional `MM-MAP-130` explicitamente desativado/fail-closed depois de identificar download simulado e ativação de staging vazio; gestão de atualização/reparo regional `MM-MAP-140` sem serviço real; gate `MM-MAP-940` ainda não satisfeito.
@@ -50,7 +51,6 @@
 Os itens anteriores marcados como concluídos permanecem como **evidência histórica de desenvolvimento**, não como liberação atual para merge/release.
 
 ## Objetivo
-
 Não abrir PR para `main` até que a checklist completa abaixo esteja verde.
 
 ## Branch
@@ -62,7 +62,6 @@ Não abrir PR para `main` até que a checklist completa abaixo esteja verde.
 ## Checklist do Gate
 
 ### Código e build
-
 - [x] Integração branch atualizada com main sem apagar trabalho
 - [x] Lint verde
 - [x] Typecheck verde (`tsc --noEmit` em todos os packages)
@@ -74,7 +73,6 @@ Não abrir PR para `main` até que a checklist completa abaixo esteja verde.
 - [ ] iOS build aplicável verde (evidência de dispositivo — exige macOS/Xcode)
 
 ### Revisão
-
 - [ ] Diff revisado
 - [x] Licenças revisadas (nenhum código GPL copiado; nenhum .mwm/.bin redistribuído)
 - [x] Documentação sincronizada (`THIRD_PARTY_NOTICES.md`, `docs/architecture.md`, `docs/user-guide.md`, `docs/testing.md`, `docs/privacy.md`, ADR-0004/0005/0006, handoff — MM-MAP-930)
@@ -82,7 +80,6 @@ Não abrir PR para `main` até que a checklist completa abaixo esteja verde.
 - [ ] Evidência física registrada para recursos que exigem aparelho (offline Android/iOS, GPS/nav, Android Auto/CarPlay, baseline perf MM-MAP-900)
 
 ### Gate explícito do PRD
-
 - [x] Nenhum código GPL do openstreetmap-website
 - [x] Nenhum Data File .mwm/.bin do Organic Maps redistribuído
 - [x] Recursos de GeoPDF, desenho, sync e PWA não regridem (testes existentes verdes)
@@ -126,4 +123,4 @@ Commit da sequência: `5368bb8e` (`feat(maps): implement Maps Engine v2 offline 
 
 ---
 
-_Entregável do MM-MAP-940. Não abrir PR para main até as pendências acima serem fechadas com evidência._
+*Entregável do MM-MAP-940. Não abrir PR para main até as pendências acima serem fechadas com evidência.*

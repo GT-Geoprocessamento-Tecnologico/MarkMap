@@ -6,31 +6,26 @@
 **Gate M7**: rota completa a pé/bike/carro em aparelho sem internet
 
 ## Objetivo
-
 Executar roteamento offline em Web Worker com perfis walk/bicycle/car, snap de origem/destino, cancelamento, limites de memória e resultado com geometria + segmentos + metadata.
 
 ## Fontes de Inspiração (conceitos, não código copiado)
-
 - `libs/routing/` — conceito de perfil + expansão de grafo com custo tempo
 
 ## Perfis
 
-| Perfil    | Velocidades (default → por tipo)                                   | Acesso                    | Restrições                   |
-| --------- | ------------------------------------------------------------------ | ------------------------- | ---------------------------- |
-| `walk`    | 5 km/h                                                             | `foot`, `access`          | Sem `motorway`               |
-| `bicycle` | 15 km/h                                                            | `bicycle`, `access`       | Sem `motorway`, sem `gravel` |
-| `car`     | 50 → motorway 110, trunk 90, primary 70, secondary 60, tertiary 50 | `motor_vehicle`, `access` | —                            |
+| Perfil | Velocidades (default → por tipo) | Acesso | Restrições |
+|---|---|---|---|
+| `walk` | 5 km/h | `foot`, `access` | Sem `motorway` |
+| `bicycle` | 15 km/h | `bicycle`, `access` | Sem `motorway`, sem `gravel` |
+| `car` | 50 → motorway 110, trunk 90, primary 70, secondary 60, tertiary 50 | `motor_vehicle`, `access` | — |
 
 ## Implementação
 
 ```typescript
 // packages/maps/src/routing/router.ts
-export function snapToNearestNode(graph, lon, lat): number;
-export function buildAdjacencyList(
-  graph,
-  profile,
-): Map<number, Array<{ edge; reverse }>>;
-export function findRoute(graph, request: RouteRequest): Route | null;
+export function snapToNearestNode(graph, lon, lat): number
+export function buildAdjacencyList(graph, profile): Map<number, Array<{ edge, reverse }>>
+export function findRoute(graph, request: RouteRequest): Route | null
 ```
 
 ### Algoritmo (Dijkstra + MinHeap)
@@ -43,17 +38,16 @@ export function findRoute(graph, request: RouteRequest): Route | null;
 
 ### Requisitos PRD atendidos
 
-| Requisito                                 | Status                                                     |
-| ----------------------------------------- | ---------------------------------------------------------- |
-| Snap origem/destino à rede                | ✅ `snapToNearestNode`                                     |
-| Rota com geometria + segmentos + metadata | ✅ `Route` com `geometry`, `steps`, `legs`                 |
-| Alternativas somente depois do MVP        | ✅ Não implementado (por design)                           |
-| Cancelamento                              | ✅ Worker message + `AbortController` na camada de serviço |
-| Limites de memória                        | ✅ Grafo tipado + heap limitado ao tamanho dos nós         |
-| Executar em Web Worker                    | ✅ Módulo puro, sem DOM — apto para worker                 |
+| Requisito | Status |
+|---|---|
+| Snap origem/destino à rede | ✅ `snapToNearestNode` |
+| Rota com geometria + segmentos + metadata | ✅ `Route` com `geometry`, `steps`, `legs` |
+| Alternativas somente depois do MVP | ✅ Não implementado (por design) |
+| Cancelamento | ✅ Worker message + `AbortController` na camada de serviço |
+| Limites de memória | ✅ Grafo tipado + heap limitado ao tamanho dos nós |
+| Executar em Web Worker | ✅ Módulo puro, sem DOM — apto para worker |
 
 ## Evidência Concreta
-
 - ✅ `findRoute()` — Dijkstra com MinHeap, custo-tempo
 - ✅ `snapToNearestNode()` — snap por distância
 - ✅ `buildAdjacencyList()` — direções conforme oneway/perfil
@@ -64,4 +58,4 @@ export function findRoute(graph, request: RouteRequest): Route | null;
 
 ---
 
-_Entregável do MM-MAP-610. Prepara MM-MAP-620 (Maneuvers)._
+*Entregável do MM-MAP-610. Prepara MM-MAP-620 (Maneuvers).*

@@ -7,11 +7,9 @@
 **Gate M9**: integração automotiva com escopo aprovado
 
 ## Objetivo
-
 Implementar integração Android Auto (mapa, navegação turn-by-turn, busca, destinos, voz) com escopo aprovado, usando padrões de Intent/deep link.
 
 ## Fontes de Inspiração (conceitos, não código copiado)
-
 - `android/app/src/main/java/app/organicmaps/car/` — padrões de templates de carro (conceito)
 - `organicmaps/api-android` — **apenas** padrões de Intent/deep link (conceito)
 
@@ -62,17 +60,16 @@ export class AndroidAutoAdapter implements AutomotiveAdapter { ... }
 
 ### Templates e capabilities
 
-| Template     | Uso                     |
-| ------------ | ----------------------- |
-| `map`        | Mapa em tela do carro   |
-| `navigation` | Turn-by-turn ativo      |
-| `list`       | Lista de destinos/busca |
-| `place`      | Detalhe de lugar        |
+| Template | Uso |
+|---|---|
+| `map` | Mapa em tela do carro |
+| `navigation` | Turn-by-turn ativo |
+| `list` | Lista de destinos/busca |
+| `place` | Detalhe de lugar |
 
 Capabilities: `turn-by-turn`, `search`, `destinations`, `voice`.
 
 ## Evidência Concreta
-
 - ✅ Interfaces `AutomotiveSession`, `AutomotiveNavigationState`, `AutomotiveAdapter`
 - ✅ `AndroidAutoAdapter` com isSupported/start/end/update/showDestination/onManeuverChange
 - ✅ Integração nativa Capacitor condicionada a escopo aprovado
@@ -80,4 +77,4 @@ Capabilities: `turn-by-turn`, `search`, `destinations`, `voice`.
 
 ---
 
-_Entregável do MM-MAP-800. Prepara MM-MAP-810 (CarPlay)._
+*Entregável do MM-MAP-800. Prepara MM-MAP-810 (CarPlay).*

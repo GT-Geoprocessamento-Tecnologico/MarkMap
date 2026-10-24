@@ -2,7 +2,12 @@
   "id": "br-uf-mt",
   "version": "1.0.0-brazil.20261019",
   "label": "Mato Grosso — mapa offline",
-  "bounds": [-61.6283, -18.0404, -50.2248, -7.3561],
+  "bounds": [
+    -61.6283,
+    -18.0404,
+    -50.2248,
+    -7.3561
+  ],
   "minZoom": 0,
   "maxZoom": 9,
   "archive": {
@@ -26,7 +31,9 @@
   "createdAt": "2026-10-19T22:48:47.378Z",
   "packageVersion": "1.0.0-brazil.20261019",
   "osmDataDate": "2026-10-19T04:00:00.000Z",
-  "capabilities": ["basemap"],
+  "capabilities": [
+    "basemap"
+  ],
   "checksums": {
     "archive": "ba44b2c4350516ce243d3a7df9ac398e2caa497821402fca8eda20c01d231918",
     "style": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",

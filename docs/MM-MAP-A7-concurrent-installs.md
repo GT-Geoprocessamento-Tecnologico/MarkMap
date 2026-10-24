@@ -29,7 +29,6 @@ Evitar que duas abas do mesmo origin executem simultaneamente o download/ativaç
 Sem alteração de DB schema, migrations, Neon, protocolo de sync, SW, mapa, autenticação, deploy ou dependências. Não introduzir lock persistente que possa ficar órfão após force-stop.
 
 Arquivos:
-
 - `apps/admin/src/lib/storage/region-install-lock.mjs` e `.d.mts` (novo).
 - `apps/admin/src/lib/storage/resumable-installer.ts` (wrapper exclusivo).
 - `scripts/region-install-lock.test.mjs` (regressões Node).

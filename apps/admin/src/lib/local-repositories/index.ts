@@ -25,28 +25,14 @@ type BootstrapIdentity = { installationId: string; bootstrapProof: string };
 
 // Older installations stored Blob directly. New records use the bytes already
 // validated below, avoiding WebKit's Blob preparation failure without a migration.
-type StoredOriginal = Omit<OriginalRecord, "blob"> & {
-  blob?: Blob;
-  originalBytes?: ArrayBuffer;
-};
+type StoredOriginal = Omit<OriginalRecord, 'blob'> & { blob?: Blob; originalBytes?: ArrayBuffer };
 
 function restoreOriginal(record: StoredOriginal): OriginalRecord {
   const { originalBytes, ...metadata } = record;
-  const blob =
-    record.blob instanceof Blob
-      ? record.blob
-      : originalBytes instanceof ArrayBuffer
-        ? new Blob([originalBytes], { type: record.mediaType })
-        : null;
-  if (
-    !blob ||
-    blob.size !== record.bytes ||
-    blob.size < 1 ||
-    blob.size > 25 * 1024 * 1024
-  )
-    throw new Error(
-      "Os bytes do PDF original não estão disponíveis ou estão incompletos.",
-    );
+  const blob = record.blob instanceof Blob ? record.blob
+    : originalBytes instanceof ArrayBuffer ? new Blob([originalBytes], { type: record.mediaType }) : null;
+  if (!blob || blob.size !== record.bytes || blob.size < 1 || blob.size > 25 * 1024 * 1024)
+    throw new Error('Os bytes do PDF original não estão disponíveis ou estão incompletos.');
   return { ...metadata, blob };
 }
 
@@ -101,40 +87,29 @@ export class LocalRepository {
     return this.db.transact(["meta"], "readwrite", async (tx) => {
       const meta = tx.store("meta");
       const [installation, proof] = await Promise.all([
-        read<{ key: string; value: string } | undefined>(
-          meta.get("installationId"),
-        ),
-        read<{ key: string; value: string } | undefined>(
-          meta.get("workspaceBootstrapProof"),
-        ),
+        read<{ key: string; value: string } | undefined>(meta.get("installationId")),
+        read<{ key: string; value: string } | undefined>(meta.get("workspaceBootstrapProof")),
       ]);
       if (installation?.value && proof?.value)
-        return {
-          installationId: installation.value,
-          bootstrapProof: proof.value,
-        };
+        return { installationId: installation.value, bootstrapProof: proof.value };
       const generated = create();
       const installationId = installation?.value || generated.installationId;
       const bootstrapProof = proof?.value || generated.bootstrapProof;
-      if (!installation?.value)
-        meta.put({ key: "installationId", value: installationId });
-      if (!proof?.value)
-        meta.put({ key: "workspaceBootstrapProof", value: bootstrapProof });
+      if (!installation?.value) meta.put({ key: "installationId", value: installationId });
+      if (!proof?.value) meta.put({ key: "workspaceBootstrapProof", value: bootstrapProof });
       return { installationId, bootstrapProof };
     });
   }
 
   /** Never allow a delayed 401 recovery response to downgrade a newer bearer. */
-  async saveWorkspaceCapability(
-    candidate: WorkspaceCapability,
-  ): Promise<WorkspaceCapability> {
-    if (candidate.workspaceId !== (await this.workspaceId()))
+  async saveWorkspaceCapability(candidate: WorkspaceCapability): Promise<WorkspaceCapability> {
+    if (candidate.workspaceId !== await this.workspaceId())
       throw new Error("Workspace capability does not match this device.");
     return this.db.transact(["meta"], "readwrite", async (tx) => {
       const meta = tx.store("meta");
-      const stored = await read<
-        { key: string; value: WorkspaceCapability } | undefined
-      >(meta.get("workspaceCapability"));
+      const stored = await read<{ key: string; value: WorkspaceCapability } | undefined>(
+        meta.get("workspaceCapability"),
+      );
       const current = stored?.value;
       if (current && BigInt(current.generation) > BigInt(candidate.generation))
         return current;
@@ -243,42 +218,28 @@ export class LocalRepository {
 
   async listOutbox(workspaceId?: string): Promise<SyncOperation[]> {
     workspaceId ??= await this.workspaceId();
-    return this.db.transact(
-      ["outbox", "acks", "conflicts"],
-      "readonly",
-      async (tx) => {
-        const [all, acks, conflicts] = await Promise.all([
-          read<OutboxRecord[]>(
-            tx.store("outbox").index("workspace").getAll(workspaceId),
-          ),
-          read<Array<{ key: string }>>(
-            tx.store("acks").index("workspace").getAll(workspaceId),
-          ),
-          read<ConflictRecord[]>(
-            tx.store("conflicts").index("workspace").getAll(workspaceId),
-          ),
-        ]);
-        const acknowledged = new Set(acks.map((ack) => ack.key));
-        const conflicted = new Set(
-          conflicts.map((conflict) => conflict.operationId),
+    return this.db.transact(["outbox", "acks", "conflicts"], "readonly", async (tx) => {
+      const [all, acks, conflicts] = await Promise.all([
+        read<OutboxRecord[]>(
+          tx.store("outbox").index("workspace").getAll(workspaceId),
+        ),
+        read<Array<{ key: string }>>(
+          tx.store("acks").index("workspace").getAll(workspaceId),
+        ),
+        read<ConflictRecord[]>(
+          tx.store("conflicts").index("workspace").getAll(workspaceId),
+        ),
+      ]);
+      const acknowledged = new Set(acks.map((ack) => ack.key));
+      const conflicted = new Set(conflicts.map((conflict) => conflict.operationId));
+      return all
+        .filter((entry) => !acknowledged.has(entry.operationId) && !conflicted.has(entry.operationId))
+        .sort((a, b) => a.localSequence - b.localSequence)
+        .map(
+          ({ key: _key, immutable: _immutable, localSequence: _localSequence, ...operation }) =>
+            operation,
         );
-        return all
-          .filter(
-            (entry) =>
-              !acknowledged.has(entry.operationId) &&
-              !conflicted.has(entry.operationId),
-          )
-          .sort((a, b) => a.localSequence - b.localSequence)
-          .map(
-            ({
-              key: _key,
-              immutable: _immutable,
-              localSequence: _localSequence,
-              ...operation
-            }) => operation,
-          );
-      },
-    );
+    });
   }
 
   async acknowledge(
@@ -290,9 +251,7 @@ export class LocalRepository {
     if (!Number.isInteger(version) || version < 1)
       throw new Error("A versão do acknowledgement deve ser positiva.");
     if (!/^(0|[1-9]\d*)$/.test(sequence) || BigInt(sequence) < 1n)
-      throw new Error(
-        "A sequência do acknowledgement deve ser decimal positiva.",
-      );
+      throw new Error("A sequência do acknowledgement deve ser decimal positiva.");
     const workspaceId = await this.workspaceId();
     return this.db.transact(
       ["outbox", "entities", "acks"],
@@ -377,7 +336,9 @@ export class LocalRepository {
           entityId: string,
         ): Promise<OutboxRecord | undefined> => {
           const candidates = await read<OutboxRecord[]>(
-            outboxStore.index("entity").getAll([workspaceId, entity, entityId]),
+            outboxStore
+              .index("entity")
+              .getAll([workspaceId, entity, entityId]),
           );
           const pending: OutboxRecord[] = [];
           for (const candidate of candidates) {
@@ -436,18 +397,13 @@ export class LocalRepository {
             });
             outboxStore.delete(change.operationId);
             const current = await read<EntityRecord | undefined>(
-              entities.get(
-                entityKey(workspaceId, change.entity, change.entityId),
-              ),
+              entities.get(entityKey(workspaceId, change.entity, change.entityId)),
             );
             if (current?.predecessorOperationId === change.operationId)
               entities.put({
                 ...current,
                 version: change.version,
-                payload: featurePayloadAtVersion(
-                  change.payload,
-                  change.version,
-                ),
+                payload: featurePayloadAtVersion(change.payload, change.version),
                 updatedAt: now(),
               });
             continue;
@@ -456,18 +412,13 @@ export class LocalRepository {
           if (pending) {
             // A local edit based on version N already knows the history up to
             // N. Old pull pages must not quarantine it as a new conflict.
-            if (
-              pending.baseVersion !== null &&
-              change.version <= pending.baseVersion
-            )
+            if (pending.baseVersion !== null && change.version <= pending.baseVersion)
               continue;
             await writeConflict(pending, change.version, change.payload);
             continue;
           }
           const current = await read<EntityRecord | undefined>(
-            entities.get(
-              entityKey(workspaceId, change.entity, change.entityId),
-            ),
+            entities.get(entityKey(workspaceId, change.entity, change.entityId)),
           );
           if (current && current.version > change.version) continue;
           entities.put({
@@ -484,10 +435,7 @@ export class LocalRepository {
         }
 
         for (const tombstone of tombstones) {
-          const pending = await latestPending(
-            tombstone.entity,
-            tombstone.entityId,
-          );
+          const pending = await latestPending(tombstone.entity, tombstone.entityId);
           if (pending) {
             if (pending.baseVersion !== null) {
               // An older deletion is already covered by the version the local
@@ -500,8 +448,7 @@ export class LocalRepository {
               if (
                 pending.operation === "delete" &&
                 tombstone.version === pending.baseVersion + 1
-              )
-                continue;
+              ) continue;
             }
             await writeConflict(pending, tombstone.version);
             continue;
@@ -571,7 +518,11 @@ export class LocalRepository {
             conflictsStore.delete(current.key);
         }
 
-        const key = entityKey(workspaceId, conflict.entity, conflict.entityId);
+        const key = entityKey(
+          workspaceId,
+          conflict.entity,
+          conflict.entityId,
+        );
 
         if (resolution === "use-server") {
           if (conflict.serverPayload) {
@@ -663,15 +614,16 @@ export class LocalRepository {
       blob.size < 1 ||
       blob.size > 25 * 1024 * 1024
     )
-      throw new Error(
-        "O PDF original excede o limite de 25 MiB ou está vazio.",
-      );
+      throw new Error("O PDF original excede o limite de 25 MiB ou está vazio.");
     if (input.bytes !== blob.size)
       throw new Error("O tamanho declarado do PDF não corresponde ao Blob.");
     if (!/^[a-f0-9]{64}$/i.test(input.sha256))
       throw new Error("SHA-256 inválido.");
     const bytes = await readBlobBytes(blob);
-    const digest = await crypto.subtle.digest("SHA-256", new Uint8Array(bytes));
+    const digest = await crypto.subtle.digest(
+      "SHA-256",
+      new Uint8Array(bytes),
+    );
     const actualHash = [...new Uint8Array(digest)]
       .map((byte) => byte.toString(16).padStart(2, "0"))
       .join("");
@@ -739,35 +691,29 @@ export class LocalRepository {
     // A push reply can arrive after another tab ACKed or resolved this
     // operation. Conflict persistence must share the outbox/ACK transaction
     // boundary with those decisions: never resurrect a resolved operation.
-    await this.db.transact(
-      ["conflicts", "outbox", "acks"],
-      "readwrite",
-      async (tx) => {
-        const pending = await read<OutboxRecord | undefined>(
-          tx.store("outbox").get(parsed.operationId),
-        );
-        if (!pending || pending.workspaceId !== workspaceId) return;
-        const ack = await read<{ key: string } | undefined>(
-          tx.store("acks").get(parsed.operationId),
-        );
-        if (ack) return;
-        if (
-          pending.entity !== parsed.entity ||
-          pending.entityId !== parsed.entityId ||
-          pending.baseVersion !== parsed.baseVersion
-        )
-          throw new Error("Conflict receipt does not match pending operation.");
+    await this.db.transact(["conflicts", "outbox", "acks"], "readwrite", async (tx) => {
+      const pending = await read<OutboxRecord | undefined>(
+        tx.store("outbox").get(parsed.operationId),
+      );
+      if (!pending || pending.workspaceId !== workspaceId) return;
+      const ack = await read<{ key: string } | undefined>(
+        tx.store("acks").get(parsed.operationId),
+      );
+      if (ack) return;
+      if (
+        pending.entity !== parsed.entity ||
+        pending.entityId !== parsed.entityId ||
+        pending.baseVersion !== parsed.baseVersion
+      )
+        throw new Error("Conflict receipt does not match pending operation.");
 
-        const store = tx.store("conflicts");
-        // An in-flight push may report an older server state after another tab
-        // has applied a newer pull. Never downgrade the durable resolution target.
-        const previous = await read<ConflictRecord | undefined>(
-          store.get(record.key),
-        );
-        if (previous && previous.serverVersion >= record.serverVersion) return;
-        store.put(record);
-      },
-    );
+      const store = tx.store("conflicts");
+      // An in-flight push may report an older server state after another tab
+      // has applied a newer pull. Never downgrade the durable resolution target.
+      const previous = await read<ConflictRecord | undefined>(store.get(record.key));
+      if (previous && previous.serverVersion >= record.serverVersion) return;
+      store.put(record);
+    });
   }
 
   async listConflicts(workspaceId?: string): Promise<SyncConflict[]> {
@@ -777,12 +723,8 @@ export class LocalRepository {
         tx.store("conflicts").index("workspace").getAll(workspaceId),
       ).then((rows) =>
         rows.map(
-          ({
-            key: _key,
-            workspaceId: _workspaceId,
-            createdAt: _createdAt,
-            ...conflict
-          }) => conflict,
+          ({ key: _key, workspaceId: _workspaceId, createdAt: _createdAt, ...conflict }) =>
+            conflict,
         ),
       ),
     );

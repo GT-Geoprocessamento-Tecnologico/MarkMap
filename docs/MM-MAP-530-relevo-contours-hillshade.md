@@ -6,11 +6,9 @@
 **Gate M6**: toda consulta funciona sem rede com pacote compatível
 
 ## Objetivo
-
 Exibir relevo no mapa: contours vetoriais, hillshade quando suportado, picos e estilo outdoor.
 
 ## Fontes de Inspiração (conceitos, não código copiado)
-
 - `generator/isolines_generator.cpp` — geração de isolinhas via marching squares (conceito: classificação de célula 2×2)
 
 ## Estrutura de Dados
@@ -40,13 +38,12 @@ export const contourLayerSchema = z.object({
 export function generateContours(
   dem: Int16Array | Float32Array,
   metadata: DemMetadata,
-  interval: number, // ex: 20
+  interval: number,      // ex: 20
   majorInterval: number, // ex: 100
-): ContourLayer;
+): ContourLayer
 ```
 
 Algoritmo marching squares:
-
 1. Para cada nível entre `ceil(min/interval)` e `floor(max/interval)`, classifica cada célula 2×2 em índice 0–15 a partir de quais cantos ≥ nível.
 2. Descarta índices 0 e 15 (sem cruzamento) e células com `noDataValue`.
 3. Interpola as posições das interseções nas bordas da célula.
@@ -55,15 +52,14 @@ Algoritmo marching squares:
 
 ## Relevo no runtime (MM-MAP-530)
 
-| Recurso       | Implementação                                                                              |
-| ------------- | ------------------------------------------------------------------------------------------ |
-| Contours      | Camada MapLibre `line` a partir de `ContourLayer.contours` (major mais espessa)            |
-| Hillshade     | `hillshade` raster-layer do MapLibre sobre o DEM empacotado (quando o pacote expõe raster) |
-| Picos         | Picos extraídos do DEM (máximos locais acima de limiar) + tags OSM `natural=peak`          |
-| Outdoor style | Extensão do `adaptOfflineStyle` com camadas de relevo + rótulos de altitude                |
+| Recurso | Implementação |
+|---|---|
+| Contours | Camada MapLibre `line` a partir de `ContourLayer.contours` (major mais espessa) |
+| Hillshade | `hillshade` raster-layer do MapLibre sobre o DEM empacotado (quando o pacote expõe raster) |
+| Picos | Picos extraídos do DEM (máximos locais acima de limiar) + tags OSM `natural=peak` |
+| Outdoor style | Extensão do `adaptOfflineStyle` com camadas de relevo + rótulos de altitude |
 
 ## Evidência Concreta
-
 - ✅ `generateContours()` — marching squares completo (16 casos)
 - ✅ `marchingSquares()` com filtro de `noDataValue`
 - ✅ Intervalo base + intervalo mestre (major)
@@ -73,4 +69,4 @@ Algoritmo marching squares:
 
 ---
 
-_Entregável do MM-MAP-530. Fecha o Gate M6._
+*Entregável do MM-MAP-530. Fecha o Gate M6.*

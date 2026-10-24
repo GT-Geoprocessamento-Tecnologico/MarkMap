@@ -79,8 +79,7 @@ export default function ProjectsPage() {
             camadas geoespaciais.
           </p>
           <p className="mt-2 text-xs text-primary">
-            Os projetos são salvos neste dispositivo e sincronizados quando
-            houver conexão.
+            Os projetos são salvos neste dispositivo e sincronizados quando houver conexão.
           </p>
         </div>
 
@@ -106,10 +105,7 @@ export default function ProjectsPage() {
 
               <div className="my-6 space-y-4">
                 <div className="space-y-2">
-                  <label
-                    htmlFor="new-project-name"
-                    className="block text-sm font-medium text-on-surface-variant"
-                  >
+                  <label htmlFor="new-project-name" className="block text-sm font-medium text-on-surface-variant">
                     Nome do Projeto *
                   </label>
                   <Input
@@ -236,8 +232,7 @@ export default function ProjectsPage() {
                 {project.description ?? "Sem descrição"}
               </p>
               <p className="mt-2 text-xs text-on-surface-variant">
-                Atualizado em{" "}
-                {new Date(project.updatedAt).toLocaleDateString("pt-BR")}
+                Atualizado em {new Date(project.updatedAt).toLocaleDateString("pt-BR")}
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <Link

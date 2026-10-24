@@ -46,19 +46,19 @@ atômica e seleção explícita.
 
 ## Matriz de aceitação
 
-| Fluxo                                  | Resultado esperado                                                                                                                                  |
-| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Busca com Enter/botão                  | estado de busca, resultados ou vazio explícito; Araguaína deve localizar Avenida Filadélfia a partir dos tiles locais e permitir centralizar        |
-| Busca sem searchShards                 | busca de feições do projeto e nomes dos tiles visíveis; aviso de índice regional ausente                                                            |
-| Busca sem endpoint                     | aviso de provedor não configurado                                                                                                                   |
-| Busca com endpoint autorizado          | resultado, cancelamento e erro acionáveis                                                                                                           |
-| Região instalada                       | contagem, ordenação e seleção ativa após reload                                                                                                     |
-| Região ausente/incompleta              | erro visível e mapa anterior preservado                                                                                                             |
-| Painel sem capacidade                  | pré-requisito visível, controles inertes desabilitados                                                                                              |
-| Painel com capacidade                  | conteúdo validado e uso offline sem rede                                                                                                            |
-| Desenho, medir, GPS, camadas e filtros | fluxos atuais preservados em tema claro/escuro                                                                                                      |
-| Fila e download individual             | regressão do installer/checkpoint/quota e cancelamento                                                                                              |
-| Projeto → Abrir mapa                   | mantém `projectId`, exibe as camadas locais desse projeto e grava novos desenhos/importações no mesmo projeto; não cai em `/workspace` sem contexto |
+| Fluxo | Resultado esperado |
+|---|---|
+| Busca com Enter/botão | estado de busca, resultados ou vazio explícito; Araguaína deve localizar Avenida Filadélfia a partir dos tiles locais e permitir centralizar |
+| Busca sem searchShards | busca de feições do projeto e nomes dos tiles visíveis; aviso de índice regional ausente |
+| Busca sem endpoint | aviso de provedor não configurado |
+| Busca com endpoint autorizado | resultado, cancelamento e erro acionáveis |
+| Região instalada | contagem, ordenação e seleção ativa após reload |
+| Região ausente/incompleta | erro visível e mapa anterior preservado |
+| Painel sem capacidade | pré-requisito visível, controles inertes desabilitados |
+| Painel com capacidade | conteúdo validado e uso offline sem rede |
+| Desenho, medir, GPS, camadas e filtros | fluxos atuais preservados em tema claro/escuro |
+| Fila e download individual | regressão do installer/checkpoint/quota e cancelamento |
+| Projeto → Abrir mapa | mantém `projectId`, exibe as camadas locais desse projeto e grava novos desenhos/importações no mesmo projeto; não cai em `/workspace` sem contexto |
 
 ## Propriedade e grafo
 

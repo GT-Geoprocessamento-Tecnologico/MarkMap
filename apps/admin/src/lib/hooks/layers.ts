@@ -39,10 +39,7 @@ export async function listLocalLayersPage(
 ): Promise<{ items: Layer[]; truncated: boolean }> {
   const safeLimit = Math.max(1, Math.min(100, Math.trunc(limit)));
   const items = await listLocalLayers(projectId);
-  return {
-    items: items.slice(0, safeLimit),
-    truncated: items.length > safeLimit,
-  };
+  return { items: items.slice(0, safeLimit), truncated: items.length > safeLimit };
 }
 
 async function getLocalLayer(layerId: string): Promise<Layer | null> {
@@ -60,23 +57,13 @@ export function useProjectLayers(
 ) {
   const { cursor, limit } = options;
   return useQuery({
-    queryKey: [
-      ...queryKeys.layersPage(projectId, cursor),
-      limit ?? "all",
-      "local",
-    ],
+    queryKey: [...queryKeys.layersPage(projectId, cursor), limit ?? "all", "local"],
     queryFn: async () => {
       const items = await listLocalLayers(projectId);
       const offset = cursor && /^\d+$/.test(cursor) ? Number(cursor) : 0;
-      const page = limit
-        ? items.slice(offset, offset + limit)
-        : items.slice(offset);
-      const nextOffset =
-        limit && offset + limit < items.length ? offset + limit : null;
-      return {
-        items: page,
-        nextCursor: nextOffset === null ? null : String(nextOffset),
-      };
+      const page = limit ? items.slice(offset, offset + limit) : items.slice(offset);
+      const nextOffset = limit && offset + limit < items.length ? offset + limit : null;
+      return { items: page, nextCursor: nextOffset === null ? null : String(nextOffset) };
     },
     enabled: projectId.trim().length > 0,
   });
@@ -118,9 +105,7 @@ export function useCreateLayer(projectId: string) {
     },
     onSuccess: async () => {
       await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.layersByProject(projectId),
-        }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.layersByProject(projectId) }),
         queryClient.invalidateQueries({ queryKey: ["analytics-layers"] }),
       ]);
     },

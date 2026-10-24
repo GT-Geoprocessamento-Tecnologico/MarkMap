@@ -1,11 +1,11 @@
 /** Keep Blob links alive while Safari hands the file to its download manager. */
 export function downloadBlob(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
+  const anchor = document.createElement('a');
   try {
     anchor.href = url;
     anchor.download = filename;
-    anchor.style.display = "none";
+    anchor.style.display = 'none';
     document.body.appendChild(anchor);
     anchor.click();
   } catch (error) {

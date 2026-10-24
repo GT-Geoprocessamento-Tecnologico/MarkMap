@@ -76,9 +76,7 @@ const reserveShellLane = (pill: HTMLElement): (() => void) | null => {
     (Number.isFinite(offset) ? offset : LANE_FALLBACK_OFFSET_PX) +
     LANE_GAP_PX;
   const previous = shell.style.paddingBottom;
-  const computedPadding = Number.parseFloat(
-    getComputedStyle(shell).paddingBottom,
-  );
+  const computedPadding = Number.parseFloat(getComputedStyle(shell).paddingBottom);
   const basePadding = Number.isFinite(computedPadding) ? computedPadding : 0;
   shell.style.paddingBottom = `${basePadding + lane}px`;
   return () => {
@@ -98,10 +96,10 @@ export function SyncStatus() {
     if (!pill) return;
     let release: (() => void) | null = null;
     let frame = 0;
-    const sync = () => {
-      release?.();
-      release = reserveShellLane(pill);
-    };
+  const sync = () => {
+    release?.();
+    release = reserveShellLane(pill);
+  };
     const deadline = performance.now() + SHELL_WAIT_MS;
     const tick = () => {
       sync();
@@ -169,9 +167,7 @@ export function SyncStatus() {
       setStatus((current) => ({ ...current, state: "offline" }));
     const onOnline = () => {
       setStatus((current) => ({ ...current, state: "idle" }));
-      void syncNow()
-        .then(refresh)
-        .catch(() => undefined);
+      void syncNow().then(refresh).catch(() => undefined);
     };
     const onMutation = () => refresh();
 
@@ -296,7 +292,9 @@ export function SyncStatus() {
                 key={conflict.operationId}
                 className="rounded-xl border border-outline-variant p-3"
               >
-                <strong className="text-sm">{entityName(conflict)}</strong>
+                <strong className="text-sm">
+                  {entityName(conflict)}
+                </strong>
                 <p className="mt-1 text-xs text-on-surface-variant">
                   Este item também foi alterado depois da sua última
                   sincronização.

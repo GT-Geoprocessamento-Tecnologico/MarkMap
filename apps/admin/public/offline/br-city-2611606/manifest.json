@@ -2,7 +2,12 @@
   "id": "br-city-2611606",
   "version": "1.0.0-brazil.20261019",
   "label": "Recife — mapa offline",
-  "bounds": [-35.0167, -8.1551, -34.8605, -7.9292],
+  "bounds": [
+    -35.0167,
+    -8.1551,
+    -34.8605,
+    -7.9292
+  ],
   "minZoom": 0,
   "maxZoom": 12,
   "archive": {
@@ -26,7 +31,9 @@
   "createdAt": "2026-10-19T22:49:21.904Z",
   "packageVersion": "1.0.0-brazil.20261019",
   "osmDataDate": "2026-10-19T04:00:00.000Z",
-  "capabilities": ["basemap"],
+  "capabilities": [
+    "basemap"
+  ],
   "checksums": {
     "archive": "f25177d77b0eeebb6e89b3e5bc5ad3390adf8fe64dff0b511f1b71ed6f425be3",
     "style": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",

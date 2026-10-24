@@ -14,8 +14,7 @@ vi.mock("../local-repositories/demo-workspace", () => ({
 }));
 
 const projectId = "11111111-1111-4111-8111-111111111111";
-const layerId = (index: number) =>
-  `${String(index + 1).padStart(8, "0")}-1111-4111-8111-111111111111`;
+const layerId = (index: number) => `${String(index + 1).padStart(8, "0")}-1111-4111-8111-111111111111`;
 
 const layerEntity = (index: number, owner = projectId) => ({
   entityId: layerId(index),
@@ -56,9 +55,7 @@ describe("local analytics layer reader", () => {
 
   it("invalidates the cached analytics snapshot after creating a local layer", async () => {
     localRepository.mutate.mockResolvedValue(undefined);
-    const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false } },
-    });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const analyticsKey = ["analytics-layers", [projectId], "bounded", 100];
     queryClient.setQueryData(analyticsKey, {
       rows: [{ id: "existing", name: "Existente" }],
@@ -80,11 +77,9 @@ describe("local analytics layer reader", () => {
     });
 
     expect(queryClient.getQueryState(analyticsKey)?.isInvalidated).toBe(true);
-    expect(localRepository.mutate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        entity: "layer",
-        entityId: expect.any(String),
-      }),
-    );
+    expect(localRepository.mutate).toHaveBeenCalledWith(expect.objectContaining({
+      entity: "layer",
+      entityId: expect.any(String),
+    }));
   });
 });

@@ -78,10 +78,7 @@ describe("dataset import validation", () => {
     const record = await parseGeoJSON(
       file({
         type: "FeatureCollection",
-        crs: {
-          type: "name",
-          properties: { name: "urn:ogc:def:crs:EPSG::31989" },
-        },
+        crs: { type: "name", properties: { name: "urn:ogc:def:crs:EPSG::31989" } },
         features: [
           {
             type: "Feature",
@@ -94,11 +91,9 @@ describe("dataset import validation", () => {
 
     expect(record.crs).toBe("EPSG:4326");
     expect(record.sourceCrs).toBe("EPSG:31989");
-    const [longitude, latitude] = (
-      record.geojson.features[0]?.geometry as {
-        coordinates: number[];
-      }
-    ).coordinates;
+    const [longitude, latitude] = (record.geojson.features[0]?.geometry as {
+      coordinates: number[];
+    }).coordinates;
     expect(longitude).toBeCloseTo(-48.23, 3);
     expect(latitude).toBeCloseTo(-7.19, 3);
   });
@@ -139,22 +134,18 @@ describe("dataset import validation", () => {
       }),
     );
 
-    const ring = (
-      record.geojson.features[0]?.geometry as {
-        coordinates: number[][][];
-      }
-    ).coordinates[0]!;
+    const ring = (record.geojson.features[0]?.geometry as {
+      coordinates: number[][][];
+    }).coordinates[0]!;
     expect(ring).toHaveLength(4);
     for (const [longitude, latitude] of ring) {
       expect(longitude).toBeCloseTo(-48.23, 2);
       expect(latitude).toBeCloseTo(-7.19, 2);
     }
 
-    const multi = (
-      record.geojson.features[1]?.geometry as {
-        coordinates: number[][];
-      }
-    ).coordinates;
+    const multi = (record.geojson.features[1]?.geometry as {
+      coordinates: number[][];
+    }).coordinates;
     expect(multi).toHaveLength(2);
     expect(multi[0]?.[0]).toBeCloseTo(-48.23, 2);
   });
@@ -199,9 +190,8 @@ describe("dataset import validation", () => {
     );
 
     expect(record.geojson.features).toHaveLength(3);
-    const out = (
-      record.geojson.features[0]?.geometry as { coordinates: number[][] }
-    ).coordinates;
+    const out = (record.geojson.features[0]?.geometry as { coordinates: number[][] })
+      .coordinates;
     expect(out).toHaveLength(400);
     expect(out[0]?.[0]).toBeCloseTo(-48.23, 2);
     // A linha corre para leste, então a longitude aumenta ao longo dos vértices.
@@ -245,11 +235,9 @@ describe("dataset import validation", () => {
       }),
     );
 
-    const [longitude, latitude] = (
-      record.geojson.features[0]?.geometry as {
-        coordinates: number[];
-      }
-    ).coordinates;
+    const [longitude, latitude] = (record.geojson.features[0]?.geometry as {
+      coordinates: number[];
+    }).coordinates;
     expect(longitude).toBeCloseTo(-48.23, 3);
     expect(latitude).toBeCloseTo(-7.19, 3);
   });

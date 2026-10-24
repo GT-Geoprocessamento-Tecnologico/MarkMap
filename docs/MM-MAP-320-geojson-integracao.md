@@ -6,23 +6,18 @@
 **Gate M4**: aceitar GeoJSON (Feature/FeatureCollection), converter para formato interno, integrar no pipeline regional, validação de geometria, sem dependência em tile.openstreetmap.org
 
 ## Objetivo
-
 Integrar o formato GeoJSON no sistema de importação do MarkMap, permitindo que usuários carreguem dados GeoJSON (features, collections) e os convertam para o formato interno do MarkMap. Este é o último item da fase M4 — Formatos GPX/KML/KMZ/GeoJSON.
 
 ## Formato GeoJSON de Entrada
 
 ### 1. Structure Simples
-
 ```json
 {
   "type": "FeatureCollection",
   "features": [
     {
       "type": "Feature",
-      "properties": {
-        "name": "Ponto de Interesse",
-        "description": "Uma cachoeira"
-      },
+      "properties": { "name": "Ponto de Interesse", "description": "Uma cachoeira" },
       "geometry": {
         "type": "Point",
         "coordinates": [-46.63, -23.55]
@@ -45,7 +40,6 @@ Integrar o formato GeoJSON no sistema de importação do MarkMap, permitindo que
 ```
 
 ### 2. Tipos de Geometria Suportados
-
 - **Point** — ponto único (ex.: waypoint, marcação)
 - **MultiPoint** — múltiplos pontos
 - **LineString** — linha/rota contínua
@@ -55,7 +49,6 @@ Integrar o formato GeoJSON no sistema de importação do MarkMap, permitindo que
 - **GeometryCollection** — mistura de tipos
 
 ### 3. Properties (Opcional)
-
 - **name**: string — nome do feature
 - **description**: string — descrição detalhada
 - **custom**: qualquer campo adicional é preservado
@@ -64,25 +57,21 @@ Integrar o formato GeoJSON no sistema de importação do MarkMap, permitindo que
 
 ### 1. Type Mapping (GeoJSON → MarkMap Interno)
 
-| GeoJSON Type           | MarkMap Type              | Field Mapping                                                                  |
-| ---------------------- | ------------------------- | ------------------------------------------------------------------------------ |
-| `Point`                | `Waypoint`                | lat/lon de coordinates, properties → name/description                          |
-| `LineString`           | `Route`                   | coordinates array → points array (RoutePoint[]), properties → name/description |
-| `MultiPoint`           | `Waypoint[]`              | coordinates array → waypoints array                                            |
-| `MultiLineString`      | `Route[]`                 | lineStrings array → routes array                                               |
-| `Polygon`              | — (área, não route/track) | centroid calculado, bounds extraídos, _avisado como "área, não route"_         |
-| **MultiPolygon**       | **Track** (contorno)      | **exterior ring → Track points**, interior rings → holes                       |
-| **GeometryCollection** | —                         | cada tipo processado individualmente                                           |
+| GeoJSON Type | MarkMap Type | Field Mapping |
+|-------------|-------------|-------------|
+| `Point` | `Waypoint` | lat/lon de coordinates, properties → name/description |
+| `LineString` | `Route` | coordinates array → points array (RoutePoint[]), properties → name/description |
+| `MultiPoint` | `Waypoint[]` | coordinates array → waypoints array |
+| `MultiLineString` | `Route[]` | lineStrings array → routes array |
+| `Polygon` | — (área, não route/track) | centroid calculado, bounds extraídos, *avisado como "área, não route"* |
+| **MultiPolygon** | **Track** (contorno) | **exterior ring → Track points**, interior rings → holes |
+| **GeometryCollection** | — | cada tipo processado individualmente |
 
 ### 2. Schema Zod de Entrada GeoJSON
-
 ```typescript
 import { z } from "zod";
 
-const coordinateSchema = z.tuple([
-  z.number().min(-180).max(180),
-  z.number().min(-90).max(90),
-]);
+const coordinateSchema = z.tuple([z.number().min(-180).max(180), z.number().min(-90).max(90)]);
 
 const pointGeometrySchema = z.object({
   type: z.literal("Point"),
@@ -95,7 +84,7 @@ const lineStringGeometrySchema = z.object({
 });
 
 const polygonRingSchema = z.tuple([
-  z.tuple([z.number().min(-180).max(180), z.number().min(-90).max(90)]),
+  z.tuple([z.number().min(-180).max(180), z.number().min(-90).max(90)])
 ]);
 
 const polygonGeometrySchema = z.object({
@@ -113,13 +102,7 @@ const featurePropertiesSchema = z.object({
 const featureSchema = z.object({
   type: z.literal("Feature"),
   properties: featurePropertiesSchema.optional(),
-  geometry: z
-    .union([
-      pointGeometrySchema,
-      lineStringGeometrySchema,
-      polygonGeometrySchema,
-    ])
-    .optional(),
+  geometry: z.union([pointGeometrySchema, lineStringGeometrySchema, polygonGeometrySchema]).optional(),
 });
 
 // GeoJSON FeatureCollection
@@ -140,20 +123,16 @@ export type FeatureCollection = z.infer<typeof featureCollectionSchema>;
 ### 2. Type Mapping Implementation
 
 ```typescript
-export function geoJSONToMarkMap(collection: FeatureCollection): {
-  waypoints: Waypoint[];
-  routes: Route[];
-  warnings: string[];
-} {
+export function geoJSONToMarkMap(
+  collection: FeatureCollection
+): { waypoints: Waypoint[]; routes: Route[]; warnings: string[] } {
   const waypoints: Waypoint[] = [];
   const routes: Route[] = [];
   const warnings: string[] = [];
 
   for (const feature of collection.features) {
     if (!feature.geometry) {
-      warnings.push(
-        `Feature sem geometry ignorada: ${feature.properties?.name}`,
-      );
+      warnings.push(`Feature sem geometry ignorada: ${feature.properties?.name}`);
       continue;
     }
 
@@ -219,9 +198,7 @@ export function geoJSONToMarkMap(collection: FeatureCollection): {
       }
 
       case "Polygon": {
-        warnings.push(
-          `Polygon detectado: convertido em tracking de contorno (anexo ao pacote regional)`,
-        );
+        warnings.push(`Polygon detectado: convertido em tracking de contorno (anexo ao pacote regional)`);
         // Use exterior ring as track
         const ring = feature.geometry.coordinates[0]; // exterior ring
         const points: TrackPoint[] = ring.map(([lon, lat]) => ({
@@ -232,8 +209,7 @@ export function geoJSONToMarkMap(collection: FeatureCollection): {
         routes.push({
           id: crypto.randomUUID(),
           name: feature.properties?.name || "Área",
-          description:
-            feature.properties?.description || "Área geojson convertida",
+          description: feature.properties?.description || "Área geojson convertida",
           color: getDefaultColor(),
           points,
         });
@@ -250,8 +226,7 @@ export function geoJSONToMarkMap(collection: FeatureCollection): {
           routes.push({
             id: crypto.randomUUID(),
             name: feature.properties?.name || "Área",
-            description:
-              feature.properties?.description || "Área geojson convertida",
+            description: feature.properties?.description || "Área geojson convertida",
             color: getDefaultColor(),
             points,
           });
@@ -260,9 +235,7 @@ export function geoJSONToMarkMap(collection: FeatureCollection): {
       }
 
       default:
-        warnings.push(
-          `Tipo de geometria não suportado: ${feature.geometry.type}`,
-        );
+        warnings.push(`Tipo de geometria não suportado: ${feature.geometry.type}`);
     }
   }
 
@@ -271,7 +244,6 @@ export function geoJSONToMarkMap(collection: FeatureCollection): {
 ```
 
 ### 3. Cores Padrão por Tipo
-
 - **Waypoints**: #FF0000 (vermelho)
 - **Routes**: #00FF00 (verde)
 - **Polygons/Áreas**: #0000FF (azul) com 50% opacity
@@ -280,7 +252,6 @@ export function geoJSONToMarkMap(collection: FeatureCollection): {
 ## Integração no Pipeline Regional
 
 ### 1. Fluxo de Integração
-
 ```
 +----------------------+       +----------------------+       +----------------------+
 |   Arquivo GeoJSON    |       |  Parser/Validação    |       |  Conversão Interna   |
@@ -305,7 +276,6 @@ export function geoJSONToMarkMap(collection: FeatureCollection): {
 ```
 
 ### 2. Persistência no IndexedDB
-
 - Object store: `imports:{filename}:{timestamp}`
 - Dados armazenados: `{ waypoints, routes, warnings, originalFormat: "geojson" }`
 - SHA-256 do arquivo original
@@ -313,19 +283,18 @@ export function geoJSONToMarkMap(collection: FeatureCollection): {
 
 ### 3. Validação de Geometria
 
-| Validação              | Descrição                                                  |
-| ---------------------- | ---------------------------------------------------------- |
-| **Coordinates range**  | lat ∈ [-90, 90], lon ∈ [-180, 180]                         |
-| **Ring closing**       | Polygons: first/last point devem ser iguais (auto-fechado) |
-| **Self-intersections** | Linhas que se auto-intersectam → warn                      |
-| **Empty geometries**   | Point/LineString/Polygon vazios → warn + skip              |
-| **Coordinate count**   | LineString: min 2 points, max 1000                         |
-| **Polygon holes**      | Interior rings must be inside exterior ring                |
+| Validação | Descrição |
+|-----------|-----------|
+| **Coordinates range** | lat ∈ [-90, 90], lon ∈ [-180, 180] |
+| **Ring closing** | Polygons: first/last point devem ser iguais (auto-fechado) |
+| **Self-intersections** | Linhas que se auto-intersectam → warn |
+| **Empty geometries** | Point/LineString/Polygon vazios → warn + skip |
+| **Coordinate count** | LineString: min 2 points, max 1000 |
+| **Polygon holes** | Interior rings must be inside exterior ring |
 
 ### 4. Evidência Concreta
 
 #### 1. Schema Zod de Entrada
-
 - ✅ `coordinateSchema` — tuple [lon, lat] com ranges
 - ✅ `pointGeometrySchema` — type: "Point", coordinates
 - ✅ `lineStringGeometrySchema` — type: "LineString", coordinates array (min 2, max 1000)
@@ -336,7 +305,6 @@ export function geoJSONToMarkMap(collection: FeatureCollection): {
 - ✅ Tipos exportados: Coordinate, PointGeometry, LineStringGeometry, PolygonGeometry, FeatureProperties, Feature, FeatureCollection
 
 #### 2. Type Mapping GeoJSON → MarkMap
-
 - ✅ Point → Waypoint (lat de coords[1], lon de coords[0])
 - ✅ LineString → Route (points TrackPoint[], name/description de properties)
 - ✅ MultiPoint → Waypoint[] (array de waypoints)
@@ -348,7 +316,6 @@ export function geoJSONToMarkMap(collection: FeatureCollection): {
 - ✅ Color custom via properties.color
 
 #### 3. Implementação geoJSONToMarkMap
-
 - ✅ Função principal com switch por tipo geometry
 - ✅ Conversão de coordenadas (lon/lat order → lat/lon)
 - ✅ Geração de UUIDs para todos os objetos
@@ -356,7 +323,6 @@ export function geoJSONToMarkMap(collection: FeatureCollection): {
 - ✅ Aviso para tipos não suportados
 
 #### 4. Integração Pipeline
-
 - ✅ Fluxo: Upload → Schema Validation → geoJSONToMarkMap → Persistência → UI
 - ✅ Object store `imports:{filename}:{timestamp}` no IndexedDB
 - ✅ SHA-256 do arquivo original armazenado
@@ -364,7 +330,6 @@ export function geoJSONToMarkMap(collection: FeatureCollection): {
 - ✅ Warnings/errors collection e report
 
 #### 5. Validação de Geometria
-
 - ✅ Coordinates range (lat/lon validation)
 - ✅ Ring closing detection (polygons)
 - ✅ Self-intersections warn
@@ -373,7 +338,6 @@ export function geoJSONToMarkMap(collection: FeatureCollection): {
 - ✅ Polygon holes validation (interior rings inside exterior)
 
 #### 6. Mapeamento de Types
-
 - ✅ Point → Waypoint
 - ✅ LineString → Route
 - ✅ MultiPoint → Waypoint[]
@@ -383,7 +347,6 @@ export function geoJSONToMarkMap(collection: FeatureCollection): {
 - ✅ GeometryCollection — processado individualmente
 
 ### 7. Pós-processamento
-
 - ✅ Merge with regional data (similar a MM-MAP-310)
 - ✅ Style/color application from active package
 - ✅ Region bounds filtering
@@ -422,4 +385,4 @@ Após concluir o GeoJSON e integração pipeline, a sequência continua com:
 
 ---
 
-_Este documento é o entregável do MM-MAP-320. Conclui o item M4 "Formatos GPX/KML/KMZ/GeoJSON" e a fase M4 em sua totalidade, preparando o caminho para M5 (Busca Offline)._
+*Este documento é o entregável do MM-MAP-320. Conclui o item M4 "Formatos GPX/KML/KMZ/GeoJSON" e a fase M4 em sua totalidade, preparando o caminho para M5 (Busca Offline).*

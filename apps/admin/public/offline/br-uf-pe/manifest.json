@@ -2,7 +2,12 @@
   "id": "br-uf-pe",
   "version": "1.0.0-brazil.20261019",
   "label": "Pernambuco — mapa offline",
-  "bounds": [-41.3583, -9.4829, -34.828, -7.2742],
+  "bounds": [
+    -41.3583,
+    -9.4829,
+    -34.828,
+    -7.2742
+  ],
   "minZoom": 0,
   "maxZoom": 9,
   "archive": {
@@ -26,7 +31,9 @@
   "createdAt": "2026-10-19T22:49:22.692Z",
   "packageVersion": "1.0.0-brazil.20261019",
   "osmDataDate": "2026-10-19T04:00:00.000Z",
-  "capabilities": ["basemap"],
+  "capabilities": [
+    "basemap"
+  ],
   "checksums": {
     "archive": "2c9c4f91c4f97b4fd661ded4c6c2ef754a87633a27b8d33dbc49606fed4764e3",
     "style": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",

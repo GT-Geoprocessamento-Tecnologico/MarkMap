@@ -6,18 +6,17 @@
 **Gate M10**: hardening e merge readiness
 
 ## Objetivo
-
 Garantir migração/convivência de package v1 → v2, que app antigo não ative package incompatível, que app novo não apague package antigo antes de confirmar o novo, que o schema local preserve workspace/outbox e que o rollback esteja documentado.
 
 ## Decisões de Compatibilidade
 
-| Requisito PRD                                             | Decisão                                                                                            |
-| --------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| Migração v1 → v2 **ou** convivência                       | **Convivência com versionamento**: `packageVersion` + `minimumCompatibleVersion` no manifest v2    |
-| App antigo não ativa package incompatível                 | Manifest v2 tem campos obrigatórios novos; validador v1 rejeita → app antigo não ativa             |
+| Requisito PRD | Decisão |
+|---|---|
+| Migração v1 → v2 **ou** convivência | **Convivência com versionamento**: `packageVersion` + `minimumCompatibleVersion` no manifest v2 |
+| App antigo não ativa package incompatível | Manifest v2 tem campos obrigatórios novos; validador v1 rejeita → app antigo não ativa |
 | App novo não apaga package antigo antes de confirmar novo | Ativação **atômica**: staging → validação completa → troca; pacote antigo só removido após sucesso |
-| Schema local preserva workspace/outbox                    | Migração de IndexedDB é aditiva (novos stores/índices); `workspace`/`outbox` intactos              |
-| Rollback documentado                                      | Ver abaixo                                                                                         |
+| Schema local preserva workspace/outbox | Migração de IndexedDB é aditiva (novos stores/índices); `workspace`/`outbox` intactos |
+| Rollback documentado | Ver abaixo |
 
 ## Versionamento do Manifest
 
@@ -29,7 +28,7 @@ Garantir migração/convivência de package v1 → v2, que app antigo não ative
   "capabilities": [],
   "checksums": { "archive": "..." },
   "totalBytes": 4300633,
-  "sources": { "osm": "OpenStreetMap", "attributions": [] },
+  "sources": { "osm": "OpenStreetMap", "attributions": [] }
 }
 ```
 
@@ -53,7 +52,6 @@ Garantir migração/convivência de package v1 → v2, que app antigo não ative
 4. Documentado em `docs/architecture.md` (MM-MAP-930).
 
 ## Evidência Concreta
-
 - ✅ `packageVersion` + `minimumCompatibleVersion` no manifest v2
 - ✅ Ativação atômica (staging → validação → troca → cleanup)
 - ✅ Fixture `manifest.json` atualizada com campos v2 (validação v2)
@@ -63,4 +61,4 @@ Garantir migração/convivência de package v1 → v2, que app antigo não ative
 
 ---
 
-_Entregável do MM-MAP-920. Prepara MM-MAP-930 (Documentação/legal)._
+*Entregável do MM-MAP-920. Prepara MM-MAP-930 (Documentação/legal).*

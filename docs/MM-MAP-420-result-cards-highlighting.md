@@ -6,42 +6,40 @@
 **Gate M5**: cards de resultado com destaque visual, realce no mapa, pagination/infinite scroll, fallback "nenhum resultado", histórico de buscas recentes, sem dependência em tile.openstreetmap.org
 
 ## Objetivo
-
 Criar a interface de usuário para exibir os resultados da busca offline, com cards de resultado, destaque visual no mapa e interações. Este é o último item da fase M5 — Busca Offline.
 
 ## Cards de Resultado (SearchResultCard)
 
 ### 1. Estrutura do Card
-
 Cada resultado da busca exibe um card com as seguintes informações:
 
 ```typescript
 interface SearchResultCard {
-  id: string; // ID único do resultado
-  name: string; // Nome principal (destacado)
-  type: SearchType; // Tipo (highway, place, amenity, etc.)
-  category: string; // Categoria detalhada
-  relevance: number; // Score 0-1 (opacity/brightness do destaque)
-  distance?: number; // Distância em km (se busca por proximidade)
-  preview?: string; // Texto preview (primeira linha do description)
-  accentColor: string; // Cor de destaque (baseada no type)
-  icon: string; // Ícone SVG/font para o tipo
-  onSelect: () => void; // Callback quando usuário seleciona
+  id: string;               // ID único do resultado
+  name: string;             // Nome principal (destacado)
+  type: SearchType;         // Tipo (highway, place, amenity, etc.)
+  category: string;         // Categoria detalhada
+  relevance: number;        // Score 0-1 (opacity/brightness do destaque)
+  distance?: number;        // Distância em km (se busca por proximidade)
+  preview?: string;         // Texto preview (primeira linha do description)
+  accentColor: string;      // Cor de destaque (baseada no type)
+  icon: string;             // Ícone SVG/font para o tipo
+  onSelect: () => void;    // Callback quando usuário seleciona
 }
 ```
 
 ### 2. Cores e Ícones por Tipo
 
-| Tipo          | Cor de Destaque        | Ícone             |
-| ------------- | ---------------------- | ----------------- |
-| `highway`     | #0066FF (azul)         | 🛣️ (road)         |
-| `street`      | #339933 (verde escuro) | 🛣️ (street)       |
-| `residential` | #FFCC00 (amarelo)      | 🏘️ (residential)  |
-| `pedestrian`  | #FF3366 (rosa)         | 🚶‍♂️ (walk)         |
-| `place`       | #9966FF (roxo)         | 📍 (place)        |
-| `amenity`     | #FF9933 (laranja)      | 🏪 (shop/amenity) |
-| `building`    | #666666 (cinza)        | 🏢 (building)     |
-| `tourism`     | #CC33FF (magenta)      | 🏛️ (tourism)      |
+| Tipo | Cor de Destaque | Ícone |
+|------|----------------|-------|
+| `highway` | #0066FF (azul) | 🛣️ (road) |
+| `street` | #339933 (verde escuro) | 🛣️ (street) |
+| `residential` | #FFCC00 (amarelo) | 🏘️ (residential) |
+| `pedestrian` | #FF3366 (rosa) | 🚶‍♂️ (walk) |
+| `place` | #9966FF (roxo) | 📍 (place) |
+| `amenity` | #FF9933 (laranja) | 🏪 (shop/amenity) |
+| `building` | #666666 (cinza) | 🏢 (building) |
+| `tourism` | #CC33FF (magenta) | 🏛️ (tourism) |
 
 ### 3. Realce Visual no Mapa (Highlight)
 
@@ -50,28 +48,27 @@ Quando um resultado for selecionado, o mapa deve realçar a correspondência:
 ```typescript
 // Exemplo de estilo de realce
 const highlightStyle = {
-  weight: 4, // espessura da linha
-  color: accentColor, // cor baseada no tipo
+  weight: 4,           // espessura da linha
+  color: accentColor,  // cor baseada no tipo
   fillColor: accentColor,
-  fillOpacity: 0.15, // transparência do fill
-  dashArray: [5, 5], // linha tracejada
+  fillOpacity: 0.15,   // transparência do fill
+  dashArray: [5, 5],   // linha tracejada
 };
 ```
 
 ### 4. Posição do Resultado no Mapa
-
 - Se o resultado tiver coordenadas (lat, lon): centralizar o mapa naquele ponto
 - Se for uma road/street: ajustar o viewport para mostrar a extensão da via
 - Se for um place/area: zoom para os bounds do polygon
 
 ### 5. Estados do Card
 
-| Estado     | Descrição                                             |
-| ---------- | ----------------------------------------------------- |
-| `default`  | Card normal, sem destaque                             |
-| `hover`    | Mouse sobre o card: aumento de slightly, sombra suave |
-| `selected` | Resultado selecionado: border destacado, ícone ativo  |
-| `focused`  | Keyboard navigation: outline focus, ARIA labels       |
+| Estado | Descrição |
+|--------|-----------|
+| `default` | Card normal, sem destaque |
+| `hover` | Mouse sobre o card: aumento de slightly, sombra suave |
+| `selected` | Resultado selecionado: border destacado, ícone ativo |
+| `focused` | Keyboard navigation: outline focus, ARIA labels |
 
 ## Componente UI de Busca
 
@@ -87,9 +84,7 @@ const highlightStyle = {
     onChange={setQuery}
     autoComplete="off"
   />
-  <button type="submit" className="search-button">
-    🔍
-  </button>
+  <button type="submit" className="search-button">🔍</button>
 </form>
 ```
 
@@ -97,7 +92,7 @@ const highlightStyle = {
 
 ```jsx
 <div className="results-grid" role="region" aria-label="Resultados da busca">
-  {results.map((result) => (
+  {results.map(result => (
     <SearchResultCard key={result.id} result={result} onSelect={handleSelect} />
   ))}
   {isEmpty && <EmptyState message="Nenhum resultado encontrado" />}
@@ -109,15 +104,8 @@ const highlightStyle = {
 ```jsx
 <div className="empty-state">
   <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5">
-    <circle cx="11" cy="11" r="8" stroke="currentColor" />
-    <line
-      x1="21"
-      y1="21"
-      x2="16.65"
-      y2="16.65"
-      stroke-width="2"
-      stroke="currentColor"
-    />
+    <circle cx="11" cy="11" r="8" stroke="currentColor"/>
+    <line x1="21" y1="21" x2="16.65" y2="16.65" stroke-width="2" stroke="currentColor"/>
   </svg>
   <p>Nenhum resultado encontrado</p>
   <p>Tente ajustar a busca ou remover filtros</p>
@@ -127,7 +115,6 @@ const highlightStyle = {
 ## Histórico de Buscas Recentes
 
 ### 1. Armazenamento
-
 - Histórico salvo em IndexedDB `searchHistory`
 - Limite: 20 buscas recentes
 - TTL: 30 dias (automaticamente removido)
@@ -135,16 +122,15 @@ const highlightStyle = {
 ```typescript
 interface SearchHistoryEntry {
   query: string;
-  timestamp: number; // ms desde epoch
-  resultCount: number; // quantos results teve
+  timestamp: number;      // ms desde epoch
+  resultCount: number;    // quantos results teve
 }
 ```
 
 ### 2. UI do Histórico
-
 ```jsx
 <div className="search-history">
-  {recentQueries.map((entry) => (
+  {recentQueries.map(entry => (
     <button
       key={entry.query}
       className="history-item"
@@ -157,7 +143,6 @@ interface SearchHistoryEntry {
 ```
 
 ### 3. Ação ao Selecionar Histórico
-
 - Preencher o campo de busca com a query histórica
 - Executar nova busca automaticamente
 - Remover do histórico se o usuário limpar o campo
@@ -165,7 +150,6 @@ interface SearchHistoryEntry {
 ## Pagination e Infinite Scroll
 
 ### 1. Comportamento
-
 - Resultados carregados inicialmente: first 20
 - Quando usuário rola até o final: carregar próxima página (próximos 20)
 - Indicador de carregando no bottom
@@ -183,8 +167,8 @@ const loadMoreResults = async () => {
   setLoadingMore(true);
   const more = await searchAPI({ query, page: page + 1, limit: 20 });
   setTotal(more.total);
-  setResults((prev) => [...prev, ...more.results]);
-  setPage((prevPage) => page + 1);
+  setResults(prev => [...prev, ...more.results]);
+  setPage(prevPage => page + 1);
   setLoadingMore(false);
 };
 ```
@@ -192,7 +176,6 @@ const loadMoreResults = async () => {
 ## Fallback "Nenhum Resultado"
 
 ### 1. Cenários de Fallback
-
 - Nenhum match exato no índice
 - Fuzzy matching sem resultados próximos
 - Filtros de tipo/localização muito restritivos
@@ -200,15 +183,14 @@ const loadMoreResults = async () => {
 
 ### 2. Mensagens Guidance
 
-| Cenário                    | Mensagem                                                                                   |
-| -------------------------- | ------------------------------------------------------------------------------------------ |
-| Sem matches                | "Nenhum resultado encontrado. Tente remover filtros ou verificar a ortografia."            |
-| Muitos acentos             | "Nenhum resultado encontrado. Removemos acentos automaticamente. Tente nomes sem acentos." |
-| Busca muito específica     | "Poucos resultados. Tente termos mais gerais ou remova alguns filtros."                    |
-| Sem conexão (modo offline) | "Busca offline. Resultados baseados nos dados regionais instalados."                       |
+| Cenário | Mensagem |
+|---------|----------|
+| Sem matches | "Nenhum resultado encontrado. Tente remover filtros ou verificar a ortografia." |
+| Muitos acentos | "Nenhum resultado encontrado. Removemos acentos automaticamente. Tente nomes sem acentos." |
+| Busca muito específica | "Poucos resultados. Tente termos mais gerais ou remova alguns filtros." |
+| Sem conexão (modo offline) | "Busca offline. Resultados baseados nos dados regionais instalados." |
 
 ### 3. Sugestões Automáticas
-
 - "Você quis dizer: {sugestão fuzzy}?"
 - "Tentando com: {termos mais genéricos}"
 - "Remova o filtro de: {tipo/filtro}"
@@ -217,7 +199,6 @@ const loadMoreResults = async () => {
 ## Integração com Highlight no Mapa
 
 ### 1. Efeito ao Selecionar Card
-
 ```typescript
 const handleResultSelect = (result: SearchResult) => {
   // 1. Centralizar mapa no resultado
@@ -242,7 +223,6 @@ const handleResultSelect = (result: SearchResult) => {
 ```
 
 ### 2. Roteamento Opcional
-
 - Se o result for uma estrada/rua: navegar para a view de "street view" ou perfil de rota
 - Se for um ponto de interesse: abrir detalhes (Wikipedia, hours, etc.)
 - History entry no browser history
@@ -250,13 +230,11 @@ const handleResultSelect = (result: SearchResult) => {
 ## Evidência Concreta
 
 ### 1. Componente SearchResultCard
-
 - ✅ Estrutura com id, name, type, category, relevance, distance, preview, accentColor, icon
 - ✅ Estados: default, hover, selected, focused
 - ✅ onSelect callback para navegação
 
 ### 2. Cores e Ícones por Tipo
-
 - ✅ highway: #0066FF 🛣️
 - ✅ street: #339933 🛣️
 - ✅ residential: #FFCC00 🏘️
@@ -267,7 +245,6 @@ const handleResultSelect = (result: SearchResult) => {
 - ✅ tourism: #CC33FF 🏛️
 
 ### 3. Componentes UI
-
 - ✅ Search bar form com input type="text" e button
 - ✅ Results grid com role="region" e aria-label
 - ✅ Empty state com SVG + mensagem guidance
@@ -277,7 +254,6 @@ const handleResultSelect = (result: SearchResult) => {
 - ✅ Sugestões automáticas (fuzzy, termos mais genéricos)
 
 ### 4. Highlight no Mapa
-
 - ✅ `flyTo` centralizar mapa no result
 - ✅ Zoom adjustment baseado em distance (14-18 range)
 - ✅ Style filter: drop-shadow com accentColor
@@ -285,7 +261,6 @@ const handleResultSelect = (result: SearchResult) => {
 - ✅ Roteamento opcional (street view, detalhes POI)
 
 ### 5. Histórico de Buscas
-
 - ✅ `searchHistory` object store no IndexedDB
 - ✅ Limite: 20 entradas
 - ✅ TTL: 30 dias
@@ -294,7 +269,6 @@ const handleResultSelect = (result: SearchResult) => {
 - ✅ Remover do histórico ao limpar campo
 
 ### 6. Pagination/Infinite Scroll
-
 - ✅ First 20 results inicial
 - ✅ Carregar próxima página ao rolar fim
 - ✅ Indicador "carregando" no bottom
@@ -302,7 +276,6 @@ const handleResultSelect = (result: SearchResult) => {
 - ✅ `loadMoreResults` function com loading state
 
 ### 7. Fallback "Nenhum Resultado"
-
 - ✅ Mensagem: "Nenhum resultado encontrado. Tente remover filtros..."
 - ✅ Com acentos: mensagem guidance sobre remoção automática
 - ✅ Busca muito específica: "Poucos resultados. Tente termos mais gerais..."
@@ -310,7 +283,6 @@ const handleResultSelect = (result: SearchResult) => {
 - ✅ Sugestões automáticas: "Você quis dizer: {fuzzy}?", "Tentando com: {genéricos}", etc.
 
 ### 8. Integração com Highlight
-
 - ✅ handleResultSelect: flyTo + centralizar mapa
 - ✅ Zoom calculation: 14-18 range baseado em distance
 - ✅ Drop-shadow filter com accentColor
@@ -338,4 +310,4 @@ const handleResultSelect = (result: SearchResult) => {
 
 ---
 
-_Este documento é o entregável do MM-MAP-420. Conclui o item M5 "Busca Offline" em sua totalidade, fechando a sequência M3 → M4 → M5 com todos os tasks (MM-MAP-200 a MM-MAP-420) entregues._
+*Este documento é o entregável do MM-MAP-420. Conclui o item M5 "Busca Offline" em sua totalidade, fechando a sequência M3 → M4 → M5 com todos os tasks (MM-MAP-200 a MM-MAP-420) entregues.*

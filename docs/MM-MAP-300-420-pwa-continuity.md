@@ -8,13 +8,13 @@ Tornar os conversores GPX/KML existentes úteis no aplicativo PWA e oferecer pes
 
 ## Auditoria inicial
 
-| Recurso                      | Antes                                                                                                                                | Depois desta alteração                                                                                                         |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
-| Parsers GPX/KML              | PARCIAL: implementados em `packages/geo/src`, mas não exportados pelo entrypoint e não usados pela interface                         | PARCIAL: exportados, melhor suporte a atributos GPX, elevação KML e polígonos KML                                              |
-| Importação de datasets       | FUNCIONA para GeoJSON; GPX/KML rejeitados                                                                                            | PARCIAL: GPX/KML passam pelo mesmo validador GeoJSON, são persistidos localmente como datasets, e o original é retido          |
-| Busca por nome               | PARCIAL: índice regional emitido em `search/a0.json` etc., mas runtime legado usa IDs `A`/`#`; buscas só iniciam pelo primeiro token | PARCIAL: helper de ID regional compatível, busca por palavras internas, proteção contra consulta vazia e limites de resultados |
-| Busca na interface do mapa   | NÃO IMPLEMENTADO para feições carregadas                                                                                             | PARCIAL: painel com Web Worker pesquisando nomes de datasets/feições já carregadas, sem chamadas remotas                       |
-| Busca OSM regional instalada | NÃO IMPLEMENTADO de ponta a ponta                                                                                                    | PENDENTE: shards regionais ainda não persistem junto ao pacote/manifest e não alimentam o novo painel                          |
+| Recurso | Antes | Depois desta alteração |
+|---|---|---|
+| Parsers GPX/KML | PARCIAL: implementados em `packages/geo/src`, mas não exportados pelo entrypoint e não usados pela interface | PARCIAL: exportados, melhor suporte a atributos GPX, elevação KML e polígonos KML |
+| Importação de datasets | FUNCIONA para GeoJSON; GPX/KML rejeitados | PARCIAL: GPX/KML passam pelo mesmo validador GeoJSON, são persistidos localmente como datasets, e o original é retido |
+| Busca por nome | PARCIAL: índice regional emitido em `search/a0.json` etc., mas runtime legado usa IDs `A`/`#`; buscas só iniciam pelo primeiro token | PARCIAL: helper de ID regional compatível, busca por palavras internas, proteção contra consulta vazia e limites de resultados |
+| Busca na interface do mapa | NÃO IMPLEMENTADO para feições carregadas | PARCIAL: painel com Web Worker pesquisando nomes de datasets/feições já carregadas, sem chamadas remotas |
+| Busca OSM regional instalada | NÃO IMPLEMENTADO de ponta a ponta | PENDENTE: shards regionais ainda não persistem junto ao pacote/manifest e não alimentam o novo painel |
 
 ## Escopo implementado
 

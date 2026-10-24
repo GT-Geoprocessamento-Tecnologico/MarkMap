@@ -60,12 +60,12 @@ Criar um normalizador compartilhado para indexação e consulta, baseado em
    CEP completo.
 
 O índice local deve incluir `addr:postcode`, `postcode`, `postalcode` e `cep`
-quando forem strings de oito dígitos. O modelo compartilhado pode carregar
-`postalCodes?: string[]` como metadado opcional; o registro mantém
-`normalized === normalizeName(name)`, e cada CEP normalizado é um token
-adicional para consulta. O rótulo original e a coordenada da feição são
-preservados. Registros sem coordenada válida são descartados, como já ocorre
-hoje.
+   quando forem strings de oito dígitos. O modelo compartilhado pode carregar
+   `postalCodes?: string[]` como metadado opcional; o registro mantém
+   `normalized === normalizeName(name)`, e cada CEP normalizado é um token
+   adicional para consulta. O rótulo original e a coordenada da feição são
+   preservados. Registros sem coordenada válida são descartados, como já ocorre
+   hoje.
 
 ### Uma submissão, duas fontes
 
@@ -140,13 +140,13 @@ mapas.
 
 ## Arquivos e propriedade
 
-| Tarefa                              | Dono         | Área permitida                                                                                | Saída                                                                  |
-| ----------------------------------- | ------------ | --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| Normalizador/CEP e registros locais | Search local | `local-map-search.ts`, `packages/maps/src/search/index.ts`, leitor regional/pipeline e testes | `postalCodes` opcional, busca sem acento e coordenadas preservadas     |
-| Orquestração única                  | Search UI    | `OfflineSearch.tsx`, `address-geocoder.ts` e testes                                           | uma submissão, local imediato, online cancelável                       |
-| Cache persistente                   | Root         | novo módulo sobre `localDb.meta` e testes                                                     | cache versionado, 200/90 dias, fallback seguro                         |
-| Rota first-party                    | Backend      | rota fixa/adapter no serviço canônico e testes                                                | contrato validado e provider autorizado; sem segredo versionado        |
-| QA independente                     | QA           | testes focados e Playwright do mapa                                                           | offline, local+online, CEP, erro, reload/cache e ausência de cobertura |
+| Tarefa | Dono | Área permitida | Saída |
+|---|---|---|---|
+| Normalizador/CEP e registros locais | Search local | `local-map-search.ts`, `packages/maps/src/search/index.ts`, leitor regional/pipeline e testes | `postalCodes` opcional, busca sem acento e coordenadas preservadas |
+| Orquestração única | Search UI | `OfflineSearch.tsx`, `address-geocoder.ts` e testes | uma submissão, local imediato, online cancelável |
+| Cache persistente | Root | novo módulo sobre `localDb.meta` e testes | cache versionado, 200/90 dias, fallback seguro |
+| Rota first-party | Backend | rota fixa/adapter no serviço canônico e testes | contrato validado e provider autorizado; sem segredo versionado |
+| QA independente | QA | testes focados e Playwright do mapa | offline, local+online, CEP, erro, reload/cache e ausência de cobertura |
 
 Builders não alteram `CommandCenterPage` ou layouts fora do wiring estritamente
 necessário para manter `combinedSearchRecords`, `onChoose`, GeoPDF, GPS,

@@ -2,7 +2,12 @@
   "id": "br-uf-ac",
   "version": "1.0.0-brazil.20261019",
   "label": "Acre — mapa offline",
-  "bounds": [-73.9833, -11.1456, -66.6269, -7.1118],
+  "bounds": [
+    -73.9833,
+    -11.1456,
+    -66.6269,
+    -7.1118
+  ],
   "minZoom": 0,
   "maxZoom": 9,
   "archive": {
@@ -26,7 +31,9 @@
   "createdAt": "2026-10-19T22:43:31.309Z",
   "packageVersion": "1.0.0-brazil.20261019",
   "osmDataDate": "2026-10-19T04:00:00.000Z",
-  "capabilities": ["basemap"],
+  "capabilities": [
+    "basemap"
+  ],
   "checksums": {
     "archive": "4a7bffa75dd99ea4c160c69e51a5553ebc3e814e977783c55dc03c66ef5524e0",
     "style": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",

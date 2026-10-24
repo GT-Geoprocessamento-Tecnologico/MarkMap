@@ -2,7 +2,12 @@
   "id": "br-uf-df",
   "version": "1.0.0-brazil.20261019",
   "label": "Distrito Federal — mapa offline",
-  "bounds": [-48.2818, -16.05, -47.3085, -15.5019],
+  "bounds": [
+    -48.2818,
+    -16.05,
+    -47.3085,
+    -15.5019
+  ],
   "minZoom": 0,
   "maxZoom": 9,
   "archive": {
@@ -26,7 +31,9 @@
   "createdAt": "2026-10-19T22:46:36.538Z",
   "packageVersion": "1.0.0-brazil.20261019",
   "osmDataDate": "2026-10-19T04:00:00.000Z",
-  "capabilities": ["basemap"],
+  "capabilities": [
+    "basemap"
+  ],
   "checksums": {
     "archive": "71b6cb2e35cc9454d07bcd6a719ebe5de042dbe4acd31207e2677b6b45176ca0",
     "style": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",

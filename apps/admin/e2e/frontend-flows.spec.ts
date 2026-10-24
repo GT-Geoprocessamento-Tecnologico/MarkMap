@@ -5,9 +5,7 @@ import { generateGeoPdfFixture } from "../../../packages/geo/tests/pdf/fixtures/
 
 /** No Safari o prompt de instalação fica fixo sobre o conteúdo e intercepta cliques. */
 async function dismissInstallPrompt(page: Page): Promise<void> {
-  const prompt = page.getByRole("status", {
-    name: "Adicionar MarkMap à Tela de Início",
-  });
+  const prompt = page.getByRole("status", { name: "Adicionar MarkMap à Tela de Início" });
   try {
     await prompt.waitFor({ state: "visible", timeout: 3_000 });
   } catch {
@@ -45,10 +43,7 @@ test("PWA mantém projeto editável após cold reload totalmente offline", async
   context,
   browserName,
 }) => {
-  test.skip(
-    browserName !== "chromium",
-    "Service Worker offline acceptance runs in Chromium.",
-  );
+  test.skip(browserName !== "chromium", "Service Worker offline acceptance runs in Chromium.");
 
   await page.goto("/projects");
   await page.evaluate(async () => {
@@ -57,44 +52,31 @@ test("PWA mantém projeto editável após cold reload totalmente offline", async
     await navigator.serviceWorker.ready;
     if (!navigator.serviceWorker.controller) {
       await new Promise<void>((resolve) => {
-        navigator.serviceWorker.addEventListener(
-          "controllerchange",
-          () => resolve(),
-          {
-            once: true,
-          },
-        );
+        navigator.serviceWorker.addEventListener("controllerchange", () => resolve(), {
+          once: true,
+        });
       });
     }
   });
 
   await context.setOffline(true);
-  await page
-    .getByRole("button", { name: /Criar (Novo|Primeiro) Projeto/ })
-    .first()
-    .click();
+  await page.getByRole("button", { name: /Criar (Novo|Primeiro) Projeto/ }).first().click();
   await page.getByLabel("Nome do Projeto *").fill("Projeto Offline E2E");
   await page.getByLabel("Descrição do projeto").fill("Criado sem rede");
   await page.getByRole("button", { name: "Salvar Projeto" }).click();
-  await expect(
-    page.getByText("Projeto Offline E2E", { exact: true }),
-  ).toBeVisible();
+  await expect(page.getByText("Projeto Offline E2E", { exact: true })).toBeVisible();
 
   await page.reload({ waitUntil: "domcontentloaded" });
   await expect(
     page.getByRole("heading", { name: "Projetos Cartográficos" }),
   ).toBeVisible();
-  await expect(
-    page.getByText("Projeto Offline E2E", { exact: true }),
-  ).toBeVisible();
+  await expect(page.getByText("Projeto Offline E2E", { exact: true })).toBeVisible();
   // O aplicativo é local-first: ficar offline é o caminho normal, então o banner
   // de conectividade é esperado. O que não pode aparecer é um status de erro ou
   // de sincronização pendente, porque o projeto acabou de ser criado e nada foi
   // perdido.
   await expect(
-    page
-      .getByRole("status")
-      .filter({ hasText: /erro|falha|pendente|sincroniza/i }),
+    page.getByRole("status").filter({ hasText: /erro|falha|pendente|sincroniza/i }),
   ).toHaveCount(0);
   await expect(page.getByText(/Erro|Falha|não foi possível/i)).toHaveCount(0);
 
@@ -110,13 +92,14 @@ test("PWA mantém projeto editável após cold reload totalmente offline", async
   await page.getByRole("button", { name: "Adicionar ponto" }).click();
   // startDrawing é assíncrono: aguardar o modo ativo antes de clicar no mapa,
   // senão o clique é engolido quando a máquina está sob carga.
-  await expect(
-    page.getByText("Toque no mapa para salvar o ponto"),
-  ).toBeVisible();
+  await expect(page.getByText("Toque no mapa para salvar o ponto")).toBeVisible();
   const mapSurface = page.getByTestId("map-canvas");
   const box = await mapSurface.boundingBox();
   expect(box).not.toBeNull();
-  await page.mouse.click(box!.x + box!.width / 2, box!.y + box!.height / 2);
+  await page.mouse.click(
+    box!.x + box!.width / 2,
+    box!.y + box!.height / 2,
+  );
   await expect(page.getByText("Feição salva", { exact: true })).toBeVisible();
   await expect(page.locator("[data-feature-count]")).toHaveAttribute(
     "data-feature-count",
@@ -141,10 +124,7 @@ test("GeoPDF georreferenciado abre como mapa completamente offline", async ({
   context,
   browserName,
 }) => {
-  test.skip(
-    browserName !== "chromium",
-    "GeoPDF worker/map acceptance runs in Chromium.",
-  );
+  test.skip(browserName !== "chromium", "GeoPDF worker/map acceptance runs in Chromium.");
 
   await page.goto("/imports");
   await page.evaluate(async () => {
@@ -294,11 +274,13 @@ test("malha GLB local: importar, restaurar controles e excluir", async ({
     path: "../../docs/quality/screenshots/mesh-320x568.png",
     fullPage: true,
   });
-  await page.locator("input[type=file]").setInputFiles({
-    name: "invalido.glb",
-    mimeType: "model/gltf-binary",
-    buffer: Buffer.from("invalid"),
-  });
+  await page
+    .locator("input[type=file]")
+    .setInputFiles({
+      name: "invalido.glb",
+      mimeType: "model/gltf-binary",
+      buffer: Buffer.from("invalid"),
+    });
   await expect(page.getByRole("alert")).toBeVisible();
   await page.getByRole("button", { name: /^triangle.glb/ }).click();
   await expect(page.getByRole("alert")).toHaveCount(0);
@@ -395,10 +377,7 @@ test("GPS do dispositivo funciona e mantém a experiência local-first", async (
   context,
   browserName,
 }) => {
-  test.skip(
-    browserName !== "chromium",
-    "Geolocation acceptance runs in Chromium.",
-  );
+  test.skip(browserName !== "chromium", "Geolocation acceptance runs in Chromium.");
 
   await page.goto("/settings");
   const origin = new URL(page.url()).origin;
@@ -413,15 +392,9 @@ test("GPS do dispositivo funciona e mantém a experiência local-first", async (
 
   await page.getByRole("button", { name: "Solicitar localização" }).click();
 
-  await expect(
-    page.getByText("Permissão concedida", { exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByText("Localização obtida", { exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByText(/-7\.19100, -48\.20700 \(precisão 8 m\)/),
-  ).toBeVisible();
+  await expect(page.getByText("Permissão concedida", { exact: true })).toBeVisible();
+  await expect(page.getByText("Localização obtida", { exact: true })).toBeVisible();
+  await expect(page.getByText(/-7\.19100, -48\.20700 \(precisão 8 m\)/)).toBeVisible();
 });
 
 test("CRS persistido e tema efetivo após recarregar", async ({ page }) => {
@@ -533,18 +506,12 @@ for (const [width, height] of [
         await page.getByRole("button", { name: "Abrir menu" }).click();
         await expect(
           page
-            .getByRole("navigation", {
-              name: "Navegação principal",
-              exact: true,
-            })
+            .getByRole("navigation", { name: "Navegação principal", exact: true })
             .getByRole("link", { name: /Estúdio de Malhas 3D/ }),
         ).toBeVisible();
         await page.getByRole("button", { name: "Fechar menu" }).click();
         await expect(
-          page.getByRole("navigation", {
-            name: "Navegação principal",
-            exact: true,
-          }),
+          page.getByRole("navigation", { name: "Navegação principal", exact: true }),
         ).not.toBeInViewport();
       }
     }

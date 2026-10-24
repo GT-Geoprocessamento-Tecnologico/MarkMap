@@ -2,7 +2,12 @@
   "id": "br-city-1600303",
   "version": "1.0.0-brazil.20261019",
   "label": "Macapá — mapa offline",
-  "bounds": [-51.4931, -0.0975, -49.8831, 1.2403],
+  "bounds": [
+    -51.4931,
+    -0.0975,
+    -49.8831,
+    1.2403
+  ],
   "minZoom": 0,
   "maxZoom": 12,
   "archive": {
@@ -26,7 +31,9 @@
   "createdAt": "2026-10-19T22:45:58.752Z",
   "packageVersion": "1.0.0-brazil.20261019",
   "osmDataDate": "2026-10-19T04:00:00.000Z",
-  "capabilities": ["basemap"],
+  "capabilities": [
+    "basemap"
+  ],
   "checksums": {
     "archive": "93c7f8abecd00dbba52dd52a81840e7b30d2aa733142a406d8846b15b7f3ce1c",
     "style": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",

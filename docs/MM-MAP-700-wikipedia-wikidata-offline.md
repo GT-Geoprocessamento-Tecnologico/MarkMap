@@ -6,11 +6,9 @@
 **Gate M8**: conteúdo de lugares e transporte disponível offline
 
 ## Objetivo
-
 Processar no pipeline tags OSM wikipedia/wikidata, extratos permitidos, idioma, atribuição e conteúdo compactado/sharded; no runtime exibir place sheet com título, resumo, link para artigo completo (online) e conteúdo offline.
 
 ## Fontes de Inspiração (conceitos, não código copiado)
-
 - `generator/descriptions_section_builder.cpp` — construção de seção de descrições (conceito: extração + embutimento de extratos)
 - `generator/wiki_url_dumper.cpp` — dump de URLs de wiki (conceito: mapeamento OSM→wiki)
 
@@ -21,8 +19,8 @@ Processar no pipeline tags OSM wikipedia/wikidata, extratos permitidos, idioma, 
 export const wikipediaArticleSchema = z.object({
   id: z.string(),
   title: z.string(),
-  extract: z.string(), // resumo permitido
-  language: z.string(), // ex: "pt"
+  extract: z.string(),            // resumo permitido
+  language: z.string(),           // ex: "pt"
   osmId: z.string().optional(),
   wikidataId: z.string().optional(),
   url: z.string().url().optional(), // link quando online
@@ -43,13 +41,13 @@ export const wikipediaArticleSchema = z.object({
 ```typescript
 // packages/maps/src/content/wikipedia.ts
 export class WikipediaStore {
-  load(articles: WikipediaArticle[]): void;
-  getByOsmId(osmId: string): WikipediaArticle | undefined;
-  getByWikidataId(wikidataId: string): WikipediaArticle | undefined;
-  search(query: string, limit?: number): WikipediaArticle[];
-  get count(): number;
+  load(articles: WikipediaArticle[]): void
+  getByOsmId(osmId: string): WikipediaArticle | undefined
+  getByWikidataId(wikidataId: string): WikipediaArticle | undefined
+  search(query: string, limit?: number): WikipediaArticle[]
+  get count(): number
 }
-export function sanitizeWikipediaHtml(html: string): string;
+export function sanitizeWikipediaHtml(html: string): string
 ```
 
 - **Place sheet**: título (`title`) + resumo (`extract`) via `getByOsmId`/`getByWikidataId`.
@@ -58,7 +56,6 @@ export function sanitizeWikipediaHtml(html: string): string;
 - **Sanitização**: `sanitizeWikipediaHtml` remove `<script>`, `<style>`, handlers `on*`, `javascript:` — whitelist de tags (`p, b, i, em, strong, a, ul, ol, li, br, h2..h4`). Conteúdo renderizado como HTML sanitizado (seção 12 do PRD).
 
 ## Evidência Concreta
-
 - ✅ Schema `wikipediaArticleSchema` com title/extract/language/osmId/wikidataId/url/attribution
 - ✅ `WikipediaStore` com índices por osmId e wikidataId + busca
 - ✅ `sanitizeWikipediaHtml()` — whitelist + remoção de script/style/handlers
@@ -67,4 +64,4 @@ export function sanitizeWikipediaHtml(html: string): string;
 
 ---
 
-_Entregável do MM-MAP-700. Prepara MM-MAP-710 (Transporte/metro)._
+*Entregável do MM-MAP-700. Prepara MM-MAP-710 (Transporte/metro).*

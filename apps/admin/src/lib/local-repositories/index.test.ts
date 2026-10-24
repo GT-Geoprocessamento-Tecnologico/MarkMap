@@ -7,13 +7,7 @@ import { originalKey, requestValue } from "../local-db";
 
 const project = (id: string, name: string) => ({
   entity: "project" as const,
-  data: {
-    id,
-    name,
-    status: "active",
-    createdAt: "2026-09-30T00:00:00.000Z",
-    updatedAt: "2026-09-30T00:00:00.000Z",
-  },
+  data: { id, name, status: "active", createdAt: "2026-09-30T00:00:00.000Z", updatedAt: "2026-09-30T00:00:00.000Z" },
 });
 const id = "11111111-1111-4111-8111-111111111111";
 
@@ -21,39 +15,20 @@ describe("local-first repository", () => {
   it("persists PDF bytes without serializing a Blob and restores the exact original after reopening", async () => {
     const db = new MemoryLocalDb();
     const repo = new LocalRepository(db);
-    const source = new TextEncoder().encode("%PDF-1.4\noriginal bytes\n%%EOF");
-    const blob = new Blob([source], { type: "application/pdf" });
-    const digest = await crypto.subtle.digest("SHA-256", source);
-    const sha256 = Array.from(new Uint8Array(digest), (byte) =>
-      byte.toString(16).padStart(2, "0"),
-    ).join("");
-    const input = {
-      blobId: "ios-pdf",
-      blob,
-      mediaType: "application/pdf",
-      bytes: blob.size,
-      sha256,
-      originalName: "ios-original.pdf",
-    };
+    const source = new TextEncoder().encode('%PDF-1.4\noriginal bytes\n%%EOF');
+    const blob = new Blob([source], { type: 'application/pdf' });
+    const digest = await crypto.subtle.digest('SHA-256', source);
+    const sha256 = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+    const input = { blobId: 'ios-pdf', blob, mediaType: 'application/pdf', bytes: blob.size, sha256, originalName: 'ios-original.pdf' };
     await repo.saveOriginal(input);
     const key = originalKey(await repo.workspaceId(), input.blobId);
-    const raw = await db.transact(["originals"], "readonly", (tx) =>
-      requestValue(tx.store("originals").get(key)),
-    );
+    const raw = await db.transact(['originals'], 'readonly', tx => requestValue(tx.store('originals').get(key)));
     expect(raw.blob).toBeUndefined();
-    expect(Array.from(new Uint8Array(raw.originalBytes))).toEqual(
-      Array.from(source),
-    );
+    expect(Array.from(new Uint8Array(raw.originalBytes))).toEqual(Array.from(source));
     const reopened = new LocalRepository(db);
     const restored = await reopened.getOriginal(input.blobId);
-    expect(restored).toMatchObject({
-      sha256,
-      originalName: input.originalName,
-      bytes: source.length,
-    });
-    expect(
-      Array.from(new Uint8Array(await readBlobBytes(restored!.blob))),
-    ).toEqual(Array.from(source));
+    expect(restored).toMatchObject({ sha256, originalName: input.originalName, bytes: source.length });
+    expect(Array.from(new Uint8Array(await readBlobBytes(restored!.blob)))).toEqual(Array.from(source));
     expect((await reopened.listOriginals())[0]?.blob).toBeInstanceOf(Blob);
     await reopened.saveOriginal(input);
     expect(await reopened.listOriginals()).toHaveLength(1);
@@ -63,26 +38,12 @@ describe("local-first repository", () => {
     const db = new MemoryLocalDb();
     const repo = new LocalRepository(db);
     const workspaceId = await repo.workspaceId();
-    const blob = new Blob(["legacy PDF"], { type: "application/pdf" });
-    const record = {
-      key: originalKey(workspaceId, "legacy"),
-      workspaceId,
-      blobId: "legacy",
-      blob,
-      mediaType: "application/pdf",
-      bytes: blob.size,
-      sha256: "a".repeat(64),
-      originalName: "legacy.pdf",
-      createdAt: "2026-10-19T00:00:00Z",
-    };
-    await db.transact(["originals"], "readwrite", (tx) => {
-      tx.store("originals").add(record);
-    });
-    expect((await repo.getOriginal("legacy"))?.blob).toBe(blob);
+    const blob = new Blob(['legacy PDF'], { type: 'application/pdf' });
+    const record = { key: originalKey(workspaceId, 'legacy'), workspaceId, blobId: 'legacy', blob, mediaType: 'application/pdf', bytes: blob.size, sha256: 'a'.repeat(64), originalName: 'legacy.pdf', createdAt: '2026-10-19T00:00:00Z' };
+    await db.transact(['originals'], 'readwrite', tx => { tx.store('originals').add(record); });
+    expect((await repo.getOriginal('legacy'))?.blob).toBe(blob);
     expect((await repo.listOriginals())[0]?.blob).toBe(blob);
-    const raw = await db.transact(["originals"], "readonly", (tx) =>
-      requestValue(tx.store("originals").get(record.key)),
-    );
+    const raw = await db.transact(['originals'], 'readonly', tx => requestValue(tx.store('originals').get(record.key)));
     expect(raw.originalBytes).toBeUndefined();
   });
 
@@ -90,48 +51,22 @@ describe("local-first repository", () => {
     const db = new MemoryLocalDb();
     const repo = new LocalRepository(db);
     db.failNextTransaction = true;
-    await expect(
-      repo.mutate({
-        entity: "project",
-        entityId: id,
-        payload: project(id, "Falha"),
-        operation: "upsert",
-        baseVersion: null,
-      }),
-    ).rejects.toThrow();
-    expect(
-      await repo.getEntity(await repo.workspaceId(), "project", id),
-    ).toBeUndefined();
+    await expect(repo.mutate({ entity: "project", entityId: id, payload: project(id, "Falha"), operation: "upsert", baseVersion: null })).rejects.toThrow();
+    expect(await repo.getEntity(await repo.workspaceId(), "project", id)).toBeUndefined();
     expect(await repo.listOutbox()).toEqual([]);
-    const op = await repo.mutate({
-      entity: "project",
-      entityId: id,
-      payload: project(id, "Local"),
-      operation: "upsert",
-      baseVersion: null,
-    });
-    expect(
-      (await repo.getEntity(await repo.workspaceId(), "project", id))?.payload,
-    ).toEqual(project(id, "Local"));
-    expect((await repo.listOutbox()).map((entry) => entry.operationId)).toEqual(
-      [op.operationId],
-    );
+    const op = await repo.mutate({ entity: "project", entityId: id, payload: project(id, "Local"), operation: "upsert", baseVersion: null });
+    expect((await repo.getEntity(await repo.workspaceId(), "project", id))?.payload).toEqual(project(id, "Local"));
+    expect((await repo.listOutbox()).map((entry) => entry.operationId)).toEqual([op.operationId]);
   });
 
   it("keeps unsynced work across a new repository instance and has stable workspace id", async () => {
     const db = new MemoryLocalDb();
     const first = new LocalRepository(db);
     const workspaceId = await first.workspaceId();
-    await first.mutate({
-      entity: "project",
-      entityId: id,
-      payload: project(id, "Reload"),
-      operation: "upsert",
-      baseVersion: null,
-    });
+    await first.mutate({ entity: "project", entityId: id, payload: project(id, "Reload"), operation: "upsert", baseVersion: null });
     const second = new LocalRepository(db);
     expect(await second.workspaceId()).toBe(workspaceId);
-    expect(await second.listOutbox()).toHaveLength(1);
+    expect((await second.listOutbox())).toHaveLength(1);
   });
 
   it("lists active entities by workspace and type in deterministic updated order", async () => {
@@ -140,106 +75,42 @@ describe("local-first repository", () => {
     const workspaceId = await repo.workspaceId();
     const olderId = "33333333-3333-4333-8333-333333333333";
     const newerId = "44444444-4444-4444-8444-444444444444";
-    await repo.mutate({
-      entity: "project",
-      entityId: olderId,
-      payload: project(olderId, "Older"),
-      operation: "upsert",
-      baseVersion: null,
-    });
-    await repo.mutate({
-      entity: "project",
-      entityId: newerId,
-      payload: project(newerId, "Newer"),
-      operation: "upsert",
-      baseVersion: null,
-    });
-    await repo.mutate({
-      entity: "project",
-      entityId: id,
-      payload: project(id, "Deleted"),
-      operation: "upsert",
-      baseVersion: null,
-    });
-    await repo.mutate({
-      entity: "project",
-      entityId: id,
-      operation: "delete",
-      baseVersion: 0,
-    });
+    await repo.mutate({ entity: "project", entityId: olderId, payload: project(olderId, "Older"), operation: "upsert", baseVersion: null });
+    await repo.mutate({ entity: "project", entityId: newerId, payload: project(newerId, "Newer"), operation: "upsert", baseVersion: null });
+    await repo.mutate({ entity: "project", entityId: id, payload: project(id, "Deleted"), operation: "upsert", baseVersion: null });
+    await repo.mutate({ entity: "project", entityId: id, operation: "delete", baseVersion: 0 });
     const older = await repo.getEntity(workspaceId, "project", olderId);
     const newer = await repo.getEntity(workspaceId, "project", newerId);
     await db.transact(["entities"], "readwrite", (tx) => {
-      if (older)
-        tx.store("entities").put({
-          ...older,
-          updatedAt: "2026-09-30T00:00:00.000Z",
-        });
-      if (newer)
-        tx.store("entities").put({
-          ...newer,
-          updatedAt: "2026-09-30T00:00:01.000Z",
-        });
+      if (older) tx.store("entities").put({ ...older, updatedAt: "2026-09-30T00:00:00.000Z" });
+      if (newer) tx.store("entities").put({ ...newer, updatedAt: "2026-09-30T00:00:01.000Z" });
       tx.store("entities").put({
-        key: `${workspaceId}:map:other-workspace-map`,
-        workspaceId,
-        entity: "map",
-        entityId: "other-workspace-map",
-        version: 1,
-        deleted: false,
-        updatedAt: "9999-01-01T00:00:00.000Z",
+        key: `${workspaceId}:map:other-workspace-map`, workspaceId, entity: "map", entityId: "other-workspace-map",
+        version: 1, deleted: false, updatedAt: "9999-01-01T00:00:00.000Z",
       });
       tx.store("entities").put({
-        key: "other-workspace:project:foreign",
-        workspaceId: "other-workspace",
-        entity: "project",
-        entityId: "foreign",
-        version: 1,
-        deleted: false,
-        payload: project("foreign", "Foreign"),
-        updatedAt: "9999-01-01T00:00:00.000Z",
+        key: "other-workspace:project:foreign", workspaceId: "other-workspace", entity: "project", entityId: "foreign",
+        version: 1, deleted: false, payload: project("foreign", "Foreign"), updatedAt: "9999-01-01T00:00:00.000Z",
       });
     });
 
     const rows = await repo.listEntities("project", workspaceId);
     expect(rows.map((row) => row.entityId)).toEqual([newerId, olderId]);
-    expect(
-      rows.every(
-        (row) =>
-          row.workspaceId === workspaceId &&
-          row.entity === "project" &&
-          !row.deleted,
-      ),
-    ).toBe(true);
+    expect(rows.every((row) => row.workspaceId === workspaceId && row.entity === "project" && !row.deleted)).toBe(true);
   });
 
   it("does not let a stale acknowledgement overwrite a newer predecessor and handles duplicate ack", async () => {
     const db = new MemoryLocalDb();
     const repo = new LocalRepository(db);
-    const first = await repo.mutate({
-      entity: "project",
-      entityId: id,
-      payload: project(id, "Um"),
-      operation: "upsert",
-      baseVersion: null,
-    });
-    const second = await repo.mutate({
-      entity: "project",
-      entityId: id,
-      payload: project(id, "Dois"),
-      operation: "upsert",
-      baseVersion: 0,
-      predecessorOperationId: first.operationId,
-    });
+    const first = await repo.mutate({ entity: "project", entityId: id, payload: project(id, "Um"), operation: "upsert", baseVersion: null });
+    const second = await repo.mutate({ entity: "project", entityId: id, payload: project(id, "Dois"), operation: "upsert", baseVersion: 0, predecessorOperationId: first.operationId });
     expect(await repo.acknowledge(first.operationId, 1, "1")).toBe(true);
     expect(await repo.acknowledge(second.operationId, 2, "2")).toBe(true);
     expect(await repo.acknowledge(second.operationId, 2, "2")).toBe(true);
     expect(await repo.acknowledge(second.operationId, 1, "1")).toBe(false);
     expect(await repo.acknowledge(second.operationId, 3, "1")).toBe(false);
     expect(await repo.listOutbox()).toEqual([]);
-    expect(
-      (await repo.getEntity(await repo.workspaceId(), "project", id))?.version,
-    ).toBe(2);
+    expect((await repo.getEntity(await repo.workspaceId(), "project", id))?.version).toBe(2);
   });
 
   it("preserves originals as exportable blobs and retains conflicts", async () => {
@@ -253,20 +124,8 @@ describe("local-first repository", () => {
     const sha256 = [...new Uint8Array(digest)]
       .map((byte) => byte.toString(16).padStart(2, "0"))
       .join("");
-    await repo.saveOriginal({
-      blobId: "blob-1",
-      blob,
-      mediaType: "application/pdf",
-      bytes: blob.size,
-      sha256,
-    });
-    await repo.saveOriginal({
-      blobId: "blob-1",
-      blob,
-      mediaType: "application/pdf",
-      bytes: blob.size,
-      sha256,
-    });
+    await repo.saveOriginal({ blobId: "blob-1", blob, mediaType: "application/pdf", bytes: blob.size, sha256 });
+    await repo.saveOriginal({ blobId: "blob-1", blob, mediaType: "application/pdf", bytes: blob.size, sha256 });
     const different = new Blob(["different"], { type: "application/pdf" });
     const differentDigest = await crypto.subtle.digest(
       "SHA-256",
@@ -275,15 +134,7 @@ describe("local-first repository", () => {
     const differentHash = [...new Uint8Array(differentDigest)]
       .map((byte) => byte.toString(16).padStart(2, "0"))
       .join("");
-    await expect(
-      repo.saveOriginal({
-        blobId: "blob-1",
-        blob: different,
-        mediaType: "application/pdf",
-        bytes: different.size,
-        sha256: differentHash,
-      }),
-    ).rejects.toThrow(/conflitantes/);
+    await expect(repo.saveOriginal({ blobId: "blob-1", blob: different, mediaType: "application/pdf", bytes: different.size, sha256: differentHash })).rejects.toThrow(/conflitantes/);
     const stored = await repo.getOriginal("blob-1");
     expect(stored?.blob).toBeInstanceOf(Blob);
     expect(stored?.mediaType).toBe("application/pdf");
@@ -295,16 +146,7 @@ describe("local-first repository", () => {
       operation: "upsert",
       baseVersion: null,
     });
-    const conflict: SyncConflict = {
-      operationId: pending.operationId,
-      entity: "project",
-      entityId: id,
-      baseVersion: null,
-      serverVersion: 1,
-      reason: "VERSION_CONFLICT",
-      localPayload: project(id, "local"),
-      serverPayload: project(id, "server"),
-    };
+    const conflict: SyncConflict = { operationId: pending.operationId, entity: "project", entityId: id, baseVersion: null, serverVersion: 1, reason: "VERSION_CONFLICT", localPayload: project(id, "local"), serverPayload: project(id, "server") };
     await repo.saveConflict(conflict);
     expect(await repo.listConflicts()).toEqual([conflict]);
   });
@@ -387,62 +229,26 @@ describe("local-first repository", () => {
     const db = new MemoryLocalDb();
     const repo = new LocalRepository(db);
     db.quotaBytes = 1;
-    await expect(
-      repo.mutate({
-        entity: "project",
-        entityId: id,
-        payload: project(id, "quota"),
-        operation: "upsert",
-        baseVersion: null,
-      }),
-    ).rejects.toThrow(/Quota/);
+    await expect(repo.mutate({ entity: "project", entityId: id, payload: project(id, "quota"), operation: "upsert", baseVersion: null })).rejects.toThrow(/Quota/);
     db.quotaBytes = undefined;
     expect(await repo.listOutbox()).toEqual([]);
-    expect(
-      await repo.getEntity(await repo.workspaceId(), "project", id),
-    ).toBeUndefined();
+    expect(await repo.getEntity(await repo.workspaceId(), "project", id)).toBeUndefined();
   });
 
   it("rejects invalid acknowledgement cursors and unverifiable originals", async () => {
     const db = new MemoryLocalDb();
     const repo = new LocalRepository(db);
-    const op = await repo.mutate({
-      entity: "project",
-      entityId: id,
-      payload: project(id, "valid"),
-      operation: "upsert",
-      baseVersion: null,
-    });
-    await expect(repo.acknowledge(op.operationId, 0, "1")).rejects.toThrow(
-      /versão/,
-    );
-    await expect(repo.acknowledge(op.operationId, 1, "0")).rejects.toThrow(
-      /sequência/,
-    );
+    const op = await repo.mutate({ entity: "project", entityId: id, payload: project(id, "valid"), operation: "upsert", baseVersion: null });
+    await expect(repo.acknowledge(op.operationId, 0, "1")).rejects.toThrow(/versão/);
+    await expect(repo.acknowledge(op.operationId, 1, "0")).rejects.toThrow(/sequência/);
     const blob = new Blob(["not a pdf"], { type: "text/plain" });
-    await expect(
-      repo.saveOriginal({
-        blobId: "bad",
-        blob,
-        mediaType: "text/plain",
-        bytes: blob.size,
-        sha256: "0".repeat(64),
-      }),
-    ).rejects.toThrow(/PDF/);
+    await expect(repo.saveOriginal({ blobId: "bad", blob, mediaType: "text/plain", bytes: blob.size, sha256: "0".repeat(64) })).rejects.toThrow(/PDF/);
   });
 
   it("does not commit when a transaction callback fails synchronously or asynchronously", async () => {
     const db = new MemoryLocalDb();
-    await expect(
-      db.transact(["meta"], "readwrite", () => {
-        throw new Error("sync failure");
-      }),
-    ).rejects.toThrow("sync failure");
-    await expect(
-      db.transact(["meta"], "readwrite", async () => {
-        throw new Error("async failure");
-      }),
-    ).rejects.toThrow("async failure");
+    await expect(db.transact(["meta"], "readwrite", () => { throw new Error("sync failure"); })).rejects.toThrow("sync failure");
+    await expect(db.transact(["meta"], "readwrite", async () => { throw new Error("async failure"); })).rejects.toThrow("async failure");
     const repo = new LocalRepository(db);
     expect(await repo.workspaceId()).toBeDefined();
   });

@@ -7,11 +7,9 @@
 **Gate M9**: integração automotiva com escopo aprovado
 
 ## Objetivo
-
 Implementar integração CarPlay respeitando templates e restrições de segurança da Apple.
 
 ## Fontes de Inspiração (conceitos, não código copiado)
-
 - `iphone/Maps/Core/CarPlay/` — padrões de templates CarPlay (conceito)
 - `organicmaps/api-ios` — **apenas** padrões de URL scheme/deep link (conceito)
 
@@ -32,15 +30,14 @@ export class CarPlayAdapter implements AutomotiveAdapter { ... }
 
 ### Restrições de segurança Apple
 
-| Restrição                          | Adoção                                                                       |
-| ---------------------------------- | ---------------------------------------------------------------------------- |
-| Somente templates aprovados        | `map`, `navigation`, `list`, `place` (sem UI customizada fora dos templates) |
-| Sem exibição de webview arbitrário | Place sheet usa conteúdo sanitizado (MM-MAP-700)                             |
-| URLs externas controladas          | Apenas deep links aprovados via `sanitizeExternalUrl`                        |
-| Background/voz                     | TTS via sistema, sem serviço cloud (MM-MAP-640)                              |
+| Restrição | Adoção |
+|---|---|
+| Somente templates aprovados | `map`, `navigation`, `list`, `place` (sem UI customizada fora dos templates) |
+| Sem exibição de webview arbitrário | Place sheet usa conteúdo sanitizado (MM-MAP-700) |
+| URLs externas controladas | Apenas deep links aprovados via `sanitizeExternalUrl` |
+| Background/voz | TTS via sistema, sem serviço cloud (MM-MAP-640) |
 
 ## Evidência Concreta
-
 - ✅ `CarPlayAdapter` implementando `AutomotiveAdapter`
 - ✅ Templates restritos aos tipos suportados pela Apple
 - ✅ URL scheme/deep link referenciados apenas como padrão (sem cópia GPL)
@@ -48,4 +45,4 @@ export class CarPlayAdapter implements AutomotiveAdapter { ... }
 
 ---
 
-_Entregável do MM-MAP-810. Fecha o Gate M9._
+*Entregável do MM-MAP-810. Fecha o Gate M9.*

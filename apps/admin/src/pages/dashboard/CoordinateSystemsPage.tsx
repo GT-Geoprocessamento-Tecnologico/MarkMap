@@ -334,11 +334,7 @@ export default function CoordinateSystemsPage() {
 
       <div className="bg-surface-container-high border border-outline-variant/50 rounded-xl p-4 mb-6 flex flex-col md:flex-row gap-4 items-center">
         <div className="relative w-full flex-1">
-          <AppIcon
-            name="search"
-            size="sm"
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant"
-          />
+          <AppIcon name="search" size="sm" className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" />
           <input
             aria-label="Buscar sistemas de coordenadas"
             type="text"
@@ -439,11 +435,7 @@ export default function CoordinateSystemsPage() {
                         }`}
                       >
                         <AppIcon
-                          name={
-                            favorites.has(sys.code)
-                              ? "favorite"
-                              : "favoriteOutline"
-                          }
+                          name={favorites.has(sys.code) ? "favorite" : "favoriteOutline"}
                           size="md"
                         />
                       </button>

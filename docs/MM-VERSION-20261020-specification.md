@@ -38,12 +38,12 @@ O coordenador reserva a versão uma vez por release antes de delegar. Workers pa
 
 ## Tarefas e dependências
 
-| ID     | Responsável     | Entrega                                                                                | Dependência        |
-| ------ | --------------- | -------------------------------------------------------------------------------------- | ------------------ |
-| VER-01 | Root            | Guard de versão e comparação com base no CI, fail closed somente em release.           | esta especificação |
-| VER-02 | Root            | Reservar `0.3.0`, atualizar pacote e superfícies geradas sem editar workers paralelos. | VER-01             |
-| VER-03 | Root            | Entrada `CHANGELOG.md` com evidências verificáveis.                                    | VER-02             |
-| VER-04 | QA independente | Testar guard, build e concordância de artefatos no SHA final.                          | VER-01–03          |
+| ID | Responsável | Entrega | Dependência |
+|---|---|---|---|
+| VER-01 | Root | Guard de versão e comparação com base no CI, fail closed somente em release. | esta especificação |
+| VER-02 | Root | Reservar `0.3.0`, atualizar pacote e superfícies geradas sem editar workers paralelos. | VER-01 |
+| VER-03 | Root | Entrada `CHANGELOG.md` com evidências verificáveis. | VER-02 |
+| VER-04 | QA independente | Testar guard, build e concordância de artefatos no SHA final. | VER-01–03 |
 
 ## Riscos e parada
 

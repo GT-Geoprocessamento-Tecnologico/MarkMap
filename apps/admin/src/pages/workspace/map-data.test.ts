@@ -2,15 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Feature, Layer } from "@markmap/contracts";
 
 import { listLocalFeatures } from "../../lib/hooks/features";
-import {
-  featureBounds,
-  loadProjectFeatures,
-  matchesFeature,
-  hasPolygonGeometry,
-  hasPointGeometry,
-  shouldDisplayDatasetPoints,
-  filterDatasetFeatures,
-} from "./map-data";
+import { featureBounds, loadProjectFeatures, matchesFeature, hasPolygonGeometry, hasPointGeometry, shouldDisplayDatasetPoints, filterDatasetFeatures } from "./map-data";
 
 vi.mock("../../lib/hooks/features", () => ({
   listLocalFeatures: vi.fn(),
@@ -145,16 +137,12 @@ describe("project map data", () => {
     expect(shouldDisplayDatasetPoints(collection)).toBe(false);
 
     // Filter should omit point features when points are hidden
-    const filteredHidden = filterDatasetFeatures(collection, {
-      showPoints: false,
-    });
+    const filteredHidden = filterDatasetFeatures(collection, { showPoints: false });
     expect(filteredHidden).toHaveLength(1);
     expect(filteredHidden[0]?.geometry.type).toBe("Polygon");
 
     // Filter should include points when user explicitly turns them on
-    const filteredShown = filterDatasetFeatures(collection, {
-      showPoints: true,
-    });
+    const filteredShown = filterDatasetFeatures(collection, { showPoints: true });
     expect(filteredShown).toHaveLength(2);
   });
 
@@ -176,8 +164,7 @@ describe("project map data", () => {
     expect(hasPointGeometry(waypoints)).toBe(true);
     // When there are no polygons, points are shown by default
     expect(shouldDisplayDatasetPoints(waypoints)).toBe(true);
-    expect(filterDatasetFeatures(waypoints, { showPoints: true })).toHaveLength(
-      2,
-    );
+    expect(filterDatasetFeatures(waypoints, { showPoints: true })).toHaveLength(2);
   });
+
 });

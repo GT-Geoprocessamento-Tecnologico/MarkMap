@@ -87,13 +87,13 @@ Para reutilizar a matemática existente, adaptar `TerrainGrid` a uma forma estru
 
 ## Grafo de tarefas e dependências
 
-| ID     | Responsável         | Entrega                                                                                                                                                               | Dependência                                       |
-| ------ | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
-| ALT-01 | data-source/service | API `TerrainBounds`, `TerrainGrid`, ponto, cache, download cancelável e remoção; AWS Terrain Tiles com metadados/licença/datum/resolução honestos.                    | documentação/CORS e fixture Araguaína confirmados |
-| ALT-02 | maps/core           | Adaptador estrutural `DemSampleGrid` e reutilização da amostragem/perfil, preservando DEM publicado e no-data.                                                        | ALT-01 para tipos do grid                         |
-| ALT-03 | UI Builder          | Atualizar `OfflineElevation.tsx`/testes: ponto/centro, linha de medição/perfil, seleção de fonte, download/cache, estados e cancelamento.                             | ALT-01/ALT-02                                     |
-| ALT-04 | Root                | Passar centro, viewport bounds e measurement line do CommandCenter; atualizar label sem desmontar o atalho.                                                           | ALT-03                                            |
-| ALT-05 | QA independente     | Browser com ponto online real, última resposta vence, DEM antigo/generation guard, leitura offline após reload, download/cancelamento/retry, no-data, bounds e quota. | ALT-01–04                                         |
+| ID | Responsável | Entrega | Dependência |
+|---|---|---|---|
+| ALT-01 | data-source/service | API `TerrainBounds`, `TerrainGrid`, ponto, cache, download cancelável e remoção; AWS Terrain Tiles com metadados/licença/datum/resolução honestos. | documentação/CORS e fixture Araguaína confirmados |
+| ALT-02 | maps/core | Adaptador estrutural `DemSampleGrid` e reutilização da amostragem/perfil, preservando DEM publicado e no-data. | ALT-01 para tipos do grid |
+| ALT-03 | UI Builder | Atualizar `OfflineElevation.tsx`/testes: ponto/centro, linha de medição/perfil, seleção de fonte, download/cache, estados e cancelamento. | ALT-01/ALT-02 |
+| ALT-04 | Root | Passar centro, viewport bounds e measurement line do CommandCenter; atualizar label sem desmontar o atalho. | ALT-03 |
+| ALT-05 | QA independente | Browser com ponto online real, última resposta vence, DEM antigo/generation guard, leitura offline após reload, download/cancelamento/retry, no-data, bounds e quota. | ALT-01–04 |
 
 ## Critérios de aceitação
 

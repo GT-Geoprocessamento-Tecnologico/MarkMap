@@ -2,7 +2,12 @@
   "id": "br-city-2211001",
   "version": "1.0.0-brazil.20261019",
   "label": "Teresina — mapa offline",
-  "bounds": [-42.9707, -5.5866, -42.599, -4.7863],
+  "bounds": [
+    -42.9707,
+    -5.5866,
+    -42.599,
+    -4.7863
+  ],
   "minZoom": 0,
   "maxZoom": 12,
   "archive": {
@@ -26,7 +31,9 @@
   "createdAt": "2026-10-19T22:49:38.436Z",
   "packageVersion": "1.0.0-brazil.20261019",
   "osmDataDate": "2026-10-19T04:00:00.000Z",
-  "capabilities": ["basemap"],
+  "capabilities": [
+    "basemap"
+  ],
   "checksums": {
     "archive": "4f2799630657f157e6f142b215d94465989d00801ebc6e306908575c0e08daa6",
     "style": "caa3a941410e4826297d87cc78e83ef441c55caf1b0ec603430d835025328f71",

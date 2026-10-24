@@ -1,10 +1,5 @@
-export interface MapRequest {
-  url: string;
-  type?: "string" | "image" | "json" | "arrayBuffer";
-}
-export interface OfflineMapProtocolResult {
-  data: unknown;
-}
+export interface MapRequest { url: string; type?: 'string' | 'image' | 'json' | 'arrayBuffer' }
+export interface OfflineMapProtocolResult { data: unknown }
 export type ProtocolAction = (
   params: MapRequest,
   controller: AbortController,

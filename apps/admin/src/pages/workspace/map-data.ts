@@ -29,7 +29,9 @@ export async function loadProjectFeatures(
     if (features.length >= cap)
       return {
         features,
-        truncated: localFeatures.length > cap || layerIndex < layers.length - 1,
+        truncated:
+          localFeatures.length > cap ||
+          layerIndex < layers.length - 1,
       };
   }
   return { features, truncated: false };
