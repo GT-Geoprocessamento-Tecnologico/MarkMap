@@ -23,7 +23,13 @@ function fakeIndexedDb() {
   let opens = 0;
   const connections = [];
   const data = new Map();
+  const otherTables = new Map(stores.filter(name => name !== 'meta').map(name => [name, new Map()]));
   const idb = {
+    seed(storeName, record) {
+      const table = storeName === 'meta' ? data : otherTables.get(storeName);
+      if (!table) throw new Error('Unknown store ' + storeName);
+      table.set(record.key, record);
+    },
     get opens() { return opens; },
     get connections() { return connections; },
     failOpen(times = 1) { failures = times; },
@@ -46,15 +52,39 @@ function fakeIndexedDb() {
           const tx = {
             oncomplete: null, onerror: null, onabort: null, error: null,
             abort() { aborted = true; queueMicrotask(() => tx.onabort?.()); },
-            objectStore() {
+            objectStore(name) {
+              const table = name === 'meta' ? staged : otherTables.get(name);
+              if (!table) throw new Error('Unknown store ' + name);
               return {
                 get(key) {
-                  const row = staged.get(key);
+                  const row = table.get(key);
                   const r = { result: row, error: null, onsuccess: null, onerror: null };
                   queueMicrotask(() => r.onsuccess?.());
                   return r;
                 },
-                put(row) { staged.set(row.key, row); },
+                put(row) { table.set(row.key, row); },
+                index(indexName) {
+                  if (indexName !== 'workspace') throw Error('Unexpected index ' + indexName);
+                  return {
+                    openKeyCursor() {
+                      const ids = [...new Set([...table.values()]
+                        .map(record => record.workspaceId)
+                        .filter(value => typeof value === 'string'))].sort();
+                      let offset = 0;
+                      const cursorRequest = { result: null, error: null, onsuccess: null, onerror: null };
+                      const emit = () => {
+                        const key = ids[offset];
+                        cursorRequest.result = key === undefined ? null : {
+                          key,
+                          continue() { offset += 1; queueMicrotask(emit); },
+                        };
+                        cursorRequest.onsuccess?.();
+                      };
+                      queueMicrotask(emit);
+                      return cursorRequest;
+                    },
+                  };
+                },
               };
             },
           };
@@ -157,4 +187,38 @@ test('A45 parallel successful calls reuse a single opening and stable workspace'
   const [one, two] = await Promise.all([db.workspaceId(), db.workspaceId()]);
   assert.equal(one, two);
   assert.equal(indexedDB.opens, 1);
+});
+
+test('A86 recovers unique saved workspace after losing metadata', async () => {
+  const { indexedDB, db } = harness();
+  indexedDB.seed('entities', {
+    key: 'saved-workspace:project:p1', workspaceId: 'saved-workspace',
+    entity: 'project', entityId: 'p1', deleted: false,
+  });
+  assert.equal(await db.workspaceId(), 'saved-workspace');
+  db.close();
+  assert.equal(await db.workspaceId(), 'saved-workspace');
+});
+
+test('A86 recovers the workspace of existing PDF originals', async () => {
+  const { indexedDB, db } = harness();
+  indexedDB.seed('originals', {
+    key: 'pdf-workspace:pdf-1', workspaceId: 'pdf-workspace', blobId: 'pdf-1',
+  });
+  assert.equal(await db.workspaceId(), 'pdf-workspace');
+});
+
+test('A86 blocks unsafe identity recreation when multiple workspaces remain', async () => {
+  const { indexedDB, db } = harness();
+  indexedDB.seed('entities', { key: 'workspace-a:project:p1', workspaceId: 'workspace-a' });
+  indexedDB.seed('outbox', { key: 'op-1', workspaceId: 'workspace-b' });
+  await assert.rejects(db.workspaceId(), /vários workspaces/);
+  await assert.rejects(db.workspaceId(), /vários workspaces/);
+});
+
+test('A86 preserves an existing identity even when old records are retained', async () => {
+  const { indexedDB, db } = harness();
+  indexedDB.seed('meta', { key: 'workspaceId', value: 'active-workspace' });
+  indexedDB.seed('entities', { key: 'old:project:p1', workspaceId: 'old' });
+  assert.equal(await db.workspaceId(), 'active-workspace');
 });

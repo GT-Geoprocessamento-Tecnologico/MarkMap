@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { memo, type ReactNode } from "react";
 
 export type AppIconName =
   | "dashboard"
@@ -240,7 +240,13 @@ const icons: Record<AppIconName, ReactNode> = {
   favoriteOutline: <path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9Z" />,
 };
 
-export function AppIcon({
+/**
+ * Optimized with React.memo to prevent unnecessary re-renders.
+ * Since AppIcon is purely presentational and only receives primitive props,
+ * shallow comparison avoids recalculating the SVG tree when parent components render.
+ * Expected Impact: Reduces wasted render cycles significantly in complex views like dashboards.
+ */
+export const AppIcon = memo(function AppIcon({
   name,
   className = "",
   size = "md",
@@ -260,4 +266,4 @@ export function AppIcon({
       {icons[name]}
     </svg>
   );
-}
+});
