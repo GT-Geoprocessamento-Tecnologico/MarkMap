@@ -90,6 +90,7 @@ export function matchesFeature(
   if (!props) return false;
 
   for (const key in props) {
+    if (key.toLowerCase().includes(searchLower)) return true;
     const val = props[key];
     if (val == null) continue;
     if (typeof val === 'string' && val.toLowerCase().includes(searchLower)) return true;

@@ -106,6 +106,28 @@ describe("project map data", () => {
     expect(matchesFeature(item, "survey", "LineString")).toBe(true);
     expect(matchesFeature(item, "survey", "Point")).toBe(false);
   });
+
+  it("preserves exact property name searching semantics of the previous JSON-based matchesFeature implementation", () => {
+      const item: GeoJSON.Feature = {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [0, 0] },
+          properties: { area_ha: 42, active: true, name: "Null area", metadata: { key: "my val" }, uninitialized: null },
+      };
+
+      // Values
+      expect(matchesFeature(item, "42", "todos")).toBe(true);
+      expect(matchesFeature(item, "true", "todos")).toBe(true);
+      expect(matchesFeature(item, "null area", "todos")).toBe(true);
+      expect(matchesFeature(item, "my val", "todos")).toBe(true);
+
+      // Keys
+      expect(matchesFeature(item, "area_ha", "todos")).toBe(true);
+      expect(matchesFeature(item, "metadata", "todos")).toBe(true);
+
+      // Non-matches
+      expect(matchesFeature(item, "foo", "todos")).toBe(false);
+  });
+
   it("hides dataset points by default when polygon area is present, keeping area demarcations clean", () => {
     const polygonFeature: GeoJSON.Feature = {
       type: "Feature",
