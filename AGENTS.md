@@ -9,6 +9,17 @@ Read `docs/README.md` inside that installed package first, then read the relevan
 This block is written and re-added by `turbo` before repository-scoped commands when an AI agent is detected. In the Turborepo source repository, its template is defined in `crates/turborepo-cli/src/cli/agent_guidance.rs`. Removing the managed block while updates are enabled means a later qualifying invocation will add it again. Set `"agentGuidance": false` in the root `turbo.json` or `turbo.jsonc` to opt out; this does not remove an existing block. Keep the block committed with your work to avoid an uncommitted change on the next agent invocation.
 <!-- END:turborepo-agent-rules -->
 
+## Memoria e rastreabilidade obrigatoria - MarkMap
+
+> Regra do projeto, solicitada pelo responsavel e registrada em **2026-10-24T19:43:34-03:00 (America/Araguaina)** por **ChatGPT (agente documental; OpenAI)**. **Leia [docs/agent-memory-protocol.md](docs/agent-memory-protocol.md) integralmente antes de iniciar qualquer trabalho.**
+
+- **Cerebro oficial (Obsidian externo, nao uma pasta deste Git):** vault `OBSIDIAN_LOCAL_MTS`, pasta exata **`02-PROJECTS/MARKMAP/`**. Comece por `00-INICIO-AQUI.md`, `MARKMAP-FONTE-PRINCIPAL.md`, `01-HANDOFF-VIVO.md`, `02-CHECKLIST-OPERACIONAL.md` e `25-PROTOCOLO-OBRIGATORIO-DE-RASTREABILIDADE.md`.
+- **Fontes vivas de conferencia:** [Checklist Mestre Notion](https://app.notion.com/p/3ed8e0bd0f4d81b6832bcf848c0ab504?pvs=204), HEAD/PRs/issues de [`mmatteuus/MarkMap`](https://github.com/mmatteuus/MarkMap). Obsidian e espelhos sao memoria, nao substituem verificacao do estado atual.
+- **TODO agente deve registrar cada mudanca relevante** de codigo, docs, QA, CI, configuracao, bug, branch, arquitetura, bloqueio ou decisao no Obsidian; manter Handoff, Checklist e Diario atualizados; sincronizar Notion e issue/PR GitHub quando houver mudanca relevante de estado. **Confirmar a escrita lendo de volta.**
+- **Cada registro/atualizacao:** data **e hora ISO 8601 com fuso**, autor real do registro (humano ou agente), origem/URL, data/hora da verificacao, autoria original do fato se comprovada, branch/SHA, arquivos, testes PASS/FAIL/BLOCKED e proximo passo. **Nunca inventar autoria ou horario de fatos legados.** Usar [docs/agent-memory-entry-template.md](docs/agent-memory-entry-template.md).
+- Se Obsidian/conector nao estiver acessivel, **nao alegar memoria sincronizada**: registrar pendencia e metadados em PR/issue/Notion acessivel, informar `MEMORIA: PENDENTE` no relatorio e reconciliar posteriormente. Nao alterar dados, custos, protecoes de CI, merge ou producao para contornar falta de memoria.
+- **CONSUBOV e outro produto** (`02-PROJECTS/CONSUBOV/`, repo diferente). **Nao consultar/misturar/modificar** dados ou notas do CONSUBOV em tarefas do MarkMap. Preservar identificadores internos historicos do MarkMap por compatibilidade de IndexedDB/storage.
+
 ## Versionamento obrigatório para todos os agentes
 
 - Antes de implementar ou publicar, ler [docs/versioning.md](docs/versioning.md) e conferir a versão e o SHA publicados em `https://appmarkmap.mtsferreira.dev/version.json`, além do HEAD, branch e diff locais. Não publicar um checkout antigo que omita o código da versão vigente.
