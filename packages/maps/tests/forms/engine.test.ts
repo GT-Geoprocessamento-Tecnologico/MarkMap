@@ -8,6 +8,7 @@ import {
   attachPhotoToFeature,
   getPhotosForFeature,
   removePhoto,
+  clearPhotosForFeature,
   type FieldSchema,
 } from "../../src/forms/field-form.js";
 
@@ -72,4 +73,26 @@ describe("Field Forms Engine", () => {
     removePhoto("photo-01");
     expect(getPhotosForFeature("point-003")).toHaveLength(0);
   });
+  it("reindexes a photo when the same id moves between features", () => {
+    const original = {
+      id: "photo-reassigned-001",
+      featureId: "old-feature-001",
+      fileName: "marco.jpg",
+      mimeType: "image/jpeg",
+      dataUri: "data:image/jpeg;base64,dGVzdA==",
+      timestamp: "2026-10-24T12:00:00Z",
+    };
+    attachPhotoToFeature(original);
+    expect(getPhotosForFeature("old-feature-001")).toHaveLength(1);
+
+    attachPhotoToFeature({ ...original, featureId: "new-feature-001" });
+    expect(getPhotosForFeature("old-feature-001")).toHaveLength(0);
+    expect(getPhotosForFeature("new-feature-001")).toHaveLength(1);
+
+    clearPhotosForFeature("old-feature-001");
+    expect(getPhotosForFeature("new-feature-001")).toHaveLength(1);
+    removePhoto(original.id);
+    expect(getPhotosForFeature("new-feature-001")).toHaveLength(0);
+  });
+
 });
