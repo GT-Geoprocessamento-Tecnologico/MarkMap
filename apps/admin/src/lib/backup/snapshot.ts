@@ -1,5 +1,6 @@
 import { LOCAL_DB_NAME, LOCAL_DB_VERSION } from '../local-db/types';
 import { digestHex } from './crypto';
+import { readBlobBytes } from '../blob-bytes';
 
 /** T3a is deliberately memory-bounded. T3b will add cross-database streaming. */
 export const MAX_LOCAL_FIRST_SNAPSHOT_BYTES = 16 * 1024 * 1024;
@@ -182,7 +183,7 @@ async function portableOriginal(value: Record<string, unknown>): Promise<Record<
   if ((blob !== undefined && !legacyBlob) || (originalBytes !== undefined && !raw))
     throw new Error('Original com armazenamento binario desconhecido.');
   if (!legacyBlob && !raw) throw new Error('PDF original sem bytes recuperaveis.');
-  const bytes = raw ?? new Uint8Array(await legacyBlob!.arrayBuffer());
+  const bytes = raw ?? new Uint8Array(await readBlobBytes(legacyBlob!));
   if (bytes.byteLength !== metadata.bytes || metadata.mediaType !== 'application/pdf' ||
       typeof metadata.sha256 !== 'string' || !/^[a-f0-9]{64}$/i.test(metadata.sha256))
     throw new Error('PDF original com metadados inconsistentes.');
@@ -190,7 +191,7 @@ async function portableOriginal(value: Record<string, unknown>): Promise<Record<
     throw new Error('Representacoes do PDF original divergem.');
   const hash = await digestHex(bytes);
   if (hash !== metadata.sha256.toLowerCase()) throw new Error('SHA-256 do PDF original nao confere.');
-  if (raw && legacyBlob && hash !== await digestHex(new Uint8Array(await legacyBlob.arrayBuffer())))
+  if (raw && legacyBlob && hash !== await digestHex(new Uint8Array(await readBlobBytes(legacyBlob))))
     throw new Error('Representacoes do PDF original divergem.');
   return { ...(strictJson(metadata, 'original') as Record<string, unknown>), originalBytesBase64: toBase64(bytes) };
 }

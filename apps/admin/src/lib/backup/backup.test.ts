@@ -73,6 +73,21 @@ describe('T3a: exportacao criptografada do workspace (sem escrita local)', () =>
     expect(fromBase64(snapshot.stores.originals[0].originalBytesBase64)).toEqual(pdf);
   });
 
+  it('exporta PDF legado quando Blob.arrayBuffer nao existe (WebKit)', async () => {
+    const data = input();
+    const pdf = new TextEncoder().encode('%PDF-1.4\nlegado\n%%EOF');
+    const blob = new Blob([pdf], { type: 'application/pdf' });
+    Object.defineProperty(blob, 'arrayBuffer', { value: undefined });
+    data.stores.originals.push({ key: 'workspace-de-teste:webkit', workspaceId: data.workspaceId,
+      blobId: 'webkit', bytes: pdf.byteLength, mediaType: 'application/pdf',
+      sha256: await digestHex(pdf), blob });
+    const result = await exportTest(data);
+    const opened = await openTestArchive(result.bytes);
+    const row = (opened.snapshot as unknown as { stores: { originals: Array<{ originalBytesBase64: string }> } })
+      .stores.originals[0];
+    expect(fromBase64(row.originalBytesBase64)).toEqual(pdf);
+  });
+
   it('rejeita alteracao de conteudo de PDF ou outro workspace', async () => {
     const data = input();
     const pdf = new TextEncoder().encode('dados-corrompidos');
