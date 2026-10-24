@@ -1,4 +1,4 @@
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { act, cleanup, render } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
@@ -9,7 +9,14 @@ vi.mock("./sync-engine", () => ({ syncNow: syncMock }));
 
 import { SyncController } from "./SyncController";
 
+beforeEach(() => {
+  vi.stubGlobal("indexedDB", {});
+  vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
+});
+
 afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
   cleanup();
   vi.useRealTimers();
   syncMock.mockClear();
