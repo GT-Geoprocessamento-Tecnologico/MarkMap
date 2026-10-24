@@ -39,7 +39,10 @@ export async function listLocalLayersPage(
 ): Promise<{ items: Layer[]; truncated: boolean }> {
   const safeLimit = Math.max(1, Math.min(100, Math.trunc(limit)));
   const items = await listLocalLayers(projectId);
-  return { items: items.slice(0, safeLimit), truncated: items.length > safeLimit };
+  return {
+    items: items.slice(0, safeLimit),
+    truncated: items.length > safeLimit,
+  };
 }
 
 async function getLocalLayer(layerId: string): Promise<Layer | null> {
@@ -57,13 +60,23 @@ export function useProjectLayers(
 ) {
   const { cursor, limit } = options;
   return useQuery({
-    queryKey: [...queryKeys.layersPage(projectId, cursor), limit ?? "all", "local"],
+    queryKey: [
+      ...queryKeys.layersPage(projectId, cursor),
+      limit ?? "all",
+      "local",
+    ],
     queryFn: async () => {
       const items = await listLocalLayers(projectId);
       const offset = cursor && /^\d+$/.test(cursor) ? Number(cursor) : 0;
-      const page = limit ? items.slice(offset, offset + limit) : items.slice(offset);
-      const nextOffset = limit && offset + limit < items.length ? offset + limit : null;
-      return { items: page, nextCursor: nextOffset === null ? null : String(nextOffset) };
+      const page = limit
+        ? items.slice(offset, offset + limit)
+        : items.slice(offset);
+      const nextOffset =
+        limit && offset + limit < items.length ? offset + limit : null;
+      return {
+        items: page,
+        nextCursor: nextOffset === null ? null : String(nextOffset),
+      };
     },
     enabled: projectId.trim().length > 0,
   });
@@ -77,35 +90,42 @@ export function useLayer(layerId: string) {
   });
 }
 
+export async function createLocalLayer(
+  projectId: string,
+  input: CreateLayerInput,
+): Promise<Layer> {
+  const parsed = createLayerSchema.parse({ ...input, projectId });
+  const timestamp = new Date().toISOString();
+  const layer = layerSchema.parse({
+    id: crypto.randomUUID(),
+    ...parsed,
+    description: parsed.description ?? null,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  });
+  const payload = syncEntityPayloadSchema.parse({
+    entity: "layer",
+    data: layer,
+  });
+  await localRepository.mutate({
+    entity: "layer",
+    entityId: layer.id,
+    operation: "upsert",
+    baseVersion: null,
+    payload,
+  });
+  return layer;
+}
+
 export function useCreateLayer(projectId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: CreateLayerInput): Promise<Layer> => {
-      const parsed = createLayerSchema.parse({ ...input, projectId });
-      const timestamp = new Date().toISOString();
-      const layer = layerSchema.parse({
-        id: crypto.randomUUID(),
-        ...parsed,
-        description: parsed.description ?? null,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      });
-      const payload = syncEntityPayloadSchema.parse({
-        entity: "layer",
-        data: layer,
-      });
-      await localRepository.mutate({
-        entity: "layer",
-        entityId: layer.id,
-        operation: "upsert",
-        baseVersion: null,
-        payload,
-      });
-      return layer;
-    },
+    mutationFn: (input: CreateLayerInput) => createLocalLayer(projectId, input),
     onSuccess: async () => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.layersByProject(projectId) }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.layersByProject(projectId),
+        }),
         queryClient.invalidateQueries({ queryKey: ["analytics-layers"] }),
       ]);
     },

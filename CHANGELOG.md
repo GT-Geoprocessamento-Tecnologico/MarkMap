@@ -2,6 +2,22 @@
 
 Fonte da versão do aplicativo: `apps/admin/package.json`. Todos os agentes seguem [a política de versionamento](docs/versioning.md). O [histórico documental anterior](docs/changelog.md) permanece preservado.
 
+## [0.5.6] - 2026-10-24
+
+### Alterações
+
+- Integra melhorias auditadas dos PRs #13, #16 (com correção de reassociação de fotos), #17, #18-#22, #25-#28, #30-#33 e #35, preservando a arquitetura offline-first.
+- Corrige geração de IDs inseguros, endurece validação de token de capacidade e mantém compatibilidade de armazenamento local.
+- Refatora importação/conversão GPX, hooks locais de camada/feição e busca visível sem alterar contratos; otimiza filtros das telas de projetos e CRS.
+- Amplia regressões de CORS, saúde da API, logs, identificador de solicitação, capabilities, assinaturas S3 e índice de fotos.
+- Mantém PRs de alto risco (#15 GeoPDF, #36 sync transacional) fora do release até teste específico.
+
+### Validação
+
+- QA integrado Vercel Hobby (`dpl_9EJimBLHxegu4QwsJs96BrcnfgMF`): **20/20 tarefas Turbo aprovadas**, incluindo lint, typecheck, testes unitários e build dos pacotes API, banco, GIS e frontend.
+- Testes observados: **246 mapas, 291 frontend, 92 API e 15 banco** aprovados; 26 testes de integração PostGIS foram ignorados por falta de banco de teste, e QA físico Android/iOS não foi executado nesta entrega.
+- Testes adicionais cobrem reassociação de fotos, capability, CORS, request IDs, saúde da API e URLs assinadas S3. Sem migração de schema ou limpeza de dados locais.
+
 ## [0.5.5] - 2026-10-23
 
 ### Alterações

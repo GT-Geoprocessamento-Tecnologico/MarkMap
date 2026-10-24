@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { createApp } from "../src/app.js";
@@ -16,6 +16,17 @@ import {
   versionConflict,
 } from "../src/lib/errors.js";
 import { healthRoutes } from "../src/routes/health.js";
+
+const dbMocks = vi.hoisted(() => ({
+  execute: vi.fn(),
+  close: vi.fn(),
+  createDb: vi.fn(),
+}));
+
+vi.mock("@markmap/db", async () => ({
+  ...(await vi.importActual<typeof import("@markmap/db")>("@markmap/db")),
+  createDb: dbMocks.createDb,
+}));
 
 const testEnv: Env = {
   NODE_ENV: "test",
@@ -185,5 +196,42 @@ describe("health", () => {
     expect(body.dbError).toBe("Database unavailable");
     expect(JSON.stringify(body)).not.toContain("secret");
     expect(JSON.stringify(body)).not.toContain("postgres://");
+  });
+
+  it("handles actual database connection failures during probeConfiguredDatabase", async () => {
+    const configuredEnv: Env = {
+      ...testEnv,
+      hasDatabase: true,
+      DATABASE_URL: "postgres://hidden",
+    };
+
+    dbMocks.createDb.mockReturnValue({
+      db: {
+        execute: dbMocks.execute.mockRejectedValue(
+          new Error("Connection refused"),
+        ),
+      },
+      close: dbMocks.close.mockResolvedValue(undefined),
+    });
+
+    const probeApp = new Hono();
+    probeApp.route("/", healthRoutes(configuredEnv));
+
+    const res = await probeApp.request("/health");
+    expect(res.status).toBe(503);
+    const body = (await res.json()) as {
+      status: string;
+      database: string;
+      dbError: string;
+    };
+    expect(body.status).toBe("degraded");
+    expect(body.database).toBe("error");
+    expect(body.dbError).toBe("Database unavailable");
+
+    expect(dbMocks.createDb).toHaveBeenCalledWith(
+      configuredEnv.DATABASE_URL,
+      expect.any(Object),
+    );
+    expect(dbMocks.close).toHaveBeenCalled();
   });
 });
