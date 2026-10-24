@@ -71,17 +71,32 @@ export function matchesFeature(
   feature: GeoJSON.Feature,
   text: string,
   type: string,
+  filterTextLower?: string,
 ): boolean {
   const geometryType = feature.geometry?.type ?? "";
-  return (
-    (type === "todos" ||
-      geometryType === type ||
-      (type === "Multi" && geometryType.startsWith("Multi"))) &&
-    (!text ||
-      JSON.stringify(feature.properties ?? {})
-        .toLowerCase()
-        .includes(text.toLowerCase()))
-  );
+  if (
+    type !== "todos" &&
+    geometryType !== type &&
+    !(type === "Multi" && geometryType.startsWith("Multi"))
+  ) {
+    return false;
+  }
+
+  if (!text) return true;
+
+  const searchLower = filterTextLower ?? text.toLowerCase();
+
+  const props = feature.properties;
+  if (!props) return false;
+
+  for (const key in props) {
+    const val = props[key];
+    if (val == null) continue;
+    if (typeof val === 'string' && val.toLowerCase().includes(searchLower)) return true;
+    if ((typeof val === 'number' || typeof val === 'boolean') && String(val).includes(searchLower)) return true;
+    if (typeof val === 'object' && JSON.stringify(val).toLowerCase().includes(searchLower)) return true;
+  }
+  return false;
 }
 
 export function hasPolygonGeometry(
@@ -121,6 +136,7 @@ export function filterDatasetFeatures(
   },
 ): GeoJSON.Feature[] {
   const { showPoints, filterText = "", filterType = "todos" } = options;
+  const filterTextLower = filterText.toLowerCase();
   return features.filter((feature) => {
     if (
       !showPoints &&
@@ -129,6 +145,6 @@ export function filterDatasetFeatures(
     ) {
       return false;
     }
-    return matchesFeature(feature, filterText, filterType);
+    return matchesFeature(feature, filterText, filterType, filterTextLower);
   });
 }

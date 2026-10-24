@@ -1,0 +1,5 @@
+## 2024-05-14 - [Feature property filtering text conversion optimization]
+**Learning:**
+In `map-data.ts`, `matchesFeature` filtering logic was calling `.toLowerCase()` on the filter text repeatedly for every single property search iteration on every feature on the map. This causes unneeded CPU pressure and GC pauses during high map rendering/filtering events.
+Furthermore, using `JSON.stringify(feature.properties).toLowerCase().includes(...)` for the general search fallback causes unnecessary allocations. By breaking it out into a `for..in` loop that individually evaluates strings, numbers, and boolean types first before falling back to `JSON.stringify` on objects, performance improves substantially.
+**Action:** Extract repeated invariant processing logic like `toLowerCase()` to outside the loops and prefer direct property iterations over `JSON.stringify` for objects holding mostly primitive fields. Ensure loops correctly check all relevant types (strings, numbers, booleans) when converting from a simple serialization-based string search.
