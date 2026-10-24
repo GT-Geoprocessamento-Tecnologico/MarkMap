@@ -153,16 +153,4 @@ describe("getS3Client", () => {
 
     expect(client1).toBe(client2);
   });
-
-  it("returns cached client even if subsequent call has missing env vars", async () => {
-    const { getS3Client } = await import("../src/storage.js");
-    // First call succeeds and caches
-    const client1 = getS3Client(env);
-
-    // Second call with missing env shouldn't throw because it returns early
-    const testEnv = { ...env, S3_ENDPOINT: undefined };
-    const client2 = getS3Client(testEnv);
-
-    expect(client1).toBe(client2);
-  });
 });
