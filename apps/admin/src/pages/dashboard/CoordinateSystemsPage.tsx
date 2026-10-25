@@ -17,6 +17,8 @@ interface CrsEntry {
 // Somente cadastros do usuário; as definições EPSG internas do motor GIS não mudam.
 const DEFAULT_SYSTEMS: CrsEntry[] = [];
 
+const FILTER_ALL_TYPES = "Todos";
+
 const STORAGE_KEY_SYSTEMS = "geonexo_crs_systems";
 const STORAGE_KEY_FAVORITES = "geonexo_crs_favorites";
 
@@ -137,7 +139,7 @@ function CrsModal({ isOpen, onClose, title, onSave, children }: CrsModalProps) {
 // ---------------------------------------------------------------------------
 export default function CoordinateSystemsPage() {
   const [search, setSearch] = useState("");
-  const [filterType, setFilterType] = useState("Todos");
+  const [filterType, setFilterType] = useState(FILTER_ALL_TYPES);
   const [showModal, setShowModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedCrs, setSelectedCrs] = useState<CrsEntry | null>(null);
@@ -159,7 +161,7 @@ export default function CoordinateSystemsPage() {
         s.code.toLowerCase().includes(searchLower) ||
         s.name.toLowerCase().includes(searchLower) ||
         s.region.toLowerCase().includes(searchLower);
-      const matchType = filterType === "Todos" || s.type === filterType;
+      const matchType = filterType === FILTER_ALL_TYPES || s.type === filterType;
       return matchSearch && matchType;
     });
   }, [allSystems, search, filterType]);
@@ -357,7 +359,7 @@ export default function CoordinateSystemsPage() {
             onChange={(e) => setFilterType(e.target.value)}
             className="w-full md:w-auto min-h-[44px] rounded-lg border border-outline-variant bg-surface-container px-4 py-2 text-sm text-on-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15"
           >
-            <option value="Todos" className="text-black">
+            <option value={FILTER_ALL_TYPES} className="text-black">
               Todos os tipos
             </option>
             <option value="Geográfico" className="text-black">

@@ -2,6 +2,16 @@
 
 Fonte da versão do aplicativo: `apps/admin/package.json`. Todos os agentes seguem [a política de versionamento](docs/versioning.md). O [histórico documental anterior](docs/changelog.md) permanece preservado.
 
+## [0.5.8] - 2026-10-24
+
+### Alterações
+
+- Extrai string literal duplicada "Todos" em constante `FILTER_ALL_TYPES` na página CoordinateSystemsPage para melhorar a legibilidade e manutenibilidade do código.
+
+### Validação
+
+- Testes unitários do frontend executados via Vitest e verificação de lint/tipagem sem erros.
+
 ## [0.5.7] - 2026-10-24
 
 ### Alterações
