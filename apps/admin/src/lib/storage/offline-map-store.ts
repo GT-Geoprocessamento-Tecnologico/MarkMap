@@ -179,7 +179,27 @@ export class OfflineMapStore {
       throw error;
     }
   }
-  async remove(packageId: string): Promise<void> { const db = await this.open(); const tx = db.transaction([PACKAGES, ASSETS], "readwrite"); const packages = tx.objectStore(PACKAGES); const assets = tx.objectStore(ASSETS); const rows = await request<PackageRow[]>(packages.getAll()); for (const row of rows.filter((candidate) => candidate.packageId === packageId)) { packages.delete(row.key); const owned = await request<AssetRow[]>(assets.index("package").getAll(row.generation)); for (const asset of owned) assets.delete(asset.key); } await transaction(tx); notifyRegionCatalogChanged(packageId); }
+  async remove(packageId: string): Promise<void> {
+    const db = await this.open();
+    const tx = db.transaction([PACKAGES, ASSETS], "readwrite");
+    const packages = tx.objectStore(PACKAGES);
+    const assets = tx.objectStore(ASSETS);
+    const rows = await request<PackageRow[]>(packages.getAll());
+    const candidates = rows.filter((candidate) => candidate.packageId === packageId);
+    if (candidates.length > 0) {
+      const assetKeysGrouped = await Promise.all(
+        candidates.map((row) => {
+          packages.delete(row.key);
+          return request<IDBValidKey[]>(assets.index("package").getAllKeys(row.generation));
+        })
+      );
+      for (const ownedKeys of assetKeysGrouped) {
+        for (const assetKey of ownedKeys) assets.delete(assetKey);
+      }
+    }
+    await transaction(tx);
+    notifyRegionCatalogChanged(packageId);
+  }
 }
 
 export const offlineMapStore = new OfflineMapStore();
