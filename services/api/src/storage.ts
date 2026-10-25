@@ -5,9 +5,16 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
+export interface StorageEnv {
+  S3_ENDPOINT?: string;
+  S3_REGION?: string;
+  S3_ACCESS_KEY_ID?: string;
+  S3_SECRET_ACCESS_KEY?: string;
+}
+
 let s3Client: S3Client | null = null;
 
-export const getS3Client = (env: any) => {
+export const getS3Client = (env: StorageEnv) => {
   if (s3Client) return s3Client;
   if (
     env.S3_ENDPOINT === undefined ||

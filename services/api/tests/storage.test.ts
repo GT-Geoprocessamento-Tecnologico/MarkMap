@@ -32,6 +32,7 @@ import { storageRoutes } from "../src/routes/storage.js";
 import {
   generatePresignedPutUrl,
   generatePresignedGetUrl,
+  getS3Client,
 } from "../src/storage.js";
 
 const env: Env = {
@@ -205,5 +206,33 @@ describe("generatePresignedGetUrl", () => {
 
     const callArgs = presignMocks.getSignedUrl.mock.calls[0]!;
     expect(callArgs[2]).toEqual({ expiresIn: 7200 });
+  });
+});
+
+describe("getS3Client", () => {
+  it("throws error when S3 credentials are missing", () => {
+    expect(() => getS3Client({})).toThrow("Missing S3 credentials");
+    expect(() =>
+      getS3Client({
+        S3_ENDPOINT: "https://storage.example",
+        S3_REGION: "us-east-1",
+        S3_ACCESS_KEY_ID: "key",
+      }),
+    ).toThrow("Missing S3 credentials");
+  });
+
+  it("initializes and caches S3Client when credentials are provided", () => {
+    const storageEnv = {
+      S3_ENDPOINT: "https://storage.example",
+      S3_REGION: "us-east-1",
+      S3_ACCESS_KEY_ID: "key-id",
+      S3_SECRET_ACCESS_KEY: "secret-key",
+    };
+
+    const client1 = getS3Client(storageEnv);
+    expect(client1).toBeInstanceOf(S3Client);
+
+    const client2 = getS3Client(storageEnv);
+    expect(client2).toBe(client1);
   });
 });
