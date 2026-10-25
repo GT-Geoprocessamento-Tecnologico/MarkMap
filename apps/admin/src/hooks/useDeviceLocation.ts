@@ -1,6 +1,17 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { positionSampleFromBrowser, type PositionSample } from '@markmap/geo';
+
+interface WakeLockSentinel {
+  release(): Promise<void>;
+}
+
+interface WakeLock {
+  request(type: 'screen'): Promise<WakeLockSentinel>;
+}
+
+interface DeviceOrientationEventWithWebkit extends DeviceOrientationEvent {
+  webkitCompassHeading?: number;
+}
 
 export interface DeviceLocationOptions {
   enableHighAccuracy?: boolean;
@@ -40,7 +51,7 @@ export function useDeviceLocation(options: DeviceLocationOptions = {}) {
     isAutoFollow: true,
   });
 
-  const wakeLockRef = useRef<any>(null);
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null);
   const watchIdRef = useRef<number | null>(null);
 
   // Check initial permission status if available in browser
@@ -62,9 +73,10 @@ export function useDeviceLocation(options: DeviceLocationOptions = {}) {
 
   // Screen WakeLock handling for mobile/tablet in the field
   const requestWakeLock = useCallback(async () => {
-    if (keepScreenAwake && 'wakeLock' in navigator && (navigator as any).wakeLock) {
+    const nav = navigator as Navigator & { wakeLock?: WakeLock };
+    if (keepScreenAwake && 'wakeLock' in nav && nav.wakeLock) {
       try {
-        wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
+        wakeLockRef.current = await nav.wakeLock.request('screen');
       } catch {
         // Wake Lock optional or permission denied
       }
@@ -86,9 +98,10 @@ export function useDeviceLocation(options: DeviceLocationOptions = {}) {
   useEffect(() => {
     const handleOrientation = (event: DeviceOrientationEvent) => {
       let compass: number | null = null;
-      if ((event as any).webkitCompassHeading !== undefined) {
+      const webkitEvent = event as DeviceOrientationEventWithWebkit;
+      if (webkitEvent.webkitCompassHeading !== undefined) {
         // iOS Safari compass heading
-        compass = (event as any).webkitCompassHeading;
+        compass = webkitEvent.webkitCompassHeading;
       } else if (event.alpha !== null && event.absolute) {
         // Android absolute orientation
         compass = (360 - event.alpha) % 360;
@@ -98,15 +111,17 @@ export function useDeviceLocation(options: DeviceLocationOptions = {}) {
       }
     };
 
+    const listener: EventListener = (event) => handleOrientation(event as DeviceOrientationEvent);
+
     if (typeof window !== 'undefined' && 'DeviceOrientationEvent' in window) {
-      window.addEventListener('deviceorientationabsolute', handleOrientation as any, true);
-      window.addEventListener('deviceorientation', handleOrientation as any, true);
+      window.addEventListener('deviceorientationabsolute', listener, true);
+      window.addEventListener('deviceorientation', listener, true);
     }
 
     return () => {
       if (typeof window !== 'undefined' && 'DeviceOrientationEvent' in window) {
-        window.removeEventListener('deviceorientationabsolute', handleOrientation as any, true);
-        window.removeEventListener('deviceorientation', handleOrientation as any, true);
+        window.removeEventListener('deviceorientationabsolute', listener, true);
+        window.removeEventListener('deviceorientation', listener, true);
       }
     };
   }, []);
@@ -190,4 +205,3 @@ export function useDeviceLocation(options: DeviceLocationOptions = {}) {
     toggleAutoFollow,
   };
 }
-
