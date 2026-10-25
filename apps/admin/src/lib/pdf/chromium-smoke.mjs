@@ -26,7 +26,5 @@ await reloaded.waitFor({ state: "visible", timeout: 30_000 });
 await page.waitForFunction(() => [...document.querySelectorAll("article p")].some((node) => node.textContent?.includes("Não posicionado:") && !node.textContent.includes("aguardando")), undefined, { timeout: 60_000 });
 const reloadStatus = await reloaded.locator("p").nth(1).textContent();
 const remoteRequests = requests.filter((requestUrl) => /^https?:\/\/(?!127\.0\.0\.1|localhost)/.test(requestUrl));
-// eslint-disable-next-line no-console
-console.log(JSON.stringify({ status, reloadStatus, canvasCount, remoteRequests, requestCount: requests.length }));
 if (!status?.includes("Não posicionado") || !reloadStatus?.includes("Não posicionado") || canvasCount < 1 || remoteRequests.length > 0) process.exitCode = 1;
 await browser.close();
