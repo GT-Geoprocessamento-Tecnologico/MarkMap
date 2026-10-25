@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { featureBounds, loadProjectFeatures, matchesFeature, hasPolygonGeometry, hasPointGeometry, shouldDisplayDatasetPoints, filterDatasetFeatures } from "./map-data";
+import { FEATURE_TYPE_ALL, featureBounds, loadProjectFeatures, matchesFeature, hasPolygonGeometry, hasPointGeometry, shouldDisplayDatasetPoints, filterDatasetFeatures } from "./map-data";
 import { useParams, useSearch } from "@tanstack/react-router";
 import { useToast } from "@markmap/ui";
 import type { GeoReference, Route, TransitNetwork } from "@markmap/contracts";
@@ -301,7 +301,7 @@ export default function CommandCenterPage() {
     Record<string, boolean>
   >({ dataset: true });
   const [filterText, setFilterText] = useState("");
-  const [filterType, setFilterType] = useState("todos");
+  const [filterType, setFilterType] = useState(FEATURE_TYPE_ALL);
   const [datasets, setDatasets] = useState<DatasetRecord[]>([]);
   const [datasetSelection, setDatasetSelection] = useState(
     search.datasetId ?? "none",
@@ -1881,7 +1881,7 @@ export default function CommandCenterPage() {
                   onChange={(e) => setFilterType(e.target.value)}
                   className="w-full px-3 py-2.5 rounded-xl border border-outline-variant bg-surface-container text-on-surface text-sm focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100 transition-all"
                 >
-                  <option value="todos">Todos os tipos</option>
+                  <option value={FEATURE_TYPE_ALL}>Todos os tipos</option>
                   <option value="Point">Pontos</option>
                   <option value="LineString">Linhas</option>
                   <option value="Polygon">Polígonos</option>
@@ -1923,7 +1923,7 @@ export default function CommandCenterPage() {
               <button
                 onClick={() => {
                   setFilterText("");
-                  setFilterType("todos");
+                  setFilterType(FEATURE_TYPE_ALL);
                   toast({ title: "Filtros limpos", variant: "default" });
                 }}
                 className="w-full py-2.5 rounded-xl border border-outline-variant bg-surface-container-high text-on-surface-variant text-sm font-medium hover:bg-surface-variant transition-colors"

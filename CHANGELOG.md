@@ -2,6 +2,17 @@
 
 Fonte da versão do aplicativo: `apps/admin/package.json`. Todos os agentes seguem [a política de versionamento](docs/versioning.md). O [histórico documental anterior](docs/changelog.md) permanece preservado.
 
+## [0.5.8] - 2026-10-24
+
+### Alterações
+
+- Substitui as strings mágicas 'todos' por uma constante compartilhada `FEATURE_TYPE_ALL` em `CommandCenterPage` e `map-data.ts`.
+
+### Validação
+
+- Execução dos testes unitários do aplicativo admin com Vitest e verificações de linting do ESLint.
+- Execução do script `verify:version` aprovada.
+
 ## [0.5.7] - 2026-10-24
 
 ### Alterações

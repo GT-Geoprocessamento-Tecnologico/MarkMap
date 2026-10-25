@@ -1,6 +1,8 @@
 import type { Layer } from "@markmap/contracts";
 import { listLocalFeatures } from "../../lib/hooks/features";
 
+export const FEATURE_TYPE_ALL = "todos";
+
 export interface ProjectMapFeature extends GeoJSON.Feature {
   layerId: string;
 }
@@ -74,7 +76,7 @@ export function matchesFeature(
 ): boolean {
   const geometryType = feature.geometry?.type ?? "";
   return (
-    (type === "todos" ||
+    (type === FEATURE_TYPE_ALL ||
       geometryType === type ||
       (type === "Multi" && geometryType.startsWith("Multi"))) &&
     (!text ||
@@ -120,7 +122,7 @@ export function filterDatasetFeatures(
     filterType?: string;
   },
 ): GeoJSON.Feature[] {
-  const { showPoints, filterText = "", filterType = "todos" } = options;
+  const { showPoints, filterText = "", filterType = FEATURE_TYPE_ALL } = options;
   return features.filter((feature) => {
     if (
       !showPoints &&
