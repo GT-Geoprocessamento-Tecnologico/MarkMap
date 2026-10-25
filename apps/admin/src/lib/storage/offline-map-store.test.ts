@@ -78,18 +78,18 @@ describe('OfflineMapStore.remove benchmark', () => {
       }
     };
 
-    vi.stubGlobal('indexedDB', { open: () => ({ result: mockDb, onsuccess: function(this: any) { this.onsuccess(); } }) });
+    vi.stubGlobal('indexedDB', { open: () => ({ result: mockDb, onsuccess: function(this: { onsuccess: () => void }) { this.onsuccess(); } }) });
 
     const { OfflineMapStore } = await import('./offline-map-store');
     const store = new OfflineMapStore('test-db');
 
-    (store as any).dbPromise = Promise.resolve(mockDb);
+    (store as unknown as { dbPromise: Promise<unknown> }).dbPromise = Promise.resolve(mockDb);
 
     const start = performance.now();
     await store.remove('pkg1');
     const duration = performance.now() - start;
 
-    console.log('BENCHMARK RESULTS (POST-OPTIMIZATION):', {
+    console.warn('BENCHMARK RESULTS (POST-OPTIMIZATION):', {
       getAllIndexCalls,
       getAllKeysIndexCalls,
       packagesDeleteCalls,
