@@ -84,4 +84,46 @@ describe("workspace abuse protection", () => {
     const rawCalls = JSON.stringify(dbMocks.consumeRateLimit.mock.calls);
     expect(rawCalls).not.toContain(bootstrapProof);
   });
+
+  it("returns 429 before recovering capability when the identity bucket is exhausted", async () => {
+    dbMocks.consumeRateLimit.mockResolvedValueOnce({
+      allowed: false,
+      remaining: 0,
+    });
+
+    const response = await createWorkspaceApp().request("/workspace/recover", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ bootstrapProof }),
+    });
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get("x-ratelimit-remaining")).toBe("0");
+    expect(response.headers.get("retry-after")).toBe("60");
+    const body = (await response.json()) as {
+      error: { code: string; message: string; requestId: string };
+    };
+    expect(body.error.code).toBe("RATE_LIMITED");
+    expect(body.error.message).toBe("Too many workspace recovery attempts");
+    expect(body.error.requestId).toBe(requestId);
+    expect(dbMocks.recoverWorkspaceCapability).not.toHaveBeenCalled();
+  });
+
+  it("consumes identity and global buckets before recovering capability", async () => {
+    dbMocks.consumeRateLimit
+      .mockResolvedValueOnce({ allowed: true, remaining: 9 })
+      .mockResolvedValueOnce({ allowed: true, remaining: 199 });
+
+    const response = await createWorkspaceApp().request("/workspace/recover", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ bootstrapProof }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(dbMocks.consumeRateLimit).toHaveBeenCalledTimes(2);
+    expect(dbMocks.recoverWorkspaceCapability).toHaveBeenCalledTimes(1);
+    const rawCalls = JSON.stringify(dbMocks.consumeRateLimit.mock.calls);
+    expect(rawCalls).not.toContain(bootstrapProof);
+  });
 });
