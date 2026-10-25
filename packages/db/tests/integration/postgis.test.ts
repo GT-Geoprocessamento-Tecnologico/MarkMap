@@ -535,9 +535,15 @@ describeIfTestDb("postgis persistence (real PostGIS)", () => {
       "2026-01-02T03:04:05.123456+00",
       "2026-01-02T03:04:05.123111+00",
     ];
-    for (const [index, id] of projectIds.entries()) {
+    if (projectIds.length > 0) {
       await db.execute(
-        sql`UPDATE projects SET created_at = ${timestamps[index]}::timestamptz WHERE id = ${id}`,
+        sql`UPDATE projects SET created_at = v.created_at FROM (VALUES ${sql.join(
+          projectIds.map(
+            (id, index) =>
+              sql`(${id}::uuid, ${timestamps[index]}::timestamptz)`,
+          ),
+          sql`, `,
+        )}) AS v(id, created_at) WHERE projects.id = v.id`,
       );
     }
 
@@ -552,9 +558,15 @@ describeIfTestDb("postgis persistence (real PostGIS)", () => {
       ),
     );
     const layerIds = layerRows.map((row) => row.id);
-    for (const [index, id] of layerIds.entries()) {
+    if (layerIds.length > 0) {
       await db.execute(
-        sql`UPDATE layers SET created_at = ${timestamps[index]}::timestamptz WHERE id = ${id}`,
+        sql`UPDATE layers SET created_at = v.created_at FROM (VALUES ${sql.join(
+          layerIds.map(
+            (id, index) =>
+              sql`(${id}::uuid, ${timestamps[index]}::timestamptz)`,
+          ),
+          sql`, `,
+        )}) AS v(id, created_at) WHERE layers.id = v.id`,
       );
     }
 
@@ -562,9 +574,15 @@ describeIfTestDb("postgis persistence (real PostGIS)", () => {
       [0, 1, 2].map(() => createFeature(db, { layerId, geometry: polygon })),
     );
     const featureIds = featureRows.map((row) => row.id);
-    for (const [index, id] of featureIds.entries()) {
+    if (featureIds.length > 0) {
       await db.execute(
-        sql`UPDATE features SET created_at = ${timestamps[index]}::timestamptz WHERE id = ${id}`,
+        sql`UPDATE features SET created_at = v.created_at FROM (VALUES ${sql.join(
+          featureIds.map(
+            (id, index) =>
+              sql`(${id}::uuid, ${timestamps[index]}::timestamptz)`,
+          ),
+          sql`, `,
+        )}) AS v(id, created_at) WHERE features.id = v.id`,
       );
     }
 
