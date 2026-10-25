@@ -29,9 +29,26 @@ describe('basemap fallback', () => {
     );
   });
 
-  it('ignores tile 404 noise and unknown shapes', () => {
+  it('detects all message text matching variants for network and style errors', () => {
+    expect(shouldFallbackOnError({ error: { message: 'Error loading style sheet' } })).toBe(true);
+    expect(shouldFallbackOnError({ error: { message: 'failed to fetch resource' } })).toBe(true);
+    expect(shouldFallbackOnError({ error: { message: 'NetworkError when loading tiles' } })).toBe(
+      true,
+    );
+    expect(shouldFallbackOnError({ error: { message: 'A network error occurred' } })).toBe(true);
+    expect(shouldFallbackOnError({ error: { message: 'Device is currently offline' } })).toBe(
+      true,
+    );
+    // Case insensitivity
+    expect(shouldFallbackOnError({ error: { message: 'NETWORK ERROR' } })).toBe(true);
+    expect(shouldFallbackOnError({ error: { message: 'OFFLINE' } })).toBe(true);
+  });
+
+  it('ignores tile 404 noise, non-matching error messages, and unknown shapes', () => {
     expect(shouldFallbackOnError({ sourceId: 'tiles', error: { status: 404 } })).toBe(false);
     expect(shouldFallbackOnError({ error: { status: 404 } })).toBe(false);
+    expect(shouldFallbackOnError({ error: { message: 'unrelated error message' } })).toBe(false);
+    expect(shouldFallbackOnError({ error: {} })).toBe(false);
     expect(shouldFallbackOnError(null)).toBe(false);
     expect(shouldFallbackOnError({})).toBe(false);
   });
