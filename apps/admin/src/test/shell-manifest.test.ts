@@ -2,7 +2,6 @@ import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-// @ts-expect-error The build-only Node helper is intentionally outside the app TS project.
 import { collectShellAssets, generateShellManifest } from '../../scripts/generate-shell-manifest.mjs';
 
 describe('production shell manifest', () => {
