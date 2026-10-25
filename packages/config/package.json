@@ -5,6 +5,7 @@
   "main": "./eslint.config.js",
   "exports": {
     "./eslint": "./eslint/index.js",
+    "./eslint/utils": "./eslint/utils.js",
     "./tsconfig/*": "./tsconfig/*"
   },
   "type": "module",

@@ -3,20 +3,12 @@
 // with no installed dependencies. Everything needed here is installed locally.
 import tseslint from '@typescript-eslint/eslint-plugin';
 import tsparser from '@typescript-eslint/parser';
-import { createRequire } from 'node:module';
-
-const require = createRequire(import.meta.url);
+import { loadReactHooksPlugin } from '@markmap/config/eslint/utils';
 
 // eslint-plugin-react-hooks is declared in package.json; the rules are wired in
 // as soon as the coordinator runs pnpm install (they are skipped meanwhile so
 // `pnpm lint` never fails on a missing module).
-const reactHooks = (() => {
-  try {
-    return require('eslint-plugin-react-hooks');
-  } catch {
-    return null;
-  }
-})();
+const reactHooks = loadReactHooksPlugin(import.meta.url);
 
 const baseRules = {
   'no-console': ['error', { allow: ['warn', 'error'] }],
@@ -28,7 +20,7 @@ const baseRules = {
 
 export default [
   {
-ignores: [
+    ignores: [
       '**/dist/**',
       '**/coverage/**',
       '**/node_modules/**',
