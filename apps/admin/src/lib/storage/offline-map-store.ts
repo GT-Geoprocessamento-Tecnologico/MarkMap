@@ -107,13 +107,10 @@ export class OfflineMapStore {
       if (!matchesActiveRegionGeneration(current, manifest.id, expectedActiveGeneration)) { tx.abort(); throw new StaleRegionGenerationError(); }
       const used = accountedBytes(current, manifest.id);
       if (used + packageBytes > OFFLINE_PACKAGE_QUOTA) { tx.abort(); throw new Error(`A região exige ${Math.ceil(packageBytes / 1048576)} MiB temporários; restam ${Math.floor(Math.max(0, OFFLINE_PACKAGE_QUOTA - used) / 1048576)} MiB no orçamento de mapas.`); }
-      const oldStaged = current.filter((row) => row.packageId === manifest.id && row.state === "staged");
-      const abandonedKeys = await Promise.all(
-        oldStaged.map((old) => request<IDBValidKey[]>(store.index("package").getAllKeys(old.generation)))
-      );
-      for (let i = 0; i < oldStaged.length; i++) {
-        packages.delete(oldStaged[i].key);
-        for (const assetKey of abandonedKeys[i]) store.delete(assetKey);
+      for (const old of current.filter((row) => row.packageId === manifest.id && row.state === "staged")) {
+        packages.delete(old.key);
+        const abandoned = await request<AssetRow[]>(store.index("package").getAll(old.generation));
+        for (const asset of abandoned) store.delete(asset.key);
       }
       packages.put({ key, packageId: manifest.id, generation, bytes: packageBytes, manifest, state: "staged", installedAt: new Date().toISOString() } satisfies PackageRow);
       for (const [path, bytes] of records) {
@@ -146,14 +143,7 @@ export class OfflineMapStore {
       ? staged.find((p) => p.generation === expectedGeneration)
       : staged.length === 1 ? staged[0] : undefined;
     if (!next) { tx.abort(); throw new Error("offline package staging was replaced or is ambiguous"); }
-    const obsolete = all.filter((p) => p.packageId === packageId && p.key !== next.key);
-    const obsoleteAssetKeys = await Promise.all(
-      obsolete.map((row) => request<IDBValidKey[]>(assetStore.index("package").getAllKeys(row.generation)))
-    );
-    for (let i = 0; i < obsolete.length; i++) {
-      store.delete(obsolete[i].key);
-      for (const assetKey of obsoleteAssetKeys[i]) assetStore.delete(assetKey);
-    }
+    for (const row of all.filter((p) => p.packageId === packageId)) { if (row.key !== next.key) { store.delete(row.key); const oldAssets = await request<AssetRow[]>(assetStore.index("package").getAll(row.generation)); for (const asset of oldAssets) assetStore.delete(asset.key); } }
     store.put({ ...next, state: "active" });
     await transaction(tx);
     notifyRegionCatalogChanged(packageId);
@@ -189,23 +179,7 @@ export class OfflineMapStore {
       throw error;
     }
   }
-  async remove(packageId: string): Promise<void> {
-    const db = await this.open();
-    const tx = db.transaction([PACKAGES, ASSETS], "readwrite");
-    const packages = tx.objectStore(PACKAGES);
-    const assets = tx.objectStore(ASSETS);
-    const rows = await request<PackageRow[]>(packages.getAll());
-    const candidates = rows.filter((candidate) => candidate.packageId === packageId);
-    const ownedKeysList = await Promise.all(
-      candidates.map((row) => request<IDBValidKey[]>(assets.index("package").getAllKeys(row.generation)))
-    );
-    for (let i = 0; i < candidates.length; i++) {
-      packages.delete(candidates[i].key);
-      for (const assetKey of ownedKeysList[i]) assets.delete(assetKey);
-    }
-    await transaction(tx);
-    notifyRegionCatalogChanged(packageId);
-  }
+  async remove(packageId: string): Promise<void> { const db = await this.open(); const tx = db.transaction([PACKAGES, ASSETS], "readwrite"); const packages = tx.objectStore(PACKAGES); const assets = tx.objectStore(ASSETS); const rows = await request<PackageRow[]>(packages.getAll()); for (const row of rows.filter((candidate) => candidate.packageId === packageId)) { packages.delete(row.key); const owned = await request<AssetRow[]>(assets.index("package").getAll(row.generation)); for (const asset of owned) assets.delete(asset.key); } await transaction(tx); notifyRegionCatalogChanged(packageId); }
 }
 
 export const offlineMapStore = new OfflineMapStore();
