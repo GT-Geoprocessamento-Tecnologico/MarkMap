@@ -64,36 +64,17 @@ export function parseKml(
         if (options.strict) throw new Error("Invalid KML: invalid geometry");
         continue;
       }
-      if (parsed.kind === "point")
-        result.waypoints.push({
-          id,
-          name,
-          description,
-          latitude: parsed.point.latitude,
-          longitude: parsed.point.longitude,
-          elevation: parsed.point.elevation ?? null,
-          properties,
-        });
-      else if (parsed.kind === "line")
-        result.tracks.push({
-          id,
-          name,
-          description,
-          segments: [{ id: `${id}:segment`, points: parsed.points }],
-          properties,
-        });
-      else
-        result.polygons!.push({
-          id,
-          name,
-          description,
-          rings: parsed.rings,
-          properties,
-        });
+      collectGeometry(result, parsed, id, name, description, properties);
     }
     placemarkIndex++;
   }
   return result;
+}
+
+interface XmlParserState {
+  stack: XmlNode[];
+  nodes: number;
+  depth: number;
 }
 
 function parseXml(xml: string): XmlNode {
@@ -104,9 +85,11 @@ function parseXml(xml: string): XmlNode {
     children: [],
     text: "",
   };
-  const stack: XmlNode[] = [root];
-  let nodes = 0;
-  let depth = 0;
+  const state: XmlParserState = {
+    stack: [root],
+    nodes: 0,
+    depth: 0,
+  };
   let match: RegExpExecArray | null;
   const tokens =
     /<!--[\s\S]*?-->|<!\[CDATA\[[\s\S]*?\]\]>|<\?[\s\S]*?\?>|<(?:[^"'<>]|"[^"]*"|'[^']*')+>|[^<]+/g;
@@ -115,48 +98,9 @@ function parseXml(xml: string): XmlNode {
     if (match.index !== cursor)
       throw new Error("Invalid KML: malformed XML fragment");
     cursor = tokens.lastIndex;
-    const token = match[0]!;
-    if (token.startsWith("<!--") || token.startsWith("<?")) continue;
-    if (token.startsWith("<![CDATA[")) {
-      stack.at(-1)!.text += token.slice(9, -3);
-      continue;
-    }
-    if (!token.startsWith("<")) {
-      stack.at(-1)!.text += decodeEntities(token);
-      continue;
-    }
-    if (token.startsWith("</")) {
-      const name = token.slice(2, -1).trim();
-      if (
-        !/^[-\w:.]+$/.test(name) ||
-        stack.length === 1 ||
-        stack.at(-1)!.name !== name
-      )
-        throw new Error("Invalid KML: mismatched XML tags");
-      stack.pop();
-      depth--;
-      continue;
-    }
-    if (token.startsWith("<!"))
-      throw new Error("Invalid KML: unsupported XML declaration");
-    const selfClosing = /\/\s*>$/.test(token);
-    const body = token.slice(1, selfClosing ? -2 : -1).trim();
-    const tag = body.match(/^([-\w:.]+)([\s\S]*)$/);
-    if (!tag) throw new Error("Invalid KML: malformed XML tag");
-    const node: XmlNode = {
-      name: tag[1]!,
-      local: localName(tag[1]!),
-      attrs: parseAttributes(tag[2]!),
-      children: [],
-      text: "",
-    };
-    if (++nodes > MAX_NODES || ++depth > MAX_DEPTH)
-      throw new Error("Invalid KML: XML limits exceeded");
-    stack.at(-1)!.children.push(node);
-    if (!selfClosing) stack.push(node);
-    else depth--;
+    processToken(match[0]!, state);
   }
-  if (cursor !== xml.length || stack.length !== 1)
+  if (cursor !== xml.length || state.stack.length !== 1)
     throw new Error("Invalid KML: incomplete XML");
   const documentRoot = root.children.find(
     (child) => child.local.toLowerCase() === "kml",
@@ -164,6 +108,62 @@ function parseXml(xml: string): XmlNode {
   if (!documentRoot || root.children.length !== 1)
     throw new Error("Invalid KML: missing root");
   return documentRoot;
+}
+
+function processToken(token: string, state: XmlParserState): void {
+  if (token.startsWith("<!--") || token.startsWith("<?")) return;
+  if (token.startsWith("<![CDATA[")) {
+    state.stack.at(-1)!.text += token.slice(9, -3);
+    return;
+  }
+  if (!token.startsWith("<")) {
+    state.stack.at(-1)!.text += decodeEntities(token);
+    return;
+  }
+  if (token.startsWith("</")) {
+    handleCloseTag(token, state);
+    return;
+  }
+  if (token.startsWith("<!")) {
+    throw new Error("Invalid KML: unsupported XML declaration");
+  }
+  handleOpenTag(token, state);
+}
+
+function handleCloseTag(token: string, state: XmlParserState): void {
+  const name = token.slice(2, -1).trim();
+  if (
+    !/^[-\w:.]+$/.test(name) ||
+    state.stack.length === 1 ||
+    state.stack.at(-1)!.name !== name
+  ) {
+    throw new Error("Invalid KML: mismatched XML tags");
+  }
+  state.stack.pop();
+  state.depth--;
+}
+
+function handleOpenTag(token: string, state: XmlParserState): void {
+  const selfClosing = /\/\s*>$/.test(token);
+  const body = token.slice(1, selfClosing ? -2 : -1).trim();
+  const tag = body.match(/^([-\w:.]+)([\s\S]*)$/);
+  if (!tag) throw new Error("Invalid KML: malformed XML tag");
+  const node: XmlNode = {
+    name: tag[1]!,
+    local: localName(tag[1]!),
+    attrs: parseAttributes(tag[2]!),
+    children: [],
+    text: "",
+  };
+  if (++state.nodes > MAX_NODES || ++state.depth > MAX_DEPTH) {
+    throw new Error("Invalid KML: XML limits exceeded");
+  }
+  state.stack.at(-1)!.children.push(node);
+  if (!selfClosing) {
+    state.stack.push(node);
+  } else {
+    state.depth--;
+  }
 }
 
 function parseAttributes(source: string): Record<string, string> {
@@ -276,48 +276,116 @@ function flattenGeometry(node: XmlNode): XmlNode[] {
     ? node.children.flatMap(flattenGeometry)
     : [node];
 }
+function collectGeometry(
+  result: GpxImport,
+  parsed: ParsedGeometry,
+  id: string,
+  name: string,
+  description: string | null,
+  properties: KmlProperties,
+): void {
+  if (parsed.kind === "point") {
+    result.waypoints.push({
+      id,
+      name,
+      description,
+      latitude: parsed.point.latitude,
+      longitude: parsed.point.longitude,
+      elevation: parsed.point.elevation ?? null,
+      properties,
+    });
+  } else if (parsed.kind === "line") {
+    result.tracks.push({
+      id,
+      name,
+      description,
+      segments: [{ id: `${id}:segment`, points: parsed.points }],
+      properties,
+    });
+  } else {
+    result.polygons!.push({
+      id,
+      name,
+      description,
+      rings: parsed.rings,
+      properties,
+    });
+  }
+}
+
 function parseGeometry(
   node: XmlNode,
   budget: { positions: number },
   strict: boolean,
 ): ParsedGeometry | null {
   if (node.local === "Point") {
-    const points = parsePositions(childText(node, "coordinates") ?? "", budget);
-    if (strict && points.length !== 1)
-      throw new Error("Invalid KML: Point requires exactly one coordinate");
-    const point = points[0];
-    return point ? { kind: "point", point } : null;
+    return parsePointGeometry(node, budget, strict);
   }
   if (node.local === "LineString") {
-    const points = parsePositions(childText(node, "coordinates") ?? "", budget);
-    return points.length >= 2 ? { kind: "line", points } : null;
+    return parseLineStringGeometry(node, budget);
   }
   if (node.local === "Polygon") {
-    const outer = findDescendants(node, "outerBoundaryIs");
-    if (outer.length !== 1) return null;
-    const outerPoints = parsePositions(
-      descendantText(outer[0]!, "coordinates") ?? "",
-      budget,
-    );
-    if (outerPoints.length < 3) return null;
-    if (!samePoint(outerPoints[0]!, outerPoints.at(-1)!))
-      outerPoints.push({ ...outerPoints[0]! });
-    if (outerPoints.length < 4) return null;
-    const rings: TrackPoint[][] = [outerPoints];
-    for (const boundary of findDescendants(node, "innerBoundaryIs")) {
-      const points = parsePositions(
-        descendantText(boundary, "coordinates") ?? "",
-        budget,
-      );
-      if (points.length < 3) return null;
-      if (!samePoint(points[0]!, points.at(-1)!))
-        points.push({ ...points[0]! });
-      if (points.length < 4) return null;
-      rings.push(points);
-    }
-    return { kind: "polygon", rings };
+    return parsePolygonGeometry(node, budget);
   }
   return null;
+}
+
+function parsePointGeometry(
+  node: XmlNode,
+  budget: { positions: number },
+  strict: boolean,
+): ParsedGeometry | null {
+  const points = parsePositions(childText(node, "coordinates") ?? "", budget);
+  if (strict && points.length !== 1) {
+    throw new Error("Invalid KML: Point requires exactly one coordinate");
+  }
+  const point = points[0];
+  return point ? { kind: "point", point } : null;
+}
+
+function parseLineStringGeometry(
+  node: XmlNode,
+  budget: { positions: number },
+): ParsedGeometry | null {
+  const points = parsePositions(childText(node, "coordinates") ?? "", budget);
+  return points.length >= 2 ? { kind: "line", points } : null;
+}
+
+function parsePolygonGeometry(
+  node: XmlNode,
+  budget: { positions: number },
+): ParsedGeometry | null {
+  const outer = findDescendants(node, "outerBoundaryIs");
+  if (outer.length !== 1) return null;
+  const outerPoints = parseLinearRingPoints(
+    descendantText(outer[0]!, "coordinates") ?? "",
+    budget,
+  );
+  if (!outerPoints) return null;
+
+  const rings: TrackPoint[][] = [outerPoints];
+  for (const boundary of findDescendants(node, "innerBoundaryIs")) {
+    const points = parseLinearRingPoints(
+      descendantText(boundary, "coordinates") ?? "",
+      budget,
+    );
+    if (!points) return null;
+    rings.push(points);
+  }
+  return { kind: "polygon", rings };
+}
+
+function parseLinearRingPoints(
+  coordinatesText: string,
+  budget: { positions: number },
+): TrackPoint[] | null {
+  const points = parsePositions(coordinatesText, budget);
+  if (points.length < 3) return null;
+  if (!samePoint(points[0]!, points.at(-1)!)) {
+    points.push({ ...points[0]! });
+  }
+  if (points.length < 4) return null;
+  return points;
 }
 function parsePositions(
   text: string,
