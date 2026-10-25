@@ -535,11 +535,14 @@ describeIfTestDb("postgis persistence (real PostGIS)", () => {
       "2026-01-02T03:04:05.123456+00",
       "2026-01-02T03:04:05.123111+00",
     ];
-    for (const [index, id] of projectIds.entries()) {
-      await db.execute(
-        sql`UPDATE projects SET created_at = ${timestamps[index]}::timestamptz WHERE id = ${id}`,
-      );
-    }
+    await db.execute(
+      sql`UPDATE projects SET created_at = v.created_at::timestamptz FROM (VALUES ${sql.join(
+        projectIds.map(
+          (id, index) => sql`(${id}::uuid, ${timestamps[index]}::timestamptz)`,
+        ),
+        sql`, `,
+      )}) AS v(id, created_at) WHERE projects.id = v.id`,
+    );
 
     const layerRows = await Promise.all(
       ["fraction-layer-a", "fraction-layer-b", "fraction-layer-c"].map((name) =>
@@ -552,21 +555,27 @@ describeIfTestDb("postgis persistence (real PostGIS)", () => {
       ),
     );
     const layerIds = layerRows.map((row) => row.id);
-    for (const [index, id] of layerIds.entries()) {
-      await db.execute(
-        sql`UPDATE layers SET created_at = ${timestamps[index]}::timestamptz WHERE id = ${id}`,
-      );
-    }
+    await db.execute(
+      sql`UPDATE layers SET created_at = v.created_at::timestamptz FROM (VALUES ${sql.join(
+        layerIds.map(
+          (id, index) => sql`(${id}::uuid, ${timestamps[index]}::timestamptz)`,
+        ),
+        sql`, `,
+      )}) AS v(id, created_at) WHERE layers.id = v.id`,
+    );
 
     const featureRows = await Promise.all(
       [0, 1, 2].map(() => createFeature(db, { layerId, geometry: polygon })),
     );
     const featureIds = featureRows.map((row) => row.id);
-    for (const [index, id] of featureIds.entries()) {
-      await db.execute(
-        sql`UPDATE features SET created_at = ${timestamps[index]}::timestamptz WHERE id = ${id}`,
-      );
-    }
+    await db.execute(
+      sql`UPDATE features SET created_at = v.created_at::timestamptz FROM (VALUES ${sql.join(
+        featureIds.map(
+          (id, index) => sql`(${id}::uuid, ${timestamps[index]}::timestamptz)`,
+        ),
+        sql`, `,
+      )}) AS v(id, created_at) WHERE features.id = v.id`,
+    );
 
     const collectProjects = async (): Promise<string[]> => {
       const seen: string[] = [];
