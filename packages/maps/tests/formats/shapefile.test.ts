@@ -183,6 +183,36 @@ describe("Shapefile Parser", () => {
     });
   });
 
+  it("resolves SIRGAS 2000 UTM Zone 23S fallback when EPSG authority header is absent", async () => {
+    const shp = createPointShp(500000, 7500000);
+    const dbf = createDbf("UTM 23S Point");
+    const prj = new TextEncoder().encode('PROJCS["SIRGAS 2000 / UTM zone 23S",GEOGCS["SIRGAS 2000"]]');
+
+    const zip = createSyntheticZip({
+      "utm23.shp": shp,
+      "utm23.dbf": dbf,
+      "utm23.prj": prj,
+    });
+
+    const result = await parseShapefileZip(zip);
+    expect(result.features).toHaveLength(1);
+  });
+
+  it("resolves geographic SAD69 fallback when EPSG authority header is absent", async () => {
+    const shp = createPointShp(-48.2, -7.19);
+    const dbf = createDbf("SAD69 Point");
+    const prj = new TextEncoder().encode('GEOGCS["SAD69",DATUM["South_American_Datum_1969"]]');
+
+    const zip = createSyntheticZip({
+      "sad69.shp": shp,
+      "sad69.dbf": dbf,
+      "sad69.prj": prj,
+    });
+
+    const result = await parseShapefileZip(zip);
+    expect(result.features).toHaveLength(1);
+  });
+
   it("reprojects Shapefile features when .prj specifies SIRGAS 2000 UTM Zone 22S", async () => {
     // Easting ~ 800,000, Northing ~ 9,200,000 in UTM 22S (Araguaína region)
     const shp = createPointShp(808500, 9204500);

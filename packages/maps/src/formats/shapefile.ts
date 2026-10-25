@@ -2,6 +2,8 @@ import {
   transformCoordinates,
   parseEpsgCode,
   EPSG_WGS84,
+  EPSG_SIRGAS2000,
+  EPSG_SAD69,
 } from "../crs/epsg.js";
 
 export const MAX_VECTOR_IMPORT_BYTES = 25 * 1024 * 1024;
@@ -136,6 +138,38 @@ async function unzipShapefileArchive(zipBuffer: ArrayBuffer): Promise<ZipFiles> 
   return result;
 }
 
+const PROJECTED_CRS_PATTERN = /\b(?:PROJCS|PROJCRS|PROJECTEDCRS)\b|\bUTM\b|Transverse_Mercator|Mercator/i;
+
+interface PrjFallbackRule {
+  pattern: RegExp;
+  epsg: number;
+  requiresGeographicOnly?: boolean;
+}
+
+const PRJ_FALLBACK_RULES: readonly PrjFallbackRule[] = [
+  { pattern: /SIRGAS.*UTM.*22S/i, epsg: 31982 },
+  { pattern: /SIRGAS.*UTM.*23S/i, epsg: 31983 },
+  { pattern: /SIRGAS.*2000/i, epsg: EPSG_SIRGAS2000, requiresGeographicOnly: true },
+  { pattern: /SAD.*69/i, epsg: EPSG_SAD69, requiresGeographicOnly: true },
+  { pattern: /WGS.*84/i, epsg: EPSG_WGS84, requiresGeographicOnly: true },
+];
+
+/**
+ * Matches PRJ text against fallback pattern rules when authority EPSG code is missing.
+ */
+function matchPrjFallbackEpsg(prjText: string): number | null {
+  const isProjected = PROJECTED_CRS_PATTERN.test(prjText);
+
+  for (const rule of PRJ_FALLBACK_RULES) {
+    if (rule.requiresGeographicOnly && isProjected) continue;
+    if (rule.pattern.test(prjText)) {
+      return rule.epsg;
+    }
+  }
+
+  return null;
+}
+
 /**
  * Extracts EPSG code from PRJ text or registers WKT definition.
  */
@@ -155,14 +189,8 @@ function resolvePrjEpsg(prjText?: string): number {
     if (code) return code;
   }
 
-  if (/SIRGAS.*UTM.*22S/i.test(trimmed)) return 31982;
-  if (/SIRGAS.*UTM.*23S/i.test(trimmed)) return 31983;
-
-  // Never treat an unidentified projected coordinate system as latitude/longitude.
-  const projected = /\b(?:PROJCS|PROJCRS|PROJECTEDCRS)\b|\bUTM\b|Transverse_Mercator|Mercator/i.test(trimmed);
-  if (!projected && /SIRGAS.*2000/i.test(trimmed)) return 4674;
-  if (!projected && /SAD.*69/i.test(trimmed)) return 4618;
-  if (!projected && /WGS.*84/i.test(trimmed)) return EPSG_WGS84;
+  const fallbackCode = matchPrjFallbackEpsg(trimmed);
+  if (fallbackCode) return fallbackCode;
 
   throw new Error("Não foi possível identificar o CRS do arquivo .prj. Importação cancelada para evitar coordenadas incorretas.");
 }
