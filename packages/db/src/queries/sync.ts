@@ -307,6 +307,242 @@ const materializeAcceptedOperation = async (
   }
 };
 
+export async function applyPushOperations(
+  db: Db,
+  operations: SyncOperation[],
+  capabilityWorkspaceId: string,
+): Promise<
+  Array<{
+    status: "accepted" | "already_applied" | "conflict";
+    version?: number;
+    sequence?: string;
+    conflict?: SyncConflict;
+  }>
+> {
+  if (operations.length === 0) return [];
+
+  return db.transaction(async (tx) => {
+    const [workspace] = await tx.execute(
+      sql`SELECT id FROM workspaces WHERE id = ${capabilityWorkspaceId} AND revoked = false FOR UPDATE`,
+    );
+
+    const results: Array<{
+      status: "accepted" | "already_applied" | "conflict";
+      version?: number;
+      sequence?: string;
+      conflict?: SyncConflict;
+    }> = [];
+
+    for (const input of operations) {
+      if (input.workspaceId !== capabilityWorkspaceId || !workspace) {
+        results.push({
+          status: "conflict",
+          conflict: {
+            operationId: input.operationId,
+            entity: input.entity,
+            entityId: input.entityId,
+            baseVersion: input.baseVersion,
+            serverVersion: 0,
+            reason: "SCOPE_REJECTED",
+          },
+        });
+        continue;
+      }
+
+      const [previous] = await tx
+        .select({
+          version: syncOperations.version,
+          sequence: syncOperations.sequence,
+          envelope: syncOperations.envelope,
+        })
+        .from(syncOperations)
+        .where(
+          and(
+            eq(syncOperations.workspaceId, capabilityWorkspaceId),
+            eq(syncOperations.operationId, input.operationId),
+          ),
+        )
+        .limit(1);
+      if (previous) {
+        if (canonicalJson(previous.envelope) !== canonicalJson(input)) {
+          results.push({
+            status: "conflict",
+            conflict: {
+              operationId: input.operationId,
+              entity: input.entity,
+              entityId: input.entityId,
+              baseVersion: input.baseVersion,
+              serverVersion: 0,
+              reason: "SCOPE_REJECTED",
+            },
+          });
+        } else {
+          results.push({
+            status: "already_applied",
+            version: previous.version,
+            sequence: String(previous.sequence),
+          });
+        }
+        continue;
+      }
+
+      const [current] = await tx
+        .select({
+          version: syncEntities.version,
+          payload: syncEntities.payload,
+        })
+        .from(syncEntities)
+        .where(
+          and(
+            eq(syncEntities.workspaceId, capabilityWorkspaceId),
+            eq(syncEntities.entity, input.entity),
+            eq(syncEntities.entityId, input.entityId),
+          ),
+        )
+        .limit(1);
+      const currentVersion = current?.version ?? 0;
+      const serverPayload =
+        current !== undefined && current.payload !== null
+          ? (current.payload as SyncEntityPayload)
+          : undefined;
+
+      let expectedVersion = input.baseVersion;
+      if (input.predecessorOperationId !== undefined) {
+        const [predecessor] = await tx
+          .select({
+            version: syncOperations.version,
+            entity: syncOperations.entity,
+            entityId: syncOperations.entityId,
+          })
+          .from(syncOperations)
+          .where(
+            and(
+              eq(syncOperations.workspaceId, capabilityWorkspaceId),
+              eq(syncOperations.operationId, input.predecessorOperationId),
+            ),
+          )
+          .limit(1);
+        if (
+          !predecessor ||
+          predecessor.entity !== input.entity ||
+          predecessor.entityId !== input.entityId
+        ) {
+          results.push({
+            status: "conflict",
+            conflict: conflictFor(input, currentVersion, serverPayload),
+          });
+          continue;
+        }
+        expectedVersion = predecessor.version;
+      }
+
+      // A null base means this installation has never observed a server version.
+      // Allow an initial create only; a second device must not silently replace
+      // an existing value or tombstone. Explicit versions and valid predecessor
+      // chains still permit intentional updates.
+      if ((expectedVersion ?? 0) !== currentVersion) {
+        results.push({
+          status: "conflict",
+          conflict: conflictFor(input, currentVersion, serverPayload),
+        });
+        continue;
+      }
+
+      const version = currentVersion + 1;
+      const [seqRow] = await tx.execute(
+        sql`UPDATE workspaces SET next_sequence = next_sequence + 1, updated_at = now() WHERE id = ${capabilityWorkspaceId} RETURNING next_sequence`,
+      );
+      const sequence = String(
+        (seqRow as { next_sequence: bigint }).next_sequence,
+      );
+      const deleted = input.operation === "delete";
+      const payload = deleted ? null : asObject(input.payload);
+
+      await tx
+        .insert(syncEntities)
+        .values({
+          workspaceId: capabilityWorkspaceId,
+          entity: input.entity,
+          entityId: input.entityId,
+          version,
+          payload,
+          deletedAt: deleted ? sql`now()` : null,
+          updatedAt: sql`now()`,
+        })
+        .onConflictDoUpdate({
+          target: [
+            syncEntities.workspaceId,
+            syncEntities.entity,
+            syncEntities.entityId,
+          ],
+          set: {
+            version,
+            payload,
+            deletedAt: deleted ? sql`now()` : null,
+            updatedAt: sql`now()`,
+          },
+        });
+
+      await tx.insert(syncOperations).values({
+        workspaceId: capabilityWorkspaceId,
+        operationId: input.operationId,
+        entity: input.entity,
+        entityId: input.entityId,
+        operation: input.operation,
+        envelope: input,
+        version,
+        sequence: BigInt(sequence),
+      });
+
+      if (deleted) {
+        await tx
+          .insert(syncTombstones)
+          .values({
+            workspaceId: capabilityWorkspaceId,
+            entity: input.entity,
+            entityId: input.entityId,
+            version,
+            sequence: BigInt(sequence),
+            deletedAt: sql`now()`,
+          })
+          .onConflictDoUpdate({
+            target: [
+              syncTombstones.workspaceId,
+              syncTombstones.entity,
+              syncTombstones.entityId,
+            ],
+            set: {
+              version,
+              sequence: BigInt(sequence),
+              deletedAt: sql`now()`,
+            },
+          });
+      } else {
+        await tx
+          .delete(syncTombstones)
+          .where(
+            and(
+              eq(syncTombstones.workspaceId, capabilityWorkspaceId),
+              eq(syncTombstones.entity, input.entity),
+              eq(syncTombstones.entityId, input.entityId),
+            ),
+          );
+      }
+
+      await materializeAcceptedOperation(
+        tx,
+        input,
+        capabilityWorkspaceId,
+        version,
+      );
+
+      results.push({ status: "accepted", version, sequence });
+    }
+
+    return results;
+  });
+}
+
 export async function applyPushOperation(
   db: Db,
   input: SyncOperation,
@@ -317,209 +553,12 @@ export async function applyPushOperation(
   sequence?: string;
   conflict?: SyncConflict;
 }> {
-  if (input.workspaceId !== capabilityWorkspaceId)
-    return {
-      status: "conflict",
-      conflict: {
-        operationId: input.operationId,
-        entity: input.entity,
-        entityId: input.entityId,
-        baseVersion: input.baseVersion,
-        serverVersion: 0,
-        reason: "SCOPE_REJECTED",
-      },
-    };
-  return db.transaction(async (tx) => {
-    const [workspace] = await tx.execute(
-      sql`SELECT id FROM workspaces WHERE id = ${capabilityWorkspaceId} AND revoked = false FOR UPDATE`,
-    );
-    if (!workspace)
-      return {
-        status: "conflict",
-        conflict: {
-          operationId: input.operationId,
-          entity: input.entity,
-          entityId: input.entityId,
-          baseVersion: input.baseVersion,
-          serverVersion: 0,
-          reason: "SCOPE_REJECTED",
-        },
-      };
-
-    const [previous] = await tx
-      .select({
-        version: syncOperations.version,
-        sequence: syncOperations.sequence,
-        envelope: syncOperations.envelope,
-      })
-      .from(syncOperations)
-      .where(
-        and(
-          eq(syncOperations.workspaceId, capabilityWorkspaceId),
-          eq(syncOperations.operationId, input.operationId),
-        ),
-      )
-      .limit(1);
-    if (previous) {
-      if (canonicalJson(previous.envelope) !== canonicalJson(input))
-        return {
-          status: "conflict",
-          conflict: {
-            operationId: input.operationId,
-            entity: input.entity,
-            entityId: input.entityId,
-            baseVersion: input.baseVersion,
-            serverVersion: 0,
-            reason: "SCOPE_REJECTED",
-          },
-        };
-      return {
-        status: "already_applied",
-        version: previous.version,
-        sequence: String(previous.sequence),
-      };
-    }
-
-    const [current] = await tx
-      .select({ version: syncEntities.version, payload: syncEntities.payload })
-      .from(syncEntities)
-      .where(
-        and(
-          eq(syncEntities.workspaceId, capabilityWorkspaceId),
-          eq(syncEntities.entity, input.entity),
-          eq(syncEntities.entityId, input.entityId),
-        ),
-      )
-      .limit(1);
-    const currentVersion = current?.version ?? 0;
-    const serverPayload =
-      current !== undefined && current.payload !== null
-        ? (current.payload as SyncEntityPayload)
-        : undefined;
-
-    let expectedVersion = input.baseVersion;
-    if (input.predecessorOperationId !== undefined) {
-      const [predecessor] = await tx
-        .select({
-          version: syncOperations.version,
-          entity: syncOperations.entity,
-          entityId: syncOperations.entityId,
-        })
-        .from(syncOperations)
-        .where(
-          and(
-            eq(syncOperations.workspaceId, capabilityWorkspaceId),
-            eq(syncOperations.operationId, input.predecessorOperationId),
-          ),
-        )
-        .limit(1);
-      if (
-        !predecessor ||
-        predecessor.entity !== input.entity ||
-        predecessor.entityId !== input.entityId
-      )
-        return {
-          status: "conflict",
-          conflict: conflictFor(input, currentVersion, serverPayload),
-        };
-      expectedVersion = predecessor.version;
-    }
-
-    // A null base means this installation has never observed a server version.
-    // Allow an initial create only; a second device must not silently replace
-    // an existing value or tombstone. Explicit versions and valid predecessor
-    // chains still permit intentional updates.
-    if ((expectedVersion ?? 0) !== currentVersion)
-      return {
-        status: "conflict",
-        conflict: conflictFor(input, currentVersion, serverPayload),
-      };
-
-    const version = currentVersion + 1;
-    const [seqRow] = await tx.execute(
-      sql`UPDATE workspaces SET next_sequence = next_sequence + 1, updated_at = now() WHERE id = ${capabilityWorkspaceId} RETURNING next_sequence`,
-    );
-    const sequence = String(
-      (seqRow as { next_sequence: bigint }).next_sequence,
-    );
-    const deleted = input.operation === "delete";
-    const payload = deleted ? null : asObject(input.payload);
-
-    await tx
-      .insert(syncEntities)
-      .values({
-        workspaceId: capabilityWorkspaceId,
-        entity: input.entity,
-        entityId: input.entityId,
-        version,
-        payload,
-        deletedAt: deleted ? sql`now()` : null,
-        updatedAt: sql`now()`,
-      })
-      .onConflictDoUpdate({
-        target: [
-          syncEntities.workspaceId,
-          syncEntities.entity,
-          syncEntities.entityId,
-        ],
-        set: {
-          version,
-          payload,
-          deletedAt: deleted ? sql`now()` : null,
-          updatedAt: sql`now()`,
-        },
-      });
-
-    await tx.insert(syncOperations).values({
-      workspaceId: capabilityWorkspaceId,
-      operationId: input.operationId,
-      entity: input.entity,
-      entityId: input.entityId,
-      operation: input.operation,
-      envelope: input,
-      version,
-      sequence: BigInt(sequence),
-    });
-
-    if (deleted)
-      await tx
-        .insert(syncTombstones)
-        .values({
-          workspaceId: capabilityWorkspaceId,
-          entity: input.entity,
-          entityId: input.entityId,
-          version,
-          sequence: BigInt(sequence),
-          deletedAt: sql`now()`,
-        })
-        .onConflictDoUpdate({
-          target: [
-            syncTombstones.workspaceId,
-            syncTombstones.entity,
-            syncTombstones.entityId,
-          ],
-          set: { version, sequence: BigInt(sequence), deletedAt: sql`now()` },
-        });
-    else
-      await tx
-        .delete(syncTombstones)
-        .where(
-          and(
-            eq(syncTombstones.workspaceId, capabilityWorkspaceId),
-            eq(syncTombstones.entity, input.entity),
-            eq(syncTombstones.entityId, input.entityId),
-          ),
-        );
-
-    await materializeAcceptedOperation(
-      tx,
-      input,
-      capabilityWorkspaceId,
-      version,
-    );
-
-    return { status: "accepted", version, sequence };
-  });
+  const [result] = await applyPushOperations(
+    db,
+    [input],
+    capabilityWorkspaceId,
+  );
+  return result!;
 }
 
 export async function pullChanges(

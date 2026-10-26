@@ -5,7 +5,7 @@ import {
   type PushSyncAck,
   type SyncConflict,
 } from "@markmap/contracts";
-import { applyPushOperation, getDb, pullChanges } from "@markmap/db";
+import { applyPushOperations, getDb, pullChanges } from "@markmap/db";
 import type { Hono } from "hono";
 import { z } from "zod";
 
@@ -36,8 +36,15 @@ export const syncRoutes = (app: Hono<any, any, any>) => {
     const conflicts: SyncConflict[] = [];
     const alreadyApplied: PushSyncAck[] = [];
 
-    for (const operation of input.operations) {
-      const result = await applyPushOperation(getDb(), operation, workspaceId);
+    const results = await applyPushOperations(
+      getDb(),
+      input.operations,
+      workspaceId,
+    );
+
+    for (let index = 0; index < input.operations.length; index++) {
+      const operation = input.operations[index]!;
+      const result = results[index]!;
       if (result.status === "conflict") {
         if (result.conflict) conflicts.push(result.conflict);
         continue;
