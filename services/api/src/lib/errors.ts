@@ -2,6 +2,7 @@ import {
   ErrorCodes as ERROR_CODES,
   httpStatusByErrorCode as HTTP_STATUS_BY_CODE,
 } from "@markmap/contracts";
+import type { Context } from "hono";
 import type { z } from "zod";
 
 /**
@@ -130,7 +131,7 @@ export const versionConflict = (expected: number, actual: number) =>
  *          contract‑compliant `VALIDATION_ERROR` response.
  */
 export function validate<T extends z.ZodTypeAny>(schema: T) {
-  return async (c: any, next: () => Promise<void>) => {
+  return async (c: Context, next: () => Promise<void>) => {
     try {
       const body = await c.req.json();
       const parsed = schema.parse(body);
@@ -155,7 +156,7 @@ export function validate<T extends z.ZodTypeAny>(schema: T) {
       };
 
       // Hono style response
-      return c.status(400).json(response);
+      return c.json(response, 400);
     }
   };
 }
