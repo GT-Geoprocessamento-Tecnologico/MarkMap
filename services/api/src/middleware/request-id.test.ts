@@ -69,4 +69,25 @@ describe("Request ID Middleware", () => {
     expect(body.id).not.toBe(invalidId);
     expect(res.headers.get(REQUEST_ID_HEADER)).toBe(body.id);
   });
+
+  describe("getRequestId utility", () => {
+    it("should retrieve the request ID from Hono context when set", () => {
+      const mockRequestId = "test-request-id-123";
+      const mockContext = {
+        get: (key: string) => (key === "requestId" ? mockRequestId : undefined),
+      } as unknown as Parameters<typeof getRequestId>[0];
+
+      const result = getRequestId(mockContext);
+      expect(result).toBe(mockRequestId);
+    });
+
+    it("should fallback to 'unknown' when request ID is not set in context", () => {
+      const mockContext = {
+        get: () => undefined,
+      } as unknown as Parameters<typeof getRequestId>[0];
+
+      const result = getRequestId(mockContext);
+      expect(result).toBe("unknown");
+    });
+  });
 });
