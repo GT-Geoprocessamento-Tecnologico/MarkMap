@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { positionSampleFromBrowser, type PositionSample } from '@markmap/geo';
 
@@ -17,6 +16,20 @@ export interface DeviceLocationState {
   permissionState: PermissionState | 'unknown';
   isTracking: boolean;
   isAutoFollow: boolean;
+}
+
+interface WakeLockSentinelLike {
+  release(): Promise<void>;
+}
+
+interface NavigatorWithWakeLock extends Navigator {
+  wakeLock?: {
+    request(type: 'screen'): Promise<WakeLockSentinelLike>;
+  };
+}
+
+interface DeviceOrientationEventWithWebkit extends DeviceOrientationEvent {
+  webkitCompassHeading?: number;
 }
 
 /**
@@ -40,7 +53,7 @@ export function useDeviceLocation(options: DeviceLocationOptions = {}) {
     isAutoFollow: true,
   });
 
-  const wakeLockRef = useRef<any>(null);
+  const wakeLockRef = useRef<WakeLockSentinelLike | null>(null);
   const watchIdRef = useRef<number | null>(null);
 
   // Check initial permission status if available in browser
@@ -62,9 +75,10 @@ export function useDeviceLocation(options: DeviceLocationOptions = {}) {
 
   // Screen WakeLock handling for mobile/tablet in the field
   const requestWakeLock = useCallback(async () => {
-    if (keepScreenAwake && 'wakeLock' in navigator && (navigator as any).wakeLock) {
+    const nav = navigator as NavigatorWithWakeLock;
+    if (keepScreenAwake && nav.wakeLock) {
       try {
-        wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
+        wakeLockRef.current = await nav.wakeLock.request('screen');
       } catch {
         // Wake Lock optional or permission denied
       }
@@ -84,29 +98,30 @@ export function useDeviceLocation(options: DeviceLocationOptions = {}) {
 
   // Device orientation / Compass listener for phone & tablet
   useEffect(() => {
-    const handleOrientation = (event: DeviceOrientationEvent) => {
+    const handleOrientation = (event: Event) => {
+      const orientationEvent = event as DeviceOrientationEventWithWebkit;
       let compass: number | null = null;
-      if ((event as any).webkitCompassHeading !== undefined) {
+      if (orientationEvent.webkitCompassHeading !== undefined) {
         // iOS Safari compass heading
-        compass = (event as any).webkitCompassHeading;
-      } else if (event.alpha !== null && event.absolute) {
+        compass = orientationEvent.webkitCompassHeading;
+      } else if (orientationEvent.alpha !== null && orientationEvent.absolute) {
         // Android absolute orientation
-        compass = (360 - event.alpha) % 360;
+        compass = (360 - orientationEvent.alpha) % 360;
       }
       if (compass !== null && Number.isFinite(compass)) {
-        setState((prev: DeviceLocationState) => ({ ...prev, heading: Math.round(compass!) }));
+        setState((prev: DeviceLocationState) => ({ ...prev, heading: Math.round(compass) }));
       }
     };
 
     if (typeof window !== 'undefined' && 'DeviceOrientationEvent' in window) {
-      window.addEventListener('deviceorientationabsolute', handleOrientation as any, true);
-      window.addEventListener('deviceorientation', handleOrientation as any, true);
+      window.addEventListener('deviceorientationabsolute', handleOrientation, true);
+      window.addEventListener('deviceorientation', handleOrientation, true);
     }
 
     return () => {
       if (typeof window !== 'undefined' && 'DeviceOrientationEvent' in window) {
-        window.removeEventListener('deviceorientationabsolute', handleOrientation as any, true);
-        window.removeEventListener('deviceorientation', handleOrientation as any, true);
+        window.removeEventListener('deviceorientationabsolute', handleOrientation, true);
+        window.removeEventListener('deviceorientation', handleOrientation, true);
       }
     };
   }, []);
@@ -125,7 +140,7 @@ export function useDeviceLocation(options: DeviceLocationOptions = {}) {
     requestWakeLock();
 
     if (watchIdRef.current !== null) {
-      navigator.geolocation.clearWatch(watchIdRef.current);
+      navigator.geolocation?.clearWatch(watchIdRef.current);
     }
 
     watchIdRef.current = navigator.geolocation.watchPosition(
@@ -161,7 +176,7 @@ export function useDeviceLocation(options: DeviceLocationOptions = {}) {
   // Stop tracking
   const stopTracking = useCallback(() => {
     if (watchIdRef.current !== null) {
-      navigator.geolocation.clearWatch(watchIdRef.current);
+      navigator.geolocation?.clearWatch(watchIdRef.current);
       watchIdRef.current = null;
     }
     releaseWakeLock();
@@ -177,7 +192,7 @@ export function useDeviceLocation(options: DeviceLocationOptions = {}) {
   useEffect(() => {
     return () => {
       if (watchIdRef.current !== null) {
-        navigator.geolocation.clearWatch(watchIdRef.current);
+        navigator.geolocation?.clearWatch(watchIdRef.current);
       }
       releaseWakeLock();
     };
@@ -190,4 +205,3 @@ export function useDeviceLocation(options: DeviceLocationOptions = {}) {
     toggleAutoFollow,
   };
 }
-
