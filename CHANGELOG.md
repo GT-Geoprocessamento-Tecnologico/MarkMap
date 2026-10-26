@@ -2,6 +2,18 @@
 
 Fonte da versão do aplicativo: `apps/admin/package.json`. Todos os agentes seguem [a política de versionamento](docs/versioning.md). O [histórico documental anterior](docs/changelog.md) permanece preservado.
 
+## [0.5.8] - 2026-10-24
+
+### Alterações
+
+- Refatora a página `CommandCenterPage` dividindo a interface do usuário em sub-componentes modulares e reutilizáveis (`CommandCenterToolbar`, `CommandCenterSidePanel`, `DrawingOverlayBar`, `MeasuringOverlayBar` e painéis específicos).
+- Melhora a legibilidade, facilidade de manutenção e modularidade da aplicação sem alterar o comportamento ou contratos existentes.
+
+### Validação
+
+- Testes unitários do frontend e verificação estrita de tipos TypeScript (`tsc --noEmit`) aprovados.
+- Verificação do guarda de versão e release de pacote (`pnpm run verify:version`) aprovado.
+
 ## [0.5.7] - 2026-10-24
 
 ### Alterações
