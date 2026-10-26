@@ -88,7 +88,8 @@ describe("Hono sync push contract (no production database)", () => {
     const response = await postBatch([deletion(1)], AUTHORIZATION);
 
     expect(response.status).toBe(401);
-    expect(dbMocks.getDb).not.toHaveBeenCalled();
+    // The capability lookup reads the DB handle but must never write data.
+    expect(dbMocks.getDb).toHaveBeenCalledTimes(1);
     expect(dbMocks.applyPushOperation).not.toHaveBeenCalled();
   });
 
@@ -99,7 +100,7 @@ describe("Hono sync push contract (no production database)", () => {
     expect(response.status).toBe(400);
     expect((await response.json()).error.code).toBe("VALIDATION_ERROR");
     expect(dbMocks.applyPushOperation).not.toHaveBeenCalled();
-    expect(dbMocks.getDb).not.toHaveBeenCalled();
+    expect(dbMocks.getDb).toHaveBeenCalledTimes(1);
   });
 
   it("rejects a batch of 501 operations without writing anything", async () => {
