@@ -2,6 +2,17 @@
 
 Fonte da versão do aplicativo: `apps/admin/package.json`. Todos os agentes seguem [a política de versionamento](docs/versioning.md). O [histórico documental anterior](docs/changelog.md) permanece preservado.
 
+## [0.5.8] - 2026-10-24
+
+### Alterações
+
+- Refatora o hook useDeviceLocation em apps/admin removendo asserções de tipo 'as any' e criando interfaces TypeScript locais para WakeLock e eventos de orientação do dispositivo.
+- Adiciona suíte de testes unitários para o hook useDeviceLocation em useDeviceLocation.test.ts.
+
+### Validação
+
+- Testes unitários do hook useDeviceLocation (5 testes), typecheck, linting e suíte completa de testes da aplicação admin (62 arquivos, 298 testes) aprovados com 100% de sucesso.
+
 ## [0.5.7] - 2026-10-24
 
 ### Alterações
