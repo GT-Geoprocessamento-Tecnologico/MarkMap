@@ -111,6 +111,7 @@ export function validateGeometryLight(geometry: unknown): ValidationResult {
         const intersection = kinks({
           type: 'Feature',
           geometry: { type: 'Polygon', coordinates: coordinates as GeoJsonPosition[][] },
+
           properties: {},
         });
         if (intersection.features.length > 0) {
@@ -162,6 +163,7 @@ export function validateGeometryLight(geometry: unknown): ValidationResult {
         const intersection = kinks({
           type: 'Feature',
           geometry: { type: 'MultiPolygon', coordinates: coordinates as GeoJsonPosition[][][] },
+
           properties: {},
         });
         if (intersection.features.length > 0) {
