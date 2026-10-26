@@ -5,9 +5,11 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
+import type { Env } from "./env.js";
+
 let s3Client: S3Client | null = null;
 
-export const getS3Client = (env: any) => {
+export const getS3Client = (env: Env) => {
   if (s3Client) return s3Client;
   if (
     env.S3_ENDPOINT === undefined ||
