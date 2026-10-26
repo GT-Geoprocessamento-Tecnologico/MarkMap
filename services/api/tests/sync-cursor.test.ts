@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 
 import { describe, expect, it } from "vitest";
 
@@ -33,6 +33,39 @@ describe("workspace-bound sync cursor", () => {
     const cursor = createSyncCursor(workspaceId, "1", capabilityHash);
     const rotated = createHash("sha256").update("capability-b").digest("hex");
     expect(() => readSyncCursor(cursor, workspaceId, rotated)).toThrow(
+      "Invalid sync cursor",
+    );
+  });
+
+  it("rejects non-JSON payload even with valid signature", () => {
+    const payload = Buffer.from("not-valid-json", "utf8").toString("base64url");
+    const signature = createHmac("sha256", Buffer.from(capabilityHash, "hex"))
+      .update(payload)
+      .digest("base64url");
+    const token = `v1.${payload}.${signature}`;
+
+    expect(() => readSyncCursor(token, workspaceId, capabilityHash)).toThrow(
+      "Invalid sync cursor",
+    );
+  });
+
+  it("rejects invalid token schema format", () => {
+    expect(() =>
+      readSyncCursor("invalid-token-format", workspaceId, capabilityHash),
+    ).toThrow("Invalid sync cursor");
+  });
+
+  it("rejects payload with invalid content structure", () => {
+    const payload = Buffer.from(
+      JSON.stringify({ workspaceId, sequence: "not-a-number" }),
+      "utf8",
+    ).toString("base64url");
+    const signature = createHmac("sha256", Buffer.from(capabilityHash, "hex"))
+      .update(payload)
+      .digest("base64url");
+    const token = `v1.${payload}.${signature}`;
+
+    expect(() => readSyncCursor(token, workspaceId, capabilityHash)).toThrow(
       "Invalid sync cursor",
     );
   });
