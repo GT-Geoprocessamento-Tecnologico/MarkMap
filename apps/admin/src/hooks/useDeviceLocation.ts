@@ -22,7 +22,7 @@ interface WakeLockSentinelLike {
   release(): Promise<void>;
 }
 
-interface NavigatorWithWakeLock extends Navigator {
+interface NavigatorWithWakeLock {
   wakeLock?: {
     request(type: 'screen'): Promise<WakeLockSentinelLike>;
   };
@@ -75,7 +75,7 @@ export function useDeviceLocation(options: DeviceLocationOptions = {}) {
 
   // Screen WakeLock handling for mobile/tablet in the field
   const requestWakeLock = useCallback(async () => {
-    const nav = navigator as NavigatorWithWakeLock;
+    const nav = navigator as unknown as NavigatorWithWakeLock;
     if (keepScreenAwake && nav.wakeLock) {
       try {
         wakeLockRef.current = await nav.wakeLock.request('screen');
