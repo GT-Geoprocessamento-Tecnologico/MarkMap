@@ -12,7 +12,7 @@ import {
   listProjects,
   ProjectNotFoundError,
 } from "@markmap/db";
-import { type Context } from "hono";
+import { Hono, type Context, type Env } from "hono";
 
 import { validate } from "../middleware/validation.js";
 
@@ -37,7 +37,7 @@ export const toProjectWire = (project: unknown) => {
   });
 };
 
-export const projectRoutes = (app: any) => {
+export const projectRoutes = <E extends Env>(app: Hono<E>) => {
   app.post("/projects", validate(createProjectSchema), async (c: Context) => {
     const data = c.get("validatedBody");
     const project = await createProject(getDb(), data);
