@@ -21,7 +21,7 @@ import { storageRoutes } from "./routes/storage.js";
 import { syncRoutes } from "./routes/sync.js";
 import { workspaceRoutes } from "./routes/workspace.js";
 
-type Variables = {
+export type Variables = {
   requestId: string;
   validatedBody?: any;
   capabilityWorkspaceId?: string;

@@ -17,6 +17,7 @@ vi.mock("@markmap/db", async () => ({
   ...mocks,
 }));
 
+import type { Variables } from "../src/app.js";
 import { featureRoutes } from "../src/routes/features.js";
 import { layerRoutes } from "../src/routes/layers.js";
 import { projectRoutes } from "../src/routes/projects.js";
@@ -58,7 +59,7 @@ const feature = {
 };
 
 function routeApp() {
-  const app = new Hono();
+  const app = new Hono<{ Variables: Variables }>();
   app.onError((error, c) => {
     if (error instanceof ProjectNotFoundError)
       return c.json({ error: { code: error.code } }, 404);
