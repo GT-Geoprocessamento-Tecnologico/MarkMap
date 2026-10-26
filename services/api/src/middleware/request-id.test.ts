@@ -69,4 +69,19 @@ describe("Request ID Middleware", () => {
     expect(body.id).not.toBe(invalidId);
     expect(res.headers.get(REQUEST_ID_HEADER)).toBe(body.id);
   });
+
+  describe("getRequestId", () => {
+    it("should return the request ID from context when set", () => {
+      const mockContext = {
+        get: (key: "requestId") => {
+          if (key === "requestId") {
+            return "req-12345";
+          }
+          return undefined;
+        },
+      } as unknown as Parameters<typeof getRequestId>[0];
+
+      expect(getRequestId(mockContext)).toBe("req-12345");
+    });
+  });
 });
