@@ -1,0 +1,16 @@
+# Pages: only known React routes use SPA fallback; never rewrite /api or missing assets.
+/install / 302
+/projects / 200
+/projects/:projectId/map / 200
+/projects/:projectId/mesh / 200
+/projects/:projectId / 200
+/projects/* / 200
+/workspace / 200
+/mesh / 200
+/imports / 200
+/settings / 200
+/analytics / 200
+/coordinate-systems / 200
+/telemetry / 200
+/app / 200
+/app/* / 200
