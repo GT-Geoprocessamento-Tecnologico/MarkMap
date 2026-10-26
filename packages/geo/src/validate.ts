@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { kinks } from '@turf/turf';
 
 /**
@@ -110,7 +109,10 @@ export function validateGeometryLight(geometry: unknown): ValidationResult {
       try {
         const intersection = kinks({
           type: 'Feature',
-          geometry: { type: 'Polygon', coordinates: coordinates as any },
+          geometry: {
+            type: 'Polygon',
+            coordinates: coordinates as unknown as GeoJSON.Position[][],
+          },
           properties: {},
         });
         if (intersection.features.length > 0) {
@@ -161,7 +163,10 @@ export function validateGeometryLight(geometry: unknown): ValidationResult {
       try {
         const intersection = kinks({
           type: 'Feature',
-          geometry: { type: 'MultiPolygon', coordinates: coordinates as any },
+          geometry: {
+            type: 'MultiPolygon',
+            coordinates: coordinates as unknown as GeoJSON.Position[][][],
+          },
           properties: {},
         });
         if (intersection.features.length > 0) {
