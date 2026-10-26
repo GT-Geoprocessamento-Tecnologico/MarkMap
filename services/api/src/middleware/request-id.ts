@@ -25,4 +25,4 @@ export const requestId =
   };
 
 export const getRequestId = (c: Context<{ Variables: Variables }>): string =>
-  c.get(REQUEST_ID_KEY);
+  c.get(REQUEST_ID_KEY) ?? "unknown";
