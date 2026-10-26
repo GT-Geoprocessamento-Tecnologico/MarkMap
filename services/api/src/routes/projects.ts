@@ -12,8 +12,9 @@ import {
   listProjects,
   ProjectNotFoundError,
 } from "@markmap/db";
-import { type Context } from "hono";
+import { type Hono } from "hono";
 
+import type { Variables } from "../app.js";
 import { validate } from "../middleware/validation.js";
 
 export const toProjectWire = (project: unknown) => {
@@ -37,21 +38,21 @@ export const toProjectWire = (project: unknown) => {
   });
 };
 
-export const projectRoutes = (app: any) => {
-  app.post("/projects", validate(createProjectSchema), async (c: Context) => {
+export const projectRoutes = (app: Hono<{ Variables: Variables }>) => {
+  app.post("/projects", validate(createProjectSchema), async (c) => {
     const data = c.get("validatedBody");
     const project = await createProject(getDb(), data);
     return c.json(toProjectWire(project), 201);
   });
 
-  app.get("/projects/:id", async (c: Context) => {
+  app.get("/projects/:id", async (c) => {
     const id = uuidSchema.parse(c.req.param("id"));
     const project = await getProject(getDb(), id);
     if (!project) throw new ProjectNotFoundError(id);
     return c.json(toProjectWire(project));
   });
 
-  app.get("/projects", async (c: Context) => {
+  app.get("/projects", async (c) => {
     const query = paginationQuerySchema.parse(c.req.query());
     if (query.cursor !== undefined) decodeCursor(query.cursor);
     const page = await listProjects(getDb(), {

@@ -12,6 +12,7 @@ vi.mock("@markmap/db", async () => ({
   getDb: dbMocks.getDb,
 }));
 
+import type { Variables } from "../src/app.js";
 import { projectRoutes } from "../src/routes/projects.js";
 
 const uuid = "3f2504e0-4f89-41d3-9a0c-0305e82c3301";
@@ -33,7 +34,7 @@ describe("projects route pagination", () => {
       items: [project],
       nextCursor: "next-page",
     });
-    const app = new Hono();
+    const app = new Hono<{ Variables: Variables }>();
     projectRoutes(app);
 
     const response = await app.request(`/projects?limit=25&cursor=${cursor}`);
@@ -58,7 +59,7 @@ describe("projects route pagination", () => {
 
   it("rejects an invalid cursor before obtaining the DB", async () => {
     dbMocks.getDb.mockClear();
-    const app = new Hono();
+    const app = new Hono<{ Variables: Variables }>();
     app.onError(() => new Response("validation", { status: 400 }));
     projectRoutes(app);
     const response = await app.request("/projects?cursor=invalid");
