@@ -58,12 +58,12 @@ export { ERROR_CODES, HTTP_STATUS_BY_CODE };
  */
 export class AppError extends Error {
   public readonly status: number;
-  public readonly details?: any;
+  public readonly details?: unknown;
   public readonly code?: ErrorCode | string | undefined;
 
   constructor(
     message: string,
-    options: { status?: number; details?: any; code?: ErrorCode | string } = {},
+    options: { status?: number; details?: unknown; code?: ErrorCode | string } = {},
   ) {
     super(message);
     this.name = "AppError";
