@@ -13,7 +13,7 @@ vi.mock("@markmap/db", async () => ({
 }));
 
 import type { Variables } from "../src/app.js";
-import { projectRoutes } from "../src/routes/projects.js";
+import { projectRoutes, toProjectWire } from "../src/routes/projects.js";
 
 const uuid = "3f2504e0-4f89-41d3-9a0c-0305e82c3301";
 const project = {
@@ -65,5 +65,75 @@ describe("projects route pagination", () => {
     const response = await app.request("/projects?cursor=invalid");
     expect(response.status).toBe(400);
     expect(dbMocks.getDb).not.toHaveBeenCalled();
+  });
+});
+
+describe("toProjectWire", () => {
+  it("converts Date objects for createdAt and updatedAt to ISO strings and removes null description", () => {
+    const rawProject = {
+      id: uuid,
+      name: "Survey",
+      description: null,
+      status: "active",
+      createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      updatedAt: new Date("2026-01-02T00:00:00.000Z"),
+    };
+
+    const wire = toProjectWire(rawProject);
+
+    expect(wire).toEqual({
+      id: uuid,
+      name: "Survey",
+      status: "active",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-02T00:00:00.000Z",
+    });
+    expect(wire).not.toHaveProperty("description");
+  });
+
+  it("preserves non-null description string and accepts string timestamps", () => {
+    const rawProject = {
+      id: uuid,
+      name: "Survey",
+      description: "Project description",
+      status: "active",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-02T00:00:00.000Z",
+    };
+
+    const wire = toProjectWire(rawProject);
+
+    expect(wire).toEqual({
+      id: uuid,
+      name: "Survey",
+      description: "Project description",
+      status: "active",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-02T00:00:00.000Z",
+    });
+  });
+
+  it("throws validation error if project is missing required fields", () => {
+    const invalidProject = {
+      id: uuid,
+      description: null,
+      status: "active",
+      createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      updatedAt: new Date("2026-01-02T00:00:00.000Z"),
+    };
+
+    expect(() => toProjectWire(invalidProject)).toThrow();
+  });
+
+  it("throws validation error if date field is invalid", () => {
+    const invalidProject = {
+      id: uuid,
+      name: "Survey",
+      status: "active",
+      createdAt: "not-a-date",
+      updatedAt: "2026-01-02T00:00:00.000Z",
+    };
+
+    expect(() => toProjectWire(invalidProject)).toThrow();
   });
 });
