@@ -23,7 +23,6 @@ import { acquireOfflineProtocolLease } from "../../lib/map/offline-protocol-leas
 import type { GeoJSONSource, Map as MapLibreMap } from "maplibre-gl";
 import { createPropertyPopupContent } from "./property-popup";
 import {
-  exportDatasetGeoJSON,
   listDatasets,
   type DatasetRecord,
 } from "../../lib/datasets/dataset-store";
@@ -60,34 +59,21 @@ import {
   createOfflineProtocol,
 } from "@markmap/maps/offline/protocol";
 import { adaptOfflineStyle } from "@markmap/maps/offline/style";
-import { AppIcon, type AppIconName } from "../../components/AppIcon";
 import { OfflineSearch } from "../../components/map/OfflineSearch";
 import { OfflineRouting, type RoutePointSelection } from "../../components/map/OfflineRouting";
 import { OfflineKnowledge } from "../../components/map/OfflineKnowledge";
 import { OfflineElevation } from "../../components/map/OfflineElevation";
 import { MapOfflinePanel } from "../../components/map/MapOfflinePanel";
 import { RegionDownloadCatalog } from "../../components/map/RegionDownloadCatalog";
+import { MapToolbar, type SidePanel } from "../../components/map/MapToolbar";
+import { MapDrawingControl, type MeasurePoint } from "../../components/map/MapDrawingControl";
+import { MapSidePanel, type TelemetryData } from "../../components/map/MapSidePanel";
 import { evaluateGeoPdfGps, describeGeoPdfGps } from "../../lib/pdf/geopdf-focus.mjs";
 import { MAX_CONTOUR_BYTES, validateRegionalContours, contoursToGeoJSON } from "@markmap/maps/elevation/contour-package.mjs";
 import { loadRegionalPackageSearch, describeRegionalSearchLoadError } from '../../lib/search/regional-package-search';
 import type { LocalSearchRecord } from '../../lib/search/local-map-search';
 import { buildLocalMapSearchRecords } from "../../lib/search/local-map-search";
 import { useVisibleMapSearch } from "../../lib/search/use-visible-map-search";
-
-// ---------------------------------------------------------------------------
-// Tipos
-// ---------------------------------------------------------------------------
-interface TelemetryData {
-  lat: number;
-  lng: number;
-  zoom: number;
-  pitch: number;
-  bearing: number;
-}
-interface MeasurePoint {
-  lng: number;
-  lat: number;
-}
 
 function haversineMeters(a: MeasurePoint, b: MeasurePoint): number {
   const R = 6371000;
@@ -99,12 +85,7 @@ function haversineMeters(a: MeasurePoint, b: MeasurePoint): number {
     Math.cos(r(a.lat)) * Math.cos(r(b.lat)) * Math.sin(dLng / 2) ** 2;
   return R * 2 * Math.asin(Math.sqrt(s));
 }
-function formatDistance(m: number) {
-  return m >= 1000 ? `${(m / 1000).toFixed(2)} km` : `${m.toFixed(1)} m`;
-}
 
-type SidePanel = "none" | "ferramentas" | "filtros" | "camadas" | "telemetria"
-  | "busca-offline" | "lugares-offline" | "altitude-offline" | "navegacao-offline" | "baixar-mapas";
 type MapControls = Awaited<ReturnType<typeof createMapLibreMap>>;
 
 function routeAsGeoJSON(route: Route | null): GeoJSON.FeatureCollection {
@@ -337,6 +318,9 @@ export default function CommandCenterPage() {
       ),
     [datasetFeatures, layerVisibility.datasetPoints],
   );
+  const showDatasetPointsRef = useRef(showDatasetPoints);
+  showDatasetPointsRef.current = showDatasetPoints;
+
   const fullFeatures = useMemo(
     () => [
       ...((activeDataset?.geojson.features as GeoJSON.Feature[]) ?? []),
@@ -396,7 +380,6 @@ export default function CommandCenterPage() {
       ],
     }),
     [
-      activeDataset,
       datasetFeatures,
       showDatasetPoints,
       projectFeatures,
@@ -996,7 +979,7 @@ export default function CommandCenterPage() {
               paint: { "line-color": "#0284c7", "line-width": 2 } },
             { id: "local-dataset-points", type: "circle", source: "local-dataset",
               filter: ["==", "$type", "Point"],
-              layout: { visibility: showDatasetPoints ? "visible" : "none" },
+              layout: { visibility: showDatasetPointsRef.current ? "visible" : "none" },
               paint: { "circle-color": "#0284c7", "circle-radius": 5,
                 "circle-stroke-color": "#fff", "circle-stroke-width": 1 } },
           ]);
@@ -1241,7 +1224,7 @@ export default function CommandCenterPage() {
       releaseProtocols();
     };
   }, [toast, updateTelemetry, fitSelection, search.pdfId, activeRegionPackageId, regionalRenderRevision,
-    mapSource.neutralActive, mapRetryRevision, updateNavigationPosition]);
+    mapSource.regionId, mapSource.neutralActive, mapRetryRevision, retryMap, updateNavigationPosition]);
 
   useEffect(() => {
     if (!mapContainer.current) return;
@@ -1341,16 +1324,6 @@ export default function CommandCenterPage() {
       setSidePanel("telemetria");
     }
   };
-
-  // Painel lateral
-  const panelBg =
-    "absolute z-20 bg-surface-container border border-outline-variant shadow-2xl";
-  const panelPos =
-    "bottom-[calc(8rem+env(safe-area-inset-bottom))] left-3 right-3 lg:bottom-auto lg:top-0 lg:left-auto lg:right-0 lg:h-full lg:w-80";
-  const panelRound = "rounded-2xl lg:rounded-none lg:rounded-l-2xl";
-  const labelClass = "text-on-surface font-semibold text-sm";
-  const subtitleClass = "text-on-surface-variant text-xs";
-  const valueClass = "text-on-surface font-mono font-bold text-sm";
 
   return (
     <div
@@ -1464,634 +1437,70 @@ export default function CommandCenterPage() {
         <button type="button" className="ml-2 underline" onClick={() => setRoutingPickMode(null)}>Cancelar</button>
       </div>}
 
-      {/* ── Barra de ferramentas flutuante ── */}
-      <div role="toolbar" aria-label="Atalhos do mapa" className="absolute bottom-[calc(4rem+env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 lg:bottom-auto lg:top-6 lg:left-4 lg:translate-x-0 markmap-map-tools bg-surface-container/90 backdrop-blur-xl border border-outline-variant rounded-2xl p-2 flex lg:flex-col gap-1.5 shadow-2xl z-10 w-max max-w-[92vw] overflow-x-auto lg:max-h-[calc(100%-3rem)] lg:overflow-x-hidden lg:overflow-y-auto">
-        {/* Telemetria */}
-        <ToolBtn
-          active={sidePanel === "telemetria"}
-          onClick={() => togglePanel("telemetria")}
-          icon="telemetry"
-          label="Telemetria"
-          color="cyan"
-        />
-        {/* Camadas */}
-        <ToolBtn
-          active={sidePanel === "camadas"}
-          onClick={() => togglePanel("camadas")}
-          icon="layers"
-          label="Camadas"
-          color="blue"
-        />
-        {/* Filtros */}
-        <ToolBtn
-          active={sidePanel === "filtros"}
-          onClick={() => togglePanel("filtros")}
-          icon="filters"
-          label="Filtros"
-          color="violet"
-        />
-        {/* Ferramentas */}
-        <ToolBtn
-          active={sidePanel === "ferramentas"}
-          onClick={() => togglePanel("ferramentas")}
-          icon="tools"
-          label="Ferramentas"
-          color="slate"
-        />
-        {/* Escolha uma região e baixe diretamente do mapa. */}
-        <ToolBtn active={sidePanel === "baixar-mapas"}
-          onClick={() => togglePanel("baixar-mapas")} icon="download" label="Baixar mapas" color="emerald" />
-        {/* Atalhos offline no mesmo menu; os serviços seguem montados ao fechar. */}
-        <ToolBtn active={sidePanel === "busca-offline"}
-          onClick={() => togglePanel("busca-offline")} icon="search" label="Buscar locais neste mapa" color="cyan" />
-        <ToolBtn active={sidePanel === "lugares-offline"}
-          onClick={() => togglePanel("lugares-offline")} icon="map" label="Lugares e transporte offline" color="blue" />
-        <ToolBtn active={sidePanel === "altitude-offline"}
-          onClick={() => togglePanel("altitude-offline")} icon="analytics" label="Altitude" color="emerald" />
-        <ToolBtn active={sidePanel === "navegacao-offline"}
-          onClick={() => togglePanel("navegacao-offline")} icon="coordinates" label="Navegação GPS offline" color="amber" />
-        {/* Separador */}
-        <div className="w-full h-px md:block hidden bg-outline-variant my-0.5" />
-        <div className="w-px h-8 md:hidden block bg-outline-variant mx-0.5" />
-        {/* Minha localização */}
-        <ToolBtn
-          active={false}
-          onClick={() => void handleMyLocation()}
-          icon="location"
-          label="Minha localização"
-          color="emerald"
-        />
-        {/* Medir */}
-        <ToolBtn
-          active={measuring}
-          onClick={toggleMeasure}
-          icon="measure"
-          label={measuring ? "Encerrar medição" : "Medir distância"}
-          color="amber"
-        />
-        <ToolBtn
-          active={drawingSession?.type === "Point"}
-          onClick={() => void startDrawing("Point")}
-          icon="point"
-          label="Adicionar ponto"
-          color="cyan"
-        />
-        <ToolBtn
-          active={drawingSession?.type === "LineString"}
-          onClick={() => void startDrawing("LineString")}
-          icon="line"
-          label="Desenhar linha"
-          color="blue"
-        />
-        <ToolBtn
-          active={drawingSession?.type === "Polygon"}
-          onClick={() => void startDrawing("Polygon")}
-          icon="polygon"
-          label="Desenhar polígono"
-          color="violet"
-        />
-      </div>
+      <MapToolbar
+        sidePanel={sidePanel}
+        onTogglePanel={togglePanel}
+        onMyLocation={() => void handleMyLocation()}
+        measuring={measuring}
+        onToggleMeasure={toggleMeasure}
+        drawingSession={drawingSession}
+        onStartDrawing={(type) => void startDrawing(type)}
+      />
 
-      {drawingSession && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex max-w-[calc(100%-2rem)] flex-wrap items-center justify-center gap-2 rounded-2xl border border-cyan-400/40 bg-surface-container/95 px-3 py-2 text-xs font-semibold text-on-surface shadow-lg backdrop-blur">
-          <span>
-            {drawingSession.type === "Point"
-              ? "Toque no mapa para salvar o ponto"
-              : `${drawingSession.vertices.length} vértice${drawingSession.vertices.length === 1 ? "" : "s"}`}
-          </span>
-          {drawingSession.type !== "Point" && (
-            <>
-              <button
-                type="button"
-                onClick={undoDrawing}
-                disabled={drawingSession.undoStack.length === 0}
-                className="min-h-[44px] rounded-lg px-3 text-cyan-500 disabled:opacity-40"
-              >
-                Desfazer
-              </button>
-              <button
-                type="button"
-                onClick={finishDrawing}
-                className="min-h-[44px] rounded-lg bg-secondary px-3 font-bold text-[#07131f] hover:brightness-110"
-              >
-                Concluir
-              </button>
-            </>
-          )}
-          <button
-            type="button"
-            onClick={resetDrawing}
-            className="min-h-[44px] rounded-lg px-3 text-red-400"
-          >
-            Cancelar
-          </button>
-        </div>
-      )}
+      <MapDrawingControl
+        drawingSession={drawingSession}
+        onUndoDrawing={undoDrawing}
+        onFinishDrawing={finishDrawing}
+        onResetDrawing={resetDrawing}
+        measuring={measuring}
+        measurePoints={measurePoints}
+        totalDistance={totalDistance}
+        onToggleMeasure={toggleMeasure}
+      />
 
-      {/* ── Indicador de medição ativo ── */}
-      {measuring && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 bg-amber-50 border border-amber-300 text-amber-800 text-xs font-semibold px-4 py-2 rounded-full flex items-center gap-2 shadow-lg">
-          <AppIcon name="measure" size="sm" />
-          {measurePoints.length === 0
-            ? "Clique no mapa para iniciar a medição"
-            : `${measurePoints.length} ponto${measurePoints.length > 1 ? "s" : ""} · ${formatDistance(totalDistance)}`}
-          <button
-            onClick={toggleMeasure}
-            className="ml-1 text-amber-600 hover:text-amber-900 font-bold"
-          >
-            ✕
-          </button>
-        </div>
-      )}
-
-      {/* ── Painel lateral (branco, texto escuro) ── */}
-      {sidePanel !== "none" && sidePanel !== "baixar-mapas" && !sidePanel.endsWith("-offline") && (
-        <div
-          className={`${panelBg} ${panelPos} ${panelRound} flex flex-col max-h-[55vh] lg:max-h-full overflow-y-auto`}
-        >
-          {/* Header do painel */}
-          <div className="flex items-center justify-between px-5 py-4 border-b border-outline-variant flex-shrink-0">
-            <span className="text-on-surface font-bold text-base flex items-center gap-2">
-              <AppIcon
-                name={
-                  sidePanel === "telemetria"
-                    ? "telemetry"
-                    : sidePanel === "camadas"
-                      ? "layers"
-                      : sidePanel === "filtros"
-                        ? "filters"
-                        : "tools"
-                }
-                size="md"
-              />
-              {sidePanel === "telemetria"
-                ? "Telemetria"
-                : sidePanel === "camadas"
-                  ? "Camadas"
-                  : sidePanel === "filtros"
-                    ? "Filtros"
-                    : "Ferramentas"}
-            </span>
-            <button
-              aria-label="Fechar painel do mapa"
-              onClick={() => setSidePanel("none")}
-              className="w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-variant transition-colors"
-            >
-              <AppIcon name="close" size="sm" />
-            </button>
-          </div>
-
-          {/* Conteúdo: TELEMETRIA */}
-          {sidePanel === "telemetria" && (
-            <div className="p-5 space-y-4">
-              <div>
-                <p className={subtitleClass + " mb-2 uppercase tracking-wider"}>
-                  Posição do mapa
-                </p>
-                <div className="space-y-2">
-                  <Row
-                    label="Latitude"
-                    value={`${telemetry.lat.toFixed(6)}°`}
-                    labelCls={labelClass}
-                    valueCls={valueClass}
-                  />
-                  <Row
-                    label="Longitude"
-                    value={`${telemetry.lng.toFixed(6)}°`}
-                    labelCls={labelClass}
-                    valueCls={valueClass}
-                  />
-                </div>
-              </div>
-              <div className="h-px bg-surface-variant" />
-              <div>
-                <p className={subtitleClass + " mb-2 uppercase tracking-wider"}>
-                  Câmera
-                </p>
-                <div className="space-y-2">
-                  <Row
-                    label="Zoom"
-                    value={telemetry.zoom.toFixed(2)}
-                    labelCls={labelClass}
-                    valueCls="text-cyan-700 font-mono font-bold text-sm"
-                  />
-                  <Row
-                    label="Inclinação (Pitch)"
-                    value={`${telemetry.pitch.toFixed(1)}°`}
-                    labelCls={labelClass}
-                    valueCls="text-cyan-700 font-mono font-bold text-sm"
-                  />
-                  <Row
-                    label="Rotação (Bearing)"
-                    value={`${telemetry.bearing.toFixed(1)}°`}
-                    labelCls={labelClass}
-                    valueCls="text-cyan-700 font-mono font-bold text-sm"
-                  />
-                </div>
-              </div>
-              {measuring && (
-                <>
-                  <div className="h-px bg-surface-variant" />
-                  <div>
-                    <p
-                      className={
-                        subtitleClass + " mb-2 uppercase tracking-wider"
-                      }
-                    >
-                      Medição ativa
-                    </p>
-                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-2">
-                      <Row
-                        label="Pontos"
-                        value={String(measurePoints.length)}
-                        labelCls="text-amber-800 font-semibold text-sm"
-                        valueCls="text-amber-900 font-mono font-bold text-sm"
-                      />
-                      <Row
-                        label="Distância total"
-                        value={formatDistance(totalDistance)}
-                        labelCls="text-amber-800 font-semibold text-sm"
-                        valueCls="text-amber-900 font-mono font-bold text-base"
-                      />
-                    </div>
-                    <button
-                      onClick={toggleMeasure}
-                      className="mt-3 w-full py-2 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 text-sm font-semibold hover:bg-amber-100 transition-colors"
-                    >
-                      Encerrar medição
-                    </button>
-                  </div>
-                </>
-              )}
-              {!measuring && (
-                <button
-                  onClick={toggleMeasure}
-                  className="w-full py-2.5 rounded-xl border border-outline-variant bg-surface-container-high text-on-surface-variant text-sm font-semibold hover:bg-surface-variant transition-colors flex items-center justify-center gap-2"
-                >
-                  <AppIcon name="measure" size="sm" />
-                  Iniciar medição de distância
-                </button>
-              )}
-            </div>
-          )}
-
-          {/* Conteúdo: CAMADAS */}
-          {sidePanel === "camadas" && (
-            <div className="p-5 space-y-3">
-              <p className={subtitleClass + " uppercase tracking-wider"}>
-                Gerenciar camadas visíveis
-              </p>
-              <div className="flex items-center justify-between py-2.5 px-3 rounded-xl border border-outline-variant bg-surface-container-high hover:bg-surface-variant transition-colors">
-                <div className="flex items-center gap-3">
-                  <span className="w-3 h-3 rounded-full flex-shrink-0 bg-cyan-500" />
-                  <span className="text-on-surface text-sm font-medium">
-                    {activeDataset?.name ?? "Dataset selecionado"}
-                  </span>
-                </div>
-                <button
-                  aria-label="Alternar dataset local"
-                  aria-pressed={layerVisibility.dataset}
-                  disabled={!activeDataset}
-                  onClick={() =>
-                    setLayerVisibility((prev) => ({
-                      ...prev,
-                      dataset: !prev.dataset,
-                    }))
-                  }
-                  className={`w-11 h-6 rounded-full relative transition-colors duration-200 flex-shrink-0 ${layerVisibility.dataset ? "bg-secondary" : "bg-on-surface/15"}`}
-                >
-                  <span
-                    className={`absolute top-0.5 w-5 h-5 rounded-full bg-surface-container shadow transition-all duration-200 ${layerVisibility.dataset ? "left-[calc(100%-22px)]" : "left-0.5"}`}
-                  />
-                </button>
-              </div>
-              {activeDataset && datasetHasPoints && (
-                <div className="flex items-center justify-between py-2 px-3 pl-6 rounded-lg border border-outline-variant/60 bg-surface-container text-xs text-on-surface">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full flex-shrink-0 bg-cyan-400" />
-                    <span>{datasetHasPolygons ? "Pontos e marcos dos vértices" : "Pontos do dataset"}</span>
-                  </div>
-                  <button
-                    aria-label="Alternar pontos do dataset"
-                    aria-pressed={showDatasetPoints}
-                    disabled={!layerVisibility.dataset}
-                    onClick={() =>
-                      setLayerVisibility((prev) => ({
-                        ...prev,
-                        datasetPoints: !showDatasetPoints,
-                      }))
-                    }
-                    className={`h-5 w-9 rounded-full relative transition-colors duration-200 flex-shrink-0 ${showDatasetPoints && layerVisibility.dataset ? "bg-secondary" : "bg-on-surface/15"}`}
-                  >
-                    <span
-                      className={`block h-4 w-4 rounded-full bg-white shadow transition-transform ${showDatasetPoints && layerVisibility.dataset ? "translate-x-4" : "translate-x-0.5"}`}
-                    />
-                  </button>
-                </div>
-              )}
-              {!activeDataset && (
-                <p className="text-on-surface-variant text-sm">
-                  Selecione um dataset local abaixo ou importe um arquivo.
-                </p>
-              )}
-              <label className="block text-xs font-semibold text-on-surface-variant">
-                Dataset local (opcional)
-                <select
-                  aria-label="Selecionar dataset local"
-                  value={datasetSelection}
-                  onChange={(event) => setDatasetSelection(event.target.value)}
-                  className="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container px-2 py-2 text-sm text-on-surface"
-                >
-                  <option value="none">Nenhum dataset</option>
-                  {datasets.map((dataset) => (
-                    <option key={dataset.id} value={dataset.id}>
-                      {dataset.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              {projectLayers.map((layer) => (
-                <div
-                  key={layer.id}
-                  className="flex items-center justify-between rounded-lg border border-outline-variant px-3 py-2 text-sm text-on-surface"
-                >
-                  <span>{layer.name}</span>
-                  <button
-                    aria-label={`Alternar camada ${layer.name}`}
-                    aria-pressed={
-                      layerVisibility[layer.id] ?? layer.visibleByDefault
-                    }
-                    onClick={() =>
-                      setLayerVisibility((prev) => ({
-                        ...prev,
-                        [layer.id]: !(prev[layer.id] ?? layer.visibleByDefault),
-                      }))
-                    }
-                    className={`h-5 w-9 rounded-full ${(layerVisibility[layer.id] ?? layer.visibleByDefault) ? "bg-secondary" : "bg-on-surface/15"}`}
-                  >
-                    <span
-                      className={`block h-4 w-4 rounded-full bg-white transition-transform ${(layerVisibility[layer.id] ?? layer.visibleByDefault) ? "translate-x-4" : "translate-x-0.5"}`}
-                    />
-                  </button>
-                </div>
-              ))}
-              {projectFeatureError && (
-                <p role="alert" className="text-sm text-red-400">
-                  Não foi possível carregar as feições do projeto:{" "}
-                  {projectFeatureError instanceof Error
-                    ? projectFeatureError.message
-                    : "erro desconhecido"}
-                </p>
-              )}
-              {projectFeatureTruncated && (
-                <p className="text-xs text-on-surface-variant">
-                  Consulta parcial: até 100 camadas e 10.000 feições por
-                  projeto.
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* Conteúdo: FILTROS */}
-          {sidePanel === "filtros" && (
-            <div className="p-5 space-y-4">
-              <p className={subtitleClass + " uppercase tracking-wider"}>
-                Filtrar feições no mapa
-              </p>
-              <div>
-                <label className={labelClass + " block mb-1.5"}>
-                  Busca por nome
-                </label>
-                <input
-                  aria-label="Buscar nas propriedades das feições"
-                  type="text"
-                  value={filterText}
-                  onChange={(e) => setFilterText(e.target.value)}
-                  placeholder="Ex: Fazenda, Sítio..."
-                  className="w-full px-3 py-2.5 rounded-xl border border-outline-variant bg-surface-container text-on-surface text-sm placeholder:text-on-surface-variant focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100 transition-all"
-                />
-              </div>
-              <div>
-                <label className={labelClass + " block mb-1.5"}>
-                  Tipo de feição
-                </label>
-                <select
-                  aria-label="Tipo de feição"
-                  value={filterType}
-                  onChange={(e) => setFilterType(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl border border-outline-variant bg-surface-container text-on-surface text-sm focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-100 transition-all"
-                >
-                  <option value="todos">Todos os tipos</option>
-                  <option value="Point">Pontos</option>
-                  <option value="LineString">Linhas</option>
-                  <option value="Polygon">Polígonos</option>
-                  <option value="Multi">Multi-geometrias</option>
-                </select>
-              </div>
-              <div className="h-px bg-surface-variant" />
-              {filterText && (
-                <div className="space-y-2">
-                  <p className={subtitleClass}>
-                    Resultados para "{filterText}":
-                  </p>
-                  {activeGeoJson.features
-                    .slice(0, 100)
-                    .map((feature, index) => (
-                      <div
-                        key={String(feature.id ?? index)}
-                        className="px-3 py-2.5 rounded-xl bg-surface-container-high border border-outline-variant"
-                      >
-                        <p className="text-on-surface font-semibold text-sm">
-                          {String(
-                            feature.properties?.name ??
-                              feature.id ??
-                              `Feição ${index + 1}`,
-                          )}
-                        </p>
-                        <p className="text-on-surface-variant text-xs">
-                          {JSON.stringify(feature.properties)}
-                        </p>
-                      </div>
-                    ))}
-                  {activeGeoJson.features.length === 0 && (
-                    <p className="text-on-surface-variant text-sm text-center py-4">
-                      Nenhuma feição encontrada.
-                    </p>
-                  )}
-                </div>
-              )}
-              <button
-                onClick={() => {
-                  setFilterText("");
-                  setFilterType("todos");
-                  toast({ title: "Filtros limpos", variant: "default" });
-                }}
-                className="w-full py-2.5 rounded-xl border border-outline-variant bg-surface-container-high text-on-surface-variant text-sm font-medium hover:bg-surface-variant transition-colors"
-              >
-                Limpar filtros
-              </button>
-            </div>
-          )}
-
-          {/* Conteúdo: FERRAMENTAS */}
-          {sidePanel === "ferramentas" && (
-            <div className="p-5 space-y-3">
-              <p className={subtitleClass + " uppercase tracking-wider"}>
-                Ferramentas disponíveis
-              </p>
-              {[
-                {
-                  icon: "measure" as AppIconName,
-                  label: "Medir Distância",
-                  desc: "Clique em pontos no mapa para medir.",
-                  action: () => {
-                    toggleMeasure();
-                    setSidePanel("telemetria");
-                  },
-                },
-                {
-                  icon: "location" as AppIconName,
-                  label: "Minha Localização",
-                  desc: "Centralizar o mapa na sua posição atual.",
-                  action: handleMyLocation,
-                },
-                {
-                  icon: "download" as AppIconName,
-                  label: "Exportar Dados",
-                  desc: "Exportar o dataset selecionado em GeoJSON.",
-                  action: () => {
-                    if (activeDataset)
-                      void exportDatasetGeoJSON(activeDataset.id).catch((cause) =>
-                        toast({
-                          title: "Exportação não concluída",
-                          description:
-                            cause instanceof Error
-                              ? cause.message
-                              : "Falha ao exportar.",
-                          variant: "error",
-                        }),
-                      );
-                    else
-                      toast({
-                        title: "Nenhum dataset selecionado",
-                        variant: "error",
-                      });
-                  },
-                },
-                {
-                  icon: "copy" as AppIconName,
-                  label: "Copiar coordenadas",
-                  desc: "Copiar o centro atual do mapa.",
-                  action: async () => {
-                    const value = `${telemetry.lat.toFixed(6)}, ${telemetry.lng.toFixed(6)}`;
-                    try {
-                      if (!navigator.clipboard?.writeText)
-                        throw new Error(
-                          "Cópia indisponível neste dispositivo.",
-                        );
-                      await navigator.clipboard.writeText(value);
-                      toast({
-                        title: "Coordenadas copiadas",
-                        description: value,
-                        variant: "success",
-                      });
-                    } catch (cause) {
-                      toast({
-                        title: "Não foi possível copiar",
-                        description:
-                          cause instanceof Error
-                            ? cause.message
-                            : "Verifique a permissão de cópia.",
-                        variant: "error",
-                      });
-                    }
-                  },
-                },
-                {
-                  icon: "upload" as AppIconName,
-                  label: "Importar dataset",
-                  desc: "Abrir a página de importação local.",
-                  action: () => {
-                    window.location.href = "/imports";
-                  },
-                },
-              ].map((tool) => (
-                <button
-                  key={tool.icon}
-                  onClick={tool.action}
-                  className="w-full flex items-start gap-3 px-3 py-3 rounded-xl border border-outline-variant bg-surface-container-high hover:bg-primary/10 hover:border-primary/30 transition-colors text-left"
-                >
-                  <AppIcon name={tool.icon} size="md" className="mt-0.5" />
-                  <div>
-                    <p className="text-on-surface font-semibold text-sm">
-                      {tool.label}
-                    </p>
-                    <p className="text-on-surface-variant text-xs mt-0.5">
-                      {tool.desc}
-                    </p>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// Sub-componentes auxiliares
-function ToolBtn({
-  active,
-  onClick,
-  icon,
-  label,
-  color,
-}: {
-  active: boolean;
-  onClick: () => void;
-  icon: AppIconName;
-  label: string;
-  color: string;
-}) {
-  const activeColors: Record<string, string> = {
-    cyan: "bg-cyan-500/15 border-cyan-400/40 text-cyan-400",
-    blue: "bg-blue-500/15 border-blue-400/40 text-blue-400",
-    violet: "bg-violet-500/15 border-violet-400/40 text-violet-400",
-    slate: "bg-white/10 border-white/15 text-on-surface",
-    emerald: "bg-emerald-500/15 border-emerald-400/40 text-emerald-400",
-    amber: "bg-amber-500/15 border-amber-400/40 text-amber-400",
-  };
-  const idleClass =
-    "bg-surface-container border-outline-variant text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface";
-  return (
-    <button
-      onClick={onClick}
-      title={label}
-      aria-label={label}
-      aria-pressed={active}
-      className={`min-h-[44px] min-w-[44px] shrink-0 p-2.5 rounded-xl border flex items-center justify-center transition-all shadow-sm ${active ? (activeColors[color] ?? activeColors["slate"]) : idleClass}`}
-    >
-      <AppIcon name={icon} size="lg" />
-    </button>
-  );
-}
-
-function Row({
-  label,
-  value,
-  labelCls,
-  valueCls,
-}: {
-  label: string;
-  value: string;
-  labelCls: string;
-  valueCls: string;
-}) {
-  return (
-    <div className="flex items-center justify-between">
-      <span className={labelCls}>{label}</span>
-      <span className={valueCls}>{value}</span>
+      <MapSidePanel
+        sidePanel={sidePanel}
+        onClose={() => setSidePanel("none")}
+        telemetry={telemetry}
+        measuring={measuring}
+        measurePoints={measurePoints}
+        totalDistance={totalDistance}
+        onToggleMeasure={toggleMeasure}
+        activeDataset={activeDataset}
+        datasetHasPoints={datasetHasPoints}
+        datasetHasPolygons={datasetHasPolygons}
+        showDatasetPoints={showDatasetPoints}
+        layerVisibility={layerVisibility}
+        onToggleLayerVisibility={(key) =>
+          setLayerVisibility((prev) => ({
+            ...prev,
+            [key]: !(prev[key] ?? projectLayers.find((l) => l.id === key)?.visibleByDefault ?? true),
+          }))
+        }
+        onToggleDatasetPoints={() =>
+          setLayerVisibility((prev) => ({
+            ...prev,
+            datasetPoints: !showDatasetPoints,
+          }))
+        }
+        datasetSelection={datasetSelection}
+        onSelectDataset={setDatasetSelection}
+        datasets={datasets}
+        projectLayers={projectLayers}
+        projectFeatureError={projectFeatureError}
+        projectFeatureTruncated={projectFeatureTruncated}
+        filterText={filterText}
+        onFilterTextChange={setFilterText}
+        filterType={filterType}
+        onFilterTypeChange={setFilterType}
+        activeGeoJsonFeatures={activeGeoJson.features}
+        onClearFilters={() => {
+          setFilterText("");
+          setFilterType("todos");
+          toast({ title: "Filtros limpos", variant: "default" });
+        }}
+        onMyLocation={() => void handleMyLocation()}
+      />
     </div>
   );
 }
