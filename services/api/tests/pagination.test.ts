@@ -35,6 +35,13 @@ describe("cursor round trip", () => {
     expect(() => decodeCursor("not-base64-json!!")).toThrow(InvalidCursorError);
   });
 
+  it("rejects a base64 string that contains invalid JSON", () => {
+    const invalidJsonBase64 = Buffer.from("{ invalid json", "utf8").toString(
+      "base64url",
+    );
+    expect(() => decodeCursor(invalidJsonBase64)).toThrow(InvalidCursorError);
+  });
+
   it("rejects a cursor that decodes to the wrong shape", () => {
     const tampered = Buffer.from(JSON.stringify({ nope: 1 }), "utf8").toString(
       "base64url",
