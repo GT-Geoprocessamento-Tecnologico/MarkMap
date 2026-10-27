@@ -34,6 +34,8 @@ export interface DryRunSummary {
   entitiesCount: number;
   originalsCount: number;
   acksCount: number;
+  outboxCount: number;
+  conflictsCount: number;
   projectsCount: number;
   featuresCount: number;
   totalRecords: number;
@@ -61,7 +63,91 @@ export interface RestoreResult {
     entities: number;
     originals: number;
     acks: number;
+    outbox: number;
+    conflicts: number;
   };
+}
+
+function inspectPendingSnapshot(snapshot: PortableLocalFirstSnapshot): {
+  outbox: Record<string, unknown>[];
+  conflicts: Record<string, unknown>[];
+} {
+  const { workspaceId, outboxSequence } = snapshot.metadata;
+  const { outbox, conflicts } = snapshot.stores;
+  if (!Array.isArray(outbox) || !Array.isArray(conflicts)) {
+    throw new Error("Outbox ou conflitos ausentes no snapshot.");
+  }
+  if (outboxSequence !== null &&
+    (!Number.isSafeInteger(outboxSequence) || outboxSequence < 0)) {
+    throw new Error("Sequência da outbox inválida no backup.");
+  }
+  const seenIds = new Set<string>();
+  const seenSequences = new Set<number>();
+  let maxSequence = 0;
+  for (const row of outbox) {
+    if (!row || row.workspaceId !== workspaceId ||
+      typeof row.operationId !== "string" || !row.operationId ||
+      row.key !== row.operationId || row.immutable !== true ||
+      typeof row.localSequence !== "number" ||
+      !Number.isSafeInteger(row.localSequence) || row.localSequence < 1) {
+      throw new Error("Operação da outbox inválida no backup.");
+    }
+    if (seenIds.has(row.operationId) || seenSequences.has(row.localSequence)) {
+      throw new Error("Operação ou sequência duplicada na outbox.");
+    }
+    seenIds.add(row.operationId);
+    seenSequences.add(row.localSequence);
+    maxSequence = Math.max(maxSequence, row.localSequence);
+  }
+  if (maxSequence > 0 &&
+    (outboxSequence === null || maxSequence > outboxSequence)) {
+    throw new Error("Sequência da outbox incompatível com as operações.");
+  }
+  const seenConflicts = new Set<string>();
+  for (const row of conflicts) {
+    if (!row || row.workspaceId !== workspaceId ||
+      typeof row.operationId !== "string" || !row.operationId ||
+      row.key !== `${workspaceId}:${row.operationId}` ||
+      seenConflicts.has(row.operationId)) {
+      throw new Error("Conflito inválido ou duplicado no backup.");
+    }
+    seenConflicts.add(row.operationId);
+  }
+  return { outbox, conflicts };
+}
+
+/** Hash all PDFs before a readwrite transaction; WebCrypto awaits can close IDB transactions. */
+async function prepareOriginals(
+  snapshot: PortableLocalFirstSnapshot,
+): Promise<Record<string, unknown>[]> {
+  const workspaceId = snapshot.metadata.workspaceId;
+  if (!Array.isArray(snapshot.stores.originals)) {
+    throw new Error("Originais ausentes no snapshot.");
+  }
+  return Promise.all(snapshot.stores.originals.map(async (rawOrig) => {
+    const { originalBytesBase64, ...metadata } = rawOrig;
+    if (metadata.workspaceId !== workspaceId ||
+      typeof metadata.blobId !== "string" || !metadata.blobId ||
+      metadata.key !== `${workspaceId}:${metadata.blobId}`) {
+      throw new Error("Original com workspace ou chave inválidos no backup.");
+    }
+    if (typeof originalBytesBase64 !== "string" || !originalBytesBase64) {
+      throw new Error(`Original "${String(metadata.blobId)}" sem bytes no snapshot.`);
+    }
+    const bytes = fromBase64(originalBytesBase64);
+    if (metadata.bytes !== bytes.byteLength ||
+      metadata.mediaType !== "application/pdf" ||
+      typeof metadata.sha256 !== "string") {
+      throw new Error("Original com metadados binários inconsistentes.");
+    }
+    if (await digestHex(bytes) !== metadata.sha256.toLowerCase()) {
+      throw new Error(`SHA-256 do original "${String(metadata.blobId)}" corrompido no snapshot.`);
+    }
+    const copy = new ArrayBuffer(bytes.byteLength);
+    new Uint8Array(copy).set(bytes);
+    return { ...metadata, originalBytes: copy,
+      blob: new Blob([copy], { type: "application/pdf" }) };
+  }));
 }
 
 /**
@@ -186,6 +272,7 @@ export async function dryRunRestore(
     );
   }
 
+  const { outbox, conflicts } = inspectPendingSnapshot(snapshot);
   const entities = snapshot.stores.entities || [];
   const originals = snapshot.stores.originals || [];
   const acks = snapshot.stores.acks || [];
@@ -204,7 +291,8 @@ export async function dryRunRestore(
     if (typeof row.bytes === "number") totalOriginalsBytes += row.bytes;
   }
 
-  const totalRecords = entities.length + originals.length + acks.length;
+  const totalRecords =
+    entities.length + originals.length + acks.length + outbox.length + conflicts.length;
 
   return {
     valid: true,
@@ -216,6 +304,8 @@ export async function dryRunRestore(
       entitiesCount: entities.length,
       originalsCount: originals.length,
       acksCount: acks.length,
+      outboxCount: outbox.length,
+      conflictsCount: conflicts.length,
       projectsCount,
       featuresCount,
       totalRecords,
@@ -274,6 +364,8 @@ export async function restoreWorkspaceSnapshot(
   }
 
   const targetWorkspaceId = snapshot.metadata.workspaceId;
+  const { outbox, conflicts } = inspectPendingSnapshot(snapshot);
+  const preparedOriginals = await prepareOriginals(snapshot);
 
   return db.transact(
     ["meta", "entities", "originals", "outbox", "conflicts", "acks"],
@@ -285,18 +377,6 @@ export async function restoreWorkspaceSnapshot(
         { key: string; value: string } | undefined
       >(metaStore.get("workspaceId"));
       const currentWorkspaceId = currentMeta?.value;
-
-      if (currentWorkspaceId && currentWorkspaceId !== targetWorkspaceId) {
-        const entitiesIndex = tx.store("entities").index("workspace");
-        const existingEntities = await requestValue<unknown[]>(
-          entitiesIndex.getAll(currentWorkspaceId),
-        );
-        if (existingEntities && existingEntities.length > 0) {
-          throw new Error(
-            `O backup pertence ao workspace "${targetWorkspaceId}", mas o banco local ativo é "${currentWorkspaceId}". A restauração entre workspaces com dados existentes é bloqueada para evitar corrupção.`,
-          );
-        }
-      }
 
       // 2. Salvaguarda estrita: JAMAIS sobrescrever outbox pendente
       const hasPendingCurrent = currentWorkspaceId
@@ -310,6 +390,26 @@ export async function restoreWorkspaceSnapshot(
         );
       }
 
+      // Reject every populated target, including older workspace PDFs and ACKs:
+      // restoration must never silently merge with data from this installation.
+      const occupied = new Set(
+        [currentWorkspaceId, targetWorkspaceId].filter(
+          (id): id is string => typeof id === "string" && id.length > 0,
+        ),
+      );
+      for (const id of occupied) {
+        for (const name of ["entities", "originals", "conflicts", "acks"] as const) {
+          const rows = await requestValue<unknown[]>(
+            tx.store(name).index("workspace").getAll(id),
+          );
+          if (!Array.isArray(rows) || rows.length > 0) {
+            throw new Error(
+              `O workspace "${id}" já contém dados locais. Restauração exige destino vazio.`,
+            );
+          }
+        }
+      }
+
       // 3. Restaurar entidades
       const entitiesStore = tx.store("entities");
       const entities = snapshot.stores.entities || [];
@@ -320,39 +420,17 @@ export async function restoreWorkspaceSnapshot(
         entitiesStore.put(entity);
       }
 
-      // 4. Restaurar originais (com verificação estrita de hash e reconstrução binária)
+      // 4. Restaurar originais já validados sem awaits de WebCrypto.
       const originalsStore = tx.store("originals");
-      const originals = snapshot.stores.originals || [];
-      for (const rawOrig of originals) {
-        const { originalBytesBase64, ...metadata } = rawOrig;
-        if (typeof originalBytesBase64 !== "string" || !originalBytesBase64) {
-          throw new Error(
-            `Original "${String(metadata.blobId)}" sem bytes no snapshot.`,
-          );
-        }
-        const binaryBytes = fromBase64(originalBytesBase64);
-        const hash = await digestHex(binaryBytes);
-        if (hash !== String(metadata.sha256).toLowerCase()) {
-          throw new Error(
-            `SHA-256 do original "${String(metadata.blobId)}" corrompido no snapshot.`,
-          );
-        }
-        const bufferCopy = new ArrayBuffer(binaryBytes.byteLength);
-        new Uint8Array(bufferCopy).set(binaryBytes);
-        const mediaType =
-          typeof metadata.mediaType === "string"
-            ? metadata.mediaType
-            : "application/pdf";
-
-        const record = {
-          ...metadata,
-          originalBytes: bufferCopy,
-          blob: new Blob([bufferCopy], { type: mediaType }),
-        };
+      for (const record of preparedOriginals) {
         originalsStore.put(record);
       }
 
-      // 5. Restaurar acks
+      // 5. Recriar a outbox e os conflitos com IDs e sequência originais.
+      for (const operation of outbox) tx.store("outbox").add(operation);
+      for (const conflict of conflicts) tx.store("conflicts").add(conflict);
+
+      // 6. Restaurar acks
       const acksStore = tx.store("acks");
       const acks = snapshot.stores.acks || [];
       for (const ack of acks) {
@@ -362,7 +440,7 @@ export async function restoreWorkspaceSnapshot(
         acksStore.put(ack);
       }
 
-      // 6. Atualizar meta (workspaceId e sequence se aplicável)
+      // 7. Atualizar meta (workspaceId e sequence se aplicável)
       metaStore.put({ key: "workspaceId", value: targetWorkspaceId });
       if (snapshot.metadata.outboxSequence !== null) {
         const existingSeq = await requestValue<
@@ -383,6 +461,8 @@ export async function restoreWorkspaceSnapshot(
           entities: entities.length,
           originals: originals.length,
           acks: acks.length,
+          outbox: outbox.length,
+          conflicts: conflicts.length,
         },
       };
     },
