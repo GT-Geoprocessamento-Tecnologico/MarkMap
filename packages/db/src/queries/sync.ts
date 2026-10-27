@@ -326,6 +326,20 @@ export async function applyPushOperations(
       sql`SELECT id FROM workspaces WHERE id = ${capabilityWorkspaceId} AND revoked = false FOR UPDATE`,
     );
 
+    if (!workspace) {
+      return operations.map((input) => ({
+        status: "conflict" as const,
+        conflict: {
+          operationId: input.operationId,
+          entity: input.entity,
+          entityId: input.entityId,
+          baseVersion: input.baseVersion,
+          serverVersion: 0,
+          reason: "SCOPE_REJECTED" as const,
+        },
+      }));
+    }
+
     const results: Array<{
       status: "accepted" | "already_applied" | "conflict";
       version?: number;
@@ -334,7 +348,7 @@ export async function applyPushOperations(
     }> = [];
 
     for (const input of operations) {
-      if (input.workspaceId !== capabilityWorkspaceId || !workspace) {
+      if (input.workspaceId !== capabilityWorkspaceId) {
         results.push({
           status: "conflict",
           conflict: {

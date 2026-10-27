@@ -54,6 +54,7 @@ export const projectRoutes = (app: Hono<{ Variables: Variables }>) => {
 
   app.get("/projects", async (c) => {
     const query = paginationQuerySchema.parse(c.req.query());
+    // decodeCursor valida a integridade do cursor e lanca AppError("BAD_REQUEST") se corrompido
     if (query.cursor !== undefined) decodeCursor(query.cursor);
     const page = await listProjects(getDb(), {
       limit: query.limit,
