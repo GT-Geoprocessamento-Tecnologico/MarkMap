@@ -2,6 +2,19 @@
 
 Fonte da versão do aplicativo: `apps/admin/package.json`. Todos os agentes seguem [a política de versionamento](docs/versioning.md). O [histórico documental anterior](docs/changelog.md) permanece preservado.
 
+## [0.5.15] - 2026-10-27
+
+### Alterações
+
+- Base experimental isolada para cifrar e verificar um fluxo em blocos autenticados, sem integração ao exportador ou à restauração existentes. Ela ainda não representa arquivos, cobertura ou backup integral.
+- Concorrência dos testes de mapas e do app limitada para reduzir interferência nas verificações de desempenho em máquinas compartilhadas, sem alterar os critérios dos testes.
+
+### Validação
+
+- `pnpm ci:local --base-ref 68fd4485899365d2b2611b144b1fe604749cde54`: typecheck, lint, testes dos pacotes, release guard e fronteiras PASS, com dois workers em mapas e admin. Execuções anteriores falharam em testes temporizados sob carga; os testes afetados também passaram isoladamente.
+- 13 testes direcionados de autenticação, limites, interrupção e cancelamento PASS; teste com 20 MiB e rejeição de adulteração em Chromium e WebKit PASS. PostGIS real e dispositivos físicos continuam pendentes.
+- Build do app PASS: 318 testes de mapas e 592 do admin; cinco avisos de lint preexistentes, sem erros.
+
 ## [0.5.14] - 2026-10-27
 
 ### Alterações

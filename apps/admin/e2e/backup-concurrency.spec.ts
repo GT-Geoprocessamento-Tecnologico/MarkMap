@@ -1,5 +1,29 @@
 import { expect, test } from '@playwright/test';
 
+test('experimental encrypted stream verifies more than 16 MiB and rejects corruption', async ({ page }) => {
+  await page.goto('/?restore=1');
+  const result = await page.evaluate(async () => {
+    const path = '/src/lib/backup/stream-v2.ts';
+    const stream = await import(path);
+    const passphrase = 'teste-experimental-sem-dados-reais';
+    async function* source() {
+      for (let i = 0; i < 20; i++) yield new Uint8Array(1024 * 1024).fill(i);
+    }
+    const verified = await stream.verifyExperimentalStreamV2(stream.encodeExperimentalStreamV2(source(), passphrase), passphrase);
+    async function* corrupted() {
+      let index = 0;
+      for await (const part of stream.encodeExperimentalStreamV2(source(), passphrase)) {
+        if (index++ === 1) { const changed = part.slice(); changed[10] ^= 1; yield changed; }
+        else yield part;
+      }
+    }
+    let rejected = false;
+    try { await stream.verifyExperimentalStreamV2(corrupted(), passphrase); } catch { rejected = true; }
+    return { ...verified, rejected };
+  });
+  expect(result).toEqual({ blocks: 20, bytes: 20 * 1024 * 1024, rejected: true });
+});
+
 test('optional stores never imply a complete backup', async ({ page }) => {
   await page.goto('/?restore=1');
   const result = await page.evaluate(async () => {
