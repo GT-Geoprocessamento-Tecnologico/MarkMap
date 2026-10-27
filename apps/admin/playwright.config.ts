@@ -2,6 +2,8 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./e2e",
+  // This suite needs a separate synthetic live-sync server, not the preview build.
+  testIgnore: "**/backup-concurrency.spec.ts",
   timeout: 60 * 1000,
   expect: {
     timeout: 15000,

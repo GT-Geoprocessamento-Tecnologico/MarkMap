@@ -7,9 +7,13 @@ import {
 
 import { API_BASE, API_MODE } from "../api-client";
 import { localRepository } from "../local-repositories";
+import { localDb, requestValue } from "../local-db";
 
 export type SyncState =
   | "disabled"
+  | "paused"
+  | "locked"
+  | "blocked"
   | "offline"
   | "idle"
   | "syncing"
@@ -26,11 +30,116 @@ export type SyncResult = {
 
 const META_CAPABILITY = "workspaceCapability";
 const META_SYNC_CURSOR = "syncCursor";
+export const RECOVERY_SYNC_PAUSE_KEY = "syncPausedAfterRestore";
+export const SYNC_ACTIVE_KEY = "syncInProgress";
+const SYNC_WEB_LOCK = "markmap-sync-recovery-v1";
+const WEB_LOCK_PROTOCOL = "weblocks-v1";
+
+export function webLockClaimToken(value: unknown): string | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const claim = value as { protocol?: unknown; token?: unknown };
+  if (Object.keys(value).length !== 2 || claim.protocol !== WEB_LOCK_PROTOCOL ||
+      typeof claim.token !== "string" ||
+      !/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(claim.token)) return null;
+  return claim.token;
+}
+
+/** Caller must obtain explicit operator confirmation for the observed token. */
+export async function recoverStaleSyncClaim(expectedToken: string): Promise<boolean> {
+  const locks = typeof navigator !== "undefined" ? navigator.locks : undefined;
+  if (!locks || typeof locks.request !== "function" ||
+      !webLockClaimToken({ protocol: WEB_LOCK_PROTOCOL, token: expectedToken })) return false;
+  try {
+    const generation = crypto.randomUUID();
+    return await locks.request(SYNC_WEB_LOCK, { mode: "exclusive", ifAvailable: true }, async (lock) => {
+      if (!lock) return false;
+      return localDb.transact(["meta"], "readwrite", async (tx) => {
+        const store = tx.store("meta");
+        const [current, pause] = await Promise.all([
+          requestValue<{ value: unknown } | undefined>(store.get(SYNC_ACTIVE_KEY)),
+          requestValue<{ value: unknown } | undefined>(store.get(RECOVERY_SYNC_PAUSE_KEY)),
+        ]);
+        if (!current || webLockClaimToken(current.value) !== expectedToken) return false;
+        store.delete(SYNC_ACTIVE_KEY);
+        // Clearing a crash claim must not let a periodic sync run without review.
+        if (pause === undefined || pause.value === false)
+          store.put({ key: RECOVERY_SYNC_PAUSE_KEY, value: { kind: "restore", generation } });
+        return true;
+      });
+    });
+  } catch {
+    return false;
+  }
+}
+
+/** Unknown or legacy markers are never interpreted as authorization to sync. */
+export function recoveryPauseGeneration(marker: unknown): string | null {
+  if (!marker || typeof marker !== "object" || Array.isArray(marker)) return null;
+  const value = marker as { kind?: unknown; generation?: unknown };
+  return value.kind === "restore" && typeof value.generation === "string" &&
+    /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(value.generation)
+    ? value.generation : null;
+}
+
+/** Clear only the exact pause presented to the operator and only without a claim. */
+export async function resumeRecoveryPause(expectedGeneration: string): Promise<boolean> {
+  try {
+    return await localDb.transact(["meta"], "readwrite", async (tx) => {
+      const store = tx.store("meta");
+      const [pause, active] = await Promise.all([
+        requestValue<{ value: unknown } | undefined>(store.get(RECOVERY_SYNC_PAUSE_KEY)),
+        requestValue<unknown>(store.get(SYNC_ACTIVE_KEY)),
+      ]);
+      const currentGeneration = pause && recoveryPauseGeneration(pause.value);
+      if (active !== undefined || !currentGeneration || currentGeneration !== expectedGeneration) return false;
+      store.put({ key: RECOVERY_SYNC_PAUSE_KEY, value: false });
+      return true;
+    });
+  } catch {
+    return false;
+  }
+}
 const MAX_BATCH = 500;
 const MAX_PULL_PAGES = 50;
 const REQUEST_TIMEOUT_MS = 15_000;
 
 let inFlight: Promise<SyncResult> | null = null;
+
+// This durable claim coordinates cooperating tabs with restore. A crash leaves
+// the claim in place; never guess that an unknown or old token is safe to clear.
+async function claimSync(webLocked: boolean): Promise<{ token: string } | { state: "paused" | "locked" | "blocked" }> {
+  try {
+    const token = crypto.randomUUID();
+    return await localDb.transact(["meta"], "readwrite", async (tx) => {
+      const store = tx.store("meta");
+      const [pause, active] = await Promise.all([
+        requestValue<{ value: unknown } | undefined>(store.get(RECOVERY_SYNC_PAUSE_KEY)),
+        requestValue<unknown>(store.get(SYNC_ACTIVE_KEY)),
+      ]);
+      if (active !== undefined) return { state: "locked" as const };
+      if (pause !== undefined && pause.value !== false)
+        return { state: recoveryPauseGeneration(pause.value) ? "paused" as const : "blocked" as const };
+      store.add({ key: SYNC_ACTIVE_KEY, value: webLocked ? { protocol: WEB_LOCK_PROTOCOL, token } : token });
+      return { token };
+    });
+  } catch {
+    return { state: "blocked" };
+  }
+}
+
+async function releaseSync(token: string, webLocked: boolean): Promise<boolean> {
+  try {
+    return await localDb.transact(["meta"], "readwrite", async (tx) => {
+      const store = tx.store("meta");
+      const current = await requestValue<{ value: unknown } | undefined>(store.get(SYNC_ACTIVE_KEY));
+      if ((webLocked ? webLockClaimToken(current?.value) : current?.value) !== token) return false;
+      store.delete(SYNC_ACTIVE_KEY);
+      return true;
+    });
+  } catch {
+    return false;
+  }
+}
 
 const emit = (result: SyncResult): SyncResult => {
   if (typeof window !== "undefined")
@@ -288,6 +397,18 @@ const pull = async (onProgress?: (applied: number) => void): Promise<number> => 
 };
 
 const performSync = async (): Promise<SyncResult> => {
+  // Check the durable gate before bootstrap, capability provisioning, or fetch.
+  // Read failures and malformed markers fail closed.
+  let pause: unknown;
+  try {
+    pause = await localRepository.getMeta<unknown>(RECOVERY_SYNC_PAUSE_KEY);
+  } catch {
+    return emit({ state: "blocked", pushed: 0, pulled: 0, conflicts: 0, pending: 0 });
+  }
+  if (pause !== undefined && pause !== false) {
+    return emit({ state: recoveryPauseGeneration(pause) ? "paused" : "blocked",
+      pushed: 0, pulled: 0, conflicts: 0, pending: 0 });
+  }
   const pendingBefore = (await localRepository.listOutbox()).length;
 
   if (API_MODE !== "live")
@@ -308,43 +429,44 @@ const performSync = async (): Promise<SyncResult> => {
       pending: pendingBefore,
     });
 
-  emit({
-    state: "syncing",
-    pushed: 0,
-    pulled: 0,
-    conflicts: 0,
-    pending: pendingBefore,
-  });
+  const runClaimed = async (webLocked: boolean): Promise<SyncResult> => {
+    // Restore checks this claim in its transaction before writing any records.
+    const claim = await claimSync(webLocked);
+    if ("state" in claim)
+      return emit({ state: claim.state, pushed: 0, pulled: 0, conflicts: 0, pending: pendingBefore });
 
-  // Track durable progress as pages/ACKs are applied. A later failure must
-  // not hide successful changes from SyncController/query invalidation.
-  let pushedCount = 0;
-  let pulledCount = 0;
-  let conflictCount = 0;
+    emit({ state: "syncing", pushed: 0, pulled: 0, conflicts: 0, pending: pendingBefore });
+    let pushedCount = 0;
+    let pulledCount = 0;
+    let conflictCount = 0;
+    let result: SyncResult;
+    try {
+      // Retain durable progress even if a subsequent page or request fails.
+      await push((accepted, conflicts) => { pushedCount += accepted; conflictCount += conflicts; });
+      await pull((applied) => { pulledCount += applied; });
+      const pending = (await localRepository.listOutbox()).length;
+      result = { state: conflictCount > 0 || pending > 0 ? "idle" : "synced",
+        pushed: pushedCount, pulled: pulledCount, conflicts: conflictCount, pending };
+    } catch {
+      // Even a failed local read must release only this operation's claim.
+      const pending = await localRepository.listOutbox().then(rows => rows.length, () => pendingBefore);
+      result = { state: "error", pushed: pushedCount, pulled: pulledCount, conflicts: conflictCount, pending };
+    }
+    const released = await releaseSync(claim.token, webLocked);
+    return released ? emit(result) : emit({ ...result, state: "locked" });
+  };
+
+  const locks = typeof navigator !== "undefined" ? navigator.locks : undefined;
+  // Legacy tabs cannot participate in this protocol. A previously sent request
+  // may also have reached the server even after its owner disappears.
+  if (!locks || typeof locks.request !== "function") return runClaimed(false);
   try {
-    await push((accepted, conflicts) => {
-      pushedCount += accepted;
-      conflictCount += conflicts;
-    });
-    await pull((applied) => { pulledCount += applied; });
-    const pending = (await localRepository.listOutbox()).length;
-    return emit({
-      // A partial/empty server reply must never label unsent edits as synced.
-      state: conflictCount > 0 || pending > 0 ? "idle" : "synced",
-      pushed: pushedCount,
-      pulled: pulledCount,
-      conflicts: conflictCount,
-      pending,
-    });
+    return await locks.request(SYNC_WEB_LOCK, { mode: "exclusive", ifAvailable: true },
+      async (lock) => lock ? runClaimed(true) : emit({
+        state: "locked", pushed: 0, pulled: 0, conflicts: 0, pending: pendingBefore,
+      }));
   } catch {
-    const pending = (await localRepository.listOutbox()).length;
-    return emit({
-      state: "error",
-      pushed: pushedCount,
-      pulled: pulledCount,
-      conflicts: conflictCount,
-      pending,
-    });
+    return emit({ state: "blocked", pushed: 0, pulled: 0, conflicts: 0, pending: pendingBefore });
   }
 };
 

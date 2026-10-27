@@ -2,6 +2,20 @@
 
 Fonte da versão do aplicativo: `apps/admin/package.json`. Todos os agentes seguem [a política de versionamento](docs/versioning.md). O [histórico documental anterior](docs/changelog.md) permanece preservado.
 
+## [0.5.14] - 2026-10-27
+
+### Alterações
+
+- Pausa persistente após restauração e coordenação transacional entre abas compatíveis; retomada exige confirmação explícita. Uma trava interrompida pode ser revisada com Web Locks, sem iniciar sincronização.
+- Leitura conservadora dos bancos auxiliares: dados existentes ou órfãos são sinalizados como pendentes sem carregar binários nem alegar backup completo.
+- Compatibilidade com backups legados que conservam simultaneamente uma operação e seu ACK, sem reenviá-la.
+
+### Validação
+
+- 152 testes direcionados de backup, sincronização e leitores PASS. Playwright em Chromium/WebKit: 6 testes PASS com IndexedDB isolado e endpoint sintético, incluindo concorrência e fechamento de abas.
+- `pnpm ci:local --base-ref 06eea0f4d1b5350723303033ef2313a94a8fce82`: typecheck, lint, testes dos pacotes, release guard e fronteiras PASS. No pacote DB, 26 testes de integração continuam ignorados sem PostGIS local.
+- Build do app PASS (318 testes de mapas e 579 do admin); 15 testes Playwright adicionais em Chromium, WebKit e Pixel 7 emulado; revisão visual em temas claro/escuro no desktop e Android emulado.
+
 ## [0.5.13] - 2026-10-27
 
 ### Alterações

@@ -305,6 +305,7 @@ export async function restoreWorkspaceSnapshot(
   const targetWorkspaceId = snapshot.metadata.workspaceId;
   const { outbox, conflicts } = inspectPendingSnapshot(snapshot);
   const preparedOriginals = await prepareOriginals(snapshot);
+  const pauseGeneration = crypto.randomUUID();
 
   return db.transact(
     ["meta", "entities", "originals", "outbox", "conflicts", "acks"],
@@ -314,12 +315,22 @@ export async function restoreWorkspaceSnapshot(
       const sensitiveKeys = ["workspaceCapability", "workspaceBootstrapProof", "installationId", "syncCursor"] as const;
       // Count every store globally in the transaction, including stale workspaces
       // and malformed rows hidden from the workspace index.
-      const [workspace, sensitive, existingSeq, counts] = await Promise.all([
+      const [workspace, sensitive, existingSeq, activeSync, existingPause, counts] = await Promise.all([
         requestValue<{ key: string; value: unknown } | undefined>(metaStore.get("workspaceId")),
         Promise.all(sensitiveKeys.map(key => requestValue<{ key: string; value: unknown } | undefined>(metaStore.get(key)))),
         requestValue<{ key: string; value: unknown } | undefined>(metaStore.get("outboxSequence")),
+        requestValue<unknown>(metaStore.get("syncInProgress")),
+        requestValue<{ value: unknown } | undefined>(metaStore.get("syncPausedAfterRestore")),
         Promise.all(LOCAL_FIRST_DATA_STORES.map(name => requestValue(tx.store(name).count()))),
       ]);
+      // Any claim, including a malformed or stale one, blocks writes until reviewed.
+      if (activeSync !== undefined) {
+        throw new Error("Sincronização em andamento ou não finalizada impede a restauração.");
+      }
+      // Do not let a new recovery replace a pause still awaiting a decision.
+      if (existingPause !== undefined && existingPause.value !== false) {
+        throw new Error("Uma restauração anterior ainda aguarda decisão de sincronização.");
+      }
       const occupied = counts.findIndex(count => count !== 0);
       if (occupied !== -1) {
         throw new Error(`O banco local já contém dados no workspace/store ${LOCAL_FIRST_DATA_STORES[occupied]}; restauração exige destino vazio.`);
@@ -381,6 +392,8 @@ export async function restoreWorkspaceSnapshot(
 
       // 7. Atualizar meta (workspaceId e sequence se aplicável)
       metaStore.put({ key: "workspaceId", value: targetWorkspaceId });
+      // Persist the safety gate atomically with restored data and outbox.
+      metaStore.put({ key: "syncPausedAfterRestore", value: { kind: "restore", generation: pauseGeneration } });
       if (snapshot.metadata.outboxSequence !== null) {
         if (snapshot.metadata.outboxSequence > (typeof currentSeq === "number" ? currentSeq : 0)) {
           metaStore.put({

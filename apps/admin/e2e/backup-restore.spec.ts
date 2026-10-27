@@ -96,6 +96,7 @@ test("restores a partial encrypted workspace with its pending work in an isolate
     expect(restored.originals).toEqual(expect.arrayContaining([expect.objectContaining({ key: "11111111-1111-4111-8111-111111111111:pdf1" })]));
     expect(restored.pdfBytes).toEqual(Array.from(new TextEncoder().encode("%PDF-1.4\nbackup-sintetico\n%%EOF")));
     expect(restored.meta).toEqual(expect.arrayContaining([expect.objectContaining({ key: "outboxSequence", value: 1 })]));
+    expect(restored.meta).toEqual(expect.arrayContaining([expect.objectContaining({ key: "syncPausedAfterRestore", value: expect.objectContaining({ kind: "restore", generation: expect.any(String) }) })]));
 
     // Return to the app with the same isolated profile and the sync guard offline.
     expect(await target.evaluate(() => navigator.onLine)).toBe(false);
@@ -103,6 +104,7 @@ test("restores a partial encrypted workspace with its pending work in an isolate
     await target.goto(new URL("/projects", page.url()).href);
     await expect(target.getByRole("heading", { name: "Projetos Cartográficos" })).toBeVisible();
     await expect(target.getByText("Projeto sintético", { exact: true })).toBeVisible();
+    await expect(target.getByText("Sincronização pausada após restauração")).toBeVisible();
     expect(await target.evaluate(() => navigator.onLine)).toBe(false);
   } finally {
     await destination.close();

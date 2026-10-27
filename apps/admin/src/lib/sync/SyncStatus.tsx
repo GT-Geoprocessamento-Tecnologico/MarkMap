@@ -3,10 +3,34 @@ import type { SyncConflict } from "@markmap/contracts";
 
 import { API_MODE } from "../api-client";
 import { localRepository } from "../local-repositories";
-import { syncNow, type SyncResult } from "./sync-engine";
+import {
+  RECOVERY_SYNC_PAUSE_KEY, SYNC_ACTIVE_KEY, recoveryPauseGeneration,
+  recoverStaleSyncClaim, resumeRecoveryPause, syncNow, webLockClaimToken, type SyncResult,
+} from "./sync-engine";
 
 const isOffline = (): boolean =>
   typeof navigator !== "undefined" && navigator.onLine === false;
+
+type RecoveryGate =
+  | { state: "clear" | "blocked" }
+  | { state: "locked"; token: string | null }
+  | { state: "paused"; generation: string };
+
+const readRecoveryGate = async (): Promise<RecoveryGate> => {
+  try {
+    const [marker, active] = await Promise.all([
+      localRepository.getMeta<unknown>(RECOVERY_SYNC_PAUSE_KEY),
+      localRepository.getMeta<unknown>(SYNC_ACTIVE_KEY),
+    ]);
+    if (active !== undefined) return { state: "locked", token: webLockClaimToken(active) };
+    const generation = recoveryPauseGeneration(marker);
+    if (generation) return { state: "paused", generation };
+    if (marker === undefined || marker === false) return { state: "clear" };
+    return { state: "blocked" };
+  } catch {
+    return { state: "blocked" };
+  }
+};
 
 const initialState = (): SyncResult => ({
   state: isOffline() ? "offline" : API_MODE !== "live" ? "disabled" : "idle",
@@ -17,6 +41,9 @@ const initialState = (): SyncResult => ({
 });
 
 const label = (status: SyncResult): string => {
+  if (status.state === "paused") return "Sincronização pausada após restauração";
+  if (status.state === "locked") return "Sincronização em outra aba ou interrompida. Verifique antes de continuar.";
+  if (status.state === "blocked") return "Não foi possível verificar a sincronização local.";
   if (status.state === "error") return "Não foi possível sincronizar";
   if (status.conflicts > 0)
     return `${status.conflicts} conflito${status.conflicts === 1 ? "" : "s"} para revisar`;
@@ -38,6 +65,7 @@ const label = (status: SyncResult): string => {
  * modo o aplicativo é apenas local, e o pill inteiro fica oculto.
  */
 const needsAttention = (status: SyncResult, conflicts: number): boolean => {
+  if (["paused", "locked", "blocked"].includes(status.state)) return true;
   if (API_MODE !== "live") return false;
   return conflicts > 0 || status.state === "error" || status.pending > 0;
 };
@@ -89,6 +117,12 @@ export function SyncStatus() {
   const [conflicts, setConflicts] = useState<SyncConflict[]>([]);
   const [showConflicts, setShowConflicts] = useState(false);
   const [resolving, setResolving] = useState<string | null>(null);
+  const [resumeBusy, setResumeBusy] = useState(false);
+  const [resumeError, setResumeError] = useState<string | null>(null);
+  const [pauseGeneration, setPauseGeneration] = useState<string | null>(null);
+  const [claimToken, setClaimToken] = useState<string | null>(null);
+  const [claimBusy, setClaimBusy] = useState(false);
+  const [claimMessage, setClaimMessage] = useState<string | null>(null);
   const pillRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -124,13 +158,17 @@ export function SyncStatus() {
   }, [status.state, status.pending, conflicts.length]);
 
   const refreshLocalState = async () => {
-    const [outbox, localConflicts] = await Promise.all([
+    const [outbox, localConflicts, gate] = await Promise.all([
       localRepository.listOutbox(),
       localRepository.listConflicts(),
+      readRecoveryGate(),
     ]);
     setConflicts(localConflicts);
+    setPauseGeneration(gate.state === "paused" ? gate.generation : null);
+    setClaimToken(gate.state === "locked" ? gate.token : null);
     setStatus((current) => ({
       ...current,
+      state: gate.state !== "clear" ? gate.state : current.state === "paused" ? initialState().state : current.state,
       pending: outbox.length,
       conflicts: localConflicts.length,
     }));
@@ -139,13 +177,27 @@ export function SyncStatus() {
 
   useEffect(() => {
     let active = true;
+    let refreshGeneration = 0;
     const refresh = () => {
+      const generation = ++refreshGeneration;
+      // The controller does not run while offline: inspect the durable gate
+      // independently, even if loading the outbox or conflicts fails.
+      void readRecoveryGate().then((gate) => {
+        if (!active || generation !== refreshGeneration) return;
+        setPauseGeneration(gate.state === "paused" ? gate.generation : null);
+        setClaimToken(gate.state === "locked" ? gate.token : null);
+        setStatus((current) => ({
+          ...current,
+          state: current.state === "syncing" && gate.state === "locked" ? current.state :
+            gate.state !== "clear" ? gate.state : current.state === "paused" ? initialState().state : current.state,
+        }));
+      });
       void Promise.all([
         localRepository.listOutbox(),
         localRepository.listConflicts(),
       ])
         .then(([outbox, localConflicts]) => {
-          if (!active) return;
+          if (!active || generation !== refreshGeneration) return;
           setConflicts(localConflicts);
           setStatus((current) => ({
             ...current,
@@ -164,9 +216,9 @@ export function SyncStatus() {
       }
     };
     const onOffline = () =>
-      setStatus((current) => ({ ...current, state: "offline" }));
+      setStatus((current) => ({ ...current, state: ["paused", "locked", "blocked"].includes(current.state) ? current.state : "offline" }));
     const onOnline = () => {
-      setStatus((current) => ({ ...current, state: "idle" }));
+      setStatus((current) => ({ ...current, state: ["paused", "locked", "blocked"].includes(current.state) ? current.state : "idle" }));
       void syncNow().then(refresh).catch(() => undefined);
     };
     const onMutation = () => refresh();
@@ -190,7 +242,58 @@ export function SyncStatus() {
 
   const retry =
     status.state === "error" ||
-    (status.pending > 0 && status.state !== "offline");
+    (status.pending > 0 && !["offline", "paused", "locked", "blocked"].includes(status.state));
+
+  const resume = async () => {
+    const expectedGeneration = pauseGeneration;
+    if (API_MODE !== "live" || resumeBusy || !expectedGeneration) return;
+    if (!window.confirm(
+      "Retomar permitirá enviar alterações locais, inclusive as restauradas, quando houver conexão. Feche outras abas antes de continuar. Deseja continuar?",
+    )) return;
+    setResumeBusy(true);
+    setResumeError(null);
+    // This transaction checks both the exact displayed pause and the active
+    // claim; a new restore or concurrent sync cannot be accidentally cleared.
+    if (!(await resumeRecoveryPause(expectedGeneration))) {
+      setResumeError("A pausa mudou ou existe sincronização em outra aba. Verifique novamente antes de retomar.");
+      const gate = await readRecoveryGate();
+      setPauseGeneration(gate.state === "paused" ? gate.generation : null);
+      setClaimToken(gate.state === "locked" ? gate.token : null);
+      setStatus((current) => ({ ...current, state: gate.state === "locked" ? "locked" : "blocked" }));
+      setResumeBusy(false);
+      return;
+    }
+    try {
+      await syncNow();
+    } catch {
+      setStatus((current) => ({ ...current, state: "error" }));
+    } finally {
+      setResumeBusy(false);
+    }
+  };
+
+  const reviewInterruptedSync = async () => {
+    const expectedToken = claimToken;
+    if (!expectedToken || claimBusy || typeof navigator === "undefined" ||
+        typeof navigator.locks?.request !== "function") return;
+    if (!window.confirm(
+      "Feche as outras abas do aplicativo antes de continuar. Uma requisição anterior pode já ter sido enviada e esta ação não a desfaz. Verificar e liberar apenas a trava observada?",
+    )) return;
+    setClaimBusy(true);
+    setClaimMessage(null);
+    const recovered = await recoverStaleSyncClaim(expectedToken);
+    if (!recovered) {
+      setClaimMessage("Não foi possível liberar a trava: ela pode estar em uso, ter mudado ou não estar acessível.");
+      setClaimBusy(false);
+      return;
+    }
+    const gate = await readRecoveryGate();
+    setPauseGeneration(gate.state === "paused" ? gate.generation : null);
+    setClaimToken(gate.state === "locked" ? gate.token : null);
+    setStatus((current) => ({ ...current, state: gate.state === "clear" ? initialState().state : gate.state }));
+    setClaimMessage("Trava verificada. Confirme a retomada separadamente; esta ação não iniciou sincronização.");
+    setClaimBusy(false);
+  };
 
   const resolve = async (
     conflict: SyncConflict,
@@ -221,7 +324,7 @@ export function SyncStatus() {
           ref={pillRef}
           role="status"
           aria-live="polite"
-          className="markmap-sync-status pointer-events-none fixed z-50 flex min-h-[44px] max-w-[calc(100vw-1.5rem)] items-center gap-2 rounded-full border border-outline-variant bg-surface-container/95 px-3 py-2 text-xs text-on-surface shadow-lg backdrop-blur"
+          className="markmap-sync-status pointer-events-none fixed z-50 flex min-h-[44px] max-w-[calc(100vw-1.5rem)] flex-wrap items-center gap-2 rounded-xl border border-outline-variant bg-surface-container/95 px-3 py-2 text-xs text-on-surface shadow-lg backdrop-blur"
           style={{
             left: "max(0.75rem, env(safe-area-inset-left))",
           }}
@@ -229,7 +332,7 @@ export function SyncStatus() {
           <span
             aria-hidden="true"
             className={`h-2 w-2 shrink-0 rounded-full ${
-              status.state === "offline" || status.state === "error"
+              ["offline", "error", "paused", "locked", "blocked"].includes(status.state)
                 ? "bg-amber-400"
                 : status.conflicts > 0
                   ? "bg-red-400"
@@ -238,7 +341,22 @@ export function SyncStatus() {
                     : "bg-emerald-400"
             }`}
           />
-          <span className="truncate">{label(status)}</span>
+          <span className={status.state === "locked" || status.state === "blocked" ? "whitespace-normal" : "truncate"}>{label(status)}</span>
+          {status.state === "paused" && pauseGeneration && API_MODE === "live" && (
+            <button type="button" className="pointer-events-auto min-h-[44px] px-2 font-semibold"
+              disabled={resumeBusy} onClick={() => void resume()}>
+              {resumeBusy ? "Retomando…" : "Retomar sincronização"}
+            </button>
+          )}
+          {status.state === "locked" && claimToken &&
+            typeof navigator !== "undefined" && typeof navigator.locks?.request === "function" && (
+            <button type="button" className="pointer-events-auto min-h-[44px] px-2 font-semibold"
+              disabled={claimBusy} onClick={() => void reviewInterruptedSync()}>
+              {claimBusy ? "Verificando…" : "Verificar sincronização interrompida"}
+            </button>
+          )}
+          {claimMessage && <span role="alert">{claimMessage}</span>}
+          {resumeError && <span role="alert">{resumeError}</span>}
           {conflicts.length > 0 && (
             <button
               type="button"

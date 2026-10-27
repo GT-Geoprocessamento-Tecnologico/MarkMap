@@ -2,7 +2,7 @@ import { webcrypto } from "node:crypto";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { syncNow, type SyncResult } from "./sync-engine";
+import { recoverStaleSyncClaim, resumeRecoveryPause, syncNow, type SyncResult } from "./sync-engine";
 
 // `vi.mock` é içado para o topo do arquivo, então as duplicatas precisam ser
 // criadas dentro de `vi.hoisted` para existirem quando o factory roda.
@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   setMeta: vi.fn(),
   saveWorkspaceCapability: vi.fn(),
   ensureBootstrapIdentity: vi.fn(),
+  transact: vi.fn(),
 }));
 
 const { listOutbox, acknowledge, saveConflict, applyServerPage, workspaceId, getMeta, setMeta, saveWorkspaceCapability, ensureBootstrapIdentity } =
@@ -27,6 +28,16 @@ vi.mock("../api-client", () => ({
 }));
 
 vi.mock("../local-repositories", () => ({ localRepository: mocks }));
+vi.mock("../local-db", () => ({
+  localDb: { transact: mocks.transact },
+  requestValue: (request: IDBRequest) => new Promise((resolve, reject) => {
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  }),
+}));
+
+const PAUSE_A = { kind: "restore", generation: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" };
+const PAUSE_B = { kind: "restore", generation: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb" };
 
 const WORKSPACE_ID = "11111111-1111-4111-8111-111111111111";
 const PROJECT_ID = "22222222-2222-4222-8222-222222222222";
@@ -93,6 +104,18 @@ const setOnline = (online: boolean): void => {
 
 const pathsOf = (): string[] => vi.mocked(fetch).mock.calls.map((call) => String(call[0]));
 
+function installWebLocks() {
+  let held = false;
+  const request = vi.fn(async (_name: string, _options: unknown, work: (lock: object | null) => Promise<unknown>) => {
+    if (held) return work(null);
+    held = true;
+    try { return await work({ name: "markmap-sync-recovery-v1", mode: "exclusive" }); }
+    finally { held = false; }
+  });
+  Object.defineProperty(navigator, "locks", { configurable: true, value: { request } });
+  return { request, setHeld: (value: boolean) => { held = value; } };
+}
+
 /**
  * Outbox em memória.
  *
@@ -137,6 +160,25 @@ let meta = new Map<string, unknown>();
 
 const resetMeta = (initial: Record<string, unknown> = {}): void => {
   meta = new Map(Object.entries(initial));
+  mocks.transact.mockReset().mockImplementation(async (_stores, _mode, work) => {
+    const copy = new Map(meta);
+    const store = {
+      get: (key: string) => {
+        const request = { result: copy.has(key) ? { key, value: copy.get(key) } : undefined, onsuccess: null } as unknown as IDBRequest;
+        void Promise.resolve().then(() => request.onsuccess?.(new Event("success")));
+        return request;
+      },
+      put: (row: { key: string; value: unknown }) => copy.set(row.key, row.value),
+      add: (row: { key: string; value: unknown }) => {
+        if (copy.has(row.key)) throw new Error("Chave duplicada");
+        copy.set(row.key, row.value);
+      },
+      delete: (key: string) => copy.delete(key),
+    };
+    const result = await work({ store: () => store });
+    meta = copy;
+    return result;
+  });
   getMeta.mockImplementation(async (key: string) => meta.get(key));
   setMeta.mockImplementation(async (key: string, value: unknown) => {
     meta.set(key, value);
@@ -179,8 +221,201 @@ describe("syncNow", () => {
   });
 
   afterEach(() => {
+    Reflect.deleteProperty(navigator, "locks");
     vi.useRealTimers();
     vi.unstubAllGlobals();
+  });
+
+  it("pausa persistente bloqueia rede e bootstrap", async () => {
+    resetMeta({ syncPausedAfterRestore: PAUSE_A, workspaceCapability: capability });
+    resetOutbox([operation("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")]);
+    expect((await syncNow()).state).toBe("paused");
+    expect(fetch).not.toHaveBeenCalled();
+    expect(workspaceId).not.toHaveBeenCalled();
+    expect(ensureBootstrapIdentity).not.toHaveBeenCalled();
+    expect(acknowledge).not.toHaveBeenCalled();
+    expect(outbox).toHaveLength(1);
+  });
+
+  it.each([true, "inválido"])("marcador legado ou inválido não permite sync nem retomada (%s)", async (pause) => {
+    resetMeta({ syncPausedAfterRestore: pause, workspaceCapability: capability });
+    expect((await syncNow()).state).toBe("blocked");
+    expect(await resumeRecoveryPause(PAUSE_A.generation)).toBe(false);
+    expect(meta.get("syncPausedAfterRestore")).toEqual(pause);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("falha ao ler pausa bloqueia a rede", async () => {
+    getMeta.mockRejectedValue(new Error("IndexedDB indisponível"));
+    expect((await syncNow()).state).toBe("blocked");
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("restauração que pausa após leitura inicial impede aquisição e rede", async () => {
+    listOutbox.mockImplementationOnce(async () => {
+      meta.set("syncPausedAfterRestore", PAUSE_A);
+      return [];
+    });
+    expect((await syncNow()).state).toBe("paused");
+    expect(meta.get("syncPausedAfterRestore")).toEqual(PAUSE_A);
+    expect(meta.has("syncInProgress")).toBe(false);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("claim ocupado ou leitura transacional falha impedem rede sem apagar lock", async () => {
+    meta.set("syncInProgress", "outra-aba");
+    expect((await syncNow()).state).toBe("locked");
+    expect(meta.get("syncInProgress")).toBe("outra-aba");
+    expect(fetch).not.toHaveBeenCalled();
+    meta.delete("syncInProgress");
+    mocks.transact.mockRejectedValueOnce(new Error("transação indisponível"));
+    expect((await syncNow()).state).toBe("blocked");
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("Web Lock ocupado impede claim e rede", async () => {
+    const locks = installWebLocks();
+    locks.setHeld(true);
+    expect((await syncNow()).state).toBe("locked");
+    expect(meta.has("syncInProgress")).toBe(false);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("mantém Web Lock até terminar a rede e nunca recupera claim ativo", async () => {
+    installWebLocks();
+    let start!: () => void;
+    const started = new Promise<void>(resolve => { start = resolve; });
+    let finish!: () => void;
+    const waiting = new Promise<void>(resolve => { finish = resolve; });
+    vi.mocked(fetch).mockImplementationOnce(async () => {
+      start();
+      await waiting;
+      return json(emptyPull);
+    });
+    const running = syncNow();
+    await started;
+    const claim = meta.get("syncInProgress") as { protocol: string; token: string };
+    expect(claim).toMatchObject({ protocol: "weblocks-v1", token: expect.any(String) });
+    expect(await recoverStaleSyncClaim(claim.token)).toBe(false);
+    expect(meta.get("syncInProgress")).toEqual(claim);
+    finish();
+    expect((await running).state).toBe("synced");
+    expect(meta.has("syncInProgress")).toBe(false);
+  });
+
+  it("recupera claim versionado de dono ausente sem alterar pausa ou iniciar sync", async () => {
+    installWebLocks();
+    const token = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    resetMeta({ syncInProgress: { protocol: "weblocks-v1", token }, syncPausedAfterRestore: PAUSE_A });
+    expect(await recoverStaleSyncClaim(token)).toBe(true);
+    expect(meta.has("syncInProgress")).toBe(false);
+    expect(meta.get("syncPausedAfterRestore")).toEqual(PAUSE_A);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("ao revisar claim sem pausa cria uma pausa antes de permitir novo sync", async () => {
+    installWebLocks();
+    const token = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    resetMeta({ syncInProgress: { protocol: "weblocks-v1", token } });
+    expect(await recoverStaleSyncClaim(token)).toBe(true);
+    expect(meta.get("syncPausedAfterRestore")).toMatchObject({ kind: "restore", generation: expect.any(String) });
+    expect((await syncNow()).state).toBe("paused");
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("release não apaga claim versionado substituído durante o sync", async () => {
+    installWebLocks();
+    let start!: () => void;
+    const started = new Promise<void>(resolve => { start = resolve; });
+    let finish!: () => void;
+    const waiting = new Promise<void>(resolve => { finish = resolve; });
+    vi.mocked(fetch).mockImplementationOnce(async () => {
+      start();
+      await waiting;
+      return json(emptyPull);
+    });
+    const running = syncNow();
+    await started;
+    const replacement = { protocol: "weblocks-v1", token: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb" };
+    meta.set("syncInProgress", replacement);
+    finish();
+    expect((await running).state).toBe("locked");
+    expect(meta.get("syncInProgress")).toEqual(replacement);
+  });
+
+  it("não apaga token substituído, legado ou malformado", async () => {
+    installWebLocks();
+    const old = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const replacement = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    for (const marker of [{ protocol: "weblocks-v1", token: replacement }, old,
+      { protocol: "weblocks-v1", token: old, extra: true }]) {
+      meta.set("syncInProgress", marker);
+      expect(await recoverStaleSyncClaim(old)).toBe(false);
+      expect(meta.get("syncInProgress")).toEqual(marker);
+    }
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("fallback sem Web Locks usa claim legado e não permite removê-lo automaticamente", async () => {
+    const old = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    meta.set("syncInProgress", old);
+    expect(await recoverStaleSyncClaim(old)).toBe(false);
+    expect(meta.get("syncInProgress")).toBe(old);
+    expect((await syncNow()).state).toBe("locked");
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("falha da API Web Locks bloqueia a rede e a recuperação", async () => {
+    Object.defineProperty(navigator, "locks", { configurable: true, value: {
+      request: vi.fn().mockRejectedValue(new Error("sem acesso")),
+    } });
+    const token = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    expect((await syncNow()).state).toBe("blocked");
+    meta.set("syncInProgress", { protocol: "weblocks-v1", token });
+    expect(await recoverStaleSyncClaim(token)).toBe(false);
+    expect(meta.has("syncInProgress")).toBe(true);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("não remove claim substituído por outro token ao terminar", async () => {
+    let start!: () => void;
+    const started = new Promise<void>(resolve => { start = resolve; });
+    let finish!: () => void;
+    const waiting = new Promise<void>(resolve => { finish = resolve; });
+    vi.mocked(fetch).mockImplementationOnce(async () => {
+      start();
+      await waiting;
+      return json(emptyPull);
+    });
+    const running = syncNow();
+    await started;
+    expect(meta.get("syncInProgress")).toEqual(expect.any(String));
+    meta.set("syncInProgress", "token-de-outro-sync");
+    finish();
+    expect((await running).state).toBe("locked");
+    expect(meta.get("syncInProgress")).toBe("token-de-outro-sync");
+  });
+
+  it("CAS não remove pausa de outro restore nem um claim concorrente", async () => {
+    resetMeta({ syncPausedAfterRestore: PAUSE_B });
+    expect(await resumeRecoveryPause(PAUSE_A.generation)).toBe(false);
+    expect(meta.get("syncPausedAfterRestore")).toEqual(PAUSE_B);
+    meta.set("syncPausedAfterRestore", PAUSE_A);
+    meta.set("syncInProgress", "outra-aba");
+    expect(await resumeRecoveryPause(PAUSE_A.generation)).toBe(false);
+    expect(meta.get("syncPausedAfterRestore")).toEqual(PAUSE_A);
+    expect(meta.get("syncInProgress")).toBe("outra-aba");
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("somente retoma a rede após remover explicitamente a pausa", async () => {
+    resetMeta({ syncPausedAfterRestore: PAUSE_A, workspaceCapability: capability });
+    expect((await syncNow()).state).toBe("paused");
+    expect(fetch).not.toHaveBeenCalled();
+    expect(await resumeRecoveryPause(PAUSE_A.generation)).toBe(true);
+    vi.mocked(fetch).mockResolvedValueOnce(json(emptyPull));
+    expect((await syncNow()).state).toBe("synced");
+    expect(fetch).toHaveBeenCalledOnce();
   });
 
   it("não toca na rede e preserva a outbox enquanto offline", async () => {

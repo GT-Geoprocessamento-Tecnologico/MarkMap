@@ -188,6 +188,63 @@ describe('T3a: exportacao criptografada do workspace (sem escrita local)', () =>
 });
 
 describe('T4: restauracao e dry-run seguro', () => {
+
+  it('grava pausa de sync junto com o restore e não a cria em rollback', async () => {
+    const dryRun = await dryRunRestore((await exportTest()).bytes, passphrase);
+    const db = new MemoryLocalDb();
+    const pause = () => db.transact(['meta'], 'readonly', tx =>
+      new Promise<unknown>((resolve, reject) => {
+        const request = tx.store('meta').get('syncPausedAfterRestore');
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      }),
+    );
+    db.quotaBytes = 1;
+    await expect(restoreWorkspaceSnapshot(dryRun.snapshot, db, { confirmed: true })).rejects.toThrow();
+    db.quotaBytes = undefined;
+    expect(await pause()).toBeUndefined();
+    await restoreWorkspaceSnapshot(dryRun.snapshot, db, { confirmed: true });
+    expect(await pause()).toMatchObject({ value: { kind: 'restore', generation: expect.any(String) } });
+  });
+
+
+
+  it('preserva ACK e envelope legado coexistentes sem reenviar operação reconhecida', async () => {
+    // Before 823720c9, acknowledge() persisted the receipt without deleting the envelope.
+    const data = input();
+    data.stores.entities = [];
+    data.outboxSequence = 2;
+    const acknowledgedId = '22222222-2222-4222-8222-222222222222';
+    const pendingId = '44444444-4444-4444-8444-444444444444';
+    data.stores.acks.push({
+      key: acknowledgedId, workspaceId: data.workspaceId, operationId: acknowledgedId,
+      version: 1, sequence: '1',
+    });
+    data.stores.outbox.push({
+      ...(data.stores.outbox[0] as Record<string, unknown>),
+      key: pendingId, operationId: pendingId, localSequence: 2,
+    });
+
+    const exported = await exportTest(data);
+    const inspected = await dryRunRestore(exported.bytes, passphrase);
+    const db = new MemoryLocalDb();
+    const restored = await restoreWorkspaceSnapshot(inspected.snapshot, db, { confirmed: true });
+    expect(restored.restoredCounts).toMatchObject({ outbox: 2, acks: 1 });
+    await db.transact(['outbox', 'acks'], 'readonly', async (tx) => {
+      const read = (store: 'outbox' | 'acks') => new Promise<unknown>((resolve, reject) => {
+        const request = tx.store(store).get(acknowledgedId);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      const [envelope, receipt] = await Promise.all([read('outbox'), read('acks')]);
+      expect(envelope).toMatchObject({ operationId: acknowledgedId, localSequence: 1 });
+      expect(receipt).toMatchObject({ operationId: acknowledgedId, version: 1, sequence: '1' });
+    });
+    const pending = await new LocalRepository(db).listOutbox(data.workspaceId);
+    expect(pending.map(operation => operation.operationId)).toEqual([pendingId]);
+  });
+
+
   it('executa dry-run seguro e calcula estatisticas sem escrita local', async () => {
     const data = input();
     const pdf = new TextEncoder().encode('%PDF-1.4\nconteudo-pdf\n%%EOF');
@@ -518,6 +575,50 @@ describe('T4: restauracao e dry-run seguro', () => {
     expect(restored.restoredCounts.outbox).toBe(1);
   });
 
+  it('bloqueia segunda restauração vazia enquanto pausa anterior aguarda decisão', async () => {
+    const data = input();
+    data.stores.entities = [];
+    data.stores.outbox = [];
+    data.outboxSequence = null;
+    const dryRun = await dryRunRestore((await exportTest(data)).bytes, passphrase);
+    const db = new MemoryLocalDb();
+    await restoreWorkspaceSnapshot(dryRun.snapshot, db, { confirmed: true });
+    await expect(restoreWorkspaceSnapshot(dryRun.snapshot, db, { confirmed: true }))
+      .rejects.toThrow(/restauração anterior ainda aguarda/i);
+    await db.transact(['meta', 'entities', 'outbox'], 'readonly', async tx => {
+      const get = (key: string) => new Promise<unknown>((resolve, reject) => {
+        const request = tx.store('meta').get(key);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      expect(await get('syncPausedAfterRestore')).toMatchObject({ key: 'syncPausedAfterRestore', value: { kind: 'restore', generation: expect.any(String) } });
+      expect(await get('workspaceId')).toEqual({ key: 'workspaceId', value: data.workspaceId });
+    });
+  });
+
+  it('permite restauração vazia após a pausa anterior ser explicitamente removida', async () => {
+    const data = input();
+    data.stores.entities = [];
+    data.stores.outbox = [];
+    data.outboxSequence = null;
+    const dryRun = await dryRunRestore((await exportTest(data)).bytes, passphrase);
+    const db = new MemoryLocalDb();
+    await restoreWorkspaceSnapshot(dryRun.snapshot, db, { confirmed: true });
+    await db.transact(['meta'], 'readwrite', tx => {
+      tx.store('meta').put({ key: 'syncPausedAfterRestore', value: false });
+    });
+    const result = await restoreWorkspaceSnapshot(dryRun.snapshot, db, { confirmed: true });
+    expect(result.restoredCounts.entities).toBe(0);
+    await db.transact(['meta'], 'readonly', async tx => {
+      const pause = await new Promise<unknown>((resolve, reject) => {
+        const request = tx.store('meta').get('syncPausedAfterRestore');
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      expect(pause).toMatchObject({ key: 'syncPausedAfterRestore', value: { kind: 'restore', generation: expect.any(String) } });
+    });
+  });
+
   it('bloqueia cursor anterior no mesmo workspace e o preserva', async () => {
     const dryRun = await dryRunRestore((await exportTest()).bytes, passphrase);
     const db = new MemoryLocalDb();
@@ -537,6 +638,28 @@ describe('T4: restauracao e dry-run seguro', () => {
       expect(await get('entities', `${dryRun.workspaceId}:project:p1`)).toBeUndefined();
     });
   });
+
+  it.each(['token-de-outra-aba', null, false])(
+    'bloqueia restauração com claim de sync presente sem modificar dados (%s)', async value => {
+      const dryRun = await dryRunRestore((await exportTest()).bytes, passphrase);
+      const db = new MemoryLocalDb();
+      await db.transact(['meta'], 'readwrite', tx => {
+        tx.store('meta').put({ key: 'syncInProgress', value });
+      });
+      await expect(restoreWorkspaceSnapshot(dryRun.snapshot, db, { confirmed: true }))
+        .rejects.toThrow(/sincronização em andamento ou não finalizada/i);
+      await db.transact(['meta', 'entities'], 'readonly', async tx => {
+        const get = (store: 'meta' | 'entities', key: string) => new Promise<unknown>((resolve, reject) => {
+          const request = tx.store(store).get(key);
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = () => reject(request.error);
+        });
+        expect(await get('meta', 'syncInProgress')).toEqual({ key: 'syncInProgress', value });
+        expect(await get('meta', 'workspaceId')).toBeUndefined();
+        expect(await get('entities', `${dryRun.workspaceId}:project:p1`)).toBeUndefined();
+      });
+    },
+  );
 
   it.each([
     { workspaceId: 'workspace-divergente' },

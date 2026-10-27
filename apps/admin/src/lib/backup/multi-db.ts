@@ -1,5 +1,5 @@
 import type { BackupCoverage } from './manifest';
-import { readBlobBytes } from '../blob-bytes';
+import { OFFLINE_PACKAGE_DB, OFFLINE_PACKAGE_VERSION } from '@markmap/maps/offline/package';
 
 export interface LocalEngineRecord {
   id: string;
@@ -31,7 +31,8 @@ export interface OfflineMapRecord {
   state: string;
   bytes: number;
   generation: string;
-  assetsCount: number;
+  /** Individual assets are not enumerated until a complete exporter exists. */
+  assetsCount: number | null;
 }
 
 function resolveIDBFactory(customFactory?: IDBFactory): IDBFactory | null {
@@ -42,26 +43,6 @@ function resolveIDBFactory(customFactory?: IDBFactory): IDBFactory | null {
   }
   if (typeof window !== 'undefined' && 'indexedDB' in window) return window.indexedDB;
   return null;
-}
-
-function toBase64(bytes: Uint8Array): string {
-  let result = '';
-  for (let offset = 0; offset < bytes.length; offset += 12_288) {
-    const part = bytes.subarray(offset, offset + 12_288);
-    let characters = '';
-    for (let i = 0; i < part.length; i++) characters += String.fromCharCode(bytes[i + offset]);
-    result += btoa(characters);
-  }
-  return result;
-}
-
-async function extractBytes(binary: unknown): Promise<Uint8Array> {
-  if (binary instanceof ArrayBuffer) return new Uint8Array(binary);
-  if (ArrayBuffer.isView(binary))
-    return new Uint8Array(binary.buffer, binary.byteOffset, binary.byteLength);
-  if (binary instanceof Blob)
-    return new Uint8Array(await readBlobBytes(binary));
-  throw new Error('Dado binario nao reconhecido.');
 }
 
 function withCoverage<T>(records: T[]): { records: T[]; coverage: BackupCoverage } {
@@ -75,13 +56,15 @@ function withCoverage<T>(records: T[]): { records: T[]; coverage: BackupCoverage
   };
 }
 
-/** Wait for the readonly transaction to complete, not just getAll.onsuccess. */
-function readStoreRows(
+/** Inspect counts in a single committed readonly snapshot without loading binaries. */
+function countStoreRows(
   idb: IDBFactory,
   databaseName: string,
   stores: string[],
   readStore: string,
-): Promise<unknown[]> {
+  countStore?: string,
+  expectedVersion = 1,
+): Promise<{ primaryCount: number; extraCount: number }> {
   return new Promise((resolve, reject) => {
     let db: IDBDatabase | null = null;
     let settled = false;
@@ -93,11 +76,11 @@ function readStoreRows(
       db?.close();
       reject(new Error(message));
     };
-    const finish = (rows: unknown[]) => {
+    const finish = (primaryCount = 0, extraCount = 0) => {
       if (settled) return;
       settled = true;
       db?.close();
-      resolve(rows);
+      resolve({ primaryCount, extraCount });
     };
 
     let req: IDBOpenDBRequest;
@@ -119,7 +102,7 @@ function readStoreRows(
       }
     };
     req.onerror = () => {
-      if (missingOnOpen) finish([]);
+      if (missingOnOpen) finish();
       else fail('Falha ao abrir banco IndexedDB existente.');
     };
     req.onblocked = () => fail('Abertura de IndexedDB bloqueada.');
@@ -129,28 +112,41 @@ function readStoreRows(
         db.close();
         return;
       }
+      if (db.version !== expectedVersion) {
+        fail('Versao IndexedDB desconhecida; cobertura nao pode ser verificada.');
+        return;
+      }
       if (stores.some((store) => !db?.objectStoreNames.contains(store))) {
         fail('Store obrigatorio ausente em IndexedDB existente.');
         return;
       }
       try {
         const tx = db.transaction(stores, 'readonly');
-        let rows: unknown[] | null = null;
+        let primaryCount: number | null = null;
+        let extraCount: number | null = countStore ? null : 0;
         tx.onerror = () => fail('Erro na transacao readonly IndexedDB.');
         tx.onabort = () => fail('Transacao readonly IndexedDB abortada.');
         tx.oncomplete = () => {
-          if (rows === null) fail('Leitura incompleta no IndexedDB.');
-          else finish(rows);
+          if (primaryCount === null || extraCount === null) fail('Leitura incompleta no IndexedDB.');
+          else finish(primaryCount, extraCount);
         };
-        const getAllReq = tx.objectStore(readStore).getAll();
-        getAllReq.onsuccess = () => {
-          if (!Array.isArray(getAllReq.result)) {
-            fail('Resposta de leitura IndexedDB invalida.');
-            return;
-          }
-          rows = getAllReq.result;
+        const primaryReq = tx.objectStore(readStore).count();
+        primaryReq.onsuccess = () => {
+          if (!Number.isSafeInteger(primaryReq.result) || primaryReq.result < 0)
+            return fail('Contagem IndexedDB invalida.');
+          primaryCount = primaryReq.result;
         };
-        getAllReq.onerror = () => fail('Falha de leitura no IndexedDB.');
+        primaryReq.onerror = () => fail('Falha ao contar registros IndexedDB.');
+        if (countStore) {
+          // Count related stores in the same snapshot without loading large binary assets.
+          const countReq = tx.objectStore(countStore).count();
+          countReq.onsuccess = () => {
+            if (!Number.isSafeInteger(countReq.result) || countReq.result < 0)
+              return fail('Contagem IndexedDB invalida.');
+            extraCount = countReq.result;
+          };
+          countReq.onerror = () => fail('Falha ao contar registros IndexedDB.');
+        }
       } catch {
         fail('Transacao readonly IndexedDB indisponivel.');
       }
@@ -167,72 +163,45 @@ function requireIDB(factory?: IDBFactory): IDBFactory {
 export async function readLocalEngineSnapshot(
   factory?: IDBFactory,
 ): Promise<{ records: LocalEngineRecord[]; coverage: BackupCoverage }> {
-  const rows = await readStoreRows(requireIDB(factory), 'GeoNexoLocalEngineDB', ['store'], 'store');
-  return withCoverage(rows as LocalEngineRecord[]);
+  const { primaryCount } = await countStoreRows(requireIDB(factory), 'GeoNexoLocalEngineDB', ['store'], 'store');
+  const records: LocalEngineRecord[] = [];
+  return primaryCount ? { records, coverage: {
+    status: 'pending', schemaVersion: 1, recordCount: null,
+    reason: 'Dados e binarios do motor local ainda nao sao incluidos no backup.',
+  } } : withCoverage(records);
 }
 
 export async function readMeshesSnapshot(
   factory?: IDBFactory,
 ): Promise<{ records: MeshRecord[]; coverage: BackupCoverage }> {
-  const rows = await readStoreRows(requireIDB(factory), 'geonexo-mesh-store', ['meshes'], 'meshes');
-  try {
-    const records: MeshRecord[] = [];
-    for (const row of rows as Array<Record<string, unknown>>) {
-      const bytes = await extractBytes(row.glb);
-      records.push({
-        meshId: String(row.meshId || row.id || ''),
-        name: String(row.name || ''),
-        glbBase64: toBase64(bytes),
-        size: bytes.byteLength,
-        createdAt: String(row.createdAt || new Date().toISOString()),
-        view: row.view,
-      });
-    }
-    return withCoverage(records);
-  } catch {
-    throw new Error('Binario local ilegivel; backup multibanco interrompido.');
-  }
+  const { primaryCount } = await countStoreRows(requireIDB(factory), 'geonexo-mesh-store', ['meshes'], 'meshes');
+  const records: MeshRecord[] = [];
+  return primaryCount ? { records, coverage: {
+    status: 'pending', schemaVersion: 1, recordCount: null,
+    reason: 'Malhas e seus metadados ainda nao sao incluidos no backup.',
+  } } : withCoverage(records);
 }
 
 export async function readLargeBlobsSnapshot(
   factory?: IDBFactory,
 ): Promise<{ records: LargeBlobRecord[]; coverage: BackupCoverage }> {
-  const rows = await readStoreRows(requireIDB(factory), 'large-blob-store', ['blobs'], 'blobs');
-  try {
-    const records: LargeBlobRecord[] = [];
-    for (const row of rows as Array<Record<string, unknown>>) {
-      const bytes = await extractBytes(row.data || row.blob || row.buffer);
-      records.push({
-        key: String(row.key || ''),
-        bytesBase64: toBase64(bytes),
-        size: bytes.byteLength,
-        lastModified: String(row.lastModified || new Date().toISOString()),
-        etag: row.etag ? String(row.etag) : undefined,
-        checksum: row.checksum ? String(row.checksum) : undefined,
-      });
-    }
-    return withCoverage(records);
-  } catch {
-    throw new Error('Binario local ilegivel; backup multibanco interrompido.');
-  }
+  const { primaryCount, extraCount } = await countStoreRows(requireIDB(factory), 'large-blob-store', ['blobs', 'metadata'], 'blobs', 'metadata');
+  const records: LargeBlobRecord[] = [];
+  return primaryCount || extraCount ? { records, coverage: {
+    status: 'pending', schemaVersion: 1, recordCount: null,
+    reason: 'Blobs e seus metadados ainda nao sao incluidos no backup.',
+  } } : withCoverage(records);
 }
 
 export async function readOfflineMapsSnapshot(
   factory?: IDBFactory,
 ): Promise<{ records: OfflineMapRecord[]; coverage: BackupCoverage }> {
-  const rows = await readStoreRows(
-    requireIDB(factory), 'markmap-offline-packages', ['packages', 'assets'], 'packages',
+  const { primaryCount, extraCount } = await countStoreRows(
+    requireIDB(factory), OFFLINE_PACKAGE_DB, ['packages', 'assets'], 'packages', 'assets', OFFLINE_PACKAGE_VERSION,
   );
-  try {
-    const records: OfflineMapRecord[] = (rows as Array<Record<string, unknown>>).map((r) => ({
-      packageId: String(r.packageId || r.key || ''),
-      state: String(r.state || 'active'),
-      bytes: typeof r.bytes === 'number' ? r.bytes : 0,
-      generation: String(r.generation || ''),
-      assetsCount: Array.isArray(r.assets) ? r.assets.length : 0,
-    }));
-    return withCoverage(records);
-  } catch {
-    throw new Error('Metadados de mapas offline invalidos.');
-  }
+  const records: OfflineMapRecord[] = [];
+  return primaryCount || extraCount ? { records, coverage: {
+    status: 'pending', schemaVersion: 1, recordCount: null,
+    reason: 'Os mapas offline ainda nao sao incluidos no backup.',
+  } } : withCoverage(records);
 }
