@@ -68,10 +68,10 @@ function fakeFactory(storeName: string, scenario: Scenario): IDBFactory {
       if (scenario === 'open-error') throw new Error('abertura indisponivel');
       queueMicrotask(() => {
         if (scenario === 'missing-db') {
-          request.onupgradeneeded?.(new Event('upgradeneeded'));
+          request.onupgradeneeded?.(new Event('upgradeneeded') as IDBVersionChangeEvent);
           request.onerror?.(new Event('error'));
         } else if (scenario === 'blocked') {
-          request.onblocked?.(new Event('blocked'));
+          request.onblocked?.(new Event('blocked') as IDBVersionChangeEvent);
         } else {
           request.onsuccess?.(new Event('success'));
         }

@@ -76,10 +76,13 @@ export async function readLocalEngineSnapshot(
       let missingOnOpen = false;
       req.onupgradeneeded = () => {
         // open() sem versao criaria um banco inexistente: abortar sem gravar.
-        missingOnOpen = true;
         try {
-          req.transaction?.abort();
-        } catch {}
+          if (!req.transaction) throw new Error('Transacao de upgrade inexistente.');
+          req.transaction.abort();
+          missingOnOpen = true;
+        } catch {
+          reject(new Error('Nao foi possivel cancelar abertura de banco ausente.'));
+        }
       };
       req.onerror = () => {
         if (missingOnOpen) {
@@ -146,10 +149,13 @@ export async function readMeshesSnapshot(
       let missingOnOpen = false;
       req.onupgradeneeded = () => {
         // open() sem versao criaria um banco inexistente: abortar sem gravar.
-        missingOnOpen = true;
         try {
-          req.transaction?.abort();
-        } catch {}
+          if (!req.transaction) throw new Error('Transacao de upgrade inexistente.');
+          req.transaction.abort();
+          missingOnOpen = true;
+        } catch {
+          reject(new Error('Nao foi possivel cancelar abertura de banco ausente.'));
+        }
       };
       req.onerror = () => {
         if (missingOnOpen) {
@@ -233,10 +239,13 @@ export async function readLargeBlobsSnapshot(
       let missingOnOpen = false;
       req.onupgradeneeded = () => {
         // open() sem versao criaria um banco inexistente: abortar sem gravar.
-        missingOnOpen = true;
         try {
-          req.transaction?.abort();
-        } catch {}
+          if (!req.transaction) throw new Error('Transacao de upgrade inexistente.');
+          req.transaction.abort();
+          missingOnOpen = true;
+        } catch {
+          reject(new Error('Nao foi possivel cancelar abertura de banco ausente.'));
+        }
       };
       req.onerror = () => {
         if (missingOnOpen) {
@@ -324,10 +333,13 @@ export async function readOfflineMapsSnapshot(
       let missingOnOpen = false;
       req.onupgradeneeded = () => {
         // open() sem versao criaria um banco inexistente: abortar sem gravar.
-        missingOnOpen = true;
         try {
-          req.transaction?.abort();
-        } catch {}
+          if (!req.transaction) throw new Error('Transacao de upgrade inexistente.');
+          req.transaction.abort();
+          missingOnOpen = true;
+        } catch {
+          reject(new Error('Nao foi possivel cancelar abertura de banco ausente.'));
+        }
       };
       req.onerror = () => {
         if (missingOnOpen) {
