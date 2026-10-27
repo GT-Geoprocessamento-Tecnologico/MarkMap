@@ -69,29 +69,31 @@ export async function readLocalEngineSnapshot(
 ): Promise<{ records: LocalEngineRecord[]; coverage: BackupCoverage }> {
   const idb = resolveIDBFactory(factory);
   if (!idb) {
-    return { records: [], coverage: { status: 'absent', schemaVersion: 1, recordCount: 0 } };
+    throw new Error('IndexedDB indisponivel: backup multibanco nao pode ser validado.');
   }
-  try {
-    return await new Promise((resolve) => {
+  return new Promise<{ records: LocalEngineRecord[]; coverage: BackupCoverage }>((resolve, reject) => {
       const req = idb.open('GeoNexoLocalEngineDB');
+      let missingOnOpen = false;
       req.onupgradeneeded = () => {
+        // open() sem versao criaria um banco inexistente: abortar sem gravar.
+        missingOnOpen = true;
         try {
           req.transaction?.abort();
         } catch {}
       };
-      req.onerror = () =>
-        resolve({
-          records: [],
-          coverage: { status: 'absent', schemaVersion: 1, recordCount: 0 },
-        });
+      req.onerror = () => {
+        if (missingOnOpen) {
+          resolve({ records: [], coverage: { status: 'absent', schemaVersion: 1, recordCount: 0 } });
+        } else {
+          reject(new Error('Falha ao abrir banco IndexedDB existente.'));
+        }
+      };
+      req.onblocked = () => reject(new Error('Abertura de IndexedDB bloqueada.'));
       req.onsuccess = () => {
         const db = req.result;
         if (!db.objectStoreNames.contains('store')) {
           db.close();
-          return resolve({
-            records: [],
-            coverage: { status: 'absent', schemaVersion: 1, recordCount: 0 },
-          });
+          return reject(new Error('Store store ausente em IndexedDB existente.'));
         }
         try {
           const tx = db.transaction('store', 'readonly');
@@ -122,26 +124,14 @@ export async function readLocalEngineSnapshot(
           };
           getAllReq.onerror = () => {
             db.close();
-            resolve({
-              records: [],
-              coverage: { status: 'absent', schemaVersion: 1, recordCount: 0 },
-            });
+            reject(new Error('Falha de leitura no IndexedDB.'));
           };
         } catch {
           db.close();
-          resolve({
-            records: [],
-            coverage: { status: 'absent', schemaVersion: 1, recordCount: 0 },
-          });
+          reject(new Error('Transacao readonly IndexedDB indisponivel.'));
         }
       };
-    });
-  } catch {
-    return {
-      records: [],
-      coverage: { status: 'absent', schemaVersion: 1, recordCount: 0 },
-    };
-  }
+  });
 }
 
 export async function readMeshesSnapshot(
@@ -149,29 +139,31 @@ export async function readMeshesSnapshot(
 ): Promise<{ records: MeshRecord[]; coverage: BackupCoverage }> {
   const idb = resolveIDBFactory(factory);
   if (!idb) {
-    return { records: [], coverage: { status: 'absent', schemaVersion: 1, recordCount: 0 } };
+    throw new Error('IndexedDB indisponivel: backup multibanco nao pode ser validado.');
   }
-  try {
-    return await new Promise((resolve) => {
+  return new Promise<{ records: MeshRecord[]; coverage: BackupCoverage }>((resolve, reject) => {
       const req = idb.open('geonexo-mesh-store');
+      let missingOnOpen = false;
       req.onupgradeneeded = () => {
+        // open() sem versao criaria um banco inexistente: abortar sem gravar.
+        missingOnOpen = true;
         try {
           req.transaction?.abort();
         } catch {}
       };
-      req.onerror = () =>
-        resolve({
-          records: [],
-          coverage: { status: 'absent', schemaVersion: 1, recordCount: 0 },
-        });
+      req.onerror = () => {
+        if (missingOnOpen) {
+          resolve({ records: [], coverage: { status: 'absent', schemaVersion: 1, recordCount: 0 } });
+        } else {
+          reject(new Error('Falha ao abrir banco IndexedDB existente.'));
+        }
+      };
+      req.onblocked = () => reject(new Error('Abertura de IndexedDB bloqueada.'));
       req.onsuccess = () => {
         const db = req.result;
         if (!db.objectStoreNames.contains('meshes')) {
           db.close();
-          return resolve({
-            records: [],
-            coverage: { status: 'absent', schemaVersion: 1, recordCount: 0 },
-          });
+          return reject(new Error('Store meshes ausente em IndexedDB existente.'));
         }
         try {
           const tx = db.transaction('meshes', 'readonly');
@@ -214,38 +206,19 @@ export async function readMeshesSnapshot(
                 },
               });
             } catch {
-              resolve({
-                records: [],
-                coverage: {
-                  status: 'absent',
-                  schemaVersion: 1,
-                  recordCount: 0,
-                },
-              });
+              reject(new Error('Binario local ilegivel; backup multibanco interrompido.'));
             }
           };
           getAllReq.onerror = () => {
             db.close();
-            resolve({
-              records: [],
-              coverage: { status: 'absent', schemaVersion: 1, recordCount: 0 },
-            });
+            reject(new Error('Falha de leitura no IndexedDB.'));
           };
         } catch {
           db.close();
-          resolve({
-            records: [],
-            coverage: { status: 'absent', schemaVersion: 1, recordCount: 0 },
-          });
+          reject(new Error('Transacao readonly IndexedDB indisponivel.'));
         }
       };
-    });
-  } catch {
-    return {
-      records: [],
-      coverage: { status: 'absent', schemaVersion: 1, recordCount: 0 },
-    };
-  }
+  });
 }
 
 export async function readLargeBlobsSnapshot(
@@ -253,29 +226,31 @@ export async function readLargeBlobsSnapshot(
 ): Promise<{ records: LargeBlobRecord[]; coverage: BackupCoverage }> {
   const idb = resolveIDBFactory(factory);
   if (!idb) {
-    return { records: [], coverage: { status: 'absent', schemaVersion: 1, recordCount: 0 } };
+    throw new Error('IndexedDB indisponivel: backup multibanco nao pode ser validado.');
   }
-  try {
-    return await new Promise((resolve) => {
+  return new Promise<{ records: LargeBlobRecord[]; coverage: BackupCoverage }>((resolve, reject) => {
       const req = idb.open('large-blob-store');
+      let missingOnOpen = false;
       req.onupgradeneeded = () => {
+        // open() sem versao criaria um banco inexistente: abortar sem gravar.
+        missingOnOpen = true;
         try {
           req.transaction?.abort();
         } catch {}
       };
-      req.onerror = () =>
-        resolve({
-          records: [],
-          coverage: { status: 'absent', schemaVersion: 1, recordCount: 0 },
-        });
+      req.onerror = () => {
+        if (missingOnOpen) {
+          resolve({ records: [], coverage: { status: 'absent', schemaVersion: 1, recordCount: 0 } });
+        } else {
+          reject(new Error('Falha ao abrir banco IndexedDB existente.'));
+        }
+      };
+      req.onblocked = () => reject(new Error('Abertura de IndexedDB bloqueada.'));
       req.onsuccess = () => {
         const db = req.result;
         if (!db.objectStoreNames.contains('blobs')) {
           db.close();
-          return resolve({
-            records: [],
-            coverage: { status: 'absent', schemaVersion: 1, recordCount: 0 },
-          });
+          return reject(new Error('Store blobs ausente em IndexedDB existente.'));
         }
         try {
           const tx = db.transaction('blobs', 'readonly');
@@ -322,38 +297,19 @@ export async function readLargeBlobsSnapshot(
                 },
               });
             } catch {
-              resolve({
-                records: [],
-                coverage: {
-                  status: 'absent',
-                  schemaVersion: 1,
-                  recordCount: 0,
-                },
-              });
+              reject(new Error('Binario local ilegivel; backup multibanco interrompido.'));
             }
           };
           getAllReq.onerror = () => {
             db.close();
-            resolve({
-              records: [],
-              coverage: { status: 'absent', schemaVersion: 1, recordCount: 0 },
-            });
+            reject(new Error('Falha de leitura no IndexedDB.'));
           };
         } catch {
           db.close();
-          resolve({
-            records: [],
-            coverage: { status: 'absent', schemaVersion: 1, recordCount: 0 },
-          });
+          reject(new Error('Transacao readonly IndexedDB indisponivel.'));
         }
       };
-    });
-  } catch {
-    return {
-      records: [],
-      coverage: { status: 'absent', schemaVersion: 1, recordCount: 0 },
-    };
-  }
+  });
 }
 
 export async function readOfflineMapsSnapshot(
@@ -361,29 +317,31 @@ export async function readOfflineMapsSnapshot(
 ): Promise<{ records: OfflineMapRecord[]; coverage: BackupCoverage }> {
   const idb = resolveIDBFactory(factory);
   if (!idb) {
-    return { records: [], coverage: { status: 'absent', schemaVersion: 1, recordCount: 0 } };
+    throw new Error('IndexedDB indisponivel: backup multibanco nao pode ser validado.');
   }
-  try {
-    return await new Promise((resolve) => {
+  return new Promise<{ records: OfflineMapRecord[]; coverage: BackupCoverage }>((resolve, reject) => {
       const req = idb.open('markmap-offline-packages');
+      let missingOnOpen = false;
       req.onupgradeneeded = () => {
+        // open() sem versao criaria um banco inexistente: abortar sem gravar.
+        missingOnOpen = true;
         try {
           req.transaction?.abort();
         } catch {}
       };
-      req.onerror = () =>
-        resolve({
-          records: [],
-          coverage: { status: 'absent', schemaVersion: 1, recordCount: 0 },
-        });
+      req.onerror = () => {
+        if (missingOnOpen) {
+          resolve({ records: [], coverage: { status: 'absent', schemaVersion: 1, recordCount: 0 } });
+        } else {
+          reject(new Error('Falha ao abrir banco IndexedDB existente.'));
+        }
+      };
+      req.onblocked = () => reject(new Error('Abertura de IndexedDB bloqueada.'));
       req.onsuccess = () => {
         const db = req.result;
         if (!db.objectStoreNames.contains('packages')) {
           db.close();
-          return resolve({
-            records: [],
-            coverage: { status: 'absent', schemaVersion: 1, recordCount: 0 },
-          });
+          return reject(new Error('Store packages ausente em IndexedDB existente.'));
         }
         try {
           const tx = db.transaction(['packages', 'assets'], 'readonly');
@@ -404,13 +362,19 @@ export async function readOfflineMapsSnapshot(
                 },
               });
             }
-            const records: OfflineMapRecord[] = rawRows.map((r) => ({
-              packageId: String(r.packageId || r.key || ''),
-              state: String(r.state || 'active'),
-              bytes: typeof r.bytes === 'number' ? r.bytes : 0,
-              generation: String(r.generation || ''),
-              assetsCount: Array.isArray(r.assets) ? r.assets.length : 0,
-            }));
+            let records: OfflineMapRecord[];
+            try {
+              records = rawRows.map((r) => ({
+                packageId: String(r.packageId || r.key || ''),
+                state: String(r.state || 'active'),
+                bytes: typeof r.bytes === 'number' ? r.bytes : 0,
+                generation: String(r.generation || ''),
+                assetsCount: Array.isArray(r.assets) ? r.assets.length : 0,
+              }));
+            } catch {
+              reject(new Error('Metadados de mapas offline invalidos.'));
+              return;
+            }
             resolve({
               records,
               coverage: {
@@ -422,25 +386,12 @@ export async function readOfflineMapsSnapshot(
           };
           getAllReq.onerror = () => {
             db.close();
-            resolve({
-              records: [],
-              coverage: { status: 'absent', schemaVersion: 1, recordCount: 0 },
-            });
+            reject(new Error('Falha de leitura no IndexedDB.'));
           };
         } catch {
           db.close();
-          resolve({
-            records: [],
-            coverage: { status: 'absent', schemaVersion: 1, recordCount: 0 },
-          });
+          reject(new Error('Transacao readonly IndexedDB indisponivel.'));
         }
       };
-    });
-  } catch {
-    return {
-      records: [],
-      coverage: { status: 'absent', schemaVersion: 1, recordCount: 0 },
-    };
-  }
+  });
 }
-
