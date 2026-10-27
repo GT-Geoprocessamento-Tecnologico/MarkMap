@@ -86,7 +86,7 @@ function inspectPendingSnapshot(snapshot: PortableLocalFirstSnapshot): {
   let maxSequence = 0;
   for (const row of outbox) {
     if (!row || row.workspaceId !== workspaceId ||
-      typeof row.operationId !== "string" || !row.operationId ||
+      typeof row.operationId !== "string" || row.operationId.length === 0 ||
       row.key !== row.operationId || row.immutable !== true ||
       typeof row.localSequence !== "number" ||
       !Number.isSafeInteger(row.localSequence) || row.localSequence < 1) {
@@ -106,7 +106,7 @@ function inspectPendingSnapshot(snapshot: PortableLocalFirstSnapshot): {
   const seenConflicts = new Set<string>();
   for (const row of conflicts) {
     if (!row || row.workspaceId !== workspaceId ||
-      typeof row.operationId !== "string" || !row.operationId ||
+      typeof row.operationId !== "string" || row.operationId.length === 0 ||
       row.key !== `${workspaceId}:${row.operationId}` ||
       seenConflicts.has(row.operationId)) {
       throw new Error("Conflito inválido ou duplicado no backup.");
@@ -127,11 +127,11 @@ async function prepareOriginals(
   return Promise.all(snapshot.stores.originals.map(async (rawOrig) => {
     const { originalBytesBase64, ...metadata } = rawOrig;
     if (metadata.workspaceId !== workspaceId ||
-      typeof metadata.blobId !== "string" || !metadata.blobId ||
+      typeof metadata.blobId !== "string" || metadata.blobId.length === 0 ||
       metadata.key !== `${workspaceId}:${metadata.blobId}`) {
       throw new Error("Original com workspace ou chave inválidos no backup.");
     }
-    if (typeof originalBytesBase64 !== "string" || !originalBytesBase64) {
+    if (typeof originalBytesBase64 !== "string" || originalBytesBase64.length === 0) {
       throw new Error(`Original "${String(metadata.blobId)}" sem bytes no snapshot.`);
     }
     const bytes = fromBase64(originalBytesBase64);
