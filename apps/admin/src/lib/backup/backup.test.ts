@@ -314,6 +314,108 @@ describe('T4: restauracao e dry-run seguro', () => {
       /workspace/i,
     );
   });
+
+  it('restaura outbox, conflitos e sequencia do backup sem descartar trabalho offline', async () => {
+    const data = input();
+    data.stores.conflicts.push({
+      key: 'workspace-de-teste:op1',
+      workspaceId: 'workspace-de-teste',
+      operationId: 'op1',
+      entity: 'project',
+      entityId: 'p1',
+      baseVersion: null,
+      serverVersion: 1,
+      reason: 'VERSION_CONFLICT',
+      createdAt: '2026-01-01T00:00:00.000Z',
+    });
+    const dryRun = await dryRunRestore((await exportTest(data)).bytes, passphrase);
+    expect(dryRun.summary.outboxCount).toBe(1);
+    expect(dryRun.summary.conflictsCount).toBe(1);
+    expect(dryRun.summary.totalRecords).toBe(3);
+
+    const db = new MemoryLocalDb();
+    const result = await restoreWorkspaceSnapshot(dryRun.snapshot, db, { confirmed: true });
+    expect(result.restoredCounts.outbox).toBe(1);
+    expect(result.restoredCounts.conflicts).toBe(1);
+    await db.transact(['outbox', 'conflicts', 'meta'], 'readonly', async (tx) => {
+      const read = (store: 'outbox' | 'conflicts' | 'meta', key: string) =>
+        new Promise<unknown>((resolve, reject) => {
+          const request = tx.store(store).get(key);
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = () => reject(request.error);
+        });
+      const [pending, conflict, sequence] = await Promise.all([
+        read('outbox', 'op1'),
+        read('conflicts', 'workspace-de-teste:op1'),
+        read('meta', 'outboxSequence'),
+      ]);
+      expect(pending).toMatchObject({
+        operationId: 'op1', localSequence: 1, immutable: true,
+      });
+      expect(conflict).toMatchObject({
+        operationId: 'op1', reason: 'VERSION_CONFLICT',
+      });
+      expect(sequence).toMatchObject({ value: 1 });
+    });
+  });
+
+  it('rejeita outbox adulterada antes de abrir a transacao de escrita', async () => {
+    const dryRun = await dryRunRestore((await exportTest()).bytes, passphrase);
+    dryRun.snapshot.metadata.outboxSequence = 0;
+    const db = new MemoryLocalDb();
+    db.failNextTransaction = true;
+    await expect(
+      restoreWorkspaceSnapshot(dryRun.snapshot, db, { confirmed: true }),
+    ).rejects.toThrow(/sequência/i);
+    expect(db.failNextTransaction).toBe(true);
+  });
+
+  it('rejeita operacoes duplicadas na outbox do snapshot', async () => {
+    const dryRun = await dryRunRestore((await exportTest()).bytes, passphrase);
+    dryRun.snapshot.stores.outbox.push({ ...dryRun.snapshot.stores.outbox[0] });
+    const db = new MemoryLocalDb();
+    await expect(
+      restoreWorkspaceSnapshot(dryRun.snapshot, db, { confirmed: true }),
+    ).rejects.toThrow(/duplicada/i);
+  });
+
+  it('nao mescla backup sobre originais de outro workspace sem entidades', async () => {
+    const dryRun = await dryRunRestore((await exportTest()).bytes, passphrase);
+    const db = new MemoryLocalDb();
+    await db.transact(['meta', 'originals'], 'readwrite', (tx) => {
+      tx.store('meta').put({ key: 'workspaceId', value: 'workspace-diferente' });
+      tx.store('originals').put({
+        key: 'workspace-diferente:pdf1',
+        workspaceId: 'workspace-diferente',
+        blobId: 'pdf1',
+      });
+    });
+    await expect(
+      restoreWorkspaceSnapshot(dryRun.snapshot, db, { confirmed: true }),
+    ).rejects.toThrow(/workspace/i);
+  });
+
+  it('verifica o hash de PDFs antes de iniciar a escrita IndexedDB', async () => {
+    const data = input();
+    const pdf = new TextEncoder().encode('%PDF-1.4\noriginal-testado\n%%EOF');
+    data.stores.originals.push({
+      key: 'workspace-de-teste:pdf-verificado',
+      workspaceId: data.workspaceId,
+      blobId: 'pdf-verificado',
+      bytes: pdf.byteLength,
+      mediaType: 'application/pdf',
+      sha256: await digestHex(pdf),
+      originalBytes: pdf.buffer,
+    });
+    const dryRun = await dryRunRestore((await exportTest(data)).bytes, passphrase);
+    dryRun.snapshot.stores.originals[0].sha256 = '0'.repeat(64);
+    const db = new MemoryLocalDb();
+    db.failNextTransaction = true;
+    await expect(
+      restoreWorkspaceSnapshot(dryRun.snapshot, db, { confirmed: true }),
+    ).rejects.toThrow(/SHA-256/);
+    expect(db.failNextTransaction).toBe(true);
+  });
 });
 
 describe('T3b: leitura multi-banco opcional (local-engine, large-blobs, offline-packages)', () => {
