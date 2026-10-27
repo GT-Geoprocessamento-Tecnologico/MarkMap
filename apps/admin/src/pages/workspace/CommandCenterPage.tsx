@@ -982,10 +982,7 @@ export default function CommandCenterPage() {
         map.on("pitch", onMove);
         map.on("rotate", onMove);
 
-        const ensureSource = () => {
-          if (cancelled || webglLostRef.current || mapRef.current !== map) return;
-          // Recover individual missing layers even when a previous partial
-          // style.load already created their shared source.
+        const ensureLocalDataset = (map: MapLibreMap) => {
           ensureOfflineSourceLayers(map, "local-dataset", {
             type: "geojson",
             data: activeGeoJsonRef.current as unknown as GeoJSON.FeatureCollection,
@@ -1000,44 +997,49 @@ export default function CommandCenterPage() {
               paint: { "circle-color": "#0284c7", "circle-radius": 5,
                 "circle-stroke-color": "#fff", "circle-stroke-width": 1 } },
           ]);
-          if (geoPdfOverlay) {
-            const overlay = ensureOfflineSourceLayers(map, "geopdf-overlay", {
-              type: "image", url: geoPdfOverlay.url,
-              coordinates: geoPdfOverlay.coordinates,
-            }, [
-              { id: "geopdf-overlay", type: "raster", source: "geopdf-overlay",
-                paint: { "raster-opacity": 1 } },
-            ]);
-            if (overlay.sourceAdded || overlay.layersAdded) {
-              if (map.getLayer("local-dataset-fill"))
-                map.moveLayer("geopdf-overlay", "local-dataset-fill");
-              if (!geoPdfHasFitted) {
-                geoPdfHasFitted = true;
-                // A person may pan while PDF.js finishes rasterization.
-                // Never snap their camera back just because the image loaded.
-                if (!geoPdfUserMoved && !geoPdfManualFocusRef.current) {
-                  const lngs = geoPdfOverlay.coordinates.map(([lng]) => lng);
-                  const lats = geoPdfOverlay.coordinates.map(([, lat]) => lat);
-                  map.fitBounds([
-                    [Math.min(...lngs), Math.min(...lats)],
-                    [Math.max(...lngs), Math.max(...lats)],
-                  ], { padding: 32, duration: 0 });
-                  if (pendingGeoPdfGpsCenter) {
-                    map.jumpTo({
-                      center: pendingGeoPdfGpsCenter,
-                      zoom: Math.max(15, map.getZoom()),
-                    });
-                    pendingGeoPdfGpsCenter = null;
-                    cancelAutoCenterRef.current?.();
-                  }
+        };
+
+        const ensureGeoPdfOverlay = (map: MapLibreMap) => {
+          if (!geoPdfOverlay) return;
+          const overlay = ensureOfflineSourceLayers(map, "geopdf-overlay", {
+            type: "image", url: geoPdfOverlay.url,
+            coordinates: geoPdfOverlay.coordinates,
+          }, [
+            { id: "geopdf-overlay", type: "raster", source: "geopdf-overlay",
+              paint: { "raster-opacity": 1 } },
+          ]);
+          if (overlay.sourceAdded || overlay.layersAdded) {
+            if (map.getLayer("local-dataset-fill"))
+              map.moveLayer("geopdf-overlay", "local-dataset-fill");
+            if (!geoPdfHasFitted) {
+              geoPdfHasFitted = true;
+              // A person may pan while PDF.js finishes rasterization.
+              // Never snap their camera back just because the image loaded.
+              if (!geoPdfUserMoved && !geoPdfManualFocusRef.current) {
+                const lngs = geoPdfOverlay.coordinates.map(([lng]) => lng);
+                const lats = geoPdfOverlay.coordinates.map(([, lat]) => lat);
+                map.fitBounds([
+                  [Math.min(...lngs), Math.min(...lats)],
+                  [Math.max(...lngs), Math.max(...lats)],
+                ], { padding: 32, duration: 0 });
+                if (pendingGeoPdfGpsCenter) {
+                  map.jumpTo({
+                    center: pendingGeoPdfGpsCenter,
+                    zoom: Math.max(15, map.getZoom()),
+                  });
+                  pendingGeoPdfGpsCenter = null;
+                  cancelAutoCenterRef.current?.();
                 }
               }
             }
-            setGeoPdfReady(true);
-            setGeoPdfMessage(geoPdfGpsNotice ?? (fallbackActive
-              ? "GeoPDF disponível offline. Para ver ruas ao redor, conecte-se à internet."
-              : "GeoPDF sobre o mapa-base. Use Minha localização para centralizar."));
           }
+          setGeoPdfReady(true);
+          setGeoPdfMessage(geoPdfGpsNotice ?? (fallbackActive
+            ? "GeoPDF disponível offline. Para ver ruas ao redor, conecte-se à internet."
+            : "GeoPDF sobre o mapa-base. Use Minha localização para centralizar."));
+        };
+
+        const ensureDrawPreview = (map: MapLibreMap) => {
           ensureOfflineSourceLayers(map, "draw-preview", {
             type: "geojson", data: drawingPreviewRef.current,
           }, [
@@ -1049,15 +1051,20 @@ export default function CommandCenterPage() {
               paint: { "circle-color": "#f59e0b", "circle-radius": 6,
                 "circle-stroke-color": "#fff", "circle-stroke-width": 2 } },
           ]);
-          if (regionalContours) {
-            ensureOfflineSourceLayers(map, "regional-contours", {
-              type: "geojson", data: regionalContours,
-            }, [
-              { id: "regional-contours-line", type: "line", source: "regional-contours",
-                paint: { "line-color": "#9a754e", "line-width": ['case', ['get', 'major'], 1.6, 0.8],
-                  "line-opacity": 0.75 } },
-            ]);
-          }
+        };
+
+        const ensureRegionalContours = (map: MapLibreMap) => {
+          if (!regionalContours) return;
+          ensureOfflineSourceLayers(map, "regional-contours", {
+            type: "geojson", data: regionalContours,
+          }, [
+            { id: "regional-contours-line", type: "line", source: "regional-contours",
+              paint: { "line-color": "#9a754e", "line-width": ['case', ['get', 'major'], 1.6, 0.8],
+                "line-opacity": 0.75 } },
+          ]);
+        };
+
+        const ensureRegionalTransit = (map: MapLibreMap) => {
           ensureOfflineSourceLayers(map, "regional-transit", {
             type: "geojson", data: transitGeoJSONRef.current,
           }, [
@@ -1066,6 +1073,9 @@ export default function CommandCenterPage() {
                 "circle-stroke-color": "#ffffff", "circle-stroke-width": 1.4,
                 "circle-opacity": 0.9 } },
           ]);
+        };
+
+        const ensureOfflineRoute = (map: MapLibreMap) => {
           ensureOfflineSourceLayers(map, "offline-route", {
             type: "geojson", data: routeAsGeoJSON(plannedRouteRef.current),
           }, [
@@ -1073,6 +1083,20 @@ export default function CommandCenterPage() {
               paint: { "line-color": "#dc2626", "line-width": 5, "line-opacity": 0.9 },
               layout: { "line-join": "round", "line-cap": "round" } },
           ]);
+        };
+
+        const ensureSource = () => {
+          if (cancelled || webglLostRef.current || mapRef.current !== map) return;
+
+          // Recover individual missing layers even when a previous partial
+          // style.load already created their shared source.
+          ensureLocalDataset(map);
+          ensureGeoPdfOverlay(map);
+          ensureDrawPreview(map);
+          ensureRegionalContours(map);
+          ensureRegionalTransit(map);
+          ensureOfflineRoute(map);
+
           if (!search.pdfId) fitSelection(map);
           setMapEpoch((value) => value + 1);
         };
