@@ -79,6 +79,10 @@ export function useDeviceLocation(options: DeviceLocationOptions = {}) {
         })
         .catch(() => {
           // Permissions API query not supported for geolocation on some browsers
+          setState((prev: DeviceLocationState) => ({
+            ...prev,
+            permissionState: "unknown",
+          }));
         });
     }
   }, []);
@@ -113,6 +117,7 @@ export function useDeviceLocation(options: DeviceLocationOptions = {}) {
   // Device orientation / Compass listener for phone & tablet
   useEffect(() => {
     const handleOrientation = (event: Event) => {
+      if (!event || typeof event !== "object") return;
       const orientationEvent = event as ExtendedDeviceOrientationEvent;
       let compass: number | null = null;
       if (typeof orientationEvent.webkitCompassHeading === "number") {
