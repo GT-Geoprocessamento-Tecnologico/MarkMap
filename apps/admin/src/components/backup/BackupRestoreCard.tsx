@@ -84,8 +84,8 @@ export function BackupRestoreCard() {
       URL.revokeObjectURL(url);
 
       toast({
-        title: "Backup exportado com sucesso",
-        description: `Arquivo ${result.filename} gerado com proteção AES-256.`,
+        title: "Backup parcial exportado",
+        description: `Arquivo ${result.filename} cifrado. Mapas offline e bancos auxiliares não estão incluídos.`,
         variant: "success",
       });
 
@@ -176,7 +176,7 @@ export function BackupRestoreCard() {
 
       toast({
         title: "Backup restaurado com sucesso",
-        description: `${result.restoredCounts.entities} entidades e ${result.restoredCounts.originals} originais restaurados no workspace.`,
+        description: `${result.restoredCounts.entities} entidades, ${result.restoredCounts.originals} originais, ${result.restoredCounts.outbox} operações pendentes e ${result.restoredCounts.conflicts} conflitos recuperados.`,
         variant: "success",
       });
 
@@ -210,6 +210,10 @@ export function BackupRestoreCard() {
         Gere cópias de segurança criptografadas (AES-256-GCM + PBKDF2) dos dados
         locais ou restaure arquivos com inspeção preliminar segura em memória
         (sem escrita prévia).
+      </p>
+      <p className="text-xs text-on-surface-variant">
+        Esta cópia é parcial (até 16 MiB): mapas offline, malhas e outros
+        bancos locais não estão incluídos.
       </p>
 
       <div className="mt-4 flex flex-wrap gap-3">
@@ -428,11 +432,20 @@ export function BackupRestoreCard() {
                         {formatBytes(dryRunResult.summary.totalOriginalsBytes)})
                       </dd>
                     </div>
+                    <div>
+                      <dt className="text-on-surface-variant">
+                        Pendências / Conflitos
+                      </dt>
+                      <dd className="font-medium">
+                        {dryRunResult.summary.outboxCount} operações ·{" "}
+                        {dryRunResult.summary.conflictsCount} conflitos
+                      </dd>
+                    </div>
                   </dl>
 
                   <div className="mt-3 rounded-lg border border-amber-400/40 bg-amber-500/10 p-2 text-amber-600 dark:text-amber-400">
-                    Salvaguarda ativa: a restauração não sobrescreverá
-                    alterações pendentes na outbox.
+                    Restauração bloqueada se já houver dados ou operações
+                    pendentes no destino. Pendências deste backup serão preservadas.
                   </div>
 
                   <label className="flex items-center gap-2 pt-2 cursor-pointer">
