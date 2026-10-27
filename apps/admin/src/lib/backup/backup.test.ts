@@ -315,3 +315,21 @@ describe('T4: restauracao e dry-run seguro', () => {
     );
   });
 });
+
+describe('T3b: leitura multi-banco opcional (local-engine, large-blobs, offline-packages)', () => {
+  it('retorna cobertura ausente com seguranca quando os bancos opcionais nao estao populados', async () => {
+    const { readLocalEngineSnapshot, readLargeBlobsSnapshot, readOfflineMapsSnapshot } = await import('./multi-db');
+
+    const engine = await readLocalEngineSnapshot();
+    expect(engine.coverage.status).toBe('absent');
+    expect(engine.records).toEqual([]);
+
+    const blobs = await readLargeBlobsSnapshot();
+    expect(blobs.coverage.status).toBe('absent');
+    expect(blobs.records).toEqual([]);
+
+    const maps = await readOfflineMapsSnapshot();
+    expect(maps.coverage.status).toBe('absent');
+    expect(maps.records).toEqual([]);
+  });
+});

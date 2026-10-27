@@ -2,6 +2,19 @@
 
 Fonte da versão do aplicativo: `apps/admin/package.json`. Todos os agentes seguem [a política de versionamento](docs/versioning.md). O [histórico documental anterior](docs/changelog.md) permanece preservado.
 
+## [0.5.10] - 2026-10-27
+
+### Alterações
+
+- Suíte de Backup Offline (Fase T3b): adiciona módulo `apps/admin/src/lib/backup/multi-db.ts` para leitura e extração opcional e segura de múltiplos bancos IndexedDB locais (`GeoNexoLocalEngineDB`, `geonexo-mesh-store`, `large-blob-store`, `markmap-offline-packages`).
+- Suporte a fallback defensivo para ambientes onde `indexedDB` global não está instanciado no escopo global (cross-realm / Node / SSR).
+
+### Validação
+
+- 18 testes unitários aprovados em `src/lib/backup/backup.test.ts` (100% PASS).
+- Suíte geral de `admin` com 64 arquivos e 320 testes aprovados.
+- Pipeline `pnpm ci:local` 100% aprovado com exit code 0.
+
 ## [0.5.9] - 2026-10-27
 
 ### Alterações
