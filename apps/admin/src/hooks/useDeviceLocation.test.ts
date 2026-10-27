@@ -1,20 +1,28 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+
 import { useDeviceLocation } from './useDeviceLocation';
 
+interface CustomDeviceOrientationEvent extends Event {
+  webkitCompassHeading?: number;
+  alpha?: number;
+  absolute?: boolean;
+}
+
 describe('useDeviceLocation', () => {
-  let originalNavigatorPermissions: any;
-  let originalNavigatorGeolocation: any;
-  let originalNavigatorWakeLock: any;
+  let originalNavigatorPermissions: unknown;
+  let originalNavigatorGeolocation: unknown;
+  let originalNavigatorWakeLock: unknown;
 
   beforeEach(() => {
-    originalNavigatorPermissions = (navigator as any).permissions;
-    originalNavigatorGeolocation = (navigator as any).geolocation;
-    originalNavigatorWakeLock = (navigator as any).wakeLock;
+    const nav = navigator as unknown as Record<string, unknown>;
+    originalNavigatorPermissions = nav.permissions;
+    originalNavigatorGeolocation = nav.geolocation;
+    originalNavigatorWakeLock = nav.wakeLock;
 
     // Ensure DeviceOrientationEvent exists on window object in happy-dom environment
     if (!('DeviceOrientationEvent' in window)) {
-      (window as any).DeviceOrientationEvent = class DeviceOrientationEvent extends Event {};
+      (window as unknown as Record<string, unknown>).DeviceOrientationEvent = class DeviceOrientationEvent extends Event {};
     }
   });
 
@@ -75,8 +83,8 @@ describe('useDeviceLocation', () => {
   });
 
   it('tracks location updates and handles wake lock when starting tracking', async () => {
-    let positionCallback: ((pos: any) => void) | null = null;
-    const watchPositionMock = vi.fn((successCallback) => {
+    let positionCallback: ((pos: GeolocationPosition) => void) | null = null;
+    const watchPositionMock = vi.fn((successCallback: (pos: GeolocationPosition) => void) => {
       positionCallback = successCallback;
       return 123;
     });
@@ -110,18 +118,20 @@ describe('useDeviceLocation', () => {
     expect(result.current.isTracking).toBe(true);
 
     act(() => {
-      positionCallback?.({
-        coords: {
-          latitude: -23.5505,
-          longitude: -46.6333,
-          accuracy: 10,
-          altitude: 750,
-          altitudeAccuracy: 5,
-          heading: 180,
-          speed: 2,
-        },
-        timestamp: Date.now(),
-      });
+      if (positionCallback) {
+        positionCallback({
+          coords: {
+            latitude: -23.5505,
+            longitude: -46.6333,
+            accuracy: 10,
+            altitude: 750,
+            altitudeAccuracy: 5,
+            heading: 180,
+            speed: 2,
+          },
+          timestamp: Date.now(),
+        } as unknown as GeolocationPosition);
+      }
     });
 
     expect(requestWakeLockMock).toHaveBeenCalledWith('screen');
@@ -140,7 +150,7 @@ describe('useDeviceLocation', () => {
   it('handles webkitCompassHeading device orientation events (iOS)', () => {
     const { result } = renderHook(() => useDeviceLocation());
 
-    const event = new Event('deviceorientation') as any;
+    const event = new Event('deviceorientation') as CustomDeviceOrientationEvent;
     event.webkitCompassHeading = 45.4;
 
     act(() => {
@@ -153,7 +163,7 @@ describe('useDeviceLocation', () => {
   it('handles alpha device orientation events (Android)', () => {
     const { result } = renderHook(() => useDeviceLocation());
 
-    const event = new Event('deviceorientation') as any;
+    const event = new Event('deviceorientation') as CustomDeviceOrientationEvent;
     event.alpha = 90;
     event.absolute = true;
 
