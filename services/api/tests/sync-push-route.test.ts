@@ -46,7 +46,7 @@ const deletion = (
   operation: "delete",
   baseVersion: null,
   createdAt: CREATED_AT,
-  ...(predecessorOperationId ? { predecessorOperationId } : {}),
+  ...(predecessorOperationId !== undefined ? { predecessorOperationId } : {}),
 });
 
 const postBatch = async (
@@ -57,7 +57,7 @@ const postBatch = async (
     method: "POST",
     headers: {
       "content-type": "application/json",
-      ...(authorization ? { authorization } : {}),
+      ...(authorization !== undefined ? { authorization } : {}),
     },
     body: JSON.stringify({ operations }),
   });
@@ -104,7 +104,9 @@ describe("Hono sync push contract (no production database)", () => {
   });
 
   it("rejects a batch of 501 operations without writing anything", async () => {
-    const operations = Array.from({ length: 501 }, (_, index) => deletion(index + 1));
+    const operations = Array.from({ length: 501 }, (_, index) =>
+      deletion(index + 1),
+    );
     const response = await postBatch(operations, AUTHORIZATION);
 
     expect(response.status).toBe(400);
@@ -117,7 +119,11 @@ describe("Hono sync push contract (no production database)", () => {
     const conflict = deletion(3);
     dbMocks.applyPushOperation
       .mockResolvedValueOnce({ status: "accepted", version: 1, sequence: "1" })
-      .mockResolvedValueOnce({ status: "already_applied", version: 2, sequence: "2" })
+      .mockResolvedValueOnce({
+        status: "already_applied",
+        version: 2,
+        sequence: "2",
+      })
       .mockResolvedValueOnce({
         status: "conflict",
         conflict: {
@@ -135,20 +141,24 @@ describe("Hono sync push contract (no production database)", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
       accepted: [{ operationId: first.operationId, version: 1, sequence: "1" }],
-      alreadyApplied: [{
-        operationId: replay.operationId,
-        predecessorOperationId: first.operationId,
-        version: 2,
-        sequence: "2",
-      }],
-      conflicts: [{
-        operationId: conflict.operationId,
-        entity: conflict.entity,
-        entityId: conflict.entityId,
-        baseVersion: conflict.baseVersion,
-        serverVersion: 0,
-        reason: "SCOPE_REJECTED",
-      }],
+      alreadyApplied: [
+        {
+          operationId: replay.operationId,
+          predecessorOperationId: first.operationId,
+          version: 2,
+          sequence: "2",
+        },
+      ],
+      conflicts: [
+        {
+          operationId: conflict.operationId,
+          entity: conflict.entity,
+          entityId: conflict.entityId,
+          baseVersion: conflict.baseVersion,
+          serverVersion: 0,
+          reason: "SCOPE_REJECTED",
+        },
+      ],
     });
     expect(dbMocks.applyPushOperation).toHaveBeenCalledTimes(3);
     for (const call of dbMocks.applyPushOperation.mock.calls) {
@@ -162,20 +172,22 @@ describe("Hono sync push contract (no production database)", () => {
     const committed = new Map<string, { version: number; sequence: string }>();
     let failOnce = true;
 
-    dbMocks.applyPushOperation.mockImplementation(async (_db, input: SyncOperation) => {
-      if (input.operationId === second.operationId && failOnce) {
-        failOnce = false;
-        throw new Error("simulated database failure");
-      }
-      const previous = committed.get(input.operationId);
-      if (previous) return { status: "already_applied", ...previous };
-      const receipt = {
-        version: committed.size + 1,
-        sequence: String(committed.size + 1),
-      };
-      committed.set(input.operationId, receipt);
-      return { status: "accepted", ...receipt };
-    });
+    dbMocks.applyPushOperation.mockImplementation(
+      async (_db, input: SyncOperation) => {
+        if (input.operationId === second.operationId && failOnce) {
+          failOnce = false;
+          throw new Error("simulated database failure");
+        }
+        const previous = committed.get(input.operationId);
+        if (previous) return { status: "already_applied", ...previous };
+        const receipt = {
+          version: committed.size + 1,
+          sequence: String(committed.size + 1),
+        };
+        committed.set(input.operationId, receipt);
+        return { status: "accepted", ...receipt };
+      },
+    );
 
     const failed = await postBatch([first, second], AUTHORIZATION);
     expect(failed.status).toBe(500);
@@ -188,8 +200,12 @@ describe("Hono sync push contract (no production database)", () => {
     const retried = await postBatch([first, second], AUTHORIZATION);
     expect(retried.status).toBe(200);
     expect(await retried.json()).toMatchObject({
-      accepted: [{ operationId: second.operationId, version: 2, sequence: "2" }],
-      alreadyApplied: [{ operationId: first.operationId, version: 1, sequence: "1" }],
+      accepted: [
+        { operationId: second.operationId, version: 2, sequence: "2" },
+      ],
+      alreadyApplied: [
+        { operationId: first.operationId, version: 1, sequence: "1" },
+      ],
       conflicts: [],
     });
     expect(committed.size).toBe(2);
