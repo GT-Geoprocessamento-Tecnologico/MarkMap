@@ -2,6 +2,25 @@
 
 Fonte da versão do aplicativo: `apps/admin/package.json`. Todos os agentes seguem [a política de versionamento](docs/versioning.md). O [histórico documental anterior](docs/changelog.md) permanece preservado.
 
+## [0.5.12] - 2026-10-27
+
+### Alterações
+
+- Implementação das 5 frentes de evolução funcional para o MarkMap Brasil (GIS de campo offline-first):
+  - 1. Medição Agrária Brasileira: conversões geodésicas em @markmap/geo para Hectare (10.000 m²) e 4 variantes de Alqueire (Paulista 2,42 ha, Mineiro/Goiano 4,84 ha, Baiano 9,68 ha e Norte 2,72 ha), com seletor dinâmico de unidade de área no mapa.
+  - 2. Suporte Normativo ao CAR (Cadastro Ambiental Rural): detecção automática de 6 feições do SICAR (Área do Imóvel, Reserva Legal, APP, Vegetação Nativa, Hidrografia e Área Consolidada), data-driven styling oficial no MapLibre e componente CarSummaryCard com percentual visual de Reserva Legal.
+  - 3. Gravador Contínuo de Trilhas GNSS (Track Logger MM-AVZ-05): motor de telemetria geodésica em tempo real (distância, velocidade média, altimetria acumulada), descarte estrito de coordenadas com acurácia > 15m, auto-salvamento resiliente no IndexedDB a cada 4s, WakeLock de tela e painel flutuante TrackRecordingOverlay.
+  - 4. Exportador Universal de Desenhos de Campo: gerador de arquivos .kml (Google Earth) e .gpx (Garmin/aparelhos de campo) com preservação de altitudes, timestamps e geometrias do Terra Draw e trilhas do Track Logger via FieldExportModal.
+  - 5. Boundary Guard (Alerta de Limites e Geofencing): monitoramento de proximidade com tolerância de 50m e detecção de cruzamento de divisa, sintetizador de som nativo por Web Audio API (zero arquivos externos) e banner visual de alerta BoundaryAlertBanner.
+
+### Validação
+
+- Typecheck e lint 100% aprovados em todos os 9 pacotes do monorepo.
+- Suíte de testes unitários aprovada em @markmap/geo (103 testes), @markmap/maps (306 testes) e admin (350+ testes).
+- Testes adversariais de robustez geodésica, persistência de preferências de alqueire e conformidade com os esquemas oficiais TopoGrafix GPX 1.1 e OGC KML 2.2 aprovados.
+- Conformidade total com acessibilidade de superfícies e contraste WCAG AA nos temas claro e escuro.
+- Release guard aprovado para a versão canônica 0.5.12.
+
 ## [0.5.11] - 2026-10-27
 
 ### Alterações

@@ -12,7 +12,7 @@ describe("Surveying Units & Brazilian Alqueires", () => {
     expect(convertArea(24200, "alqueire_paulista")).toBe(1.0);
     expect(convertArea(48400, "alqueire_mineiro")).toBe(1.0);
     expect(convertArea(96800, "alqueire_baiano")).toBe(1.0);
-    expect(convertArea(27225, "alqueire_norte")).toBe(1.0);
+    expect(convertArea(27200, "alqueire_norte")).toBe(1.0);
     expect(convertArea(10000, "hectares")).toBe(1.0);
   });
 

@@ -6,9 +6,11 @@ import { useToast } from "@markmap/ui";
 import type { GeoReference, Route, TransitNetwork } from "@markmap/contracts";
 import {
   addDrawingVertex,
+  computeCarSummary,
   createDrawingSession,
   createFallbackStyle,
   createMapLibreMap,
+  enrichFeatureWithCarStyle,
   finishDrawingSession,
   getDefaultBasemaps,
   shouldFallbackOnError,
@@ -18,6 +20,12 @@ import type {
   DrawingSession,
   GeometryType as DrawingGeometryType,
 } from "@markmap/maps";
+import {
+  measurePointsAreaSquareMeters,
+  formatArea,
+  AREA_UNITS,
+  type AreaUnit,
+} from "@markmap/geo";
 import { addProtocol, Popup, Marker, removeProtocol } from "maplibre-gl";
 import { acquireOfflineProtocolLease } from "../../lib/map/offline-protocol-leases.mjs";
 import type { GeoJSONSource, Map as MapLibreMap } from "maplibre-gl";
@@ -67,6 +75,12 @@ import { OfflineKnowledge } from "../../components/map/OfflineKnowledge";
 import { OfflineElevation } from "../../components/map/OfflineElevation";
 import { MapOfflinePanel } from "../../components/map/MapOfflinePanel";
 import { RegionDownloadCatalog } from "../../components/map/RegionDownloadCatalog";
+import { CarSummaryCard } from "../../components/map/CarSummaryCard";
+import { TrackRecordingOverlay } from "../../components/map/TrackRecordingOverlay";
+import { FieldExportModal } from "../../components/map/FieldExportModal";
+import { useTrackRecorder } from "../../hooks/useTrackRecorder";
+import { BoundaryAlertBanner } from "../../components/map/BoundaryAlertBanner";
+import { useBoundaryGuard } from "../../hooks/useBoundaryGuard";
 import { evaluateGeoPdfGps, describeGeoPdfGps } from "../../lib/pdf/geopdf-focus.mjs";
 import { MAX_CONTOUR_BYTES, validateRegionalContours, contoursToGeoJSON } from "@markmap/maps/elevation/contour-package.mjs";
 import { loadRegionalPackageSearch, describeRegionalSearchLoadError } from '../../lib/search/regional-package-search';
@@ -173,6 +187,61 @@ export default function CommandCenterPage() {
     () => layersQuery.data?.items ?? [],
     [layersQuery.data],
   );
+  const [showTrackOverlay, setShowTrackOverlay] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const trackLineLayerId = useMemo(
+    () => projectLayers.find((l) => l.geometryType === "LineString")?.id,
+    [projectLayers],
+  );
+  const trackRecorder = useTrackRecorder({
+    projectId: params.projectId,
+    defaultLayerId: trackLineLayerId,
+    onError: (msg) => {
+      toast({
+        title: "Gravador de Trilha",
+        description: msg,
+        variant: "error",
+      });
+    },
+  });
+  const liveGeoJsonRef = useRef(trackRecorder.liveGeoJson);
+  liveGeoJsonRef.current = trackRecorder.liveGeoJson;
+
+  const handleSaveTrack = async (name: string) => {
+    let layerId = trackLineLayerId;
+    if (!layerId && params.projectId) {
+      try {
+        const newLayer = await createLayerMutation.mutateAsync({
+          name: "Trilhas de campo",
+          description: "Camada criada automaticamente para gravação de trilhas GNSS.",
+          kind: "line",
+          geometryType: "LineString",
+          srid: 4674,
+          style: {},
+          metadata: { createdBy: "track-recorder" },
+          visibleByDefault: true,
+          sortOrder: projectLayers.length,
+        });
+        layerId = newLayer.id;
+      } catch (err) {
+        toast({
+          title: "Erro ao criar camada para a trilha",
+          description: err instanceof Error ? err.message : "Falha na criação da camada.",
+          variant: "error",
+        });
+        return;
+      }
+    }
+    const saved = await trackRecorder.saveTrack(name, layerId);
+    if (saved) {
+      setShowTrackOverlay(false);
+      toast({
+        title: "Trilha salva com sucesso",
+        description: `A trilha "${name}" foi registrada na camada de linhas.`,
+        variant: "success",
+      });
+    }
+  };
   const featuresQuery = useQuery({
     queryKey: [
       "features",
@@ -291,6 +360,52 @@ export default function CommandCenterPage() {
   const [measuring, setMeasuring] = useState(false);
   const [measurePoints, setMeasurePoints] = useState<MeasurePoint[]>([]);
   const [totalDistance, setTotalDistance] = useState(0);
+  const [selectedAreaUnit, setSelectedAreaUnit] = useState<AreaUnit>(() => {
+    try {
+      const saved = localStorage.getItem("markmap:area_unit");
+      if (saved && Object.hasOwn(AREA_UNITS, saved)) return saved as AreaUnit;
+    } catch {
+      /* ignore storage error */
+    }
+    return "hectares";
+  });
+
+  const handleAreaUnitChange = useCallback((unit: AreaUnit) => {
+    setSelectedAreaUnit(unit);
+    try {
+      localStorage.setItem("markmap:area_unit", unit);
+    } catch {
+      /* ignore storage error */
+    }
+  }, []);
+
+  const cycleAreaUnit = useCallback(() => {
+    const units: AreaUnit[] = [
+      "hectares",
+      "alqueire_paulista",
+      "alqueire_mineiro",
+      "alqueire_baiano",
+      "alqueire_norte",
+      "square_meters",
+      "square_kilometers",
+    ];
+    setSelectedAreaUnit((prev) => {
+      const currentIndex = units.indexOf(prev);
+      const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % units.length : 0;
+      const nextUnit = units[nextIndex] ?? "hectares";
+      try {
+        localStorage.setItem("markmap:area_unit", nextUnit);
+      } catch {
+        /* ignore storage error */
+      }
+      return nextUnit;
+    });
+  }, []);
+
+  const totalAreaSquareMeters = useMemo(() => {
+    if (measurePoints.length < 3) return 0;
+    return measurePointsAreaSquareMeters(measurePoints);
+  }, [measurePoints]);
   const elevationCenter = useMemo<[number, number]>(() => [telemetry.lng, telemetry.lat], [telemetry.lng, telemetry.lat]);
   const elevationGeometry = useMemo(() => measurePoints.length >= 2
     ? measurePoints.map(point => [point.lng, point.lat] as [number, number]) : undefined, [measurePoints]);
@@ -321,6 +436,10 @@ export default function CommandCenterPage() {
     () => (activeDataset?.geojson.features as GeoJSON.Feature[]) ?? [],
     [activeDataset],
   );
+  const carSummary = useMemo(
+    () => computeCarSummary(datasetFeatures),
+    [datasetFeatures],
+  );
   const datasetHasPolygons = useMemo(
     () => hasPolygonGeometry(datasetFeatures),
     [datasetFeatures],
@@ -344,6 +463,27 @@ export default function CommandCenterPage() {
     ],
     [activeDataset, projectFeatures],
   );
+
+  // ── Coleta Reativa de Posição GNSS e Feições para Boundary Guard (M5) ──
+  // Respeita o contrato de AGENTS.md: sem rastreador em idle, sem gravação de posições em storage.
+  const [deviceGpsFix, setDeviceGpsFix] = useState<{ lat: number; lng: number } | null>(null);
+
+  const activeGpsForBoundary = useMemo(() => {
+    if (trackRecorder.currentFix) {
+      return {
+        lat: trackRecorder.currentFix.lat,
+        lng: trackRecorder.currentFix.lon,
+      };
+    }
+    return deviceGpsFix;
+  }, [trackRecorder.currentFix, deviceGpsFix]);
+
+  const boundaryGuard = useBoundaryGuard({
+    currentPosition: activeGpsForBoundary,
+    features: fullFeatures,
+    warningThresholdMeters: 50,
+    enabled: true,
+  });
   const localSearchRecords = useMemo(() => buildLocalMapSearchRecords(fullFeatures), [fullFeatures]);
   const [regionalSearchRecords, setRegionalSearchRecords] = useState<LocalSearchRecord[]>([]);
   const [regionalSearchError, setRegionalSearchError] = useState<string | null>(null);
@@ -383,7 +523,7 @@ export default function CommandCenterPage() {
               showPoints: showDatasetPoints,
               filterText,
               filterType,
-            })
+            }).map((feat) => enrichFeatureWithCarStyle(feat) as unknown as GeoJSON.Feature)
           : []),
         ...projectFeatures.filter(
           (feature) =>
@@ -396,7 +536,6 @@ export default function CommandCenterPage() {
       ],
     }),
     [
-      activeDataset,
       datasetFeatures,
       showDatasetPoints,
       projectFeatures,
@@ -878,10 +1017,11 @@ export default function CommandCenterPage() {
       }
       geolocate.on("geolocate", (position) => {
         void rememberLocationApproval().catch(() => undefined);
+        const { latitude: lat, longitude: lon, accuracy: accuracyM } = position.coords;
+        setDeviceGpsFix({ lat, lng: lon });
         if (!geoPdfOverlay || cancelled) return;
         geoPdfManualFocusRef.current = true;
         updateNavigationPosition(null, false); // Avoid a duplicate marker from initial auto-center.
-        const { latitude: lat, longitude: lon, accuracy: accuracyM } = position.coords;
         geoPdfGpsNotice = describeGeoPdfGps(
           evaluateGeoPdfGps({ lat, lon, accuracyM }, geoPdfOverlay.coordinates),
         );
@@ -987,10 +1127,44 @@ export default function CommandCenterPage() {
             type: "geojson",
             data: activeGeoJsonRef.current as unknown as GeoJSON.FeatureCollection,
           }, [
-            { id: "local-dataset-fill", type: "fill", source: "local-dataset",
-              paint: { "fill-color": "#0ea5e9", "fill-opacity": 0.4 } },
-            { id: "local-dataset-outline", type: "line", source: "local-dataset",
-              paint: { "line-color": "#0284c7", "line-width": 2 } },
+            {
+              id: "local-dataset-fill",
+              type: "fill",
+              source: "local-dataset",
+              paint: {
+                "fill-color": [
+                  "coalesce",
+                  ["get", "_carFillColor"],
+                  ["get", "fillColor"],
+                  "#0ea5e9",
+                ],
+                "fill-opacity": [
+                  "coalesce",
+                  ["get", "_carFillOpacity"],
+                  ["get", "fillOpacity"],
+                  0.4,
+                ],
+              },
+            },
+            {
+              id: "local-dataset-outline",
+              type: "line",
+              source: "local-dataset",
+              paint: {
+                "line-color": [
+                  "coalesce",
+                  ["get", "_carStrokeColor"],
+                  ["get", "strokeColor"],
+                  "#0284c7",
+                ],
+                "line-width": [
+                  "coalesce",
+                  ["get", "_carStrokeWidth"],
+                  ["get", "strokeWidth"],
+                  2,
+                ],
+              },
+            },
             { id: "local-dataset-points", type: "circle", source: "local-dataset",
               filter: ["==", "$type", "Point"],
               layout: { visibility: showDatasetPoints ? "visible" : "none" },
@@ -1085,6 +1259,36 @@ export default function CommandCenterPage() {
           ]);
         };
 
+        const ensureLiveTrack = (map: MapLibreMap) => {
+          ensureOfflineSourceLayers(
+            map,
+            "live-track",
+            {
+              type: "geojson",
+              data: (liveGeoJsonRef.current as unknown as GeoJSON.FeatureCollection) ?? {
+                type: "FeatureCollection",
+                features: [],
+              },
+            },
+            [
+              {
+                id: "live-track-casing",
+                type: "line",
+                source: "live-track",
+                paint: { "line-color": "#ffffff", "line-width": 6, "line-opacity": 0.9 },
+                layout: { "line-join": "round", "line-cap": "round" },
+              },
+              {
+                id: "live-track-line",
+                type: "line",
+                source: "live-track",
+                paint: { "line-color": "#2563eb", "line-width": 4, "line-opacity": 0.95 },
+                layout: { "line-join": "round", "line-cap": "round" },
+              },
+            ],
+          );
+        };
+
         const ensureSource = () => {
           if (cancelled || webglLostRef.current || mapRef.current !== map) return;
 
@@ -1096,6 +1300,7 @@ export default function CommandCenterPage() {
           ensureRegionalContours(map);
           ensureRegionalTransit(map);
           ensureOfflineRoute(map);
+          ensureLiveTrack(map);
 
           if (!search.pdfId) fitSelection(map);
           setMapEpoch((value) => value + 1);
@@ -1314,6 +1519,16 @@ export default function CommandCenterPage() {
     source?.setData(transitGeoJSON);
   }, [transitGeoJSON, mapEpoch]);
 
+  useEffect(() => {
+    const source = mapRef.current?.getSource("live-track") as GeoJSONSource | undefined;
+    source?.setData(
+      (trackRecorder.liveGeoJson as unknown as GeoJSON.FeatureCollection) ?? {
+        type: "FeatureCollection",
+        features: [],
+      },
+    );
+  }, [trackRecorder.liveGeoJson, mapEpoch]);
+
   const handleMyLocation = async () => {
     cancelAutoCenterRef.current?.();
     const permission = await ensureLocationPermission();
@@ -1383,6 +1598,15 @@ export default function CommandCenterPage() {
       data-feature-count={appliedCount}
       data-geopdf-ready={geoPdfReady ? "true" : "false"}
     >
+      {/* ── Banner de Alerta de Proximidade e Limites de Propriedade (Boundary Guard - M5) ── */}
+      <BoundaryAlertBanner
+        status={boundaryGuard.status}
+        distanceMeters={boundaryGuard.distanceToBoundaryMeters}
+        polygonName={boundaryGuard.nearestPolygonName}
+        isMuted={boundaryGuard.isMuted}
+        onToggleMute={boundaryGuard.toggleMute}
+      />
+
       {geoPdfMessage && (
         <p
           role="status"
@@ -1488,6 +1712,39 @@ export default function CommandCenterPage() {
         <button type="button" className="ml-2 underline" onClick={() => setRoutingPickMode(null)}>Cancelar</button>
       </div>}
 
+      {/* ── Overlay Flutuante do Gravador de Trilha GNSS (MM-AVZ-05) ── */}
+      <TrackRecordingOverlay
+        open={showTrackOverlay || trackRecorder.status !== "idle"}
+        status={trackRecorder.status}
+        stats={trackRecorder.stats}
+        currentAccuracyMeters={trackRecorder.gpsAccuracy}
+        currentSpeedKmh={trackRecorder.currentSpeedKmh}
+        currentElevationMeters={trackRecorder.currentElevationMeters}
+        hasDraft={trackRecorder.hasRecoveredDraft}
+        onStart={() => {
+          void trackRecorder.startRecording();
+        }}
+        onPause={trackRecorder.pauseRecording}
+        onResume={trackRecorder.resumeRecording}
+        onSave={handleSaveTrack}
+        onDiscard={async () => {
+          await trackRecorder.discardTrack();
+          setShowTrackOverlay(false);
+        }}
+        onRestoreDraft={trackRecorder.restoreDraft}
+        onClose={() => setShowTrackOverlay(false)}
+      />
+
+      {/* ── Modal de Exportação de Desenhos e Trilhas (KML & GPX) ── */}
+      <FieldExportModal
+        open={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        projectName={params.projectId}
+        projectFeatures={projectFeatures}
+        activeDrawingSession={drawingSession}
+        activeTrackGeoJson={trackRecorder.liveGeoJson}
+      />
+
       {/* ── Barra de ferramentas flutuante ── */}
       <div role="toolbar" aria-label="Atalhos do mapa" className="absolute bottom-[calc(4rem+env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 lg:bottom-auto lg:top-6 lg:left-4 lg:translate-x-0 markmap-map-tools bg-surface-container/90 backdrop-blur-xl border border-outline-variant rounded-2xl p-2 flex lg:flex-col gap-1.5 shadow-2xl z-10 w-max max-w-[92vw] overflow-x-auto lg:max-h-[calc(100%-3rem)] lg:overflow-x-hidden lg:overflow-y-auto">
         {/* Telemetria */}
@@ -1534,6 +1791,14 @@ export default function CommandCenterPage() {
           onClick={() => togglePanel("altitude-offline")} icon="analytics" label="Altitude" color="emerald" />
         <ToolBtn active={sidePanel === "navegacao-offline"}
           onClick={() => togglePanel("navegacao-offline")} icon="coordinates" label="Navegação GPS offline" color="amber" />
+        {/* Gravador contínuo de trilha GNSS (MM-AVZ-05) */}
+        <ToolBtn
+          active={showTrackOverlay || trackRecorder.status !== "idle"}
+          onClick={() => setShowTrackOverlay((prev) => !prev)}
+          icon="line"
+          label={trackRecorder.status === "recording" ? "Trilha em gravação (REC)" : "Gravar trilha GNSS"}
+          color={trackRecorder.status === "recording" ? "rose" : "cyan"}
+        />
         {/* Separador */}
         <div className="w-full h-px md:block hidden bg-outline-variant my-0.5" />
         <div className="w-px h-8 md:hidden block bg-outline-variant mx-0.5" />
@@ -1573,6 +1838,13 @@ export default function CommandCenterPage() {
           icon="polygon"
           label="Desenhar polígono"
           color="violet"
+        />
+        <ToolBtn
+          active={showExportModal}
+          onClick={() => setShowExportModal(true)}
+          icon="upload"
+          label="Exportar KML e GPX"
+          color="emerald"
         />
       </div>
 
@@ -1616,11 +1888,27 @@ export default function CommandCenterPage() {
       {measuring && (
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 bg-amber-50 border border-amber-300 text-amber-800 text-xs font-semibold px-4 py-2 rounded-full flex items-center gap-2 shadow-lg">
           <AppIcon name="measure" size="sm" />
-          {measurePoints.length === 0
-            ? "Clique no mapa para iniciar a medição"
-            : `${measurePoints.length} ponto${measurePoints.length > 1 ? "s" : ""} · ${formatDistance(totalDistance)}`}
+          {measurePoints.length === 0 ? (
+            <span>Clique no mapa para iniciar a medição</span>
+          ) : (
+            <span>
+              {measurePoints.length} ponto{measurePoints.length > 1 ? "s" : ""} · {formatDistance(totalDistance)}
+            </span>
+          )}
+          {measurePoints.length >= 3 && (
+            <button
+              type="button"
+              onClick={cycleAreaUnit}
+              title="Clique para alternar unidade de área"
+              aria-label="Alternar unidade agrária de área"
+              className="bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 px-2 py-0.5 rounded-full transition-colors font-mono cursor-pointer"
+            >
+              📐 {formatArea(totalAreaSquareMeters, selectedAreaUnit)}
+            </button>
+          )}
           <button
             onClick={toggleMeasure}
+            aria-label="Encerrar medição"
             className="ml-1 text-amber-600 hover:text-amber-900 font-bold"
           >
             ✕
@@ -1724,7 +2012,7 @@ export default function CommandCenterPage() {
                     >
                       Medição ativa
                     </p>
-                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-2">
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-2.5">
                       <Row
                         label="Pontos"
                         value={String(measurePoints.length)}
@@ -1737,6 +2025,37 @@ export default function CommandCenterPage() {
                         labelCls="text-amber-800 font-semibold text-sm"
                         valueCls="text-amber-900 font-mono font-bold text-base"
                       />
+                      {measurePoints.length >= 3 && (
+                        <Row
+                          label="Área geodésica"
+                          value={formatArea(totalAreaSquareMeters, selectedAreaUnit)}
+                          labelCls="text-amber-800 font-semibold text-sm"
+                          valueCls="text-amber-900 font-mono font-bold text-base"
+                        />
+                      )}
+                      <div className="pt-2 border-t border-amber-200">
+                        <label
+                          htmlFor="measure-area-unit-select"
+                          className="block text-amber-800 font-semibold text-xs mb-1"
+                        >
+                          Unidade agrária de área:
+                        </label>
+                        <select
+                          id="measure-area-unit-select"
+                          aria-label="Unidade agrária de área"
+                          value={selectedAreaUnit}
+                          onChange={(e) => handleAreaUnitChange(e.target.value as AreaUnit)}
+                          className="w-full text-xs font-medium rounded-lg border border-amber-300 bg-white text-amber-900 px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-sm"
+                        >
+                          <option value="hectares">Hectares (ha · 10.000 m²)</option>
+                          <option value="alqueire_paulista">Alqueire Paulista (2,42 ha · 24.200 m²)</option>
+                          <option value="alqueire_mineiro">Alqueire Mineiro / Goiano (4,84 ha · 48.400 m²)</option>
+                          <option value="alqueire_baiano">Alqueire Baiano (9,68 ha · 96.800 m²)</option>
+                          <option value="alqueire_norte">Alqueirão do Norte (2,72 ha · 27.200 m²)</option>
+                          <option value="square_meters">Metros Quadrados (m² · 1 m²)</option>
+                          <option value="square_kilometers">Quilômetros Quadrados (km² · 1.000.000 m²)</option>
+                        </select>
+                      </div>
                     </div>
                     <button
                       onClick={toggleMeasure}
@@ -1834,6 +2153,9 @@ export default function CommandCenterPage() {
                   ))}
                 </select>
               </label>
+              {carSummary.isCarDataset && (
+                <CarSummaryCard summary={carSummary} />
+              )}
               {projectLayers.map((layer) => (
                 <div
                   key={layer.id}
@@ -1971,6 +2293,24 @@ export default function CommandCenterPage() {
                   action: () => {
                     toggleMeasure();
                     setSidePanel("telemetria");
+                  },
+                },
+                {
+                  icon: "line" as AppIconName,
+                  label: "Gravar Trilha GNSS",
+                  desc: "Registro contínuo de trajeto de campo com telemetria.",
+                  action: () => {
+                    setShowTrackOverlay(true);
+                    setSidePanel("none");
+                  },
+                },
+                {
+                  icon: "upload" as AppIconName,
+                  label: "Exportar KML & GPX",
+                  desc: "Exportar desenhos e trilhas de campo para Google Earth e Garmin.",
+                  action: () => {
+                    setShowExportModal(true);
+                    setSidePanel("none");
                   },
                 },
                 {

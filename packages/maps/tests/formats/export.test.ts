@@ -75,7 +75,52 @@ describe("Vector Export Engine - GPX and KML", () => {
       expect(gpx).toContain("<name>Trilha Principal</name>");
       expect(gpx).toContain("<trkseg>");
       expect(gpx).toContain('<trkpt lat="-7.1932" lon="-48.2045">');
-      expect(gpx).toContain('<trkpt lat="-7.195" lon="-48.206">');
+      // Polygon as track
+      expect(gpx).toContain("<name>Área de Preservação</name>");
+      expect(gpx).toContain('<trkpt lat="-7.19" lon="-48.2">');
+    });
+
+    it("serializes polygons with outer and inner rings as tracks (<trk>) in GPX", () => {
+      const polygonFeature: GeoJSON.Feature = {
+        type: "Feature",
+        properties: {
+          name: "Talhão Agrícola 04",
+          description: "Área de soja com ilha de vegetação nativa",
+          time: "2026-10-27T12:00:00Z",
+        },
+        geometry: {
+          type: "Polygon",
+          coordinates: [
+            // Outer ring
+            [
+              [-48.2, -7.1],
+              [-48.2, -7.2],
+              [-48.3, -7.2],
+              [-48.3, -7.1],
+              [-48.2, -7.1],
+            ],
+            // Inner ring (hole)
+            [
+              [-48.22, -7.12],
+              [-48.22, -7.18],
+              [-48.28, -7.18],
+              [-48.28, -7.12],
+              [-48.22, -7.12],
+            ],
+          ],
+        },
+      };
+
+      const gpx = exportToGpx([polygonFeature], { name: "Talhões GPX" });
+      expect(gpx).toContain("<name>Talhões GPX</name>");
+      expect(gpx).toContain("<name>Talhão Agrícola 04</name>");
+      expect(gpx).toContain("<desc>Área de soja com ilha de vegetação nativa</desc>");
+      expect(gpx).toContain("<time>2026-10-27T12:00:00Z</time>");
+      // Deve conter 2 <trkseg> (um para outer, outro para inner)
+      const trksegMatches = gpx.match(/<trkseg>/g);
+      expect(trksegMatches).toHaveLength(2);
+      expect(gpx).toContain('<trkpt lat="-7.1" lon="-48.2">');
+      expect(gpx).toContain('<trkpt lat="-7.12" lon="-48.22">');
     });
 
     it("handles empty feature collection gracefully", () => {
@@ -153,4 +198,13 @@ describe("Vector Export Engine - GPX and KML", () => {
       expect(() => exportToKml(invalid)).toThrow(TypeError);
     });
   });
+
+  describe("Package Index Exports", () => {
+    it("exposes exportToGpx and exportToKml from package index", async () => {
+      const indexExports = await import("../../src/index.js");
+      expect(typeof indexExports.exportToGpx).toBe("function");
+      expect(typeof indexExports.exportToKml).toBe("function");
+    });
+  });
 });
+

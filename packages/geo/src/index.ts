@@ -53,7 +53,28 @@ export type {
   JsonValue,
 } from './geojson.js';
 
-export { centroidOf, measureAreaSquareMeters, measureLengthMeters } from './measure.js';
+export {
+  centroidOf,
+  measureAreaSquareMeters,
+  measureLengthMeters,
+  measurePointsAreaSquareMeters,
+} from './measure.js';
+
+export {
+  convertArea,
+  convertDistance,
+  convertAngle,
+  formatArea,
+  AREA_UNITS,
+  METERS_PER_UNIT,
+} from './units/survey.js';
+export type {
+  AreaUnit,
+  RuralAreaUnit,
+  DistanceUnit,
+  AngleUnit,
+  AreaUnitDefinition,
+} from './units/survey.js';
 
 export { isValidLatitude, isValidLongitude, isValidPosition, validateGeometryLight } from './validate.js';
 export type { ValidationResult } from './validate.js';

@@ -7,6 +7,7 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
+    "./units/survey": "./src/units/survey.ts",
     "./crs": "./src/crs.ts",
     "./bbox": "./src/bbox.ts",
     "./validate": "./src/validate.ts",

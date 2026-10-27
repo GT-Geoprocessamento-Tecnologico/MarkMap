@@ -1,5 +1,7 @@
 import { area as turfArea, centroid as turfCentroid, length as turfLength } from '@turf/turf';
 import type { GeoNexoFeature } from './geojson.js';
+import { geodesicPolygonAreaM2 } from './geodesy.js';
+import type { Coordinate } from './coordinates.js';
 
 /**
  * Measurement helpers. Turf.js is the single engine for area / distance;
@@ -81,5 +83,55 @@ export function centroidOf(feature: GeoNexoFeature): [number, number] | null {
     return [lng, lat];
   } catch {
     return null;
+  }
+}
+
+/**
+ * Computes geodesic area in square meters directly from an array of coordinates or points.
+ * Accepts Coordinate objects ({ latitude, longitude }), { lat, lng } pairs, or [lng, lat] GeoJSON tuples.
+ * Returns 0 if there are fewer than 3 points or if coordinates are invalid.
+ */
+export function measurePointsAreaSquareMeters(
+  points: readonly (Coordinate | { lat: number; lng: number } | [number, number])[],
+): number {
+  if (!Array.isArray(points) || points.length < 3) {
+    return 0;
+  }
+  try {
+    const normalized: Coordinate[] = points.map((p) => {
+      if (!p || typeof p !== 'object') {
+        throw new TypeError('Invalid coordinate point');
+      }
+      if (Array.isArray(p)) {
+        const lng = Number(p[0]);
+        const lat = Number(p[1]);
+        if (!Number.isFinite(lng) || !Number.isFinite(lat)) {
+          throw new TypeError('Non-finite coordinate');
+        }
+        return { longitude: lng, latitude: lat };
+      }
+      if ('lat' in p && 'lng' in p) {
+        const lat = Number((p as { lat: unknown }).lat);
+        const lng = Number((p as { lng: unknown }).lng);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+          throw new TypeError('Non-finite coordinate');
+        }
+        return { latitude: lat, longitude: lng };
+      }
+      if ('latitude' in p && 'longitude' in p) {
+        const lat = Number((p as { latitude: unknown }).latitude);
+        const lng = Number((p as { longitude: unknown }).longitude);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+          throw new TypeError('Non-finite coordinate');
+        }
+        return { latitude: lat, longitude: lng };
+      }
+      throw new TypeError('Unrecognized coordinate structure');
+    });
+
+    const area = geodesicPolygonAreaM2(normalized);
+    return Number.isFinite(area) ? area : 0;
+  } catch {
+    return 0;
   }
 }

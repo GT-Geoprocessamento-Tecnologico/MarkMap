@@ -82,3 +82,7 @@ apps/admin/ios/App/App/public/
 apps/admin/ios/App/Pods/
 apps/admin/ios/App/build/
 apps/admin/ios/App/capacitor-cordova-ios-plugins/build/
+
+# Agent internal workspaces
+.agents/
+

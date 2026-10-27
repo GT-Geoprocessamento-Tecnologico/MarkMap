@@ -88,6 +88,19 @@ class OfflineLocalDB {
       tx.onabort = () => reject(tx.error ?? new Error('A leitura local foi abortada.'));
     });
   }
+
+  async delete(collection: LocalRecord['collection'], id: string): Promise<void> {
+    const db = await this.init();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('store', 'readwrite');
+      const store = tx.objectStore('store');
+      const req = store.delete(`${collection}:${id}`);
+      tx.oncomplete = () => resolve();
+      tx.onabort = () => reject(tx.error ?? new Error('A exclusão local foi abortada.'));
+      tx.onerror = () => reject(tx.error ?? new Error('Não foi possível excluir os dados locais.'));
+      req.onerror = () => reject(req.error);
+    });
+  }
 }
 
 export const offlineDB = new OfflineLocalDB();

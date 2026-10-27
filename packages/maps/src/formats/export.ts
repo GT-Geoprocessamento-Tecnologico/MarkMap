@@ -93,7 +93,10 @@ export function exportToGpx(
   const features = Array.isArray(geojson) ? geojson : geojson.features || [];
   const creator = options.creator || "MarkMap Field Engine";
   const name = options.name ? `<name>${escapeXml(options.name)}</name>` : "";
-  const time = options.time || new Date().toISOString();
+  const time =
+    options.time ||
+    (features.find((f) => f?.properties?.time)?.properties?.time as string | undefined) ||
+    new Date().toISOString();
 
   let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
   xml += `<gpx version="1.1" creator="${escapeXml(creator)}" xmlns="http://www.topografix.com/GPX/1/1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">\n`;
@@ -110,20 +113,20 @@ export function exportToGpx(
       if (ele !== undefined) {
         xml += `    <ele>${ele}</ele>\n`;
       }
+      if (feature.properties?.time) {
+        xml += `    <time>${escapeXml(feature.properties.time)}</time>\n`;
+      }
       if (feature.properties?.name) {
         xml += `    <name>${escapeXml(feature.properties.name)}</name>\n`;
       }
       if (feature.properties?.description || feature.properties?.desc) {
         xml += `    <desc>${escapeXml(feature.properties.description || feature.properties.desc)}</desc>\n`;
       }
-      if (feature.properties?.time) {
-        xml += `    <time>${escapeXml(feature.properties.time)}</time>\n`;
-      }
       xml += "  </wpt>\n";
     }
   }
 
-  // Process LineStrings as Tracks
+  // Process LineStrings, MultiLineStrings, and Polygons as Tracks
   for (const feature of features) {
     if (!feature || !feature.geometry) continue;
     validateGeometry(feature.geometry);
@@ -132,6 +135,9 @@ export function exportToGpx(
       xml += "  <trk>\n";
       if (feature.properties?.name) {
         xml += `    <name>${escapeXml(feature.properties.name)}</name>\n`;
+      }
+      if (feature.properties?.description || feature.properties?.desc) {
+        xml += `    <desc>${escapeXml(feature.properties.description || feature.properties.desc)}</desc>\n`;
       }
       xml += "    <trkseg>\n";
       const coords = feature.geometry.coordinates as [number, number, number?][];
@@ -149,10 +155,34 @@ export function exportToGpx(
       if (feature.properties?.name) {
         xml += `    <name>${escapeXml(feature.properties.name)}</name>\n`;
       }
+      if (feature.properties?.description || feature.properties?.desc) {
+        xml += `    <desc>${escapeXml(feature.properties.description || feature.properties.desc)}</desc>\n`;
+      }
       const lines = feature.geometry.coordinates as [number, number, number?][][];
       for (const line of lines) {
         xml += "    <trkseg>\n";
         for (const [lon, lat, ele] of line) {
+          xml += `      <trkpt lat="${lat}" lon="${lon}">\n`;
+          if (ele !== undefined) {
+            xml += `        <ele>${ele}</ele>\n`;
+          }
+          xml += "      </trkpt>\n";
+        }
+        xml += "    </trkseg>\n";
+      }
+      xml += "  </trk>\n";
+    } else if (feature.geometry.type === "Polygon") {
+      xml += "  <trk>\n";
+      if (feature.properties?.name) {
+        xml += `    <name>${escapeXml(feature.properties.name)}</name>\n`;
+      }
+      if (feature.properties?.description || feature.properties?.desc) {
+        xml += `    <desc>${escapeXml(feature.properties.description || feature.properties.desc)}</desc>\n`;
+      }
+      const rings = feature.geometry.coordinates as [number, number, number?][][];
+      for (const ring of rings) {
+        xml += "    <trkseg>\n";
+        for (const [lon, lat, ele] of ring) {
           xml += `      <trkpt lat="${lat}" lon="${lon}">\n`;
           if (ele !== undefined) {
             xml += `        <ele>${ele}</ele>\n`;
