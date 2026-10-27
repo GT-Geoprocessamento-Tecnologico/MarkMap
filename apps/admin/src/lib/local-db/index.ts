@@ -160,14 +160,22 @@ class IndexedLocalDb implements LocalDb {
         if (settled) return;
         settled = true;
         try { transaction.abort(); } catch { /* already completed */ }
-        reject(error instanceof Error ? error : new Error("Transação local falhou."));
+        // DOMExceptions from browser/WebView realms need not inherit this
+        // realm's Error, but still carry the actionable IndexedDB failure.
+        const isDomException = Object.prototype.toString.call(error) === "[object DOMException]";
+        reject(error instanceof Error || isDomException ? error : new Error("Transação local falhou."));
       };
       Promise.resolve().then(() => work(tx)).then((value) => { result = value; callbackDone = true; }, fail);
       transaction.oncomplete = () => {
         if (!callbackDone) return fail(new Error("Transação local terminou antes da operação."));
         if (!settled) { settled = true; resolve(result); }
       };
-      transaction.onerror = () => fail(transaction.error ?? new Error("Transação local falhou."));
+      transaction.onerror = (event) => {
+        // Request errors bubble before some browsers populate transaction.error.
+        const source = event.target;
+        const requestError = source && "error" in source ? (source as IDBRequest).error : null;
+        fail(requestError ?? transaction.error ?? new Error("Transação local falhou."));
+      };
       transaction.onabort = () => fail(transaction.error ?? new Error("Transação local abortada."));
     });
   }

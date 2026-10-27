@@ -2,6 +2,22 @@
 
 Fonte da versão do aplicativo: `apps/admin/package.json`. Todos os agentes seguem [a política de versionamento](docs/versioning.md). O [histórico documental anterior](docs/changelog.md) permanece preservado.
 
+## [0.5.13] - 2026-10-27
+
+### Alterações
+
+- Recuperação cifrada em perfil novo, antes da inicialização do workspace, preservando a fila offline, conflitos e originais sem sobrescrever dados existentes.
+- Validação compartilhada de operações e conflitos na exportação e restauração, além de guardas de identidade, sequência e cursor; leitores opcionais falham explicitamente quando IndexedDB não está disponível.
+- A interface informa que o backup continua parcial, limitado ao workspace e a 16 MiB, sem mapas offline ou outros bancos.
+- Correção da geometria sintética usada pelos testes de limites com múltiplos furos.
+
+### Validação
+
+- Playwright: 15 testes PASS em Chromium, WebKit e Pixel 7 emulado; exportação e restauração em perfis isolados com outbox, conflitos e PDF, incluindo leitura após recarga, e temas claro/escuro.
+- `pnpm ci:local --base-ref e0684a86e528829af1d4d2278ecb609544158625`: typecheck, lint, testes dos pacotes, release guard e fronteiras PASS no Windows.
+- Testes de fronteira de produtos, superfícies e contraste: 11 aprovados.
+- Build do app e guard dos artefatos PASS; 318 testes de mapas e 535 do admin. No pacote DB, 16 testes passaram e 26 de integração foram ignorados; PostGIS real e dispositivos físicos permanecem pendentes.
+
 ## [0.5.12] - 2026-10-27
 
 ### Alterações

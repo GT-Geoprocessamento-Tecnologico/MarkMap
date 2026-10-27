@@ -1,4 +1,5 @@
 import { useState, useRef, type ChangeEvent } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   useToast,
   Dialog,
@@ -18,7 +19,10 @@ import {
   type DryRunRestoreResult,
 } from "../../lib/backup/restore";
 import { localDb } from "../../lib/local-db";
-import { appCredits } from "../../lib/app-credits";
+import { version as appVersion } from "../../../package.json";
+
+// Keep this pre-read limit aligned with dryRunRestore's archive limit.
+const MAX_BACKUP_FILE_BYTES = 32 * 1024 * 1024;
 
 function formatBytes(bytes?: number): string {
   if (bytes === undefined || Number.isNaN(bytes)) return "0 B";
@@ -27,8 +31,9 @@ function formatBytes(bytes?: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MiB`;
 }
 
-export function BackupRestoreCard() {
+export function BackupRestoreCard({ showRecoveryLink = true }: { showRecoveryLink?: boolean }) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   // Estados de Exportação
   const [exportOpen, setExportOpen] = useState(false);
@@ -50,6 +55,27 @@ export function BackupRestoreCard() {
   const [restoreError, setRestoreError] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Ignore verification results that finish after the input or dialog changed.
+  const verificationGeneration = useRef(0);
+
+  const invalidatePreview = () => {
+    verificationGeneration.current += 1;
+    setDryRunBusy(false);
+    setDryRunResult(null);
+    setRestoreConfirmed(false);
+    setRestoreError(null);
+  };
+
+  const onRestoreOpenChange = (open: boolean) => {
+    if (!open && restoreBusy) return;
+    if (!open) {
+      invalidatePreview();
+      setRestoreFile(null);
+      setRestorePassphrase("");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+    setRestoreOpen(open);
+  };
 
   const handleExport = async () => {
     setExportError(null);
@@ -68,7 +94,7 @@ export function BackupRestoreCard() {
     try {
       const result = await exportEncryptedWorkspace({
         passphrase: exportPassphrase,
-        appVersion: appCredits.version,
+        appVersion,
       });
 
       const blob = new Blob([result.bytes.buffer as ArrayBuffer], {
@@ -110,10 +136,8 @@ export function BackupRestoreCard() {
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] || null;
+    invalidatePreview();
     setRestoreFile(file);
-    setDryRunResult(null);
-    setRestoreConfirmed(false);
-    setRestoreError(null);
   };
 
   const handleDryRun = async () => {
@@ -126,11 +150,19 @@ export function BackupRestoreCard() {
       setRestoreError("Informe a frase de proteção do arquivo.");
       return;
     }
+    if (restoreFile.size > MAX_BACKUP_FILE_BYTES) {
+      invalidatePreview();
+      setRestoreError("Arquivo de backup excede o limite de 32 MiB.");
+      return;
+    }
 
+    invalidatePreview();
+    const generation = verificationGeneration.current;
     setDryRunBusy(true);
     try {
       const buffer = await restoreFile.arrayBuffer();
       const result = await dryRunRestore(buffer, restorePassphrase);
+      if (generation !== verificationGeneration.current) return;
       setDryRunResult(result);
       toast({
         title: "Backup verificado",
@@ -138,6 +170,7 @@ export function BackupRestoreCard() {
         variant: "success",
       });
     } catch (cause) {
+      if (generation !== verificationGeneration.current) return;
       const message =
         cause instanceof Error
           ? cause.message
@@ -150,7 +183,7 @@ export function BackupRestoreCard() {
         variant: "error",
       });
     } finally {
-      setDryRunBusy(false);
+      if (generation === verificationGeneration.current) setDryRunBusy(false);
     }
   };
 
@@ -176,7 +209,7 @@ export function BackupRestoreCard() {
 
       toast({
         title: "Backup restaurado com sucesso",
-        description: `${result.restoredCounts.entities} entidades e ${result.restoredCounts.originals} originais restaurados no workspace.`,
+        description: `${result.restoredCounts.entities} entidades, ${result.restoredCounts.originals} originais, ${result.restoredCounts.outbox} operações e ${result.restoredCounts.conflicts} conflitos restaurados.`,
         variant: "success",
       });
 
@@ -186,6 +219,13 @@ export function BackupRestoreCard() {
       setDryRunResult(null);
       setRestoreConfirmed(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
+
+      // Restoration has committed. Refresh only local-data queries; a failed
+      // refresh cannot turn a successful restore into a reported failure.
+      void Promise.resolve().then(() => queryClient.invalidateQueries({
+        predicate: ({ queryKey }) => typeof queryKey[0] === "string" &&
+          ["projects", "layers", "features", "analytics-layers"].includes(queryKey[0]),
+      })).catch(() => undefined);
     } catch (cause) {
       const message =
         cause instanceof Error
@@ -211,6 +251,18 @@ export function BackupRestoreCard() {
         locais ou restaure arquivos com inspeção preliminar segura em memória
         (sem escrita prévia).
       </p>
+      <p className="my-2 text-sm text-on-surface-variant">
+        Esta cópia é parcial: inclui apenas os dados do workspace e tem limite
+        de 16 MiB. Mapas offline e dados de outros bancos não estão incluídos.
+      </p>
+
+      {showRecoveryLink && (
+        <p className="my-2 text-sm text-on-surface-variant">
+          Para recuperar em um perfil novo ou vazio, abra nesse perfil o{" "}
+          <a className="underline" href="/?restore=1">modo de recuperação</a>.
+          Abrir o link nesta aba não cria outro perfil nem apaga dados existentes.
+        </p>
+      )}
 
       <div className="mt-4 flex flex-wrap gap-3">
         {/* Modal de Exportação */}
@@ -229,7 +281,8 @@ export function BackupRestoreCard() {
               <DialogDescription>
                 Seus dados serão protegidos com chave derivada via PBKDF2
                 (310.000 iterações) e AES-256-GCM. Guarde a frase de proteção em
-                local seguro.
+                local seguro. Mapas offline e dados de outros bancos não fazem
+                parte desta cópia parcial.
               </DialogDescription>
             </DialogHeader>
 
@@ -300,7 +353,7 @@ export function BackupRestoreCard() {
         </Dialog>
 
         {/* Modal de Restauração */}
-        <Dialog open={restoreOpen} onOpenChange={setRestoreOpen}>
+        <Dialog open={restoreOpen} onOpenChange={onRestoreOpenChange}>
           <DialogTrigger asChild>
             <button
               type="button"
@@ -362,7 +415,10 @@ export function BackupRestoreCard() {
                     id="restore-passphrase-input"
                     type="password"
                     value={restorePassphrase}
-                    onChange={(e) => setRestorePassphrase(e.target.value)}
+                    onChange={(e) => {
+                      invalidatePreview();
+                      setRestorePassphrase(e.target.value);
+                    }}
                     placeholder="Frase utilizada na exportação"
                     disabled={dryRunBusy || restoreBusy}
                     className="w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-sm"
@@ -428,6 +484,12 @@ export function BackupRestoreCard() {
                         {formatBytes(dryRunResult.summary.totalOriginalsBytes)})
                       </dd>
                     </div>
+                    <div>
+                      <dt className="text-on-surface-variant">Operações pendentes / conflitos</dt>
+                      <dd className="font-medium">
+                        {dryRunResult.summary.outboxCount} operações · {dryRunResult.summary.conflictsCount} conflitos
+                      </dd>
+                    </div>
                   </dl>
 
                   <div className="mt-3 rounded-lg border border-amber-400/40 bg-amber-500/10 p-2 text-amber-600 dark:text-amber-400">
@@ -455,14 +517,14 @@ export function BackupRestoreCard() {
             <DialogFooter>
               <Button
                 variant="ghost"
-                onClick={() => setRestoreOpen(false)}
+                onClick={() => onRestoreOpenChange(false)}
                 disabled={restoreBusy}
               >
                 Cancelar
               </Button>
               <Button
                 onClick={() => void handleRestore()}
-                disabled={restoreBusy || !dryRunResult || !restoreConfirmed}
+                disabled={restoreBusy || dryRunBusy || !dryRunResult || !restoreConfirmed}
                 className="bg-brand-blue text-white hover:brightness-110"
               >
                 {restoreBusy ? "Restaurando…" : "Restaurar Dados"}

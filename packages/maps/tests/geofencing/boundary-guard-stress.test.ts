@@ -6,7 +6,6 @@ import {
   normalizePolygonRings,
   isPointInRing,
   type LinearRing,
-  type PolygonCoordinates,
   type BoundaryZone,
 } from "../../src/geofencing/boundary-guard.js";
 import {
@@ -18,8 +17,6 @@ import {
   createHorseshoePolygon,
   createStarPolygon,
   createMultiHoleFarm,
-  createBoundaryZone,
-  createFarmWithCentralHole,
 } from "../fixtures/test-polygons.js";
 
 describe("BoundaryGuard Adversarial & Empirical Stress Challenge", () => {
@@ -62,6 +59,18 @@ describe("BoundaryGuard Adversarial & Empirical Stress Challenge", () => {
       const notchLng = -47.9 + (outerR * 0.8 * Math.cos(Math.PI / 5 - Math.PI / 2)) / Math.cos((-15.8 * Math.PI) / 180);
       const notchLat = -15.8 + outerR * 0.8 * Math.sin(Math.PI / 5 - Math.PI / 2);
       expect(isPointInPolygonInternal([notchLng, notchLat], starRing)).toBe(false);
+    });
+
+    it("keeps all three holes and pasture correctly located after scaling and translation", () => {
+      const [lng, lat]: [number, number] = [-50, -20];
+      const size = 0.2;
+      const farm = createMultiHoleFarm([lng, lat], size);
+      const holes: Array<[number, number]> = [[-0.6, 0.6], [0.6, 0.6], [0, -0.6]];
+      for (const [dx, dy] of holes) {
+        expect(isPointInPolygonInternal([lng + dx * size, lat + dy * size], farm)).toBe(false);
+      }
+      expect(isPointInPolygonInternal([lng, lat + 0.6 * size], farm)).toBe(true);
+      expect(isPointInPolygonInternal([lng + 1.1 * size, lat], farm)).toBe(false);
     });
 
     // Rural property with multiple independent holes (Lakes / Protected Areas / Easements)

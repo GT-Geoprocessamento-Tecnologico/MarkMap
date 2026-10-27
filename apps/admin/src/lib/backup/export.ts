@@ -12,6 +12,7 @@ import {
   readLocalFirstSnapshot, type SnapshotReader,
 } from './snapshot';
 import { LOCAL_DB_VERSION } from '../local-db/types';
+import { inspectPendingSnapshot } from './validation';
 
 const encoder = new TextEncoder();
 const ENTRY_PATH = 'payload/local-first/snapshot.enc';
@@ -77,6 +78,8 @@ export async function exportEncryptedWorkspace(options: BackupExportOptions): Pr
     throw new Error('Versao de aplicativo invalida.');
   const raw = await (options.reader ?? { read: readLocalFirstSnapshot }).read();
   const portable = await makePortableLocalFirst(raw);
+  // Never report a backup as successful when its own restore will reject the data.
+  inspectPendingSnapshot(portable);
   const payloadBytes = encoder.encode(JSON.stringify(portable));
   if (payloadBytes.byteLength > MAX_LOCAL_FIRST_SNAPSHOT_BYTES)
     throw new Error('Payload maior que 16 MiB: aguardando exportacao por streaming T3b.');

@@ -56,8 +56,6 @@ export function createMultiHoleFarm(
   size: number = 0.1
 ): PolygonCoordinates {
   const [centerLng, centerLat] = center;
-  const halfSize = size / 2;
-
   return [
     // Ring 0: Outer farm boundary
     [
@@ -67,29 +65,31 @@ export function createMultiHoleFarm(
       [centerLng - size, centerLat - size],
       [centerLng - size, centerLat + size],
     ],
+    // Offsets scale with the outer half-width. The northwest lake's east edge
+    // is at centerLng - 0.5 * size, matching the 15 m clearance scenario.
     // Hole 1: Northwest lake
     [
-      [centerLng - size * 0.15, centerLat + size * 0.15],
-      [centerLng - size * 0.25, centerLat + size * 0.15],
-      [centerLng - size * 0.25, centerLat + size * 0.05],
-      [centerLng - size * 0.15, centerLat + size * 0.05],
-      [centerLng - size * 0.15, centerLat + size * 0.15],
+      [centerLng - size * 0.7, centerLat + size * 0.7],
+      [centerLng - size * 0.5, centerLat + size * 0.7],
+      [centerLng - size * 0.5, centerLat + size * 0.5],
+      [centerLng - size * 0.7, centerLat + size * 0.5],
+      [centerLng - size * 0.7, centerLat + size * 0.7],
     ],
     // Hole 2: Northeast lake
     [
-      [centerLng + size * 0.25, centerLat + size * 0.15],
-      [centerLng + size * 0.35, centerLat + size * 0.15],
-      [centerLng + size * 0.35, centerLat + size * 0.05],
-      [centerLng + size * 0.25, centerLat + size * 0.05],
-      [centerLng + size * 0.25, centerLat + size * 0.15],
+      [centerLng + size * 0.5, centerLat + size * 0.7],
+      [centerLng + size * 0.7, centerLat + size * 0.7],
+      [centerLng + size * 0.7, centerLat + size * 0.5],
+      [centerLng + size * 0.5, centerLat + size * 0.5],
+      [centerLng + size * 0.5, centerLat + size * 0.7],
     ],
     // Hole 3: Southern mineral rights/access area
     [
-      [centerLng - size * 0.08, centerLat - size * 0.3],
-      [centerLng + size * 0.12, centerLat - size * 0.3],
-      [centerLng + size * 0.12, centerLat - size * 0.5],
-      [centerLng - size * 0.08, centerLat - size * 0.5],
-      [centerLng - size * 0.08, centerLat - size * 0.3],
+      [centerLng - size * 0.1, centerLat - size * 0.5],
+      [centerLng + size * 0.1, centerLat - size * 0.5],
+      [centerLng + size * 0.1, centerLat - size * 0.7],
+      [centerLng - size * 0.1, centerLat - size * 0.7],
+      [centerLng - size * 0.1, centerLat - size * 0.5],
     ],
   ];
 }

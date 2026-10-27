@@ -44,6 +44,10 @@ class MemoryStore {
     >;
   }
 
+  count(): RequestLike<number> {
+    return new Request(this.rows.size) as unknown as RequestLike<number>;
+  }
+
   put(value: Row): void {
     this.rows.set(String(value.key), clone(value));
   }

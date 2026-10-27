@@ -49,7 +49,7 @@ function toBase64(bytes: Uint8Array): string {
   for (let offset = 0; offset < bytes.length; offset += 12_288) {
     const part = bytes.subarray(offset, offset + 12_288);
     let characters = '';
-    for (let i = 0; i < part.length; i++) characters += String.fromCharCode(part[i]);
+    for (let i = 0; i < part.length; i++) characters += String.fromCharCode(bytes[i + offset]);
     result += btoa(characters);
   }
   return result;
@@ -64,383 +64,175 @@ async function extractBytes(binary: unknown): Promise<Uint8Array> {
   throw new Error('Dado binario nao reconhecido.');
 }
 
+function withCoverage<T>(records: T[]): { records: T[]; coverage: BackupCoverage } {
+  return {
+    records,
+    coverage: {
+      status: records.length === 0 ? 'absent' : 'included',
+      schemaVersion: 1,
+      recordCount: records.length,
+    },
+  };
+}
+
+/** Wait for the readonly transaction to complete, not just getAll.onsuccess. */
+function readStoreRows(
+  idb: IDBFactory,
+  databaseName: string,
+  stores: string[],
+  readStore: string,
+): Promise<unknown[]> {
+  return new Promise((resolve, reject) => {
+    let db: IDBDatabase | null = null;
+    let settled = false;
+    let missingOnOpen = false;
+
+    const fail = (message: string) => {
+      if (settled) return;
+      settled = true;
+      db?.close();
+      reject(new Error(message));
+    };
+    const finish = (rows: unknown[]) => {
+      if (settled) return;
+      settled = true;
+      db?.close();
+      resolve(rows);
+    };
+
+    let req: IDBOpenDBRequest;
+    try {
+      req = idb.open(databaseName);
+    } catch {
+      fail('Falha ao abrir banco IndexedDB existente.');
+      return;
+    }
+
+    req.onupgradeneeded = () => {
+      // open() without an explicit version would create a missing database.
+      try {
+        if (!req.transaction) throw new Error('Upgrade sem transacao.');
+        req.transaction.abort();
+        missingOnOpen = true;
+      } catch {
+        fail('Nao foi possivel cancelar abertura de banco ausente.');
+      }
+    };
+    req.onerror = () => {
+      if (missingOnOpen) finish([]);
+      else fail('Falha ao abrir banco IndexedDB existente.');
+    };
+    req.onblocked = () => fail('Abertura de IndexedDB bloqueada.');
+    req.onsuccess = () => {
+      db = req.result;
+      if (settled) {
+        db.close();
+        return;
+      }
+      if (stores.some((store) => !db?.objectStoreNames.contains(store))) {
+        fail('Store obrigatorio ausente em IndexedDB existente.');
+        return;
+      }
+      try {
+        const tx = db.transaction(stores, 'readonly');
+        let rows: unknown[] | null = null;
+        tx.onerror = () => fail('Erro na transacao readonly IndexedDB.');
+        tx.onabort = () => fail('Transacao readonly IndexedDB abortada.');
+        tx.oncomplete = () => {
+          if (rows === null) fail('Leitura incompleta no IndexedDB.');
+          else finish(rows);
+        };
+        const getAllReq = tx.objectStore(readStore).getAll();
+        getAllReq.onsuccess = () => {
+          if (!Array.isArray(getAllReq.result)) {
+            fail('Resposta de leitura IndexedDB invalida.');
+            return;
+          }
+          rows = getAllReq.result;
+        };
+        getAllReq.onerror = () => fail('Falha de leitura no IndexedDB.');
+      } catch {
+        fail('Transacao readonly IndexedDB indisponivel.');
+      }
+    };
+  });
+}
+
+function requireIDB(factory?: IDBFactory): IDBFactory {
+  const idb = resolveIDBFactory(factory);
+  if (!idb) throw new Error('IndexedDB indisponivel: backup multibanco nao pode ser validado.');
+  return idb;
+}
+
 export async function readLocalEngineSnapshot(
   factory?: IDBFactory,
 ): Promise<{ records: LocalEngineRecord[]; coverage: BackupCoverage }> {
-  const idb = resolveIDBFactory(factory);
-  if (!idb) {
-    return { records: [], coverage: { status: 'absent', schemaVersion: 1, recordCount: 0 } };
-  }
-  try {
-    return await new Promise((resolve) => {
-      const req = idb.open('GeoNexoLocalEngineDB');
-      req.onupgradeneeded = () => {
-        try {
-          req.transaction?.abort();
-        } catch {}
-      };
-      req.onerror = () =>
-        resolve({
-          records: [],
-          coverage: { status: 'absent', schemaVersion: 1, recordCount: 0 },
-        });
-      req.onsuccess = () => {
-        const db = req.result;
-        if (!db.objectStoreNames.contains('store')) {
-          db.close();
-          return resolve({
-            records: [],
-            coverage: { status: 'absent', schemaVersion: 1, recordCount: 0 },
-          });
-        }
-        try {
-          const tx = db.transaction('store', 'readonly');
-          const store = tx.objectStore('store');
-          const getAllReq = store.getAll();
-          getAllReq.onsuccess = () => {
-            const rows = (getAllReq.result || []) as LocalEngineRecord[];
-            db.close();
-            if (rows.length === 0) {
-              resolve({
-                records: [],
-                coverage: {
-                  status: 'absent',
-                  schemaVersion: 1,
-                  recordCount: 0,
-                },
-              });
-            } else {
-              resolve({
-                records: rows,
-                coverage: {
-                  status: 'included',
-                  schemaVersion: 1,
-                  recordCount: rows.length,
-                },
-              });
-            }
-          };
-          getAllReq.onerror = () => {
-            db.close();
-            resolve({
-              records: [],
-              coverage: { status: 'absent', schemaVersion: 1, recordCount: 0 },
-            });
-          };
-        } catch {
-          db.close();
-          resolve({
-            records: [],
-            coverage: { status: 'absent', schemaVersion: 1, recordCount: 0 },
-          });
-        }
-      };
-    });
-  } catch {
-    return {
-      records: [],
-      coverage: { status: 'absent', schemaVersion: 1, recordCount: 0 },
-    };
-  }
+  const rows = await readStoreRows(requireIDB(factory), 'GeoNexoLocalEngineDB', ['store'], 'store');
+  return withCoverage(rows as LocalEngineRecord[]);
 }
 
 export async function readMeshesSnapshot(
   factory?: IDBFactory,
 ): Promise<{ records: MeshRecord[]; coverage: BackupCoverage }> {
-  const idb = resolveIDBFactory(factory);
-  if (!idb) {
-    return { records: [], coverage: { status: 'absent', schemaVersion: 1, recordCount: 0 } };
-  }
+  const rows = await readStoreRows(requireIDB(factory), 'geonexo-mesh-store', ['meshes'], 'meshes');
   try {
-    return await new Promise((resolve) => {
-      const req = idb.open('geonexo-mesh-store');
-      req.onupgradeneeded = () => {
-        try {
-          req.transaction?.abort();
-        } catch {}
-      };
-      req.onerror = () =>
-        resolve({
-          records: [],
-          coverage: { status: 'absent', schemaVersion: 1, recordCount: 0 },
-        });
-      req.onsuccess = () => {
-        const db = req.result;
-        if (!db.objectStoreNames.contains('meshes')) {
-          db.close();
-          return resolve({
-            records: [],
-            coverage: { status: 'absent', schemaVersion: 1, recordCount: 0 },
-          });
-        }
-        try {
-          const tx = db.transaction('meshes', 'readonly');
-          const store = tx.objectStore('meshes');
-          const getAllReq = store.getAll();
-          getAllReq.onsuccess = async () => {
-            const rawRows = (getAllReq.result || []) as Array<
-              Record<string, unknown>
-            >;
-            db.close();
-            if (rawRows.length === 0) {
-              return resolve({
-                records: [],
-                coverage: {
-                  status: 'absent',
-                  schemaVersion: 1,
-                  recordCount: 0,
-                },
-              });
-            }
-            try {
-              const records: MeshRecord[] = [];
-              for (const row of rawRows) {
-                const bytes = await extractBytes(row.glb);
-                records.push({
-                  meshId: String(row.meshId || row.id || ''),
-                  name: String(row.name || ''),
-                  glbBase64: toBase64(bytes),
-                  size: bytes.byteLength,
-                  createdAt: String(row.createdAt || new Date().toISOString()),
-                  view: row.view,
-                });
-              }
-              resolve({
-                records,
-                coverage: {
-                  status: 'included',
-                  schemaVersion: 1,
-                  recordCount: records.length,
-                },
-              });
-            } catch {
-              resolve({
-                records: [],
-                coverage: {
-                  status: 'absent',
-                  schemaVersion: 1,
-                  recordCount: 0,
-                },
-              });
-            }
-          };
-          getAllReq.onerror = () => {
-            db.close();
-            resolve({
-              records: [],
-              coverage: { status: 'absent', schemaVersion: 1, recordCount: 0 },
-            });
-          };
-        } catch {
-          db.close();
-          resolve({
-            records: [],
-            coverage: { status: 'absent', schemaVersion: 1, recordCount: 0 },
-          });
-        }
-      };
-    });
+    const records: MeshRecord[] = [];
+    for (const row of rows as Array<Record<string, unknown>>) {
+      const bytes = await extractBytes(row.glb);
+      records.push({
+        meshId: String(row.meshId || row.id || ''),
+        name: String(row.name || ''),
+        glbBase64: toBase64(bytes),
+        size: bytes.byteLength,
+        createdAt: String(row.createdAt || new Date().toISOString()),
+        view: row.view,
+      });
+    }
+    return withCoverage(records);
   } catch {
-    return {
-      records: [],
-      coverage: { status: 'absent', schemaVersion: 1, recordCount: 0 },
-    };
+    throw new Error('Binario local ilegivel; backup multibanco interrompido.');
   }
 }
 
 export async function readLargeBlobsSnapshot(
   factory?: IDBFactory,
 ): Promise<{ records: LargeBlobRecord[]; coverage: BackupCoverage }> {
-  const idb = resolveIDBFactory(factory);
-  if (!idb) {
-    return { records: [], coverage: { status: 'absent', schemaVersion: 1, recordCount: 0 } };
-  }
+  const rows = await readStoreRows(requireIDB(factory), 'large-blob-store', ['blobs'], 'blobs');
   try {
-    return await new Promise((resolve) => {
-      const req = idb.open('large-blob-store');
-      req.onupgradeneeded = () => {
-        try {
-          req.transaction?.abort();
-        } catch {}
-      };
-      req.onerror = () =>
-        resolve({
-          records: [],
-          coverage: { status: 'absent', schemaVersion: 1, recordCount: 0 },
-        });
-      req.onsuccess = () => {
-        const db = req.result;
-        if (!db.objectStoreNames.contains('blobs')) {
-          db.close();
-          return resolve({
-            records: [],
-            coverage: { status: 'absent', schemaVersion: 1, recordCount: 0 },
-          });
-        }
-        try {
-          const tx = db.transaction('blobs', 'readonly');
-          const store = tx.objectStore('blobs');
-          const getAllReq = store.getAll();
-          getAllReq.onsuccess = async () => {
-            const rawRows = (getAllReq.result || []) as Array<
-              Record<string, unknown>
-            >;
-            db.close();
-            if (rawRows.length === 0) {
-              return resolve({
-                records: [],
-                coverage: {
-                  status: 'absent',
-                  schemaVersion: 1,
-                  recordCount: 0,
-                },
-              });
-            }
-            try {
-              const records: LargeBlobRecord[] = [];
-              for (const row of rawRows) {
-                const bytes = await extractBytes(
-                  row.data || row.blob || row.buffer,
-                );
-                records.push({
-                  key: String(row.key || ''),
-                  bytesBase64: toBase64(bytes),
-                  size: bytes.byteLength,
-                  lastModified: String(
-                    row.lastModified || new Date().toISOString(),
-                  ),
-                  etag: row.etag ? String(row.etag) : undefined,
-                  checksum: row.checksum ? String(row.checksum) : undefined,
-                });
-              }
-              resolve({
-                records,
-                coverage: {
-                  status: 'included',
-                  schemaVersion: 1,
-                  recordCount: records.length,
-                },
-              });
-            } catch {
-              resolve({
-                records: [],
-                coverage: {
-                  status: 'absent',
-                  schemaVersion: 1,
-                  recordCount: 0,
-                },
-              });
-            }
-          };
-          getAllReq.onerror = () => {
-            db.close();
-            resolve({
-              records: [],
-              coverage: { status: 'absent', schemaVersion: 1, recordCount: 0 },
-            });
-          };
-        } catch {
-          db.close();
-          resolve({
-            records: [],
-            coverage: { status: 'absent', schemaVersion: 1, recordCount: 0 },
-          });
-        }
-      };
-    });
+    const records: LargeBlobRecord[] = [];
+    for (const row of rows as Array<Record<string, unknown>>) {
+      const bytes = await extractBytes(row.data || row.blob || row.buffer);
+      records.push({
+        key: String(row.key || ''),
+        bytesBase64: toBase64(bytes),
+        size: bytes.byteLength,
+        lastModified: String(row.lastModified || new Date().toISOString()),
+        etag: row.etag ? String(row.etag) : undefined,
+        checksum: row.checksum ? String(row.checksum) : undefined,
+      });
+    }
+    return withCoverage(records);
   } catch {
-    return {
-      records: [],
-      coverage: { status: 'absent', schemaVersion: 1, recordCount: 0 },
-    };
+    throw new Error('Binario local ilegivel; backup multibanco interrompido.');
   }
 }
 
 export async function readOfflineMapsSnapshot(
   factory?: IDBFactory,
 ): Promise<{ records: OfflineMapRecord[]; coverage: BackupCoverage }> {
-  const idb = resolveIDBFactory(factory);
-  if (!idb) {
-    return { records: [], coverage: { status: 'absent', schemaVersion: 1, recordCount: 0 } };
-  }
+  const rows = await readStoreRows(
+    requireIDB(factory), 'markmap-offline-packages', ['packages', 'assets'], 'packages',
+  );
   try {
-    return await new Promise((resolve) => {
-      const req = idb.open('markmap-offline-packages');
-      req.onupgradeneeded = () => {
-        try {
-          req.transaction?.abort();
-        } catch {}
-      };
-      req.onerror = () =>
-        resolve({
-          records: [],
-          coverage: { status: 'absent', schemaVersion: 1, recordCount: 0 },
-        });
-      req.onsuccess = () => {
-        const db = req.result;
-        if (!db.objectStoreNames.contains('packages')) {
-          db.close();
-          return resolve({
-            records: [],
-            coverage: { status: 'absent', schemaVersion: 1, recordCount: 0 },
-          });
-        }
-        try {
-          const tx = db.transaction(['packages', 'assets'], 'readonly');
-          const packagesStore = tx.objectStore('packages');
-          const getAllReq = packagesStore.getAll();
-          getAllReq.onsuccess = () => {
-            const rawRows = (getAllReq.result || []) as Array<
-              Record<string, unknown>
-            >;
-            db.close();
-            if (rawRows.length === 0) {
-              return resolve({
-                records: [],
-                coverage: {
-                  status: 'absent',
-                  schemaVersion: 1,
-                  recordCount: 0,
-                },
-              });
-            }
-            const records: OfflineMapRecord[] = rawRows.map((r) => ({
-              packageId: String(r.packageId || r.key || ''),
-              state: String(r.state || 'active'),
-              bytes: typeof r.bytes === 'number' ? r.bytes : 0,
-              generation: String(r.generation || ''),
-              assetsCount: Array.isArray(r.assets) ? r.assets.length : 0,
-            }));
-            resolve({
-              records,
-              coverage: {
-                status: 'included',
-                schemaVersion: 1,
-                recordCount: records.length,
-              },
-            });
-          };
-          getAllReq.onerror = () => {
-            db.close();
-            resolve({
-              records: [],
-              coverage: { status: 'absent', schemaVersion: 1, recordCount: 0 },
-            });
-          };
-        } catch {
-          db.close();
-          resolve({
-            records: [],
-            coverage: { status: 'absent', schemaVersion: 1, recordCount: 0 },
-          });
-        }
-      };
-    });
+    const records: OfflineMapRecord[] = (rows as Array<Record<string, unknown>>).map((r) => ({
+      packageId: String(r.packageId || r.key || ''),
+      state: String(r.state || 'active'),
+      bytes: typeof r.bytes === 'number' ? r.bytes : 0,
+      generation: String(r.generation || ''),
+      assetsCount: Array.isArray(r.assets) ? r.assets.length : 0,
+    }));
+    return withCoverage(records);
   } catch {
-    return {
-      records: [],
-      coverage: { status: 'absent', schemaVersion: 1, recordCount: 0 },
-    };
+    throw new Error('Metadados de mapas offline invalidos.');
   }
 }
-

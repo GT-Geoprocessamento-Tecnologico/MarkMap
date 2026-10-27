@@ -8,6 +8,7 @@ import { localRepository } from "./lib/local-repositories";
 import { SyncController } from "./lib/sync/SyncController";
 import { SyncStatus } from "./lib/sync/SyncStatus";
 import { UpdatePrompt } from "./components/pwa/UpdatePrompt";
+import { BackupRestoreCard } from "./components/backup/BackupRestoreCard";
 import { PwaInstallPrompt } from "./components/pwa/PwaInstallPrompt";
 import { NetworkStatusBanner } from "./components/pwa/NetworkStatusBanner";
 import { isPwaStandalone, shouldShowPwaInstallFlow } from "./lib/pwa-install";
@@ -39,6 +40,34 @@ export default function App() {
     return <PwaInstallPrompt fullScreen />;
   }
 
+  // Recovery must precede the router and sync: both can initialize a workspace
+  // or queue work before the operator confirms a restore.
+  if (
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("restore") === "1"
+  ) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <ToastProvider>
+          <main className="min-h-screen bg-surface p-4 text-on-surface">
+            <div className="mx-auto max-w-2xl space-y-4 py-8">
+              <h1 className="text-2xl font-semibold">Recuperar backup</h1>
+              <p>
+                Use esta tela em um perfil novo ou vazio do aplicativo. A
+                restauração só é permitida quando não há dados locais existentes;
+                nenhuma informação será apagada automaticamente.
+              </p>
+              <BackupRestoreCard showRecoveryLink={false} />
+              <p>Após concluir a restauração, volte ao aplicativo para acessar seus dados.</p>
+              <a className="inline-flex min-h-[44px] items-center rounded-lg border border-outline-variant px-4 font-semibold" href="/">
+                Voltar ao aplicativo
+              </a>
+            </div>
+          </main>
+        </ToastProvider>
+      </QueryClientProvider>
+    );
+  }
   return (
     <QueryClientProvider client={queryClient}>
       <ToastProvider>

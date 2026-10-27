@@ -1,7 +1,11 @@
 // Desenvolvido por MtsFerreira — regression for light/dark PWA surfaces.
 import { expect, test, type Page } from "@playwright/test";
-const surfaces = async (page: Page) =>
-  page.evaluate(() => {
+const surfaces = async (page: Page) => {
+  // Reload can finish before React mounts the shell, particularly in WebKit.
+  for (const selector of [".markmap-shell-header", ".markmap-shell-sidebar", ".markmap-app-main"]) {
+    await expect(page.locator(selector)).toBeAttached();
+  }
+  return page.evaluate(() => {
     const color = (selector: string) =>
       getComputedStyle(document.querySelector(selector)!).backgroundColor;
     return {
@@ -14,6 +18,7 @@ const surfaces = async (page: Page) =>
       dark: document.documentElement.classList.contains("dark"),
     };
   });
+};
 test("theme changes header, sidebar, content and persists on reload", async ({ page }) => {
   await page.goto("/");
   await page.evaluate(() => localStorage.setItem("theme", "dark"));

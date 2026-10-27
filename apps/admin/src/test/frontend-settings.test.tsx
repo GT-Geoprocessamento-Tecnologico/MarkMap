@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import SettingsPage from '../pages/settings/SettingsPage';
 import CoordinateSystemsPage from '../pages/dashboard/CoordinateSystemsPage';
@@ -14,9 +15,14 @@ beforeEach(() => {
   vi.stubGlobal('matchMedia', () => ({ matches: false }));
 });
 
+const renderSettings = () => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(<QueryClientProvider client={client}><SettingsPage /></QueryClientProvider>);
+};
+
 describe('functional device settings', () => {
   it('does not advertise configuration fields disconnected from runtime', () => {
-    render(<SettingsPage />);
+    renderSettings();
     expect(screen.queryByText('URL da API')).not.toBeInTheDocument();
     expect(screen.queryByText('Limite de Importação')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Proteger dados' })).toBeEnabled();
@@ -24,7 +30,7 @@ describe('functional device settings', () => {
 
   it('preserves the saved theme without duplicate appearance settings', () => {
     localStorage.setItem('theme', 'light');
-    render(<SettingsPage />);
+    renderSettings();
     expect(screen.queryByRole('checkbox', { name: 'Tema escuro' })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Aparência' })).not.toBeInTheDocument();
     expect(document.documentElement).not.toHaveClass('dark');
