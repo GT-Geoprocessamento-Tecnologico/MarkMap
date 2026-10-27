@@ -1,22 +1,32 @@
-import { LOCAL_DB_NAME, type LocalDb, type LocalDbTransaction } from '../local-db/types';
 import {
-  decryptBackupEntry, digestHex, fromHex, workspaceFingerprint,
-} from './crypto';
+  LOCAL_DB_NAME,
+  type LocalDb,
+  type LocalDbTransaction,
+} from "../local-db/types";
 import {
-  BACKUP_ARCHIVE_TYPE, BACKUP_ARCHIVE_VERSION, type EncryptedWorkspaceArchive,
-} from './export';
-import { validateBackupManifest } from './manifest';
-import type { PortableLocalFirstSnapshot } from './snapshot';
+  decryptBackupEntry,
+  digestHex,
+  fromHex,
+  workspaceFingerprint,
+} from "./crypto";
+import {
+  BACKUP_ARCHIVE_TYPE,
+  BACKUP_ARCHIVE_VERSION,
+  type EncryptedWorkspaceArchive,
+} from "./export";
+import { validateBackupManifest } from "./manifest";
+import type { PortableLocalFirstSnapshot } from "./snapshot";
 
 export function fromBase64(encoded: string): Uint8Array {
   const decoded = atob(encoded);
-  return Uint8Array.from(decoded, ch => ch.charCodeAt(0));
+  return Uint8Array.from(decoded, (ch) => ch.charCodeAt(0));
 }
 
 function requestValue<T>(request: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {
     request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error ?? new Error('Falha na operação IndexedDB.'));
+    request.onerror = () =>
+      reject(request.error ?? new Error("Falha na operação IndexedDB."));
   });
 }
 
@@ -62,93 +72,118 @@ export async function dryRunRestore(
   fileData: ArrayBuffer | Uint8Array,
   password: string,
 ): Promise<DryRunRestoreResult> {
-  if (!password || typeof password !== 'string') {
-    throw new Error('Senha não fornecida.');
+  if (!password || typeof password !== "string") {
+    throw new Error("Senha não fornecida.");
   }
 
-  const bytes = fileData instanceof Uint8Array
-    ? fileData
-    : new Uint8Array(fileData);
+  const bytes =
+    fileData instanceof Uint8Array ? fileData : new Uint8Array(fileData);
 
   let archiveJson: string;
   try {
-    archiveJson = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+    archiveJson = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
   } catch {
-    throw new Error('Arquivo de backup inválido: não é um texto UTF-8 codificado.');
+    throw new Error(
+      "Arquivo de backup inválido: não é um texto UTF-8 codificado.",
+    );
   }
 
   let archive: EncryptedWorkspaceArchive;
   try {
     archive = JSON.parse(archiveJson) as EncryptedWorkspaceArchive;
   } catch {
-    throw new Error('Arquivo de backup corrompido: formato JSON inválido.');
+    throw new Error("Arquivo de backup corrompido: formato JSON inválido.");
   }
 
   if (
     !archive ||
-    typeof archive !== 'object' ||
+    typeof archive !== "object" ||
     archive.type !== BACKUP_ARCHIVE_TYPE ||
     archive.version !== BACKUP_ARCHIVE_VERSION
   ) {
-    throw new Error('Formato de arquivo de backup desconhecido ou incompatível.');
+    throw new Error(
+      "Formato de arquivo de backup desconhecido ou incompatível.",
+    );
   }
 
   const manifestValidation = validateBackupManifest(archive.manifest);
   if (!manifestValidation.valid) {
-    throw new Error(`Manifesto de backup inválido: ${manifestValidation.errors.join(', ')}`);
+    throw new Error(
+      `Manifesto de backup inválido: ${manifestValidation.errors.join(", ")}`,
+    );
   }
 
   const manifest = archive.manifest;
-  const localFirstEntry = manifest.entries.find(e => e.section === 'local-first');
+  const localFirstEntry = manifest.entries.find(
+    (e) => e.section === "local-first",
+  );
   if (!localFirstEntry) {
-    throw new Error('Manifesto não contém entrada da seção local-first.');
+    throw new Error("Manifesto não contém entrada da seção local-first.");
   }
 
-  const fileItem = archive.files?.find(f => f.path === localFirstEntry.path);
-  if (!fileItem || typeof fileItem.base64 !== 'string') {
-    throw new Error('Arquivo de dados do backup local-first não encontrado no pacote.');
+  const fileItem = archive.files?.find((f) => f.path === localFirstEntry.path);
+  if (!fileItem || typeof fileItem.base64 !== "string") {
+    throw new Error(
+      "Arquivo de dados do backup local-first não encontrado no pacote.",
+    );
   }
 
   let ciphertext: Uint8Array;
   try {
     ciphertext = fromBase64(fileItem.base64);
   } catch {
-    throw new Error('Dados do backup em base64 corrompidos.');
+    throw new Error("Dados do backup em base64 corrompidos.");
   }
 
   if (ciphertext.byteLength !== localFirstEntry.sizeBytes) {
-    throw new Error('Arquivo corrompido: tamanho do ciphertext não corresponde ao manifesto.');
+    throw new Error(
+      "Arquivo corrompido: tamanho do ciphertext não corresponde ao manifesto.",
+    );
   }
 
   const cipherHash = await digestHex(ciphertext);
   if (cipherHash !== localFirstEntry.sha256) {
-    throw new Error('Arquivo corrompido: hash SHA-256 do ciphertext não confere com o manifesto.');
+    throw new Error(
+      "Arquivo corrompido: hash SHA-256 do ciphertext não confere com o manifesto.",
+    );
   }
 
-  const cleartext = await decryptBackupEntry(password, manifest, localFirstEntry.path, ciphertext);
+  const cleartext = await decryptBackupEntry(
+    password,
+    manifest,
+    localFirstEntry.path,
+    ciphertext,
+  );
 
   let snapshot: PortableLocalFirstSnapshot;
   try {
-    snapshot = JSON.parse(new TextDecoder().decode(cleartext)) as PortableLocalFirstSnapshot;
+    snapshot = JSON.parse(
+      new TextDecoder().decode(cleartext),
+    ) as PortableLocalFirstSnapshot;
   } catch {
-    throw new Error('Payload descriptografado corrompido: JSON inválido.');
+    throw new Error("Payload descriptografado corrompido: JSON inválido.");
   }
 
   if (
     !snapshot ||
-    typeof snapshot !== 'object' ||
+    typeof snapshot !== "object" ||
     snapshot.schemaVersion !== 1 ||
     snapshot.database !== LOCAL_DB_NAME ||
     !snapshot.metadata?.workspaceId ||
     !snapshot.stores
   ) {
-    throw new Error('Estrutura de dados do snapshot inválida ou incompatível.');
+    throw new Error("Estrutura de dados do snapshot inválida ou incompatível.");
   }
 
   const salt = fromHex(manifest.encryption.saltHex);
-  const fingerprint = await workspaceFingerprint(snapshot.metadata.workspaceId, salt);
+  const fingerprint = await workspaceFingerprint(
+    snapshot.metadata.workspaceId,
+    salt,
+  );
   if (fingerprint !== manifest.sourceWorkspaceFingerprint) {
-    throw new Error('Fingerprint do workspace não confere com a assinatura do manifesto.');
+    throw new Error(
+      "Fingerprint do workspace não confere com a assinatura do manifesto.",
+    );
   }
 
   const entities = snapshot.stores.entities || [];
@@ -159,14 +194,14 @@ export async function dryRunRestore(
   let featuresCount = 0;
   for (const ent of entities) {
     const row = ent as Record<string, unknown>;
-    if (row.entity === 'project' && !row.deleted) projectsCount++;
-    if (row.entity === 'feature' && !row.deleted) featuresCount++;
+    if (row.entity === "project" && !row.deleted) projectsCount++;
+    if (row.entity === "feature" && !row.deleted) featuresCount++;
   }
 
   let totalOriginalsBytes = 0;
   for (const orig of originals) {
     const row = orig as Record<string, unknown>;
-    if (typeof row.bytes === 'number') totalOriginalsBytes += row.bytes;
+    if (typeof row.bytes === "number") totalOriginalsBytes += row.bytes;
   }
 
   const totalRecords = entities.length + originals.length + acks.length;
@@ -190,14 +225,22 @@ export async function dryRunRestore(
   };
 }
 
-async function checkPendingOutbox(tx: LocalDbTransaction, workspaceId: string): Promise<boolean> {
+async function checkPendingOutbox(
+  tx: LocalDbTransaction,
+  workspaceId: string,
+): Promise<boolean> {
   try {
-    const store = tx.store('outbox');
-    const index = store.index('workspace');
+    const store = tx.store("outbox");
+    const index = store.index("workspace");
     const records = await requestValue<unknown[]>(index.getAll(workspaceId));
-    return Array.isArray(records) && records.length > 0;
-  } catch {
-    return false;
+    if (!Array.isArray(records)) {
+      throw new Error("A consulta à outbox retornou formato inválido.");
+    }
+    return records.length > 0;
+  } catch (error) {
+    throw new Error(
+      `Falha ao verificar operações pendentes na outbox: ${error instanceof Error ? error.message : "Erro desconhecido"}.`,
+    );
   }
 }
 
@@ -214,35 +257,37 @@ export async function restoreWorkspaceSnapshot(
   options: RestoreOptions = {},
 ): Promise<RestoreResult> {
   if (options.confirmed !== true) {
-    throw new Error('Confirmação obrigatória: a restauração requer confirmação explícita para aplicar as alterações.');
+    throw new Error(
+      "Confirmação obrigatória: a restauração requer confirmação explícita para aplicar as alterações.",
+    );
   }
 
   if (
     !snapshot ||
-    typeof snapshot !== 'object' ||
+    typeof snapshot !== "object" ||
     snapshot.schemaVersion !== 1 ||
     snapshot.database !== LOCAL_DB_NAME ||
     !snapshot.metadata?.workspaceId ||
     !snapshot.stores
   ) {
-    throw new Error('Snapshot inválido para restauração.');
+    throw new Error("Snapshot inválido para restauração.");
   }
 
   const targetWorkspaceId = snapshot.metadata.workspaceId;
 
   return db.transact(
-    ['meta', 'entities', 'originals', 'outbox', 'conflicts', 'acks'],
-    'readwrite',
+    ["meta", "entities", "originals", "outbox", "conflicts", "acks"],
+    "readwrite",
     async (tx) => {
       // 1. Verificar identidade do workspace e evitar colisão
-      const metaStore = tx.store('meta');
-      const currentMeta = await requestValue<{ key: string; value: string } | undefined>(
-        metaStore.get('workspaceId'),
-      );
+      const metaStore = tx.store("meta");
+      const currentMeta = await requestValue<
+        { key: string; value: string } | undefined
+      >(metaStore.get("workspaceId"));
       const currentWorkspaceId = currentMeta?.value;
 
       if (currentWorkspaceId && currentWorkspaceId !== targetWorkspaceId) {
-        const entitiesIndex = tx.store('entities').index('workspace');
+        const entitiesIndex = tx.store("entities").index("workspace");
         const existingEntities = await requestValue<unknown[]>(
           entitiesIndex.getAll(currentWorkspaceId),
         );
@@ -261,36 +306,43 @@ export async function restoreWorkspaceSnapshot(
 
       if (hasPendingCurrent || hasPendingTarget) {
         throw new Error(
-          'Não é possível restaurar o backup com operações locais pendentes na outbox. Sincronize antes de restaurar.',
+          "Não é possível restaurar o backup com operações locais pendentes na outbox. Sincronize antes de restaurar.",
         );
       }
 
       // 3. Restaurar entidades
-      const entitiesStore = tx.store('entities');
+      const entitiesStore = tx.store("entities");
       const entities = snapshot.stores.entities || [];
       for (const entity of entities) {
         if (entity.workspaceId !== targetWorkspaceId) {
-          throw new Error('Entidade com workspaceId divergente no snapshot.');
+          throw new Error("Entidade com workspaceId divergente no snapshot.");
         }
         entitiesStore.put(entity);
       }
 
       // 4. Restaurar originais (com verificação estrita de hash e reconstrução binária)
-      const originalsStore = tx.store('originals');
+      const originalsStore = tx.store("originals");
       const originals = snapshot.stores.originals || [];
       for (const rawOrig of originals) {
         const { originalBytesBase64, ...metadata } = rawOrig;
-        if (typeof originalBytesBase64 !== 'string' || !originalBytesBase64) {
-          throw new Error(`Original "${String(metadata.blobId)}" sem bytes no snapshot.`);
+        if (typeof originalBytesBase64 !== "string" || !originalBytesBase64) {
+          throw new Error(
+            `Original "${String(metadata.blobId)}" sem bytes no snapshot.`,
+          );
         }
         const binaryBytes = fromBase64(originalBytesBase64);
         const hash = await digestHex(binaryBytes);
         if (hash !== String(metadata.sha256).toLowerCase()) {
-          throw new Error(`SHA-256 do original "${String(metadata.blobId)}" corrompido no snapshot.`);
+          throw new Error(
+            `SHA-256 do original "${String(metadata.blobId)}" corrompido no snapshot.`,
+          );
         }
         const bufferCopy = new ArrayBuffer(binaryBytes.byteLength);
         new Uint8Array(bufferCopy).set(binaryBytes);
-        const mediaType = typeof metadata.mediaType === 'string' ? metadata.mediaType : 'application/pdf';
+        const mediaType =
+          typeof metadata.mediaType === "string"
+            ? metadata.mediaType
+            : "application/pdf";
 
         const record = {
           ...metadata,
@@ -301,24 +353,27 @@ export async function restoreWorkspaceSnapshot(
       }
 
       // 5. Restaurar acks
-      const acksStore = tx.store('acks');
+      const acksStore = tx.store("acks");
       const acks = snapshot.stores.acks || [];
       for (const ack of acks) {
         if (ack.workspaceId !== targetWorkspaceId) {
-          throw new Error('ACK com workspaceId divergente no snapshot.');
+          throw new Error("ACK com workspaceId divergente no snapshot.");
         }
         acksStore.put(ack);
       }
 
       // 6. Atualizar meta (workspaceId e sequence se aplicável)
-      metaStore.put({ key: 'workspaceId', value: targetWorkspaceId });
+      metaStore.put({ key: "workspaceId", value: targetWorkspaceId });
       if (snapshot.metadata.outboxSequence !== null) {
-        const existingSeq = await requestValue<{ key: string; value: number } | undefined>(
-          metaStore.get('outboxSequence'),
-        );
+        const existingSeq = await requestValue<
+          { key: string; value: number } | undefined
+        >(metaStore.get("outboxSequence"));
         const currentSeq = existingSeq?.value ?? 0;
         if (snapshot.metadata.outboxSequence > currentSeq) {
-          metaStore.put({ key: 'outboxSequence', value: snapshot.metadata.outboxSequence });
+          metaStore.put({
+            key: "outboxSequence",
+            value: snapshot.metadata.outboxSequence,
+          });
         }
       }
 

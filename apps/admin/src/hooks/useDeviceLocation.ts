@@ -116,8 +116,9 @@ export function useDeviceLocation(options: DeviceLocationOptions = {}) {
 
   // Device orientation / Compass listener for phone & tablet
   useEffect(() => {
+    let isMounted = true;
     const handleOrientation = (event: Event) => {
-      if (!event || typeof event !== "object") return;
+      if (!isMounted || !event || typeof event !== "object") return;
       const orientationEvent = event as ExtendedDeviceOrientationEvent;
       let compass: number | null = null;
       if (typeof orientationEvent.webkitCompassHeading === "number") {
@@ -149,6 +150,7 @@ export function useDeviceLocation(options: DeviceLocationOptions = {}) {
     }
 
     return () => {
+      isMounted = false;
       if (typeof window !== "undefined" && "DeviceOrientationEvent" in window) {
         window.removeEventListener(
           "deviceorientationabsolute",

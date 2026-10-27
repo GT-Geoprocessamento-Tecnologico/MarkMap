@@ -2,6 +2,25 @@
 
 Fonte da versão do aplicativo: `apps/admin/package.json`. Todos os agentes seguem [a política de versionamento](docs/versioning.md). O [histórico documental anterior](docs/changelog.md) permanece preservado.
 
+## [0.5.11] - 2026-10-27
+
+### Alterações
+
+- Correções de qualidade e resiliência auditadas via open-code-review:
+  - Propagação explícita de erro na salvaguarda de outbox em apps/admin/src/lib/backup/restore.ts, impedindo restauração acidental em caso de falha de consulta ao banco local.
+  - Guarda canônica isMounted no hook useDeviceLocation.ts para evitar chamadas a setState em componente desmontado durante eventos assíncronos de orientação.
+  - Reset de confirmação no diálogo de restauração cifrada em caso de falha para forçar revisão consciente do usuário.
+  - Validação defensiva no parser de argumentos --base-ref do script scripts/local-ci.mjs.
+  - Asserção de tipo as const no literal SCOPE_REJECTED em packages/db/src/queries/sync.ts.
+  - Resiliência assíncrona com waitFor no teste OfflineElevation.test.tsx sob concorrência de CPU.
+
+### Validação
+
+- 100% de aprovação no pipeline autônomo pnpm ci:local (2m 9s, exit code 0).
+- Suíte completa do admin com 64 arquivos e 320 testes aprovados.
+- Typecheck e lint em 9 pacotes sem nenhum erro.
+- Release guard aprovado sem advertências.
+
 ## [0.5.10] - 2026-10-27
 
 ### Alterações

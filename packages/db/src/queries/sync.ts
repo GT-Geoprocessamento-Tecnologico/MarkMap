@@ -357,7 +357,7 @@ export async function applyPushOperations(
             entityId: input.entityId,
             baseVersion: input.baseVersion,
             serverVersion: 0,
-            reason: "SCOPE_REJECTED",
+            reason: "SCOPE_REJECTED" as const,
           },
         });
         continue;
@@ -387,7 +387,7 @@ export async function applyPushOperations(
               entityId: input.entityId,
               baseVersion: input.baseVersion,
               serverVersion: 0,
-              reason: "SCOPE_REJECTED",
+              reason: "SCOPE_REJECTED" as const,
             },
           });
         } else {
