@@ -2,6 +2,22 @@
 
 Fonte da versão do aplicativo: `apps/admin/package.json`. Todos os agentes seguem [a política de versionamento](docs/versioning.md). O [histórico documental anterior](docs/changelog.md) permanece preservado.
 
+## [0.5.9] - 2026-10-27
+
+### Alterações
+
+- Pipeline de CI Local Autônomo e Determinístico (`scripts/local-ci.mjs` e `pnpm ci:local`) com execução controlada no Windows, typecheck, lint, testes unitários de todas as camadas, release guard e testes de tema/PWA.
+- Suíte Completa de Backup Offline Cifrado (Issue #43 — T3a, T4 e T5):
+  - Exportação cifrada AES-256-GCM com derivação de chave PBKDF2 (310.000 iterações) e manifesto canônico versionado v1 (`.markmapbackup`).
+  - Restauração com Dry-Run seguro em memória (`dryRunRestore`), validação de hashes SHA-256 e tripla salvaguarda (bloqueio contra outbox pendente e colisão de workspaces).
+  - Componente acessível `BackupRestoreCard` integrado em Configurações com modais de exportação com validação de senha e restauração assistida em dois passos.
+
+### Validação
+
+- 100% de aprovação no CI Local (`pnpm ci:local` com exit code 0).
+- 64 arquivos e 319 testes aprovados no workspace `admin` (incluindo 20 novos testes de backup e UI).
+- `version-release-guard` validado monotonicamente em relação à versão base.
+
 ## [0.5.8] - 2026-10-24
 
 ### Alterações

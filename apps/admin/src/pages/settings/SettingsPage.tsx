@@ -25,6 +25,7 @@ import { rememberRegionSource, forgetRegionSource, getRegionSourceUrl } from '..
 import { appCredits } from '../../lib/app-credits';
 import { requestAppUpdate } from "../../lib/pwa-update-request";
 import { RegionDownloadCatalog } from "../../components/map/RegionDownloadCatalog";
+import { BackupRestoreCard } from "../../components/backup/BackupRestoreCard";
 
 type GpsState = "prompt" | "granted" | "denied";
 const directoryPickerAttributes = {
@@ -682,6 +683,7 @@ export default function SettingsPage() {
           </Dialog>
         </div>
       </div>
+      <BackupRestoreCard />
       <div className="rounded-2xl border border-outline-variant bg-surface-container p-5">
         <h2 id="mapas-offline" className="text-lg font-semibold">Mapas offline</h2>
         <p className="my-3 text-sm text-on-surface-variant">
