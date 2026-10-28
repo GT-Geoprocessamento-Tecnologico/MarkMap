@@ -4,6 +4,19 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const DEFAULT_PUBLISHED_URL = 'https://appmarkmap.mtsferreira.dev/version.json';
+
+/** Pages build variables are authoritative on Cloudflare; never treat generic CI as production. */
+export function releaseBuildContext(env = process.env) {
+  const cloudflarePages = env.CF_PAGES === '1';
+  return {
+    production: env.VERCEL_ENV === 'production' ||
+      (cloudflarePages && env.CF_PAGES_BRANCH === 'main'),
+    buildSha: cloudflarePages
+      ? env.CF_PAGES_COMMIT_SHA
+      : (env.VERCEL_GIT_COMMIT_SHA || env.GITHUB_SHA),
+  };
+}
+
 const SHA40 = /^[0-9a-f]{40}$/i;
 const STABLE = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
 const SEMVER = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/;

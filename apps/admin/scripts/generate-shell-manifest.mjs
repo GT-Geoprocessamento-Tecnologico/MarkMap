@@ -47,7 +47,9 @@ export async function generateShellManifest(distDirectory) {
   let appVersion = 'unknown';
   try { appVersion = JSON.parse(await readFile(configFile, 'utf8')).version ?? 'unknown'; }
   catch { /* Standalone fixture can still build a shell, but has no release identity. */ }
-  const buildSha = process.env.VERCEL_GIT_COMMIT_SHA || process.env.GITHUB_SHA || resolveGitSha();
+  const buildSha = process.env.CF_PAGES === '1'
+    ? (process.env.CF_PAGES_COMMIT_SHA || 'unavailable')
+    : (process.env.VERCEL_GIT_COMMIT_SHA || process.env.GITHUB_SHA || resolveGitSha());
   const epoch = process.env.SOURCE_DATE_EPOCH;
   const buildTime = epoch && Number.isFinite(Number(epoch))
     ? new Date(Number(epoch) * 1000).toISOString() : new Date().toISOString();

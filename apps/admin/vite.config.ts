@@ -3,15 +3,14 @@ import { isAbsolute, resolve } from "node:path";
 import basicSsl from "@vitejs/plugin-basic-ssl";
 import react from "@vitejs/plugin-react";
 import { generateShellManifest } from "./scripts/generate-shell-manifest.mjs";
-import { verifyRelease, validateArtifacts } from "../../scripts/version-release-guard.mjs";
+import { verifyRelease, validateArtifacts, releaseBuildContext } from "../../scripts/version-release-guard.mjs";
 import { geonexoAliases } from "./vite.aliases";
 
 function shellManifestPlugin() {
   let outDir = "dist";
   let repositoryRoot = process.cwd();
   let buildSucceeded = false;
-  const production = process.env.VERCEL_ENV === "production";
-  const buildSha = process.env.VERCEL_GIT_COMMIT_SHA || process.env.GITHUB_SHA;
+  const { production, buildSha } = releaseBuildContext();
   return {
     name: "markmap-shell-manifest",
     apply: "build" as const,

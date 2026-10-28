@@ -37,3 +37,28 @@ test('new shell version when index content changes without renamed files', async
     await rm(dir, {recursive:true,force:true});
   }
 });
+
+test('Cloudflare Pages records the Git commit in version.json', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'markmap-pages-sha-'));
+  const before = { CF_PAGES: process.env.CF_PAGES, CF_PAGES_COMMIT_SHA: process.env.CF_PAGES_COMMIT_SHA };
+  try {
+    await writeFile(join(dir, 'index.html'), '<html>preview</html>');
+    await writeFile(join(dir, 'manifest.json'), '{}');
+    process.env.CF_PAGES = '1';
+    process.env.CF_PAGES_COMMIT_SHA = 'e'.repeat(40);
+    await generateShellManifest(dir);
+    const metadata = JSON.parse(await readFile(join(dir, 'version.json'), 'utf8'));
+    assert.equal(metadata.buildSha, 'e'.repeat(40));
+    assert.equal(metadata.appVersion, '0.5.16');
+    delete process.env.CF_PAGES_COMMIT_SHA;
+    await generateShellManifest(dir);
+    const missing = JSON.parse(await readFile(join(dir, 'version.json'), 'utf8'));
+    assert.equal(missing.buildSha, 'unavailable');
+  } finally {
+    for (const [key, value] of Object.entries(before)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+    await rm(dir, {recursive:true,force:true});
+  }
+});

@@ -3,7 +3,7 @@ import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { mock, test } from 'node:test';
-import { compareVersions, parseVersion, validateArtifacts, validateChangedFiles, validateLocalReleaseMetadata, validatePolicy, validateProductionRelease } from './version-release-guard.mjs';
+import { compareVersions, parseVersion, releaseBuildContext, validateArtifacts, validateChangedFiles, validateLocalReleaseMetadata, validatePolicy, validateProductionRelease } from './version-release-guard.mjs';
 
 const SHA_A = 'a'.repeat(40); const SHA_B = 'b'.repeat(40);
 const response = (body, options = {}) => ({ ok: true, status: 200, headers: new Headers({ 'content-type': 'application/json' }), body: new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode(body)); c.close(); } }), ...options });
@@ -20,3 +20,23 @@ test('production deadline cancels a stalled response body', async () => { mock.t
 test('changed-file policy distinguishes app changes from documentation', () => { assert.equal(validateChangedFiles({ appVersion: '0.2.0', baseVersion: '0.2.0', changedFiles: ['docs/release.md'] }).appRelevant, false); assert.throws(() => validateChangedFiles({ appVersion: '0.2.0', baseVersion: '0.2.0', changedFiles: ['apps/admin/src/App.tsx'] })); assert.equal(validateChangedFiles({ appVersion: '0.3.0', baseVersion: '0.2.0', changedFiles: ['apps/admin/src/App.tsx'] }).appRelevant, true); });
 test('artifact version and production SHA must agree with package metadata', async () => { const root = await mkdtemp(join(tmpdir(), 'markmap-version-')); try { await mkdir(join(root, 'apps/admin'), { recursive: true }); await writeFile(join(root, 'apps/admin/package.json'), JSON.stringify({ version: '0.3.0' })); const dist = join(root, 'dist'); await mkdir(dist); await writeFile(join(dist, 'version.json'), JSON.stringify({ appVersion: '0.2.0', buildSha: SHA_A })); await assert.rejects(() => validateArtifacts({ root, dist }), /differs/); await writeFile(join(dist, 'version.json'), JSON.stringify({ appVersion: '0.3.0', buildSha: 'unavailable' })); assert.equal((await validateArtifacts({ root, dist })).ok, true); await assert.rejects(() => validateArtifacts({ root, dist, production: true, expectedBuildSha: SHA_A }), /SHA/); await writeFile(join(dist, 'version.json'), JSON.stringify({ appVersion: '0.3.0', buildSha: SHA_A })); assert.equal((await validateArtifacts({ root, dist, production: true, expectedBuildSha: SHA_A })).ok, true); } finally { await rm(root, { recursive: true, force: true }); } });
 test('local release metadata accepts PT-BR sections but never borrows an older entry', async () => { const root = await mkdtemp(join(tmpdir(), 'markmap-changelog-')); try { await mkdir(join(root, 'apps/admin'), { recursive: true }); await writeFile(join(root, 'apps/admin/package.json'), JSON.stringify({ version: '0.3.0' })); await writeFile(join(root, 'CHANGELOG.md'), '## [0.3.0] - 2026-10-20\n\n### Alterações\n- Terreno real.\n\n### Validação\n- 11 testes passaram.\n\n## [0.2.0] - 2026-10-19\n\n### Alterações\n- Antigo.\n\n### Validação\n- Antiga.\n'); assert.equal((await validateLocalReleaseMetadata({ root })).ok, true); await writeFile(join(root, 'CHANGELOG.md'), '## [0.3.0] - 2026-10-20\n\n## [0.2.0] - 2026-10-19\n\n### Changes\n- Antigo.\n\n### Evidence\n- Antiga.\n'); await assert.rejects(() => validateLocalReleaseMetadata({ root }), /nonempty/); await writeFile(join(root, 'CHANGELOG.md'), '## [0.3.0]\n\n### Changes\n- missing date\n### Evidence\n- x\n'); await assert.rejects(() => validateLocalReleaseMetadata({ root }), /heading/); } finally { await rm(root, { recursive: true, force: true }); } });
+
+test('Cloudflare Pages release guard requires production branch and signed commit SHA', () => {
+  const sha = 'c'.repeat(40);
+  assert.deepEqual(releaseBuildContext({CF_PAGES:'1', CF_PAGES_BRANCH:'main', CF_PAGES_COMMIT_SHA:sha}),
+    {production:true, buildSha:sha});
+  assert.deepEqual(releaseBuildContext({CF_PAGES:'1', CF_PAGES_BRANCH:'preview', CF_PAGES_COMMIT_SHA:sha}),
+    {production:false, buildSha:sha});
+  const missingSha = releaseBuildContext({CF_PAGES:'1', CF_PAGES_BRANCH:'main'});
+  assert.equal(missingSha.production, true);
+  assert.equal(missingSha.buildSha, undefined);
+  assert.throws(() => validatePolicy({appVersion:'0.5.16',publishedVersion:'0.5.7',
+    buildSha:missingSha.buildSha,publishedBuildSha:'a'.repeat(40)}), /SHA/);
+});
+test('Vercel and local build context remain unchanged', () => {
+  const sha = 'd'.repeat(40);
+  assert.deepEqual(releaseBuildContext({VERCEL_ENV:'production', VERCEL_GIT_COMMIT_SHA:sha}),
+    {production:true, buildSha:sha});
+  assert.deepEqual(releaseBuildContext({GITHUB_SHA:sha}), {production:false, buildSha:sha});
+  assert.deepEqual(releaseBuildContext({}), {production:false, buildSha:undefined});
+});

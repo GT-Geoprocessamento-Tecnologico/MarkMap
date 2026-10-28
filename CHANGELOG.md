@@ -2,6 +2,17 @@
 
 Fonte da versão do aplicativo: `apps/admin/package.json`. Todos os agentes seguem [a política de versionamento](docs/versioning.md). O [histórico documental anterior](docs/changelog.md) permanece preservado.
 
+## [0.5.16] - 2026-10-27
+
+### Alterações
+
+- Ativar validação de versão e commit do release no build de produção Cloudflare Pages (`CF_PAGES`, `CF_PAGES_BRANCH`, `CF_PAGES_COMMIT_SHA`), preservando Vercel e previews.
+- Gravar o SHA canônico do Cloudflare no `version.json` do pacote gerado e falhar fechado quando ausente em produção.
+
+### Validação
+
+- Testes isolados de política de versionamento e manifesto executados em Node.js neste ciclo; build completo, IndexedDB real, PostGIS e QA física ainda dependem de execução local antes de publicar.
+
 ## [0.5.15] - 2026-10-27
 
 ### Alterações
