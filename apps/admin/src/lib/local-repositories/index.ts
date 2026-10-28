@@ -607,16 +607,16 @@ export class LocalRepository {
     input: Omit<OriginalRecord, "key" | "workspaceId" | "createdAt">,
   ): Promise<void> {
     const { blob, ...metadata } = input;
-    if (input.mediaType !== "application/pdf")
-      throw new Error("O original local deve ser um PDF.");
+    if (input.mediaType !== "application/pdf" && input.mediaType !== "image/tiff")
+      throw new Error("O original local deve ser um PDF ou GeoTIFF.");
     if (
       !(blob instanceof Blob) ||
       blob.size < 1 ||
       blob.size > 25 * 1024 * 1024
     )
-      throw new Error("O PDF original excede o limite de 25 MiB ou está vazio.");
+      throw new Error("O original excede o limite de 25 MiB ou está vazio.");
     if (input.bytes !== blob.size)
-      throw new Error("O tamanho declarado do PDF não corresponde ao Blob.");
+      throw new Error("O tamanho declarado do original não corresponde ao Blob.");
     if (!/^[a-f0-9]{64}$/i.test(input.sha256))
       throw new Error("SHA-256 inválido.");
     const bytes = await readBlobBytes(blob);

@@ -16,6 +16,8 @@ import {
   type MeshRecord,
 } from "../../lib/mesh/mesh-store";
 import { PdfPreview, sha256Blob } from "../../lib/pdf/pdf-preview";
+import { isGeoTiffSignature, readGeoTiffMetadata } from "@markmap/maps";
+import { readBlobBytes } from "../../lib/blob-bytes";
 import { localRepository, type OriginalRecord } from "../../lib/local-repositories";
 import { AppIcon } from "../../components/AppIcon";
 import { TrackElevationProfile } from "../../components/elevation/TrackElevationProfile";
@@ -36,7 +38,7 @@ export default function ImportsPage() {
   const refresh = useCallback(async () => {
     setDatasets(await listDatasets());
     setMeshes(await listMeshes());
-    setPdfs((await localRepository.listOriginals()).filter((record) => record.mediaType === "application/pdf"));
+    setPdfs((await localRepository.listOriginals()).filter((record) => record.mediaType === "application/pdf" || record.mediaType === "image/tiff"));
   }, []);
   useEffect(() => {
     void refresh().catch((cause) =>
@@ -66,6 +68,12 @@ export default function ImportsPage() {
       if (/\.pdf$/i.test(file.name) || file.type === "application/pdf") {
         const sha256 = await sha256Blob(file);
         await localRepository.saveOriginal({ blobId: sha256, blob: file, mediaType: "application/pdf", bytes: file.size, sha256, originalName: file.name });
+      } else if (/\.(tif|tiff)$/i.test(file.name) || file.type === "image/tiff") {
+        const bytes = await readBlobBytes(file);
+        if (!isGeoTiffSignature(bytes)) throw new Error("O arquivo não possui assinatura GeoTIFF válida.");
+        await readGeoTiffMetadata(bytes);
+        const sha256 = await sha256Blob(file);
+        await localRepository.saveOriginal({ blobId: sha256, blob: file, mediaType: "image/tiff", bytes: file.size, sha256, originalName: file.name });
       } else if (/\.glb$/i.test(file.name)) {
         await saveMesh({ file });
       } else {
@@ -139,14 +147,14 @@ export default function ImportsPage() {
           onChange={handleUpload}
           disabled={isUploading}
           className="absolute inset-0 z-10 cursor-pointer opacity-0"
-          aria-label="Selecionar GeoJSON, GPX, KML, KMZ, PDF ou GLB"
+          aria-label="Selecionar GeoJSON, GPX, KML, KMZ, GeoTIFF, PDF ou GLB"
         />
         <AppIcon name="upload" size="lg" className="mb-3" />
         <h2 className="font-bold">
-          {isUploading ? "Validando arquivo…" : "Selecione GeoJSON, GPX, KML, KMZ, PDF ou GLB"}
+          {isUploading ? "Validando arquivo…" : "Selecione GeoJSON, GPX, KML, KMZ, GeoTIFF, PDF ou GLB"}
         </h2>
         <p className="mt-1 text-xs text-on-surface-variant">
-          GeoJSON, GPX, KML, KMZ e PDF até 25 MiB. Trilhas e pontos são convertidos em GeoJSON local. PDFs são visualizados localmente; o
+          GeoJSON, GPX, KML, KMZ, GeoTIFF e PDF até 25 MiB. Trilhas e pontos são convertidos em GeoJSON local. PDFs são visualizados localmente; o
           posicionamento geográfico só é informado quando os metadados passam
           pelas validações. GLB é validado e salvo localmente.
         </p>
@@ -334,7 +342,12 @@ export default function ImportsPage() {
           )}
         </div>
       </section>
-      {pdfs.map((pdf) => <PdfPreview key={pdf.blobId} record={pdf} />)}
+      {pdfs.map((pdf) => pdf.mediaType === "application/pdf" ? <PdfPreview key={pdf.blobId} record={pdf} /> : (
+        <div key={pdf.blobId} className="mt-3 flex items-center justify-between rounded-xl border border-outline-variant p-3">
+          <span className="text-sm font-semibold">{pdf.originalName ?? "GeoTIFF local"}</span>
+          <a href={`/workspace?geotiffId=${encodeURIComponent(pdf.blobId)}`} className="rounded-lg p-2 text-cyan-600" aria-label="Visualizar GeoTIFF">Visualizar</a>
+        </div>
+      ))}
     </div>
   );
 }

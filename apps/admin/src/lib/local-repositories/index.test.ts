@@ -34,6 +34,19 @@ describe("local-first repository", () => {
     expect(await reopened.listOriginals()).toHaveLength(1);
   });
 
+  it("persists and restores a GeoTIFF original through the same local store", async () => {
+    const db = new MemoryLocalDb();
+    const repo = new LocalRepository(db);
+    const source = new Uint8Array([0x49, 0x49, 0x2a, 0x00, 1, 2, 3, 4]);
+    const blob = new Blob([source], { type: 'image/tiff' });
+    const digest = await crypto.subtle.digest('SHA-256', source);
+    const sha256 = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+    await repo.saveOriginal({ blobId: 'local-tiff', blob, mediaType: 'image/tiff', bytes: blob.size, sha256, originalName: 'local.tif' });
+    const restored = await repo.getOriginal('local-tiff');
+    expect(restored).toMatchObject({ mediaType: 'image/tiff', originalName: 'local.tif', bytes: source.length });
+    expect(Array.from(new Uint8Array(await readBlobBytes(restored!.blob)))).toEqual(Array.from(source));
+  });
+
   it("keeps legacy PDF Blob records readable without rewriting them", async () => {
     const db = new MemoryLocalDb();
     const repo = new LocalRepository(db);

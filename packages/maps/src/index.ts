@@ -49,6 +49,7 @@ export * from './drawing.js';
 export * from './track-buffer.js';
 export * from './formats/car.js';
 export * from './formats/export.js';
+export * from './formats/geotiff.js';
 export * from './tracks/recorder.js';
 export * from './tracks/kalman.js';
 export * from './geofencing/boundary-guard.js';

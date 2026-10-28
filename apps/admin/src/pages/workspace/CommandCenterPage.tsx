@@ -44,6 +44,7 @@ import {
   resolveEmbeddedGeoReference,
   type GeoPdfOverlay,
 } from "../../lib/pdf/geopdf-overlay";
+import { renderGeoTiffOverlay, type GeoTiffOverlay } from "../../lib/geotiff/geotiff-overlay";
 import { offlineMapStore } from "../../lib/storage/offline-map-store";
 import { getSelectedOfflineMapId, setSelectedOfflineMapId, subscribeSelectedOfflineMapId } from "../../lib/storage/offline-map-selection";
 import { subscribeRegionCatalogChanges } from "../../lib/storage/region-catalog-events.mjs";
@@ -133,6 +134,7 @@ export default function CommandCenterPage() {
   const search = useSearch({ strict: false }) as {
     datasetId?: string;
     pdfId?: string;
+    geotiffId?: string;
   };
   const params = useParams({ strict: false }) as { projectId?: string };
   // Check explicit deep links at GPS callback time without remounting MapLibre.
@@ -163,9 +165,10 @@ export default function CommandCenterPage() {
       if (regionReconcilerRef.current === reconciler) regionReconcilerRef.current = null;
     };
   }, []);
-  // GeoPDF has precedence and should not be replaced by region changes.
-  const activeRegionPackageId = search.pdfId ? null : selectedOfflineMapId;
-  const regionalRenderRevision = search.pdfId ? 0 : catalogRevision;
+  // A local georeferenced raster has precedence over region changes.
+  const localRasterId = search.pdfId ?? search.geotiffId;
+  const activeRegionPackageId = localRasterId ? null : selectedOfflineMapId;
+  const regionalRenderRevision = localRasterId ? 0 : catalogRevision;
   // When a new region generation is committed during neutral mode, offer the
   // latest package again instead of indefinitely retaining an old fallback.
   const neutralRegionId = activeRegionPackageId;
@@ -319,6 +322,7 @@ export default function CommandCenterPage() {
   const [appliedCount, setAppliedCount] = useState(0);
   const [geoPdfMessage, setGeoPdfMessage] = useState<string | null>(null);
   const [geoPdfReady, setGeoPdfReady] = useState(false);
+  const [geoTiffReady, setGeoTiffReady] = useState(false);
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const geoPdfManualFocusRef = useRef(false);
@@ -814,6 +818,7 @@ export default function CommandCenterPage() {
     let releaseProtocolLease: (() => void) | null = null;
     let styleLifecycle: ReturnType<typeof createOfflineStyleLifecycle> | null = null;
     let geoPdfOverlay: GeoPdfOverlay | null = null;
+    let geoTiffOverlay: GeoTiffOverlay | null = null;
     let regionalContours: GeoJSON.FeatureCollection | null = null;
     // Fitting the image and moving to a reliable GPS point are independent.
     // Never refit after the user has panned or the style merely recovered.
@@ -843,6 +848,17 @@ export default function CommandCenterPage() {
           ...basemap,
           styleUrl: `data:application/json,${encodeURIComponent(JSON.stringify(createFallbackStyle()))}`,
         };
+      }
+
+      if (search.geotiffId) {
+        const record = await localRepository.getOriginal(search.geotiffId);
+        if (!record || record.mediaType !== "image/tiff") throw new Error("Este GeoTIFF não está mais salvo neste dispositivo.");
+        setGeoPdfMessage("Preparando GeoTIFF offline…");
+        geoTiffOverlay = await renderGeoTiffOverlay(record.blob);
+        const lngs = geoTiffOverlay.coordinates.map(([lng]) => lng);
+        const lats = geoTiffOverlay.coordinates.map(([, lat]) => lat);
+        center = [(Math.min(...lngs) + Math.max(...lngs)) / 2, (Math.min(...lats) + Math.max(...lats)) / 2];
+        zoom = 13;
       }
 
       if (search.pdfId) {
@@ -1173,6 +1189,30 @@ export default function CommandCenterPage() {
           ]);
         };
 
+        const ensureGeoTiffOverlay = (map: MapLibreMap) => {
+          if (!geoTiffOverlay) return;
+          const overlay = ensureOfflineSourceLayers(
+            map,
+            "geotiff-overlay",
+            {
+              type: "image",
+              url: geoTiffOverlay.url,
+              coordinates: geoTiffOverlay.coordinates,
+            },
+            [
+              {
+                id: "geotiff-overlay",
+                type: "raster",
+                source: "geotiff-overlay",
+                paint: { "raster-opacity": 1 },
+              },
+            ],
+          );
+          if ((overlay.sourceAdded || overlay.layersAdded) && map.getLayer("local-dataset-fill"))
+            map.moveLayer("geotiff-overlay", "local-dataset-fill");
+          setGeoTiffReady(true);
+        };
+
         const ensureGeoPdfOverlay = (map: MapLibreMap) => {
           if (!geoPdfOverlay) return;
           const overlay = ensureOfflineSourceLayers(map, "geopdf-overlay", {
@@ -1295,6 +1335,7 @@ export default function CommandCenterPage() {
           // Recover individual missing layers even when a previous partial
           // style.load already created their shared source.
           ensureLocalDataset(map);
+          ensureGeoTiffOverlay(map);
           ensureGeoPdfOverlay(map);
           ensureDrawPreview(map);
           ensureRegionalContours(map);
@@ -1309,7 +1350,7 @@ export default function CommandCenterPage() {
           map,
           isActive: () => !cancelled && !webglLostRef.current && mapRef.current === map,
           onHydrate: ensureSource,
-          onStyleReset: () => { setMapReady(false); setGeoPdfReady(false); },
+          onStyleReset: () => { setMapReady(false); setGeoPdfReady(false); setGeoTiffReady(false); },
           onReady: () => {
             // Dismiss only a recovered WebGL warning, not a genuine asset or
             // style failure. Restoration alone is insufficient until painted.
@@ -1466,6 +1507,7 @@ export default function CommandCenterPage() {
       mapRef.current = null;
       try { oldMap?.remove(); } catch { /* context may already be lost */ }
       try { geoPdfOverlay?.release(); } catch { /* release continues */ }
+      try { geoTiffOverlay?.release(); } catch { /* release continues */ }
       geoPdfManualFocusRef.current = false;
       releaseProtocols();
     };
@@ -1597,6 +1639,7 @@ export default function CommandCenterPage() {
       data-map-ready={mapReady ? "true" : "false"}
       data-feature-count={appliedCount}
       data-geopdf-ready={geoPdfReady ? "true" : "false"}
+      data-geotiff-ready={geoTiffReady ? "true" : "false"}
     >
       {/* ── Banner de Alerta de Proximidade e Limites de Propriedade (Boundary Guard - M5) ── */}
       <BoundaryAlertBanner
