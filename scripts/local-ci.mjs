@@ -60,6 +60,12 @@ const SKIP_TESTS = ARGS.includes("--skip-tests");
 const SKIP_LINT = ARGS.includes("--skip-lint");
 const SKIP_TYPECHECK = ARGS.includes("--skip-typecheck");
 
+// A release gate must never claim success with skipped core checks.
+if (STRICT_VERSION && (SKIP_TESTS || SKIP_LINT || SKIP_TYPECHECK)) {
+  console.error("Release gate --strict-version does not accept --skip-* flags.");
+  process.exit(1);
+}
+
 const baseRefIndex = ARGS.indexOf("--base-ref");
 const BASE_REF =
   baseRefIndex >= 0 &&
@@ -484,7 +490,9 @@ async function main() {
   const totalDuration = Date.now() - pipelineStartTime;
   const failedSteps = results.filter((r) => r.status === "FAIL");
   const warnSteps = results.filter((r) => r.status === "WARN");
-  const allSuccess = failedSteps.length === 0;
+  const skippedSteps = results.filter((r) => r.status === "SKIPPED");
+  const incompleteSteps = [...warnSteps, ...skippedSteps];
+  const allSuccess = failedSteps.length === 0 && (!STRICT_VERSION || incompleteSteps.length === 0);
 
   console.log(
     `\n${c.bold}${c.cyan}================================================================================${c.reset}`,
@@ -530,25 +538,20 @@ async function main() {
   }
 
   if (allSuccess) {
-    console.log(
-      `\n${c.green}${c.bold}✔ SUCESSO ABSOLUTO: Todas as etapas do pipeline local foram aprovadas!${c.reset}`,
-    );
-    console.log(
-      `${c.gray}O código está 100% verificado, tipado, testado e em conformidade com as regras do monorepo.${c.reset}\n`,
-    );
-    process.exit(0);
-  } else {
-    console.log(
-      `\n${c.red}${c.bold}✖ FALHA: ${failedSteps.length} etapa(s) reprovada(s) no pipeline local.${c.reset}`,
-    );
-    for (const f of failedSteps) {
-      console.log(`  - ${c.red}${f.name}${c.reset}`);
+    if (incompleteSteps.length > 0) {
+      console.log(`\n${c.yellow}${c.bold}CI PARCIAL: ${incompleteSteps.length} etapa(s) ignorada(s) ou com aviso; nao e gate de release.${c.reset}`);
+    } else {
+      console.log(`\n${c.green}${c.bold}SUCESSO ABSOLUTO: Todas as etapas do pipeline local foram aprovadas!${c.reset}`);
+      console.log(`${c.gray}O codigo foi validado pelas etapas executadas do pipeline local.${c.reset}`);
     }
-    console.log(
-      `${c.gray}Corrija os erros acima antes de submeter ou fazer commit.${c.reset}\n`,
-    );
-    process.exit(1);
+    process.exit(0);
   }
+  console.log(`\n${c.red}${c.bold}FALHA: ${failedSteps.length} etapa(s) falharam, ${incompleteSteps.length} ignoradas ou com aviso.${c.reset}`);
+  for (const f of [...failedSteps, ...(STRICT_VERSION ? incompleteSteps : [])]) {
+    console.log(`  - ${c.red}${f.name} (${f.status})${c.reset}`);
+  }
+  console.log(`${c.gray}Gate de release exige todas as etapas PASS.${c.reset}\n`);
+  process.exit(1);
 }
 
 main().catch((err) => {
