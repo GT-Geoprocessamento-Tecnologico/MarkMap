@@ -1,0 +1,16 @@
+[submodule "repositorio modelo/geotiff.js"]
+	path = repositorio modelo/geotiff.js
+	url = https://github.com/geotiffjs/geotiff.js.git
+	update = none
+[submodule "repositorio modelo/maplibre-gl-js"]
+	path = repositorio modelo/maplibre-gl-js
+	url = https://github.com/maplibre/maplibre-gl-js.git
+	update = none
+[submodule "repositorio modelo/osrm-frontend"]
+	path = repositorio modelo/osrm-frontend
+	url = https://github.com/Project-OSRM/osrm-frontend.git
+	update = none
+[submodule "repositorio modelo/proj4js"]
+	path = repositorio modelo/proj4js
+	url = https://github.com/proj4js/proj4js.git
+	update = none
