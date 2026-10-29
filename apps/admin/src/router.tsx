@@ -19,6 +19,9 @@ const MeshStudioRoute = () => (
     <LazyMeshStudioPage />
   </Suspense>
 );
+const DataMarketplaceRoute = () => (
+  <div className="p-8">Marketplace de Dados Desativado</div>
+);
 const isUuid = (value: unknown): value is string =>
   typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 const meshSearch = (search: Record<string, unknown>): { meshId?: string } => ({
@@ -133,6 +136,12 @@ const telemetryRoute = createRoute({
   component: TelemetryFrozen,
 });
 
+const marketplaceRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/marketplace',
+  component: DataMarketplaceRoute,
+});
+
 const routeTree = rootRoute.addChildren([
   dashboardRoute,
   projectsRoute,
@@ -146,6 +155,7 @@ const routeTree = rootRoute.addChildren([
   analyticsRoute,
   coordinateSystemsRoute,
   telemetryRoute,
+  marketplaceRoute,
 ]);
 
 const appBasepath =

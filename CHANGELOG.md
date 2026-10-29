@@ -2,6 +2,21 @@
 
 Fonte da versão do aplicativo: `apps/admin/package.json`. Todos os agentes seguem [a política de versionamento](docs/versioning.md). O [histórico documental anterior](docs/changelog.md) permanece preservado.
 
+## [0.5.17] - 2026-10-28
+
+### Alterações
+
+- Suporte completo a camadas vetoriais de grande porte via FlatGeobuf (FGB), com índice Packed R-Tree, atributos densos e leitura eficiente por viewport.
+- Protocolo customizado (`fgb://`) e adaptador de fonte dinâmica para MapLibre.
+- Overlay local de edição para adições, modificações e exclusões de feições, com reconstrução e exportação de FGB conforme ADR-0007.
+- Módulo de backup completo controlado pelo usuário para workspaces e camadas vetoriais com encriptação AES-GCM.
+- Importação e validação de arquivos `.fgb` na página de importações.
+
+### Validação
+
+- Suítes de testes unitários e de integração de `@markmap/geo`, `@markmap/maps`, `@markmap/contracts` e `admin` executadas com sucesso (597 testes do admin e todos os pacotes PASS).
+- Typecheck, lint e release guard verificados.
+
 ## [0.5.16] - 2026-10-27
 
 ### Alterações

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { exportToGpx, exportToKml } from "../../src/formats/export.js";
+import { exportToGpx as exportToGpxIndex, exportToKml as exportToKmlIndex } from "../../src/index.js";
 
 describe("Vector Export Engine - GPX and KML", () => {
   const sampleFeatures: GeoJSON.FeatureCollection = {
@@ -200,10 +201,9 @@ describe("Vector Export Engine - GPX and KML", () => {
   });
 
   describe("Package Index Exports", () => {
-    it("exposes exportToGpx and exportToKml from package index", async () => {
-      const indexExports = await import("../../src/index.js");
-      expect(typeof indexExports.exportToGpx).toBe("function");
-      expect(typeof indexExports.exportToKml).toBe("function");
+    it("exposes exportToGpx and exportToKml from package index", () => {
+      expect(typeof exportToGpxIndex).toBe("function");
+      expect(typeof exportToKmlIndex).toBe("function");
     });
   });
 });

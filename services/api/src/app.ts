@@ -15,6 +15,7 @@ import { requestId } from "./middleware/request-id.js";
 import { featureRoutes } from "./routes/features.js";
 import { healthRoutes } from "./routes/health.js";
 import { layerRoutes } from "./routes/layers.js";
+import { marketplaceRoutes } from "./routes/marketplace.js";
 import { notificationRoutes } from "./routes/notifications.js";
 import { projectRoutes } from "./routes/projects.js";
 import { storageRoutes } from "./routes/storage.js";
@@ -73,6 +74,7 @@ export const createApp = (env: Env = loadEnv()) => {
     layerRoutes(apiRoutes);
     featureRoutes(apiRoutes);
   }
+  marketplaceRoutes(apiRoutes);
   notificationRoutes(apiRoutes);
   app.route("/", apiRoutes);
   app.route("/api/v1", apiRoutes);

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { RegionDownloadCatalog } from "./RegionDownloadCatalog";
 
 const mock = vi.hoisted(() => ({
@@ -180,7 +180,9 @@ describe("GPS region download UX", () => {
     })).mockResolvedValueOnce([region]);
     try {
       render(<RegionDownloadCatalog />);
-      await vi.advanceTimersByTimeAsync(15000);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(15000);
+      });
       expect(screen.getByText(/A consulta de novos mapas demorou mais que o esperado/)).toBeTruthy();
       fireEvent.click(screen.getByRole("button", { name: "Tentar novamente" }));
       await vi.waitFor(() => expect(screen.getByText("Araguaína")).toBeTruthy());

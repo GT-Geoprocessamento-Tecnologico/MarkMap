@@ -65,12 +65,16 @@ export {
   convertDistance,
   convertAngle,
   formatArea,
+  convertSqMToHectares,
+  convertHectaresToAlqueire,
+  ALQUEIRE_TO_HECTARES,
   AREA_UNITS,
   METERS_PER_UNIT,
 } from './units/survey.js';
 export type {
   AreaUnit,
   RuralAreaUnit,
+  AlqueireType,
   DistanceUnit,
   AngleUnit,
   AreaUnitDefinition,

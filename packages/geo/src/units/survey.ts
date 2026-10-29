@@ -35,6 +35,36 @@ export interface AreaUnitDefinition {
   readonly description: string;
 }
 
+export const ALQUEIRE_TO_HECTARES = {
+  paulista: 2.42,
+  mineiro: 4.84,
+  baiano: 9.68,
+  norte: 2.7225,
+};
+
+export type AlqueireType = keyof typeof ALQUEIRE_TO_HECTARES;
+
+/**
+ * Converte metros quadrados para hectares.
+ */
+export function convertSqMToHectares(squareMeters: number): number {
+  return convertArea(squareMeters, 'hectares');
+}
+
+/**
+ * Converte hectares para Alqueire de acordo com o tipo regional.
+ */
+export function convertHectaresToAlqueire(hectares: number, type: AlqueireType = 'paulista'): number {
+  if (!Number.isFinite(hectares) || hectares < 0) {
+    throw new RangeError('Hectares must be a non-negative finite number');
+  }
+  const factor = ALQUEIRE_TO_HECTARES[type];
+  if (factor === undefined) {
+    throw new RangeError(`Unknown Alqueire type: ${String(type)}`);
+  }
+  return hectares / factor;
+}
+
 export const AREA_UNITS: Record<AreaUnit, AreaUnitDefinition> = {
   square_meters: {
     id: 'square_meters',

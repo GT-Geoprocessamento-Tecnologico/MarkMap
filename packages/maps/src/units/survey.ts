@@ -9,6 +9,9 @@ export {
   convertArea,
   convertAngle,
   formatArea,
+  convertSqMToHectares,
+  convertHectaresToAlqueire,
+  ALQUEIRE_TO_HECTARES,
   AREA_UNITS,
   METERS_PER_UNIT,
 } from '@markmap/geo';
@@ -17,6 +20,7 @@ export type {
   DistanceUnit,
   AreaUnit,
   RuralAreaUnit,
+  AlqueireType,
   AngleUnit,
   AreaUnitDefinition,
 } from '@markmap/geo';

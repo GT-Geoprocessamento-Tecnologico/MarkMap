@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { OfflineSearch } from "./OfflineSearch";
 
 type OnlineResult = { id: string; label: string; lat: number; lon: number; source?: string };
@@ -104,8 +104,10 @@ describe("address search panel", () => {
     fireEvent.change(input, { target: { value: "Rua Local" } });
     fireEvent.click(screen.getByRole("button", { name: "Pesquisar" }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Rua Local, 1" })).toBeTruthy());
-    await new Promise(resolve => setTimeout(resolve, 220));
-    resolveOnline([{ id: "remote-slow", label: "Rua Remota, 2", lat: -7.2, lon: -48.2 }]);
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 220));
+      resolveOnline([{ id: "remote-slow", label: "Rua Remota, 2", lat: -7.2, lon: -48.2 }]);
+    });
     await waitFor(() => expect(screen.getByRole("button", { name: "Rua Remota, 2" })).toBeTruthy());
     expect(screen.getByRole("button", { name: "Rua Local, 1" })).toBeTruthy();
     expect(onlineSearch).toHaveBeenCalledTimes(1);
@@ -120,9 +122,13 @@ describe("address search panel", () => {
     }]} />);
     const input = screen.getByRole("searchbox", { name: "Pesquisar feições offline" });
     fireEvent.change(input, { target: { value: "Antiga" } });
-    await new Promise(resolve => setTimeout(resolve, 180));
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 180));
+    });
     fireEvent.change(input, { target: { value: "Nova" } });
-    await new Promise(resolve => setTimeout(resolve, 260));
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 260));
+    });
     expect(screen.queryByRole("button", { name: "Rua Antiga" })).toBeNull();
   });
 
