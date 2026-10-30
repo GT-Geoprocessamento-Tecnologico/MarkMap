@@ -18,6 +18,7 @@ export function reassignProjectGeoPdf(records, projectId, blobId) {
     const old = assertGeoPdfProjectIds(row.projectGeoPdfIds);
     const ids = old.filter(id => id !== projectId);
     if (blobId === row.blobId) ids.push(projectId);
+    if (ids.length > 64) throw new Error('Limite de projetos vinculados ao GeoPDF excedido.');
     if (ids.length === old.length && ids.every((id, i) => id === old[i])) return row;
     return { ...row, projectGeoPdfIds: ids };
   });

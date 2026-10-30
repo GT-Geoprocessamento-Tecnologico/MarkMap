@@ -4,6 +4,14 @@ Fonte da versão do aplicativo: `apps/admin/package.json`. Todos os agentes segu
 
 ## [0.5.18] - 2026-10-29
 
+### GeoPDF por projeto + backup completo das fotos (candidata, QA integrado pendente)
+
+- GeoPDF associado ao projeto salvo no IndexedDB junto ao PDF original, reaberto ao entrar no mapa; seletor, ocultação, transparência e referência geográfica local preservados no backup parcial quando couber.
+- Exportação cifrada de **todas as fotos dos pontos** do workspace, com verificação SHA-256, prévia antes da restauração e importação atômica que não sobrescreve registros existentes; formato `.markmapfotos`. O backup de outros dados continua parcial (16 MiB) e mapas offline não estão incluídos.
+- Novos testes de regressão de associação GeoPDF, foto corrompida, senha incorreta e consistência de workspace. Testes integrados, Android/iOS e backup em dispositivo real permanecem pendentes.
+
+
+
 ### Recuperação segura de PWA com perda de cache aprovado
 
 - A ausência do app shell aprovado abre uma página local de recuperação em vez de bloqueio sem saída (HTTP 503 continua até consentimento explícito).

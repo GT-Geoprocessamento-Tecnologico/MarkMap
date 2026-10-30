@@ -25,3 +25,11 @@ test('invalid association, missing PDF and duplicate projects are rejected',()=>
  assert.throws(()=>reassignProjectGeoPdf([{blobId:'a',mediaType:'application/pdf',projectGeoPdfIds:['bad']}],A,'a'),/inválidas/);
  assert.equal(assignedProjectGeoPdf(reassignProjectGeoPdf([{blobId:'a',mediaType:'application/pdf'}],A,'a'),A)?.blobId,'a');
 });
+
+test('project links cannot grow beyond the 64-project cap', () => {
+  const make = (n) => `${(n + 1000).toString(16).padStart(8,'0')}-1111-4111-8111-111111111111`;
+  const existing = Array.from({length:64},(_,i)=>make(i));
+  assert.throws(()=>reassignProjectGeoPdf([
+    {blobId:'a',mediaType:'application/pdf',projectGeoPdfIds:existing},
+  ], 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','a'),/Limite/);
+});
