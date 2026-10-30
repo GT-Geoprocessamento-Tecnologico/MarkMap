@@ -107,8 +107,8 @@ export async function exportFullPointPhotoBackup(
 ): Promise<PhotoBackupResult> {
   assertPassphrase(passphrase);
   const workspaceId = await repo.workspaceId();
-  const originals = await repo.listOriginals();
-  const photos = originals.filter((row) => isPhotoMediaType(row.mediaType));
+  const originals = await repo.listPointPhotoOriginals();
+  const photos = originals;
   if (!photos.length) throw new Error("Não há fotos de pontos para salvar neste workspace.");
   const rows: PhotoEntry[] = [];
   let totalBytes = 0;
@@ -153,7 +153,7 @@ export async function exportFullPointPhotoBackup(
   if (bytes.byteLength > MAX_PHOTO_BACKUP_ARCHIVE_BYTES)
     throw new Error("Arquivo de fotos excede o limite de exportação.");
   // Fail closed on writes/deletes in another tab during this export.
-  const after = await repo.listOriginals();
+  const after = await repo.listPointPhotoOriginals();
   if (JSON.stringify(photoSignature(after)) !== JSON.stringify(photoSignature(originals)))
     throw new Error("Fotos mudaram durante o backup; repita a exportação.");
   return {

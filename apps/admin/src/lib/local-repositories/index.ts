@@ -731,6 +731,24 @@ export class LocalRepository {
     return records.map(restoreOriginal);
   }
 
+  /**
+   * Read only point photos. A corrupt or very large unrelated GeoPDF/GeoTIFF
+   * must not prevent the user from exporting all surviving field photos.
+   * Malformed photo links still fail closed rather than being silently omitted.
+   */
+  async listPointPhotoOriginals(): Promise<OriginalRecord[]> {
+    const workspaceId = await this.workspaceId();
+    const originals = await this.db.transact(["originals"], "readonly", (tx) =>
+      read<StoredOriginal[]>(tx.store("originals").index("workspace").getAll(workspaceId)),
+    );
+    const mismatched = originals.some((record) =>
+      record.pointPhoto !== undefined && !isPhotoMediaType(record.mediaType),
+    );
+    if (mismatched) throw new Error("Arquivo vinculado a ponto com tipo inválido; backup de fotos cancelado.");
+    return originals.filter((record) => isPhotoMediaType(record.mediaType))
+      .map(restoreOriginal);
+  }
+
   /** Link project overlays in the PDF original metadata so encrypted backups
    * restore the association and original binary without relying on meta keys. */
   async getProjectGeoPdf(projectId: string): Promise<OriginalRecord | null> {

@@ -62,6 +62,22 @@ describe("backup integral de fotos por workspace", () => {
       .toMatchObject({ added: 0, unchanged: 1, count: 1 });
   });
 
+  it("exporta fotos mesmo com PDF não fotográfico danificado sem omitir anexos", async () => {
+    const { db, repository, workspaceId } = await fixture();
+    // A damaged unrelated original must not block a photo-only backup.
+    await db.transact(["originals"], "readwrite", (tx) => {
+      tx.store("originals").put({
+        key: `${workspaceId}:bad-pdf`, workspaceId, blobId: "bad-pdf",
+        mediaType: "application/pdf", bytes: 999, sha256: "0".repeat(64),
+        createdAt: new Date().toISOString(),
+      });
+    });
+    await expect(repository.listOriginals()).rejects.toThrow(/bytes/);
+    const archived = await exportFullPointPhotoBackup(PASSWORD, repository);
+    expect(archived.photoCount).toBe(1);
+    expect((await inspectFullPointPhotoBackup(archived.bytes, PASSWORD)).count).toBe(1);
+  });
+
   it("não restaura com senha incorreta, corrupção ou outro workspace", async () => {
     const { repository } = await fixture();
     const exported = await exportFullPointPhotoBackup(PASSWORD, repository);
