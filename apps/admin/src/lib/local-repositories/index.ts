@@ -766,6 +766,94 @@ export class LocalRepository {
     });
   }
 
+  /**
+   * Restore all point photos in ONE IndexedDB readwrite transaction.
+   * The archive must have been decrypted/validated before entry; do not
+   * partially import on corrupt links, collisions or storage limits.
+   */
+  async restorePointPhotosAtomically(
+    sourceWorkspaceId: string,
+    photos: Array<Pick<OriginalRecord, "blobId" | "blob" | "mediaType" | "bytes" |
+      "sha256" | "originalName" | "createdAt" | "pointPhoto">>,
+  ): Promise<{ added: number; unchanged: number }> {
+    const workspaceId = await this.workspaceId();
+    if (sourceWorkspaceId !== workspaceId)
+      throw new Error("Workspace do backup diferente. Restaure primeiro os projetos correspondentes.");
+    if (!Array.isArray(photos) || photos.length > 10_000)
+      throw new Error("Lista de fotos inválida ou excessiva.");
+    const seen = new Set<string>();
+    const prepared = await Promise.all(photos.map(async (photo) => {
+      if (!photo || typeof photo.blobId !== "string" || !photo.blobId.trim() ||
+          photo.blobId.length > 128 || seen.has(photo.blobId) ||
+          !(photo.blob instanceof Blob) || photo.blob.size !== photo.bytes ||
+          !isPhotoMediaType(photo.mediaType) || !validPointPhotoLink(photo.pointPhoto) ||
+          typeof photo.createdAt !== "string" || Number.isNaN(Date.parse(photo.createdAt)))
+        throw new Error("Foto inválida ou duplicada no backup.");
+      seen.add(photo.blobId);
+      validatePhotoOriginalMetadata(photo);
+      const bytes = await readBlobBytes(photo.blob);
+      validatePhotoBytes(photo.mediaType, new Uint8Array(bytes));
+      const hash = [...new Uint8Array(await crypto.subtle.digest("SHA-256", new Uint8Array(bytes)))]
+        .map((byte) => byte.toString(16).padStart(2, "0")).join("");
+      if (hash !== photo.sha256.toLowerCase()) throw new Error("Foto com hash inconsistente.");
+      return {
+        key: originalKey(workspaceId, photo.blobId), workspaceId,
+        blobId: photo.blobId, mediaType: photo.mediaType, bytes: photo.bytes,
+        sha256: hash, originalName: photo.originalName, createdAt: photo.createdAt,
+        pointPhoto: photo.pointPhoto!, originalBytes: bytes,
+      } satisfies StoredOriginal;
+    }));
+    return this.db.transact(["originals", "entities"], "readwrite", async (tx) => {
+      const store = tx.store("originals");
+      const existing = await read<StoredOriginal[]>(store.index("workspace").getAll(workspaceId));
+      const byId = new Map(existing.map((record) => [record.blobId, record]));
+      const added: typeof prepared = [];
+      let unchanged = 0;
+      for (const row of prepared) {
+        const current = byId.get(row.blobId);
+        if (current) {
+          if (!isPhotoMediaType(current.mediaType) ||
+              current.sha256.toLowerCase() !== row.sha256 ||
+              current.bytes !== row.bytes || !samePhotoLink(current.pointPhoto, row.pointPhoto) ||
+              current.mediaType !== row.mediaType)
+            throw new Error("Foto local com o mesmo ID e conteúdo diferente. Restauração cancelada.");
+          unchanged++;
+        } else added.push(row);
+      }
+      const photoRows = existing.filter((record) => isPhotoMediaType(record.mediaType));
+      if (photoRows.reduce((sum, item) => sum + item.bytes, 0) +
+          added.reduce((sum, item) => sum + item.bytes, 0) > MAX_WORKSPACE_POINT_PHOTO_BYTES)
+        throw new Error("Fotos excedem o limite de armazenamento local do workspace.");
+      const counts = new Map<string, number>();
+      for (const row of [...photoRows, ...added]) {
+        const link = row.pointPhoto;
+        if (!link || !validPointPhotoLink(link)) throw new Error("Foto local sem vínculo válido.");
+        const key = `${link.projectId}:${link.layerId}:${link.featureId}`;
+        counts.set(key, (counts.get(key) ?? 0) + 1);
+        if (counts.get(key)! > MAX_POINT_PHOTOS)
+          throw new Error("Quantidade máxima de fotos por ponto excedida.");
+      }
+      // Schedule all reads before any writes so WebKit keeps the transaction live.
+      const links = await Promise.all(added.map(async (row) => {
+        const link = row.pointPhoto!;
+        const [feature, layer] = await Promise.all([
+          read<EntityRecord | undefined>(tx.store("entities").get(entityKey(workspaceId, "feature", link.featureId))),
+          read<EntityRecord | undefined>(tx.store("entities").get(entityKey(workspaceId, "layer", link.layerId))),
+        ]);
+        return { link, feature, layer };
+      }));
+      for (const { link, feature, layer } of links) {
+        if (!feature || feature.deleted || feature.payload?.entity !== "feature" ||
+            feature.payload.data.layerId !== link.layerId ||
+            !layer || layer.deleted || layer.payload?.entity !== "layer" ||
+            layer.payload.data.projectId !== link.projectId)
+          throw new Error("O projeto/ponto da foto não existe neste dispositivo. Restaure os projetos primeiro.");
+      }
+      for (const row of added) store.add(row);
+      return { added: added.length, unchanged };
+    });
+  }
+
   /** Only delete a photo after verifying its workspace and exact point association. */
   async deletePointPhoto(
     blobId: string,
