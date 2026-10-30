@@ -141,6 +141,15 @@ export default function CommandCenterPage() {
     geotiffId?: string;
   };
   const params = useParams({ strict: false }) as { projectId?: string };
+  const [projectPdfId, setProjectPdfId] = useState<string | null>(null);
+  const [projectPdfChoices, setProjectPdfChoices] = useState<Array<{ id: string; name: string }>>([]);
+  const [projectPdfVisible, setProjectPdfVisible] = useState(true);
+  const [projectPdfBusy, setProjectPdfBusy] = useState(false);
+  const [projectPdfError, setProjectPdfError] = useState<string | null>(null);
+  const [projectPdfOpacity, setProjectPdfOpacity] = useState(0.85);
+  const pdfOpacityRef = useRef(projectPdfOpacity);
+  pdfOpacityRef.current = projectPdfOpacity;
+  const effectivePdfId = search.pdfId ?? (projectPdfVisible ? projectPdfId : null);
   // Check explicit deep links at GPS callback time without remounting MapLibre.
   const requestedDatasetRef = useRef(search.datasetId);
   requestedDatasetRef.current = search.datasetId;
@@ -170,7 +179,7 @@ export default function CommandCenterPage() {
     };
   }, []);
   // A local georeferenced raster has precedence over region changes.
-  const localRasterId = search.pdfId ?? search.geotiffId;
+  const localRasterId = effectivePdfId ?? search.geotiffId;
   // Regional downloads supply searchable addresses and field data, not MapLibre tiles.
   const mapRegionPolicy = resolveProjectMapRegion({ selectedOfflineMapId, localRasterId });
   const activeRegionPackageId = mapRegionPolicy.searchRegionId;
@@ -182,7 +191,7 @@ export default function CommandCenterPage() {
   const [neutralFor, setNeutralFor] = useState<string | null>(null);
   const mapSource = resolveOfflineBasemap({
     regionId: mapRegionPolicy.basemapRegionId, revision: regionalRenderRevision,
-    neutralFor, geoPdfId: search.pdfId,
+    neutralFor, geoPdfId: effectivePdfId,
   });
   useEffect(() => {
     if (!mapSource.neutralActive || !neutralRegionId) return;
@@ -192,6 +201,50 @@ export default function CommandCenterPage() {
   }, [mapSource.neutralActive, neutralRegionId]);
   const activeProjectQuery = useProject(params.projectId ?? "");
   const activeProjectName = activeProjectQuery.data?.name?.trim() || null;
+  useEffect(() => {
+    let disposed = false;
+    setProjectPdfId(null);
+    setProjectPdfChoices([]);
+    setProjectPdfVisible(true);
+    setProjectPdfError(null);
+    if (!params.projectId) return;
+    void Promise.all([localRepository.getProjectGeoPdf(params.projectId), localRepository.listOriginals()])
+      .then(([association, originals]) => {
+        if (disposed) return;
+        setProjectPdfId(association?.blobId ?? null);
+        setProjectPdfChoices(originals.filter((record) => record.mediaType === "application/pdf")
+          .map((record) => ({ id: record.blobId, name: record.originalName ?? "GeoPDF importado" })));
+      }).catch(() => {
+        if (!disposed) setProjectPdfError("Não foi possível ler os PDFs locais deste projeto.");
+      });
+    return () => { disposed = true; };
+  }, [params.projectId]);
+
+  const chooseProjectGeoPdf = async (blobId: string | null) => {
+    if (!params.projectId || projectPdfBusy) return;
+    setProjectPdfBusy(true);
+    setProjectPdfError(null);
+    try {
+      if (blobId) {
+        const record = await localRepository.getOriginal(blobId);
+        if (!record || record.mediaType !== "application/pdf") throw new Error("GeoPDF local não encontrado.");
+        const stored = record.geoPdfReference ??
+          await localRepository.getMeta<GeoReference>(`pdfGeoref:${record.blobId}`);
+        const resolved = stored ? { reference: stored, reason: null } : await resolveEmbeddedGeoReference(record.blob);
+        if (!resolved.reference)
+          throw new Error(resolved.reason ?? "Georreferencie o PDF na tela de Importações antes de associar.");
+        if (stored && !record.geoPdfReference) await localRepository.saveGeoPdfReference(record.blobId, stored);
+      }
+      await localRepository.assignProjectGeoPdf(params.projectId, blobId);
+      setProjectPdfId(blobId);
+      setProjectPdfVisible(Boolean(blobId));
+      toast({ title: blobId ? "GeoPDF associado ao projeto" : "GeoPDF desvinculado", variant: "success" });
+    } catch (cause) {
+      setProjectPdfError(cause instanceof Error ? cause.message : "Não foi possível associar o GeoPDF.");
+    } finally {
+      setProjectPdfBusy(false);
+    }
+  };
   const createLayerMutation = useCreateLayer(params.projectId ?? "");
   const layersQuery = useProjectLayers(params.projectId ?? "", { limit: 100 });
   const projectLayers = useMemo(
@@ -804,7 +857,7 @@ export default function CommandCenterPage() {
     fittedKeyRef.current = "";
     let cancelled = false;
     const sceneKey = JSON.stringify([
-      search.pdfId ?? null, activeRegionPackageId, regionalRenderRevision, mapSource.neutralActive,
+      effectivePdfId ?? null, activeRegionPackageId, regionalRenderRevision, mapSource.neutralActive,
     ]);
     if (webglRetryBudgetRef.current.sceneKey !== sceneKey) {
       webglRetryBudgetRef.current = { sceneKey, autoRecoveryUsed: false };
@@ -872,16 +925,16 @@ export default function CommandCenterPage() {
         zoom = 13;
       }
 
-      if (search.pdfId) {
+      if (effectivePdfId) {
         // GeoPDF is a positioned raster overlay, never a replacement basemap.
         // Keep online vector streets around the image; offline still uses the
         // existing fallback when tiles are unavailable.
-        const record = await localRepository.getOriginal(search.pdfId);
+        const record = await localRepository.getOriginal(effectivePdfId);
         if (!record)
           throw new Error("Este PDF não está mais salvo neste dispositivo.");
         const storedReference =
-          await localRepository.getMeta<GeoReference>(
-            `pdfGeoref:${search.pdfId}`,
+          record.geoPdfReference ?? await localRepository.getMeta<GeoReference>(
+            `pdfGeoref:${effectivePdfId}`,
           );
         const resolved = storedReference
           ? { reference: storedReference, pageCount: null, reason: null }
@@ -907,7 +960,7 @@ export default function CommandCenterPage() {
         }
       }
 
-      if (selectedPackageId && !search.pdfId) {
+      if (selectedPackageId && !effectivePdfId) {
         offlinePackageSelected = true;
         fallbackActive = true;
         const installed = await offlineMapStore.getActiveRevision(selectedPackageId);
@@ -1247,7 +1300,7 @@ export default function CommandCenterPage() {
             coordinates: geoPdfOverlay.coordinates,
           }, [
             { id: "geopdf-overlay", type: "raster", source: "geopdf-overlay",
-              paint: { "raster-opacity": 1 } },
+              paint: { "raster-opacity": pdfOpacityRef.current } },
           ]);
           if (overlay.sourceAdded || overlay.layersAdded) {
             if (map.getLayer("local-dataset-fill"))
@@ -1551,8 +1604,13 @@ export default function CommandCenterPage() {
       geoPdfManualFocusRef.current = false;
       releaseProtocols();
     };
-  }, [toast, updateTelemetry, fitSelection, search.pdfId, activeRegionPackageId, regionalRenderRevision,
+  }, [toast, updateTelemetry, fitSelection, effectivePdfId, activeRegionPackageId, regionalRenderRevision,
     mapSource.neutralActive, mapRetryRevision, updateNavigationPosition]);
+
+  useEffect(() => {
+    if (mapRef.current?.getLayer("geopdf-overlay"))
+      mapRef.current.setPaintProperty("geopdf-overlay", "raster-opacity", projectPdfOpacity);
+  }, [projectPdfOpacity]);
 
   useEffect(() => {
     if (!mapContainer.current) return;
@@ -1700,6 +1758,38 @@ export default function CommandCenterPage() {
         </div>
       )}
 
+      {params.projectId && (
+        <section aria-label="GeoPDF do projeto"
+          className="absolute left-3 right-3 top-[calc(4rem+env(safe-area-inset-top))] z-20 mx-auto max-w-sm min-w-0 rounded-xl border border-outline-variant bg-surface-container/95 p-2 text-on-surface shadow-md">
+          <label htmlFor="project-geopdf-choice" className="block text-xs font-semibold">GeoPDF do projeto</label>
+          <div className="mt-1 flex min-w-0 flex-wrap items-center gap-2">
+            <select id="project-geopdf-choice" value={projectPdfId ?? ""} disabled={projectPdfBusy}
+              onChange={(event) => { void chooseProjectGeoPdf(event.target.value || null); }}
+              className="min-h-[44px] min-w-0 flex-1 rounded-md border border-outline-variant bg-surface px-2 text-xs text-on-surface">
+              <option value="">Sem GeoPDF associado</option>
+              {projectPdfChoices.map((pdf) => <option key={pdf.id} value={pdf.id}>{pdf.name}</option>)}
+            </select>
+            {projectPdfId && (
+              <button type="button" aria-pressed={projectPdfVisible}
+                onClick={() => setProjectPdfVisible((value) => !value)}
+                className="min-h-[44px] rounded-md border border-outline-variant px-2 text-xs">
+                {projectPdfVisible ? "Ocultar" : "Mostrar"}
+              </button>
+            )}
+          </div>
+          {projectPdfId && projectPdfVisible && (
+            <label className="mt-1 flex items-center gap-2 text-xs">
+              Opacidade
+              <input aria-label="Opacidade GeoPDF" type="range" min="0.2" max="1" step="0.1"
+                value={projectPdfOpacity} onChange={(event) => setProjectPdfOpacity(Number(event.target.value))}
+                className="min-w-0 flex-1" />
+            </label>
+          )}
+          {projectPdfChoices.length === 0 &&
+            <p className="text-xs text-on-surface-variant">Importe e georreferencie um PDF em Importações.</p>}
+          {projectPdfError && <p role="alert" className="break-words text-xs text-error">{projectPdfError}</p>}
+        </section>
+      )}
       {geoPdfMessage && (
         <p
           role="status"
