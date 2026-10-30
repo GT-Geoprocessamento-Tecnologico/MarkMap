@@ -10,6 +10,7 @@ import {
   extractKmzKml,
 } from "@markmap/geo";
 import { offlineDB } from "../storage/offline-db";
+import { normalizeDatasetName } from "./dataset-name.mjs";
 import { downloadBlob } from "../file-download";
 
 export const MAX_DATASET_BYTES = 25 * 1024 * 1024;
@@ -271,6 +272,19 @@ export async function listDatasets(): Promise<DatasetRecord[]> {
 export async function getDataset(id: string): Promise<DatasetRecord | null> {
   const record = (await offlineDB.get("datasets", id)) as StoredDataset | null;
   return record && !record.deleted ? restoreDataset(record) : null;
+}
+
+/** Rename only metadata; retain the original file, its geometry and identity. */
+export async function renameDataset(id: string, rawName: string, expectedName: string): Promise<DatasetRecord> {
+  const current = await getDataset(id);
+  if (!current) throw new Error("Dataset não encontrado neste dispositivo.");
+  if (current.name !== expectedName)
+    throw new Error("Este dataset mudou em outra aba. Atualize a lista antes de renomear.");
+  const name = normalizeDatasetName(rawName, current.format);
+  if (name === current.name) return current;
+  const renamed = { ...current, name };
+  await saveDataset(renamed);
+  return renamed;
 }
 
 export async function removeDataset(id: string): Promise<void> {
