@@ -78,7 +78,7 @@ import { OfflineKnowledge } from "../../components/map/OfflineKnowledge";
 import { OfflineElevation } from "../../components/map/OfflineElevation";
 import { MapOfflinePanel } from "../../components/map/MapOfflinePanel";
 import { ProjectPointsPanel } from "../../components/map/ProjectPointsPanel";
-import { resolveClickedProjectPointId, tagProjectPointForRender } from "../../components/map/project-point-selection.mjs";
+import { PROJECT_POINT_RENDER_ID, resolveClickedProjectPointId, tagProjectPointForRender } from "../../components/map/project-point-selection.mjs";
 import { RegionDownloadCatalog } from "../../components/map/RegionDownloadCatalog";
 import { CarSummaryCard } from "../../components/map/CarSummaryCard";
 import { TrackRecordingOverlay } from "../../components/map/TrackRecordingOverlay";
@@ -1203,10 +1203,16 @@ export default function CommandCenterPage() {
               },
             },
             { id: "local-dataset-points", type: "circle", source: "local-dataset",
-              filter: ["==", "$type", "Point"],
+              filter: ["all", ["==", "$type", "Point"], ["!has", PROJECT_POINT_RENDER_ID]],
               layout: { visibility: showDatasetPoints ? "visible" : "none" },
               paint: { "circle-color": "#0284c7", "circle-radius": 5,
                 "circle-stroke-color": "#fff", "circle-stroke-width": 1 } },
+            // Project-owned points remain visible when imported dataset points
+            // are hidden; the user must still be able to edit them by touch.
+            { id: "local-project-points", type: "circle", source: "local-dataset",
+              filter: ["all", ["==", "$type", "Point"], ["has", PROJECT_POINT_RENDER_ID]],
+              paint: { "circle-color": "#0d9488", "circle-radius": 7,
+                "circle-stroke-color": "#fff", "circle-stroke-width": 2 } },
           ]);
         };
 
@@ -1414,18 +1420,25 @@ export default function CommandCenterPage() {
         });
         map.on("click", "local-dataset-points", (e) => {
           if (!e.features?.length || measuringRef.current || drawingSessionRef.current) return;
-          const properties = e.features[0]?.properties ?? {};
-          const ownedPointId = resolveClickedProjectPointId(projectFeaturesRef.current, properties);
-          if (ownedPointId) {
-            setPointSelectionRequest({ id: ownedPointId });
-            setSidePanel("pontos");
-            return;
-          }
-          // Imported dataset points still use the original read-only popup.
           new Popup()
             .setLngLat(e.lngLat)
-            .setDOMContent(createPropertyPopupContent(properties))
+            .setDOMContent(createPropertyPopupContent(e.features[0]?.properties ?? {}))
             .addTo(map);
+        });
+        map.on("click", "local-project-points", (e) => {
+          if (!e.features?.length || measuringRef.current || drawingSessionRef.current) return;
+          const ownedPointId = resolveClickedProjectPointId(
+            projectFeaturesRef.current, e.features[0]?.properties,
+          );
+          if (!ownedPointId) return;
+          setPointSelectionRequest({ id: ownedPointId });
+          setSidePanel("pontos");
+        });
+        map.on("mouseenter", "local-project-points", () => {
+          map.getCanvas().style.cursor = "pointer";
+        });
+        map.on("mouseleave", "local-project-points", () => {
+          map.getCanvas().style.cursor = "";
         });
         map.on("mouseenter", "local-dataset-points", () => {
           map.getCanvas().style.cursor = "pointer";
