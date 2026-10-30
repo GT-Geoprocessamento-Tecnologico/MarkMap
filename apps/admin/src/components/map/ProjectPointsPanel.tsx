@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ProjectMapFeature } from "../../pages/workspace/map-data";
 import {
   deleteLocalFeature,
@@ -14,6 +14,7 @@ import {
 interface ProjectPointsPanelProps {
   projectId: string;
   features: readonly ProjectMapFeature[];
+  selectionRequest?: { id: string } | null;
   onLocate: (coordinates: [number, number]) => void;
   onChanged: () => void | Promise<unknown>;
 }
@@ -24,9 +25,11 @@ const MAX_VISIBLE_POINTS = 100;
 export function ProjectPointsPanel({
   projectId,
   features,
+  selectionRequest,
   onLocate,
   onChanged,
 }: ProjectPointsPanelProps) {
+  const lastAppliedRequest = useRef<{ id: string } | null>(null);
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [name, setName] = useState("");
@@ -43,7 +46,7 @@ export function ProjectPointsPanel({
     [features, selectedId],
   );
 
-  const choose = (point: ProjectMapFeature) => {
+  const choose = useCallback((point: ProjectMapFeature) => {
     setSelectedId(String(point.id));
     setName(projectPointTitle(point));
     setDescription(typeof point.properties?.description === "string" ? point.properties.description : "");
@@ -51,7 +54,15 @@ export function ProjectPointsPanel({
     setNotice(null);
     setConfirmDelete(false);
     setOpenedSnapshot({ name: point.properties?.name, description: point.properties?.description });
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!selectionRequest || lastAppliedRequest.current === selectionRequest) return;
+    const point = filterProjectPoints(features).find((item) => item.id === selectionRequest.id);
+    if (!point) return;
+    lastAppliedRequest.current = selectionRequest;
+    choose(point);
+  }, [features, selectionRequest, choose]);
 
   const latestPoint = async () => {
     if (!selected) throw new Error("Selecione um ponto do projeto.");

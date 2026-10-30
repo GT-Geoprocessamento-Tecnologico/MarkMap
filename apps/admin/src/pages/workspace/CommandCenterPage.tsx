@@ -78,6 +78,7 @@ import { OfflineKnowledge } from "../../components/map/OfflineKnowledge";
 import { OfflineElevation } from "../../components/map/OfflineElevation";
 import { MapOfflinePanel } from "../../components/map/MapOfflinePanel";
 import { ProjectPointsPanel } from "../../components/map/ProjectPointsPanel";
+import { resolveClickedProjectPointId, tagProjectPointForRender } from "../../components/map/project-point-selection.mjs";
 import { RegionDownloadCatalog } from "../../components/map/RegionDownloadCatalog";
 import { CarSummaryCard } from "../../components/map/CarSummaryCard";
 import { TrackRecordingOverlay } from "../../components/map/TrackRecordingOverlay";
@@ -267,6 +268,8 @@ export default function CommandCenterPage() {
     () => featuresQuery.data?.features ?? [],
     [featuresQuery.data],
   );
+  const projectFeaturesRef = useRef(projectFeatures);
+  projectFeaturesRef.current = projectFeatures;
   const projectFeatureError = layersQuery.error ?? featuresQuery.error;
   const projectFeatureTruncated = Boolean(
     layersQuery.data?.nextCursor || featuresQuery.data?.truncated,
@@ -358,6 +361,7 @@ export default function CommandCenterPage() {
   }, []);
 
   const [sidePanel, setSidePanel] = useState<SidePanel>("none");
+  const [pointSelectionRequest, setPointSelectionRequest] = useState<{ id: string } | null>(null);
   const sidePanelRef = useRef(sidePanel);
   sidePanelRef.current = sidePanel;
   const [elevationBounds, setElevationBounds] = useState<[number, number, number, number] | undefined>();
@@ -543,7 +547,7 @@ export default function CommandCenterPage() {
                 ?.visibleByDefault ??
               true) &&
             matchesFeature(feature, filterText, filterType),
-        ),
+        ).map(tagProjectPointForRender),
       ],
     }),
     [
@@ -1410,11 +1414,17 @@ export default function CommandCenterPage() {
         });
         map.on("click", "local-dataset-points", (e) => {
           if (!e.features?.length || measuringRef.current || drawingSessionRef.current) return;
+          const properties = e.features[0]?.properties ?? {};
+          const ownedPointId = resolveClickedProjectPointId(projectFeaturesRef.current, properties);
+          if (ownedPointId) {
+            setPointSelectionRequest({ id: ownedPointId });
+            setSidePanel("pontos");
+            return;
+          }
+          // Imported dataset points still use the original read-only popup.
           new Popup()
             .setLngLat(e.lngLat)
-            .setDOMContent(
-              createPropertyPopupContent(e.features[0]?.properties ?? {}),
-            )
+            .setDOMContent(createPropertyPopupContent(properties))
             .addTo(map);
         });
         map.on("mouseenter", "local-dataset-points", () => {
@@ -2035,6 +2045,7 @@ export default function CommandCenterPage() {
               key={params.projectId ?? "sem-projeto"}
               projectId={params.projectId ?? ""}
               features={projectFeatures}
+              selectionRequest={pointSelectionRequest}
               onLocate={(coordinates) => {
                 const map = mapRef.current;
                 if (map) map.flyTo({ center: coordinates, zoom: Math.max(15, map.getZoom()) });
