@@ -20,6 +20,8 @@ import {
   type OutboxRecord,
 } from "../local-db";
 import { readBlobBytes } from "../blob-bytes";
+import { notifyImportCatalogChanged } from "../storage/import-catalog-events.mjs";
+import { normalizeImportedOriginalName } from "../storage/original-file-name.mjs";
 import { geoReferenceSchema, type GeoReference } from "@markmap/contracts";
 import { assignedProjectGeoPdf, assertGeoPdfProjectIds, reassignProjectGeoPdf } from "../pdf/project-geopdf-link.mjs";
 import {
@@ -88,6 +90,21 @@ export class LocalRepository {
   }
 
   async setMeta<T>(key: string, value: T): Promise<void> {
+    // PDF preview can finish calibration after another tab deletes the file.
+    // Never resurrect its legacy metadata without the corresponding original.
+    const pdfId = /^(?:pdfGeoref|pdfGeorefSource):(.+)$/.exec(key)?.[1];
+    if (pdfId) {
+      const workspaceId = await this.workspaceId();
+      await this.db.transact(["originals", "meta"], "readwrite", async (tx) => {
+        const original = await read<StoredOriginal | undefined>(
+          tx.store("originals").get(originalKey(workspaceId, pdfId)),
+        );
+        if (!original || original.mediaType !== "application/pdf")
+          throw new Error("GeoPDF foi excluído deste dispositivo.");
+        tx.store("meta").put({ key, value });
+      });
+      return;
+    }
     await this.db.transact(["meta"], "readwrite", (tx) => {
       tx.store("meta").put({ key, value });
     });
@@ -660,7 +677,7 @@ export class LocalRepository {
       workspaceId,
       createdAt: now(),
     };
-    await this.db.transact(input.pointPhoto ? ["originals", "entities"] : ["originals"], "readwrite", async (tx) => {
+    const added = await this.db.transact(input.pointPhoto ? ["originals", "entities"] : ["originals"], "readwrite", async (tx) => {
       if (input.pointPhoto) {
         const link = input.pointPhoto;
         const [feature, layer] = await Promise.all([
@@ -684,7 +701,7 @@ export class LocalRepository {
           current.sha256.toLowerCase() === record.sha256.toLowerCase() &&
           samePhotoLink(current.pointPhoto, record.pointPhoto)
         )
-          return;
+          return false;
         throw new Error(
           "Já existe um original com o mesmo blobId e metadados conflitantes.",
         );
@@ -705,7 +722,64 @@ export class LocalRepository {
           throw new Error("Limite de fotos do workspace atingido para backup parcial.");
       }
       tx.store("originals").add(record);
+      return true;
     });
+    if (added && (input.mediaType === "application/pdf" || input.mediaType === "image/tiff"))
+      notifyImportCatalogChanged({ kind: "original", id: input.blobId, action: "saved" });
+  }
+
+  /** Rename only a PDF/GeoTIFF label. The binary, hash and project links are immutable. */
+  async renameImportedOriginal(blobId: string, rawName: string, expectedName?: string, expectedCreatedAt?: string): Promise<string> {
+    const workspaceId = await this.workspaceId();
+    const name = await this.db.transact(["originals"], "readwrite", async (tx) => {
+      const store = tx.store("originals");
+      const key = originalKey(workspaceId, blobId);
+      const original = await read<StoredOriginal | undefined>(store.get(key));
+      if (!original || (original.mediaType !== "application/pdf" && original.mediaType !== "image/tiff"))
+        throw new Error("PDF ou GeoTIFF não encontrado neste workspace.");
+      if ((expectedName !== undefined && (original.originalName ?? "") !== expectedName) ||
+          (expectedCreatedAt !== undefined && original.createdAt !== expectedCreatedAt))
+        throw new Error("O arquivo mudou em outra aba. Atualize a lista antes de renomear.");
+      const normalized = normalizeImportedOriginalName(rawName, original.mediaType, original.originalName);
+      if (normalized !== original.originalName) store.put({ ...original, originalName: normalized });
+      return normalized;
+    });
+    notifyImportCatalogChanged({ kind: "original", id: blobId, action: "renamed" });
+    return name;
+  }
+
+  /** Remove the owned local binary and legacy PDF calibration keys in one IndexedDB transaction.
+   * A project using this PDF loses its raster link, but no project, feature or photo is deleted. */
+  async deleteImportedOriginal(
+    blobId: string,
+    expected?: Pick<OriginalRecord, "sha256" | "originalName" | "projectGeoPdfIds" | "createdAt">,
+  ): Promise<boolean> {
+    const workspaceId = await this.workspaceId();
+    const removed = await this.db.transact(["originals", "meta"], "readwrite", async (tx) => {
+      const store = tx.store("originals");
+      const key = originalKey(workspaceId, blobId);
+      const original = await read<StoredOriginal | undefined>(store.get(key));
+      if (!original) return false;
+      if (original.mediaType !== "application/pdf" && original.mediaType !== "image/tiff")
+        throw new Error("Exclusão de outros tipos de original não autorizada.");
+      if (expected) {
+        const originalLinks = [...(original.projectGeoPdfIds ?? [])].sort();
+        const expectedLinks = [...(expected.projectGeoPdfIds ?? [])].sort();
+        if (original.sha256 !== expected.sha256 || original.createdAt !== expected.createdAt ||
+            (original.originalName ?? "") !== (expected.originalName ?? "") ||
+            JSON.stringify(originalLinks) !== JSON.stringify(expectedLinks))
+          throw new Error("Este arquivo mudou em outra aba ou foi associado a outro projeto. Atualize antes de excluir.");
+      }
+      store.delete(key);
+      if (original.mediaType === "application/pdf") {
+        const meta = tx.store("meta");
+        meta.delete(`pdfGeoref:${blobId}`);
+        meta.delete(`pdfGeorefSource:${blobId}`);
+      }
+      return true;
+    });
+    if (removed) notifyImportCatalogChanged({ kind: "original", id: blobId, action: "deleted" });
+    return removed;
   }
 
   async getOriginal(
@@ -770,7 +844,7 @@ export class LocalRepository {
 
   async assignProjectGeoPdf(projectId: string, blobId: string | null): Promise<void> {
     const workspaceId = await this.workspaceId();
-    await this.db.transact(["entities", "originals"], "readwrite", async (tx) => {
+    const changedIds = await this.db.transact(["entities", "originals"], "readwrite", async (tx) => {
       const project = await read<EntityRecord | undefined>(
         tx.store("entities").get(entityKey(workspaceId, "project", projectId)),
       );
@@ -779,10 +853,17 @@ export class LocalRepository {
       const originals = tx.store("originals");
       const rows = await read<StoredOriginal[]>(originals.index("workspace").getAll(workspaceId));
       const updated = reassignProjectGeoPdf(rows, projectId, blobId);
+      const changed: string[] = [];
       for (let i = 0; i < rows.length; i++) {
-        if (updated[i] !== rows[i]) originals.put(updated[i]!);
+        if (updated[i] !== rows[i]) {
+          originals.put(updated[i]!);
+          changed.push(rows[i]!.blobId);
+        }
       }
+      return changed;
     });
+    for (const id of changedIds)
+      notifyImportCatalogChanged({ kind: "original", id, action: "updated" });
   }
 
   async saveGeoPdfReference(blobId: string, reference: GeoReference): Promise<void> {
@@ -795,6 +876,7 @@ export class LocalRepository {
         throw new Error("GeoPDF original não encontrado.");
       store.put({ ...record, geoPdfReference: parsed });
     });
+    notifyImportCatalogChanged({ kind: "original", id: blobId, action: "updated" });
   }
 
   /**

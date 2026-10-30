@@ -4,6 +4,7 @@ import {
   useRef,
   useState,
   type MouseEvent as ReactMouseEvent,
+  type ReactNode,
 } from "react";
 import { pdfjs } from "./pdf-runtime";
 import { geoReferenceSchema, type GeoReference } from "@markmap/contracts";
@@ -212,7 +213,7 @@ const createManualReference = (
   });
 };
 
-export function PdfPreview({ record }: { record: OriginalRecord }) {
+export function PdfPreview({ record, actions }: { record: OriginalRecord; actions?: ReactNode }) {
   const { toast } = useToast();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
@@ -563,6 +564,8 @@ export function PdfPreview({ record }: { record: OriginalRecord }) {
           {state === "ready" ? "Salvo offline" : "Processando…"}
         </span>
       </div>
+
+      {actions && <div className="mt-3 flex flex-wrap items-center gap-2">{actions}</div>}
 
       <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
         {geographicStatus}

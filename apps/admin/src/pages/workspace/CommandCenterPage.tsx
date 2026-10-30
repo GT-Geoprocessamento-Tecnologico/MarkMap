@@ -40,6 +40,7 @@ import { useCreateLayer, useProjectLayers } from "../../lib/hooks/layers";
 import { useProject } from "../../lib/hooks/projects";
 import { createLocalFeature } from "../../lib/hooks/features";
 import { localRepository } from "../../lib/local-repositories";
+import { subscribeImportCatalogChanges } from "../../lib/storage/import-catalog-events.mjs";
 import {
   renderGeoPdfOverlay,
   resolveEmbeddedGeoReference,
@@ -150,8 +151,14 @@ export default function CommandCenterPage() {
   const [projectPdfOpacity, setProjectPdfOpacity] = useState(0.85);
   const pdfOpacityRef = useRef(projectPdfOpacity);
   pdfOpacityRef.current = projectPdfOpacity;
-  const effectivePdfId = search.pdfId ?? (
-    !search.geotiffId && projectPdfVisible && projectPdfOwner === params.projectId ? projectPdfId : null
+  // A removed raster must not stay selected solely because its deep-link query is still present.
+  // This is in-memory UI state; IndexedDB remains authoritative and reimport can restore the ID.
+  const [removedRasterIds, setRemovedRasterIds] = useState<string[]>([]);
+  const explicitPdfId = search.pdfId && !removedRasterIds.includes(search.pdfId) ? search.pdfId : null;
+  const explicitGeoTiffId = search.geotiffId && !removedRasterIds.includes(search.geotiffId) ? search.geotiffId : null;
+  const effectivePdfId = explicitPdfId ?? (
+    !explicitGeoTiffId && projectPdfVisible && projectPdfOwner === params.projectId &&
+    projectPdfId && !removedRasterIds.includes(projectPdfId) ? projectPdfId : null
   );
   // Check explicit deep links at GPS callback time without remounting MapLibre.
   const requestedDatasetRef = useRef(search.datasetId);
@@ -182,7 +189,7 @@ export default function CommandCenterPage() {
     };
   }, []);
   // A local georeferenced raster has precedence over region changes.
-  const localRasterId = effectivePdfId ?? search.geotiffId;
+  const localRasterId = effectivePdfId ?? explicitGeoTiffId;
   // Regional downloads supply searchable addresses and field data, not MapLibre tiles.
   const mapRegionPolicy = resolveProjectMapRegion({ selectedOfflineMapId, localRasterId });
   const activeRegionPackageId = mapRegionPolicy.searchRegionId;
@@ -357,7 +364,7 @@ export default function CommandCenterPage() {
     const stop = subscribeRegionForeground(() => {
       policy.onForeground({
         hasError: Boolean(mapErrorRef.current) && !webglLostRef.current,
-        hasLocalContext: Boolean((activeRegionPackageId && !mapSource.neutralActive) || search.pdfId),
+        hasLocalContext: Boolean((activeRegionPackageId && !mapSource.neutralActive) || explicitPdfId),
       });
     });
     return () => {
@@ -365,7 +372,7 @@ export default function CommandCenterPage() {
       policy.dispose();
       if (mapRecoveryRef.current === policy) mapRecoveryRef.current = null;
     };
-  }, [retryMap, activeRegionPackageId, regionalRenderRevision, mapSource.neutralActive, search.pdfId]);
+  }, [retryMap, activeRegionPackageId, regionalRenderRevision, mapSource.neutralActive, explicitPdfId]);
   const [mapEpoch, setMapEpoch] = useState(0);
   const [routingPickMode, setRoutingPickMode] = useState<RoutePointSelection['kind'] | null>(null);
   const routingPickRef = useRef<RoutePointSelection['kind'] | null>(null);
@@ -694,6 +701,53 @@ export default function CommandCenterPage() {
     };
   }, []);
 
+  // An import removed in another tab must leave neither a stale map layer nor
+  // a selectable PDF. The event is only a hint; reread IndexedDB for truth.
+  useEffect(() => {
+    let disposed = false;
+    const unsubscribe = subscribeImportCatalogChanges((change) => {
+      if (change.kind === "dataset") {
+        void listDatasets().then((items) => {
+          if (disposed) return;
+          setDatasets(items);
+          setDatasetSelection((selected) => selected === "none" || items.some((item) => item.id === selected) ? selected : "none");
+        }).catch((cause) => {
+          if (!disposed) setLocalReadError(cause instanceof Error ? cause.message : "Falha ao atualizar os datasets.");
+        });
+        return;
+      }
+      if (change.kind !== "original") return;
+      if (change.action === "deleted" || change.action === "saved") {
+        setRemovedRasterIds((ids) => change.action === "deleted"
+          ? ids.includes(change.id) ? ids : [...ids, change.id]
+          : ids.filter((id) => id !== change.id));
+      }
+      void Promise.all([
+        localRepository.listGeoPdfOriginals(),
+        params.projectId ? localRepository.getProjectGeoPdf(params.projectId) : Promise.resolve(null),
+      ]).then(([originals, projectPdf]) => {
+        if (disposed) return;
+        setProjectPdfChoices(originals.map((record) => ({ id: record.blobId, name: record.originalName ?? "GeoPDF importado" })));
+        if (params.projectId) {
+          setProjectPdfId(projectPdf?.blobId ?? null);
+          setProjectPdfOwner(params.projectId);
+        }
+      }).catch(() => {
+        if (!disposed) setProjectPdfError("Não foi possível atualizar os PDFs locais.");
+      });
+      if (change.action === "deleted") {
+        // A changed effective ID unmounts MapLibre, revoking the raster URL.
+        setProjectPdfId((current) => current === change.id ? null : current);
+        setGeoPdfReady(false);
+        setGeoTiffReady(false);
+      } else if (change.action === "updated" &&
+          (change.id === effectivePdfId || change.id === explicitGeoTiffId)) {
+        setMapRetryRevision((value) => value + 1); // re-read changed georeference
+      }
+    });
+    return () => { disposed = true; unsubscribe(); };
+  }, [effectivePdfId, params.projectId, explicitGeoTiffId]);
+
   const measuringRef = useRef(false);
   const measurePointsRef = useRef<MeasurePoint[]>([]);
   useEffect(() => {
@@ -863,7 +917,7 @@ export default function CommandCenterPage() {
     fittedKeyRef.current = "";
     let cancelled = false;
     const sceneKey = JSON.stringify([
-      effectivePdfId ?? null, activeRegionPackageId, regionalRenderRevision, mapSource.neutralActive,
+      effectivePdfId ?? null, explicitGeoTiffId ?? null, activeRegionPackageId, regionalRenderRevision, mapSource.neutralActive,
     ]);
     if (webglRetryBudgetRef.current.sceneKey !== sceneKey) {
       webglRetryBudgetRef.current = { sceneKey, autoRecoveryUsed: false };
@@ -919,8 +973,8 @@ export default function CommandCenterPage() {
         };
       }
 
-      if (search.geotiffId) {
-        const record = await localRepository.getOriginal(search.geotiffId);
+      if (explicitGeoTiffId) {
+        const record = await localRepository.getOriginal(explicitGeoTiffId);
         if (!record || record.mediaType !== "image/tiff") throw new Error("Este GeoTIFF não está mais salvo neste dispositivo.");
         setGeoPdfMessage("Preparando GeoTIFF offline…");
         geoTiffOverlay = await renderGeoTiffOverlay(record.blob);
@@ -1105,7 +1159,7 @@ export default function CommandCenterPage() {
       locationControlRef.current = geolocate;
       mapRef.current = map;
       // Show the downloaded region at a useful scale; explicit project/data bounds still take precedence.
-      if (offlineBounds && !fitRef.current.bounds && !search.pdfId) {
+      if (offlineBounds && !fitRef.current.bounds && !explicitPdfId) {
         map.fitBounds([[offlineBounds[0], offlineBounds[1]], [offlineBounds[2], offlineBounds[3]]],
           { padding: 48, maxZoom: offlineMaxZoom, duration: 0 });
       }
@@ -1121,7 +1175,7 @@ export default function CommandCenterPage() {
         );
         setGeoPdfMessage(geoPdfGpsNotice);
       });
-      if (geoPdfOverlay || (!search.pdfId && !requestedDatasetRef.current && !fitRef.current.bounds)) {
+      if (geoPdfOverlay || (!explicitPdfId && !requestedDatasetRef.current && !fitRef.current.bounds)) {
         let userMoved = false;
         const canvas = map.getCanvas();
         const events = ["pointerdown", "wheel", "keydown"];
@@ -1203,7 +1257,7 @@ export default function CommandCenterPage() {
       });
       map.on("error", (event) => {
         if (cancelled || webglLostRef.current) return;
-        if (offlinePackageSelected || mapSource.neutralActive || (Boolean(search.pdfId) && fallbackActive)) {
+        if (offlinePackageSelected || mapSource.neutralActive || (Boolean(explicitPdfId) && fallbackActive)) {
           // Selection changes abort outstanding tiles: cancellation is not corruption.
           const issue = describeOfflineMapFailure(event);
           if (!issue) return;
@@ -1437,7 +1491,7 @@ export default function CommandCenterPage() {
           ensureOfflineRoute(map);
           ensureLiveTrack(map);
 
-          if (!search.pdfId) fitSelection(map);
+          if (!explicitPdfId) fitSelection(map);
           setMapEpoch((value) => value + 1);
         };
         styleLifecycle = createOfflineStyleLifecycle({
@@ -1618,8 +1672,9 @@ export default function CommandCenterPage() {
       geoPdfManualFocusRef.current = false;
       releaseProtocols();
     };
-  }, [toast, updateTelemetry, fitSelection, effectivePdfId, activeRegionPackageId, regionalRenderRevision,
-    mapSource.neutralActive, mapRetryRevision, updateNavigationPosition]);
+  }, [toast, updateTelemetry, fitSelection, effectivePdfId, explicitGeoTiffId,
+    activeRegionPackageId, regionalRenderRevision, mapSource.neutralActive,
+    mapRetryRevision, updateNavigationPosition]);
 
   useEffect(() => {
     if (mapRef.current?.getLayer("geopdf-overlay"))
@@ -1650,8 +1705,8 @@ export default function CommandCenterPage() {
       source.setData(activeGeoJson as unknown as GeoJSON.FeatureCollection);
       setAppliedCount(activeGeoJson.features.length);
     }
-    if (!search.pdfId && mapRef.current && source) fitSelection(mapRef.current);
-  }, [activeGeoJson, selectionKey, mapEpoch, fitSelection, search.pdfId]);
+    if (!explicitPdfId && mapRef.current && source) fitSelection(mapRef.current);
+  }, [activeGeoJson, selectionKey, mapEpoch, fitSelection, explicitPdfId]);
 
   useEffect(() => {
     const source = mapRef.current?.getSource("draw-preview") as
@@ -1835,7 +1890,7 @@ export default function CommandCenterPage() {
               }} className="min-h-[44px] rounded-lg border border-outline-variant px-3 py-2 text-sm font-semibold">
                 Tentar novamente
               </button>
-              {activeRegionPackageId && !mapSource.neutralActive && !search.pdfId && (
+              {activeRegionPackageId && !mapSource.neutralActive && !explicitPdfId && (
                 <button type="button" onClick={() => {
                   setNeutralFor(`${activeRegionPackageId}:${regionalRenderRevision}`);
                   mapErrorRef.current = null;
@@ -1848,7 +1903,7 @@ export default function CommandCenterPage() {
           )}
         </div>
       )}
-      {mapSource.neutralActive && !mapError && !localReadError && !projectFeatureError && !search.pdfId && (
+      {mapSource.neutralActive && !mapError && !localReadError && !projectFeatureError && !explicitPdfId && (
         <div role="status"
           className="absolute left-4 right-4 top-4 z-30 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-outline-variant bg-surface-container/95 p-3 text-sm text-on-surface shadow-lg">
           <p>Fundo simples offline em uso. O mapa regional e os dados de campo foram preservados.</p>

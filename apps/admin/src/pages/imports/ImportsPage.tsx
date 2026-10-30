@@ -20,6 +20,7 @@ import { PdfPreview, sha256Blob } from "../../lib/pdf/pdf-preview";
 import { isGeoTiffSignature, readGeoTiffMetadata } from "@markmap/maps";
 import { readBlobBytes } from "../../lib/blob-bytes";
 import { localRepository, type OriginalRecord } from "../../lib/local-repositories";
+import { subscribeImportCatalogChanges } from "../../lib/storage/import-catalog-events.mjs";
 import { AppIcon } from "../../components/AppIcon";
 import { TrackElevationProfile } from "../../components/elevation/TrackElevationProfile";
 
@@ -38,6 +39,10 @@ export default function ImportsPage() {
   const [editingDatasetName, setEditingDatasetName] = useState("");
   const [deleteConfirmationId, setDeleteConfirmationId] = useState<string | null>(null);
   const [busyDatasetId, setBusyDatasetId] = useState<string | null>(null);
+  const [editingOriginalId, setEditingOriginalId] = useState<string | null>(null);
+  const [editingOriginalName, setEditingOriginalName] = useState("");
+  const [deleteConfirmationOriginalId, setDeleteConfirmationOriginalId] = useState<string | null>(null);
+  const [busyOriginalId, setBusyOriginalId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
@@ -54,6 +59,9 @@ export default function ImportsPage() {
       ),
     );
   }, [refresh]);
+  useEffect(() => subscribeImportCatalogChanges(() => {
+    void refresh().catch((cause) => setError(cause instanceof Error ? cause.message : "Falha ao atualizar arquivos locais."));
+  }), [refresh]);
   const profileDataset = datasets.find((dataset) => dataset.id === profileDatasetId);
   const filteredDatasets = useMemo(
     () =>
@@ -131,8 +139,8 @@ export default function ImportsPage() {
       await refresh();
       setDeleteConfirmationId(null);
       toast({
-        title: "Dataset removido",
-        description: `${dataset.name} foi removido deste dispositivo.`,
+        title: "Dataset excluído",
+        description: `${dataset.name}, seus dados e sua cópia local foram excluídos do MarkMap.`,
       });
     } catch (cause) {
       toast({
@@ -145,6 +153,79 @@ export default function ImportsPage() {
       setBusyDatasetId(null);
     }
   };
+  const handleRenameOriginal = async (record: OriginalRecord) => {
+    if (busyOriginalId) return;
+    setBusyOriginalId(record.blobId);
+    try {
+      await localRepository.renameImportedOriginal(record.blobId, editingOriginalName, record.originalName ?? "", record.createdAt);
+      await refresh();
+      setEditingOriginalId(null);
+      toast({ title: "Arquivo renomeado", description: "Original, georreferência e vínculos preservados.", variant: "success" });
+    } catch (cause) {
+      toast({ title: "Renomeação não concluída", description: cause instanceof Error ? cause.message : "Nome inválido.", variant: "error" });
+    } finally {
+      setBusyOriginalId(null);
+    }
+  };
+
+  const handleDeleteOriginal = async (record: OriginalRecord) => {
+    if (busyOriginalId || deleteConfirmationOriginalId !== record.blobId) return;
+    setBusyOriginalId(record.blobId);
+    try {
+      await localRepository.deleteImportedOriginal(record.blobId, {
+        sha256: record.sha256,
+        originalName: record.originalName,
+        projectGeoPdfIds: record.projectGeoPdfIds,
+        createdAt: record.createdAt,
+      });
+      await refresh();
+      setDeleteConfirmationOriginalId(null);
+      toast({ title: "Arquivo excluído do MarkMap", description: "Cópia offline e referências removidas deste dispositivo.", variant: "success" });
+    } catch (cause) {
+      toast({ title: "Exclusão não concluída", description: cause instanceof Error ? cause.message : "Falha no armazenamento.", variant: "error" });
+    } finally {
+      setBusyOriginalId(null);
+    }
+  };
+
+  const originalActions = (record: OriginalRecord) => (
+    <div className="flex min-w-0 flex-wrap items-center gap-2" role="group" aria-label={`Ações do arquivo ${record.originalName ?? record.blobId}`}>
+      {editingOriginalId === record.blobId ? (
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="text-sm font-medium">Novo nome do arquivo
+            <input type="text" maxLength={120} value={editingOriginalName}
+              onChange={(event) => setEditingOriginalName(event.target.value)}
+              className="mt-1 block min-h-[44px] min-w-0 rounded-lg border border-outline-variant bg-background px-3" />
+          </label>
+          <button type="button" disabled={Boolean(busyOriginalId)} onClick={() => void handleRenameOriginal(record)}
+            className="min-h-[44px] rounded-lg bg-secondary px-3 text-sm font-semibold text-on-secondary">Salvar nome</button>
+          <button type="button" disabled={Boolean(busyOriginalId)} onClick={() => setEditingOriginalId(null)}
+            className="min-h-[44px] rounded-lg border border-outline-variant px-3 text-sm">Cancelar</button>
+        </div>
+      ) : <button type="button" disabled={Boolean(busyOriginalId)}
+          onClick={() => { setEditingOriginalId(record.blobId); setEditingOriginalName(record.originalName ?? ""); setDeleteConfirmationOriginalId(null); }}
+          className="min-h-[44px] rounded-lg border border-outline-variant px-3 text-sm font-semibold"
+          aria-label={`Renomear ${record.originalName ?? record.blobId}`}>Renomear</button>}
+      {deleteConfirmationOriginalId === record.blobId ? (
+        <div className="flex w-full flex-wrap items-center gap-2" role="group" aria-label="Confirmação de exclusão">
+          <p className="w-full text-sm text-on-surface-variant">
+            Excluir do dispositivo remove a cópia offline deste arquivo, sua georreferência e sua visualização no mapa.
+            {record.projectGeoPdfIds?.length ? ` ${record.projectGeoPdfIds.length} projeto(s) perderão a associação ao GeoPDF.` : ""}
+            {" "}Projetos, pontos, fotos, backups exportados e o arquivo fora do aplicativo permanecem intactos.
+          </p>
+          <button type="button" disabled={Boolean(busyOriginalId)} onClick={() => void handleDeleteOriginal(record)}
+            className="min-h-[44px] rounded-lg border border-red-500 px-3 text-sm font-semibold text-red-600"
+            aria-label={`Confirmar exclusão de ${record.originalName ?? record.blobId}`}>Confirmar exclusão do dispositivo</button>
+          <button type="button" disabled={Boolean(busyOriginalId)} onClick={() => setDeleteConfirmationOriginalId(null)}
+            className="min-h-[44px] rounded-lg border border-outline-variant px-3 text-sm">Cancelar</button>
+        </div>
+      ) : <button type="button" disabled={Boolean(busyOriginalId)}
+          onClick={() => { setDeleteConfirmationOriginalId(record.blobId); setEditingOriginalId(null); }}
+          className="min-h-[44px] rounded-lg border border-red-500/30 px-3 text-sm font-semibold text-red-600"
+          aria-label={`Excluir ${record.originalName ?? record.blobId}`}>Excluir do dispositivo</button>}
+    </div>
+  );
+
   const handleExport = async (dataset: DatasetRecord, original = false) => {
     try {
       if (original) await exportDataset(dataset.id);
@@ -331,6 +412,7 @@ export default function ImportsPage() {
                       </button>
                       {deleteConfirmationId === dataset.id ? (
                         <>
+                          <p className="w-full text-xs text-on-surface-variant">A cópia local, geometria e visualização serão removidas do MarkMap. O arquivo fora do aplicativo permanece intacto.</p>
                           <button type="button" disabled={Boolean(busyDatasetId)}
                             onClick={() => void handleDelete(dataset)}
                             aria-label={`Confirmar exclusão de ${dataset.name}`}
@@ -414,10 +496,14 @@ export default function ImportsPage() {
           )}
         </div>
       </section>
-      {pdfs.map((pdf) => pdf.mediaType === "application/pdf" ? <PdfPreview key={pdf.blobId} record={pdf} /> : (
-        <div key={pdf.blobId} className="mt-3 flex items-center justify-between rounded-xl border border-outline-variant p-3">
-          <span className="text-sm font-semibold">{pdf.originalName ?? "GeoTIFF local"}</span>
-          <a href={`/workspace?geotiffId=${encodeURIComponent(pdf.blobId)}`} className="rounded-lg p-2 text-cyan-600" aria-label="Visualizar GeoTIFF">Visualizar</a>
+      {pdfs.map((pdf) => pdf.mediaType === "application/pdf" ?
+        <PdfPreview key={pdf.blobId} record={pdf} actions={originalActions(pdf)} /> : (
+        <div key={pdf.blobId} className="mt-3 rounded-xl border border-outline-variant p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-sm font-semibold">{pdf.originalName ?? "GeoTIFF local"}</span>
+            <a href={`/workspace?geotiffId=${encodeURIComponent(pdf.blobId)}`} className="min-h-[44px] rounded-lg border border-cyan-500/30 p-2 text-cyan-600" aria-label="Visualizar GeoTIFF">Visualizar</a>
+          </div>
+          <div className="mt-3">{originalActions(pdf)}</div>
         </div>
       ))}
     </div>

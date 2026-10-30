@@ -336,6 +336,64 @@ describe("local-first repository", () => {
   });
 });
 
+describe("ciclo de vida local GeoPDF/GeoTIFF", () => {
+  const source = new TextEncoder().encode("%PDF-1.4\noriginal\n%%EOF");
+  const blob = new Blob([source], { type: "application/pdf" });
+  const sha256Promise = crypto.subtle.digest("SHA-256", source).then((result) =>
+    [...new Uint8Array(result)].map((b) => b.toString(16).padStart(2, "0")).join(""));
+
+  it("renomeia sem mudar bytes, hash, workspace ou associação", async () => {
+    const repo = new LocalRepository(new MemoryLocalDb());
+    const sha256 = await sha256Promise;
+    await repo.saveOriginal({ blobId: "pdf-renomear", blob, mediaType: "application/pdf",
+      bytes: blob.size, sha256, originalName: "Antigo.pdf" });
+    await repo.renameImportedOriginal("pdf-renomear", "Novo", "Antigo.pdf");
+    const after = (await repo.getOriginal("pdf-renomear"))!;
+    expect(after.originalName).toBe("Novo.pdf");
+    expect(after.sha256).toBe(sha256);
+    expect(new Uint8Array(await readBlobBytes(after.blob))).toEqual(source);
+    await expect(repo.renameImportedOriginal("pdf-renomear", "Erro", "Antigo.pdf"))
+      .rejects.toThrow(/outra aba/);
+  });
+
+  it("exclui bytes e meta legados atomica e idempotentemente, sem remover outros arquivos", async () => {
+    const db = new MemoryLocalDb();
+    const repo = new LocalRepository(db);
+    const sha256 = await sha256Promise;
+    const record = (blobId: string) => ({ blobId, blob, mediaType: "application/pdf",
+      bytes: blob.size, sha256, originalName: `${blobId}.pdf` });
+    await repo.saveOriginal(record("pdf-excluir"));
+    await repo.saveOriginal(record("pdf-preservar"));
+    await repo.setMeta("pdfGeoref:pdf-excluir", { method: "manual" });
+    await repo.setMeta("pdfGeorefSource:pdf-excluir", { method: "manual" });
+    const expected = (await repo.getOriginal("pdf-excluir"))!;
+    db.failNextTransaction = true;
+    await expect(repo.deleteImportedOriginal("pdf-excluir", expected)).rejects.toThrow(/abortada/);
+    expect(await repo.getOriginal("pdf-excluir")).not.toBeNull();
+    expect(await repo.deleteImportedOriginal("pdf-excluir", expected)).toBe(true);
+    expect(await repo.deleteImportedOriginal("pdf-excluir", expected)).toBe(false);
+    expect(await repo.getOriginal("pdf-excluir")).toBeNull();
+    expect(await repo.getMeta("pdfGeoref:pdf-excluir")).toBeUndefined();
+    expect(await repo.getMeta("pdfGeorefSource:pdf-excluir")).toBeUndefined();
+    // A delayed preview calibration may not recreate orphaned metadata.
+    await expect(repo.setMeta("pdfGeoref:pdf-excluir", { method: "manual" }))
+      .rejects.toThrow(/excluído/);
+    expect(await repo.getMeta("pdfGeoref:pdf-excluir")).toBeUndefined();
+    expect(await repo.getOriginal("pdf-preservar")).not.toBeNull();
+  });
+
+  it("bloqueia exclusao com dados desatualizados ou tipo de foto", async () => {
+    const repo = new LocalRepository(new MemoryLocalDb());
+    const sha256 = await sha256Promise;
+    await repo.saveOriginal({ blobId: "pdf-stale", blob, mediaType: "application/pdf",
+      bytes: blob.size, sha256, originalName: "Atual.pdf" });
+    const current = (await repo.getOriginal("pdf-stale"))!;
+    await expect(repo.deleteImportedOriginal("pdf-stale", { ...current, originalName: "Anterior.pdf" }))
+      .rejects.toThrow(/outra aba/);
+    expect(await repo.getOriginal("pdf-stale")).not.toBeNull();
+  });
+});
+
 describe("GeoPDF vinculado ao projeto no IndexedDB", () => {
   it("associa GeoPDF e troca a seleção sem alterar os bytes ou outros projetos", async () => {
     const db = new MemoryLocalDb();
