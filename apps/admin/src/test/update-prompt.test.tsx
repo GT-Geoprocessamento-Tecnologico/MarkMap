@@ -4,7 +4,7 @@ import UpdatePrompt from '../components/pwa/UpdatePrompt';
 import { requestAppUpdate } from '../lib/pwa-update-request';
 
 beforeEach(() => {
-  delete (navigator as Navigator & {serviceWorker?: ServiceWorkerContainer}).serviceWorker;
+  Reflect.deleteProperty(navigator, 'serviceWorker');
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
