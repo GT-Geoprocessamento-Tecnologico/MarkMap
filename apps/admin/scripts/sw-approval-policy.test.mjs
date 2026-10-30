@@ -17,6 +17,8 @@ class LocalCache {
   }
   async put(request, response) { this.items.set(this.key(request), response.clone()); }
   async match(request) { return this.items.get(this.key(request))?.clone(); }
+  // One-time PWA recovery consent relies on Cache.delete on CacheStorage entries.
+  async delete(request) { return this.items.delete(this.key(request)); }
 }
 class LocalCaches {
   constructor(env) { this.env=env; this.stores=new Map(); this.deleted=[]; }
