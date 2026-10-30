@@ -14,11 +14,11 @@ Fonte da versão do aplicativo: `apps/admin/package.json`. Todos os agentes segu
 - Separar o deploy automático do servidor da atualização aprovada no dispositivo: o PWA fixa o app shell autorizado em CacheStorage e continua servindo a versão anterior mesmo após ativação natural de novo service worker.
 - Exigir clique em **Atualizar agora**, handshake de compatibilidade, barreira de transações IndexedDB e ausência de outras janelas antes de autorizar a troca do app shell.
 - Exibir a versão disponível mesmo com service worker já ativo, persistir a escolha **Depois** e nunca apagar mapas, backups, outbox ou caches de shell ainda aprovados durante a ativação.
-- Consultar `version.json` diretamente na rede, excluí-lo do precache e embutir versão/SHA no worker, preservando os assets estáticos aprovados.
+- Consultar `version.json` diretamente na rede, excluí-lo do precache e embutir só a versão no worker; o SHA permanece em `version.json` para evitar SW novo em commits apenas documentais.
 
 ### Validação
 
-- 15/15 testes isolados em Node.js do service worker e do gerador de manifesto PASS.
+- 13/13 testes isolados do service worker + 3/3 testes do gerador (incluindo deploy apenas documental) PASS; 5/5 testes isolados da política de basemap PASS.
 - 6/6 simulações isoladas dos estados da interface React PASS; checagem TypeScript estrita isolada do componente PASS.
 - `node --check` e transpile TSX isolado PASS.
 
