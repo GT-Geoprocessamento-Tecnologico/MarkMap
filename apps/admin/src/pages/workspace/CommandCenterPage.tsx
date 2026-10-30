@@ -37,6 +37,7 @@ import {
 } from "../../lib/datasets/dataset-store";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useCreateLayer, useProjectLayers } from "../../lib/hooks/layers";
+import { useProject } from "../../lib/hooks/projects";
 import { createLocalFeature } from "../../lib/hooks/features";
 import { localRepository } from "../../lib/local-repositories";
 import {
@@ -50,6 +51,7 @@ import { getSelectedOfflineMapId, setSelectedOfflineMapId, subscribeSelectedOffl
 import { subscribeRegionCatalogChanges } from "../../lib/storage/region-catalog-events.mjs";
 import { createRegionRevisionReconciler, subscribeRegionForeground } from "../../lib/storage/region-foreground-reconcile.mjs";
 import { createOfflineMapRecovery, resolveOfflineBasemap } from "../../lib/map/offline-map-recovery.mjs";
+import { resolveProjectMapRegion } from "../../lib/map/project-basemap-policy.mjs";
 import {
   createWebglContextRecovery,
   WEBGL_CONTEXT_LOST_MESSAGE,
@@ -75,6 +77,7 @@ import { OfflineRouting, type RoutePointSelection } from "../../components/map/O
 import { OfflineKnowledge } from "../../components/map/OfflineKnowledge";
 import { OfflineElevation } from "../../components/map/OfflineElevation";
 import { MapOfflinePanel } from "../../components/map/MapOfflinePanel";
+import { ProjectPointsPanel } from "../../components/map/ProjectPointsPanel";
 import { RegionDownloadCatalog } from "../../components/map/RegionDownloadCatalog";
 import { CarSummaryCard } from "../../components/map/CarSummaryCard";
 import { TrackRecordingOverlay } from "../../components/map/TrackRecordingOverlay";
@@ -118,7 +121,7 @@ function formatDistance(m: number) {
   return m >= 1000 ? `${(m / 1000).toFixed(2)} km` : `${m.toFixed(1)} m`;
 }
 
-type SidePanel = "none" | "ferramentas" | "filtros" | "camadas" | "telemetria"
+type SidePanel = "none" | "pontos" | "ferramentas" | "filtros" | "camadas" | "telemetria"
   | "busca-offline" | "lugares-offline" | "altitude-offline" | "navegacao-offline" | "baixar-mapas";
 type MapControls = Awaited<ReturnType<typeof createMapLibreMap>>;
 
@@ -167,7 +170,9 @@ export default function CommandCenterPage() {
   }, []);
   // A local georeferenced raster has precedence over region changes.
   const localRasterId = search.pdfId ?? search.geotiffId;
-  const activeRegionPackageId = localRasterId ? null : selectedOfflineMapId;
+  // Regional downloads supply searchable addresses and field data, not MapLibre tiles.
+  const mapRegionPolicy = resolveProjectMapRegion({ selectedOfflineMapId, localRasterId });
+  const activeRegionPackageId = mapRegionPolicy.searchRegionId;
   const regionalRenderRevision = localRasterId ? 0 : catalogRevision;
   // When a new region generation is committed during neutral mode, offer the
   // latest package again instead of indefinitely retaining an old fallback.
@@ -175,7 +180,7 @@ export default function CommandCenterPage() {
   // The neutral basemap is a temporary view choice, never an installed-package mutation.
   const [neutralFor, setNeutralFor] = useState<string | null>(null);
   const mapSource = resolveOfflineBasemap({
-    regionId: activeRegionPackageId, revision: regionalRenderRevision,
+    regionId: mapRegionPolicy.basemapRegionId, revision: regionalRenderRevision,
     neutralFor, geoPdfId: search.pdfId,
   });
   useEffect(() => {
@@ -184,6 +189,8 @@ export default function CommandCenterPage() {
       if (regionId === neutralRegionId) setCatalogRevision((value) => value + 1);
     });
   }, [mapSource.neutralActive, neutralRegionId]);
+  const activeProjectQuery = useProject(params.projectId ?? "");
+  const activeProjectName = activeProjectQuery.data?.name?.trim() || null;
   const createLayerMutation = useCreateLayer(params.projectId ?? "");
   const layersQuery = useProjectLayers(params.projectId ?? "", { limit: 100 });
   const projectLayers = useMemo(
@@ -1097,7 +1104,13 @@ export default function CommandCenterPage() {
           }
         })().catch(() => undefined); // Revoked sensor permission must not break the map.
       }
-      regionReconcilerRef.current?.noteRendered(selectedPackageId, displayedGeneration);
+      // Keep revision reconciliation for offline search even though MapLibre
+      // intentionally renders OpenFreeMap instead of downloaded PMTiles.
+      const searchRegionGeneration = activeRegionPackageId
+        ? (await offlineMapStore.getActiveRevision(activeRegionPackageId))?.generation ?? null
+        : null;
+      if (cancelled) return;
+      regionReconcilerRef.current?.noteRendered(activeRegionPackageId, searchRegionGeneration);
       // MapLibre emits these typed events from the underlying WebGL canvas.
       map.on("webglcontextlost", (event) => {
         if (cancelled) return;
@@ -1650,6 +1663,16 @@ export default function CommandCenterPage() {
         onToggleMute={boundaryGuard.toggleMute}
       />
 
+      {params.projectId && (
+        <div role="status" data-testid="active-project-indicator"
+          className="pointer-events-none absolute left-16 right-16 top-[calc(0.75rem+env(safe-area-inset-top))] z-10 mx-auto max-w-md min-w-0 rounded-lg border border-outline-variant bg-surface-container/95 px-3 py-2 text-center text-xs font-semibold text-on-surface shadow-md">
+          <span className="block break-words [overflow-wrap:anywhere]">
+            {activeProjectQuery.isError ? "Projeto indisponível" :
+              activeProjectName ? `Projeto: ${activeProjectName}` : "Carregando projeto…"}
+          </span>
+        </div>
+      )}
+
       {geoPdfMessage && (
         <p
           role="status"
@@ -1782,7 +1805,7 @@ export default function CommandCenterPage() {
       <FieldExportModal
         open={showExportModal}
         onClose={() => setShowExportModal(false)}
-        projectName={params.projectId}
+        projectName={activeProjectName ?? params.projectId}
         projectFeatures={projectFeatures}
         activeDrawingSession={drawingSession}
         activeTrackGeoJson={trackRecorder.liveGeoJson}
@@ -1867,6 +1890,13 @@ export default function CommandCenterPage() {
           icon="point"
           label="Adicionar ponto"
           color="cyan"
+        />
+        <ToolBtn
+          active={sidePanel === "pontos"}
+          onClick={() => togglePanel("pontos")}
+          icon="point"
+          label="Gerenciar pontos"
+          color="blue"
         />
         <ToolBtn
           active={drawingSession?.type === "LineString"}
@@ -1969,7 +1999,7 @@ export default function CommandCenterPage() {
             <span className="text-on-surface font-bold text-base flex items-center gap-2">
               <AppIcon
                 name={
-                  sidePanel === "telemetria"
+                  sidePanel === "pontos" ? "point" : sidePanel === "telemetria"
                     ? "telemetry"
                     : sidePanel === "camadas"
                       ? "layers"
@@ -1979,7 +2009,7 @@ export default function CommandCenterPage() {
                 }
                 size="md"
               />
-              {sidePanel === "telemetria"
+              {sidePanel === "pontos" ? "Pontos do projeto" : sidePanel === "telemetria"
                 ? "Telemetria"
                 : sidePanel === "camadas"
                   ? "Camadas"
@@ -1995,6 +2025,19 @@ export default function CommandCenterPage() {
               <AppIcon name="close" size="sm" />
             </button>
           </div>
+
+          {sidePanel === "pontos" && (
+            <ProjectPointsPanel
+              key={params.projectId ?? "sem-projeto"}
+              projectId={params.projectId ?? ""}
+              features={projectFeatures}
+              onLocate={(coordinates) => {
+                const map = mapRef.current;
+                if (map) map.flyTo({ center: coordinates, zoom: Math.max(15, map.getZoom()) });
+              }}
+              onChanged={async () => { await featuresQuery.refetch(); }}
+            />
+          )}
 
           {/* Conteúdo: TELEMETRIA */}
           {sidePanel === "telemetria" && (
