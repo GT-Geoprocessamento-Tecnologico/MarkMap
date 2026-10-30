@@ -932,7 +932,10 @@ export default function CommandCenterPage() {
       }
 
       if (effectivePdfId) {
-        // GeoPDF is a positioned raster overlay, never a replacement basemap.
+        try {
+          // GeoPDF is an optional project layer. If it is missing/corrupt,
+          // the MapLibre basemap and offline field features must still open.
+          // GeoPDF is a positioned raster overlay, never a replacement basemap.
         // Keep online vector streets around the image; offline still uses the
         // existing fallback when tiles are unavailable.
         const record = await localRepository.getOriginal(effectivePdfId);
@@ -962,6 +965,13 @@ export default function CommandCenterPage() {
           setGeoPdfMessage(
             resolved.reason ??
               "Este PDF precisa ser posicionado manualmente antes de aparecer no mapa.",
+          );
+        }
+        } catch {
+          try { geoPdfOverlay?.release(); } catch { /* best-effort cleanup */ }
+          geoPdfOverlay = null;
+          if (!cancelled) setGeoPdfMessage(
+            "GeoPDF indisponível. Confira o arquivo em Importações; o mapa principal continua operacional.",
           );
         }
       }
