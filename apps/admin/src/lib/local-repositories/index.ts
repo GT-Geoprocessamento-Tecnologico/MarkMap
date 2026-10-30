@@ -799,8 +799,8 @@ export class LocalRepository {
       return {
         key: originalKey(workspaceId, photo.blobId), workspaceId,
         blobId: photo.blobId, mediaType: photo.mediaType, bytes: photo.bytes,
-        sha256: hash, originalName: photo.originalName, createdAt: photo.createdAt,
-        pointPhoto: photo.pointPhoto!, originalBytes: bytes,
+        sha256: hash, ...(photo.originalName === undefined ? {} : { originalName: photo.originalName }),
+        createdAt: photo.createdAt, pointPhoto: photo.pointPhoto!, originalBytes: bytes,
       } satisfies StoredOriginal;
     }));
     return this.db.transact(["originals", "entities"], "readwrite", async (tx) => {
