@@ -4,6 +4,14 @@ Fonte da versão do aplicativo: `apps/admin/package.json`. Todos os agentes segu
 
 ## [0.5.18] - 2026-10-29
 
+### QA estático A166 (candidata não publicada)
+
+- Corrigida assinatura TypeScript da restauração de fotos para incluir a quantidade de órfãs, compatível com a interface.
+- Restauração idempotente agora compara bytes originais de fotos já existentes, recusando divergências sem sobrescrever dados.
+- Exportação integral das fotos ignora originais GeoPDF/GeoTIFF não relacionados danificados, mas falha se qualquer foto vinculada estiver inválida.
+- MapLibre continua operacional mesmo que a camada GeoPDF esteja corrompida/ausente; seleção de PDFs por projeto ignora erros em outros formatos.
+- Testes Vitest adicionados para bytes adulterados, original não relacionado danificado e seleção de GeoPDF com outro arquivo ilegível. **QA integral não executado neste ambiente.**
+
 ### GeoPDF por projeto + backup completo das fotos (candidata, QA integrado pendente)
 
 - GeoPDF associado ao projeto salvo no IndexedDB junto ao PDF original, reaberto ao entrar no mapa; seletor, ocultação, transparência e referência geográfica local preservados no backup parcial quando couber.
