@@ -38,14 +38,14 @@ const sameKey = (left: unknown, right: unknown): boolean => {
 class MemoryStore {
   constructor(private readonly rows: Map<string, Row>) {}
 
+  count(): RequestLike<number> {
+    return new Request(this.rows.size) as unknown as RequestLike<number>;
+  }
+
   get(key: string): RequestLike<Row | undefined> {
     return new Request(this.rows.get(key)) as unknown as RequestLike<
       Row | undefined
     >;
-  }
-
-  count(): RequestLike<number> {
-    return new Request(this.rows.size) as unknown as RequestLike<number>;
   }
 
   put(value: Row): void {
