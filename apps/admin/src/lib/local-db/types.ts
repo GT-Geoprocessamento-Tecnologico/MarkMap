@@ -24,6 +24,8 @@ export type OriginalRecord = {
   bytes: number;
   sha256: string;
   originalName?: string;
+  /** Local-only point attachment; kept with bytes in encrypted workspace backups. */
+  pointPhoto?: { projectId: string; layerId: string; featureId: string };
   createdAt: string;
 };
 

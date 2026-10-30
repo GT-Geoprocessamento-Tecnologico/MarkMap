@@ -4,6 +4,13 @@ Fonte da versão do aplicativo: `apps/admin/package.json`. Todos os agentes segu
 
 ## [0.5.18] - 2026-10-29
 
+### Fotos privadas dos pontos — candidata offline-first
+
+- Câmera e galeria no formulário de pontos; imagens convertidas para JPEG sem EXIF, limitadas a 1,5 MB e 5 por ponto, com prévia e exclusão confirmada.
+- Os originais permanecem no IndexedDB do workspace e podem integrar o backup criptografado parcial (limite total de 16 MiB); sincronização remota de fotos continua fora do escopo e não é prometida.
+- Backup/restauração aceitam somente formatos binários permitidos, assinatura de imagem e SHA-256 íntegros, preservando PDFs/GeoTIFF existentes.
+- O limite total temporário de fotos por workspace é de 6 MB para reduzir o risco de exceder o backup parcial. QA integral e teste físico ainda pendentes.
+
 ### Continuidade da candidata (sem publicação)
 
 - T06: toque no ponto de campo abre ficha de gerenciamento, com seleção protegida por ID do projeto; marcadores importados mantêm a leitura e pontos salvos continuam visíveis ao ocultar datasets.

@@ -17,6 +17,7 @@ import {
 import { validateBackupManifest } from "./manifest";
 import { LOCAL_FIRST_DATA_STORES, type PortableLocalFirstSnapshot } from "./snapshot";
 import { inspectPendingSnapshot } from "./validation";
+import { isPhotoMediaType, isSupportedBackupOriginalMediaType, validatePhotoBytes, validatePhotoOriginalMetadata } from "../photo/point-photo-policy.mjs";
 
 export function fromBase64(encoded: string): Uint8Array {
   const decoded = atob(encoded);
@@ -69,7 +70,7 @@ export interface RestoreResult {
   };
 }
 
-/** Hash all PDFs before a readwrite transaction; WebCrypto awaits can close IDB transactions. */
+/** Hash all local originals before a readwrite transaction; WebCrypto awaits can close IDB transactions. */
 async function prepareOriginals(
   snapshot: PortableLocalFirstSnapshot,
 ): Promise<Record<string, unknown>[]> {
@@ -89,10 +90,12 @@ async function prepareOriginals(
     }
     const bytes = fromBase64(originalBytesBase64);
     if (metadata.bytes !== bytes.byteLength ||
-      metadata.mediaType !== "application/pdf" ||
+      !isSupportedBackupOriginalMediaType(metadata.mediaType) ||
       typeof metadata.sha256 !== "string") {
       throw new Error("Original com metadados binários inconsistentes.");
     }
+    validatePhotoOriginalMetadata(metadata);
+    if (isPhotoMediaType(metadata.mediaType)) validatePhotoBytes(metadata.mediaType, bytes);
     if (await digestHex(bytes) !== metadata.sha256.toLowerCase()) {
       throw new Error(`SHA-256 do original "${String(metadata.blobId)}" corrompido no snapshot.`);
     }

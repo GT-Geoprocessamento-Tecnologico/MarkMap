@@ -101,6 +101,55 @@ describe('T3a: exportacao criptografada do workspace (sem escrita local)', () =>
     expect(Uint8Array.from(fromBase64(snapshot.stores.originals[0].originalBytesBase64))).toEqual(Uint8Array.from(pdf));
   });
 
+  it('protege foto JPEG do ponto no backup criptografado e no restore', async () => {
+    const data = input();
+    const photo = new Uint8Array([255, 216, 255, 224, 0, 10, 20, 30]);
+    const link = {
+      projectId: '11111111-1111-4111-8111-111111111111',
+      featureId: '22222222-2222-4222-8222-222222222222',
+      layerId: '33333333-3333-4333-8333-333333333333',
+    };
+    data.stores.originals.push({
+      key: `${data.workspaceId}:photo1`, workspaceId: data.workspaceId,
+      blobId: 'photo1', mediaType: 'image/jpeg', bytes: photo.byteLength,
+      sha256: await digestHex(photo), originalName: 'foto.jpg', pointPhoto: link,
+      originalBytes: photo.buffer,
+    });
+    const exported = await exportTest(data);
+    const dry = await dryRunRestore(exported.bytes, passphrase);
+    const row = dry.snapshot.stores.originals[0];
+    expect(row.pointPhoto).toEqual(link);
+    expect(Uint8Array.from(fromBase64(String(row.originalBytesBase64)))).toEqual(photo);
+    const destination = new MemoryLocalDb();
+    await restoreWorkspaceSnapshot(dry.snapshot, destination, { confirmed: true });
+    const restored = await destination.transact(['originals'], 'readonly', (tx) =>
+      new Promise<Record<string, unknown> | undefined>((resolve, reject) => {
+        const request = tx.store('originals').get(`${data.workspaceId}:photo1`);
+        request.onsuccess = () => resolve(request.result as Record<string, unknown> | undefined);
+        request.onerror = () => reject(request.error);
+      }),
+    );
+    expect(restored?.pointPhoto).toEqual(link);
+    expect(new Uint8Array(restored?.originalBytes as ArrayBuffer)).toEqual(photo);
+  });
+
+  it('rejeita foto com assinatura inválida ou sem vínculo com ponto', async () => {
+    const data = input();
+    const jpeg = new Uint8Array([255, 216, 255, 224, 3]);
+    const record = {
+      key: `${data.workspaceId}:photo2`, workspaceId: data.workspaceId,
+      blobId: 'photo2', mediaType: 'image/jpeg', bytes: jpeg.byteLength,
+      sha256: await digestHex(jpeg), originalBytes: jpeg.buffer,
+      pointPhoto: { projectId: data.workspaceId, layerId: '33333333-3333-4333-8333-333333333333' },
+    };
+    data.stores.originals.push(record);
+    await expect(exportTest(data)).rejects.toThrow(/vínculo/i);
+    record.pointPhoto = { projectId: data.workspaceId, layerId: '33333333-3333-4333-8333-333333333333', featureId: '22222222-2222-4222-8222-222222222222' };
+    record.originalBytes = new Uint8Array([0, 1, 2, 3, 4]).buffer;
+    record.sha256 = await digestHex(new Uint8Array(record.originalBytes));
+    await expect(exportTest(data)).rejects.toThrow(/JPEG inválida/i);
+  });
+
   it('exporta PDF legado quando Blob.arrayBuffer nao existe (WebKit)', async () => {
     const data = input();
     const pdf = new TextEncoder().encode('%PDF-1.4\nlegado\n%%EOF');

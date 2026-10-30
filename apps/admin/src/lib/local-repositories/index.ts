@@ -20,6 +20,10 @@ import {
   type OutboxRecord,
 } from "../local-db";
 import { readBlobBytes } from "../blob-bytes";
+import {
+  isPhotoMediaType, isSupportedBackupOriginalMediaType,
+  validPointPhotoLink, validatePhotoBytes, validatePhotoOriginalMetadata,
+} from "../photo/point-photo-policy.mjs";
 
 type BootstrapIdentity = { installationId: string; bootstrapProof: string };
 
@@ -32,7 +36,8 @@ function restoreOriginal(record: StoredOriginal): OriginalRecord {
   const blob = record.blob instanceof Blob ? record.blob
     : originalBytes instanceof ArrayBuffer ? new Blob([originalBytes], { type: record.mediaType }) : null;
   if (!blob || blob.size !== record.bytes || blob.size < 1 || blob.size > 25 * 1024 * 1024)
-    throw new Error('Os bytes do PDF original não estão disponíveis ou estão incompletos.');
+    throw new Error('Os bytes do arquivo original não estão disponíveis ou estão incompletos.');
+  validatePhotoOriginalMetadata(record);
   return { ...metadata, blob };
 }
 
@@ -607,8 +612,9 @@ export class LocalRepository {
     input: Omit<OriginalRecord, "key" | "workspaceId" | "createdAt">,
   ): Promise<void> {
     const { blob, ...metadata } = input;
-    if (input.mediaType !== "application/pdf" && input.mediaType !== "image/tiff")
-      throw new Error("O original local deve ser um PDF ou GeoTIFF.");
+    if (!isSupportedBackupOriginalMediaType(input.mediaType))
+      throw new Error("O original local deve ser PDF, GeoTIFF ou foto JPEG/PNG/WebP.");
+    validatePhotoOriginalMetadata(input);
     if (
       !(blob instanceof Blob) ||
       blob.size < 1 ||
@@ -628,7 +634,9 @@ export class LocalRepository {
       .map((byte) => byte.toString(16).padStart(2, "0"))
       .join("");
     if (actualHash.toLowerCase() !== input.sha256.toLowerCase())
-      throw new Error("SHA-256 do PDF original não confere.");
+      throw new Error("SHA-256 do arquivo original não confere.");
+    if (isPhotoMediaType(input.mediaType))
+      validatePhotoBytes(input.mediaType, new Uint8Array(bytes));
     const workspaceId = await this.workspaceId();
     const record: StoredOriginal = {
       ...metadata,
@@ -637,7 +645,20 @@ export class LocalRepository {
       workspaceId,
       createdAt: now(),
     };
-    await this.db.transact(["originals"], "readwrite", async (tx) => {
+    await this.db.transact(input.pointPhoto ? ["originals", "entities"] : ["originals"], "readwrite", async (tx) => {
+      if (input.pointPhoto) {
+        const link = input.pointPhoto;
+        const [feature, layer] = await Promise.all([
+          read<EntityRecord | undefined>(tx.store("entities").get(entityKey(workspaceId, "feature", link.featureId))),
+          read<EntityRecord | undefined>(tx.store("entities").get(entityKey(workspaceId, "layer", link.layerId))),
+        ]);
+        if (!feature || feature.deleted || feature.payload?.entity !== "feature" ||
+            feature.payload.data.layerId !== link.layerId ||
+            !layer || layer.deleted || layer.payload?.entity !== "layer" ||
+            layer.payload.data.projectId !== link.projectId) {
+          throw new Error("O ponto não pertence a este projeto/camada ou foi excluído.");
+        }
+      }
       const current = await read<StoredOriginal | undefined>(
         tx.store("originals").get(record.key),
       );
@@ -645,7 +666,8 @@ export class LocalRepository {
         if (
           current.mediaType === record.mediaType &&
           current.bytes === record.bytes &&
-          current.sha256.toLowerCase() === record.sha256.toLowerCase()
+          current.sha256.toLowerCase() === record.sha256.toLowerCase() &&
+          JSON.stringify(current.pointPhoto ?? null) === JSON.stringify(record.pointPhoto ?? null)
         )
           return;
         throw new Error(
@@ -677,6 +699,23 @@ export class LocalRepository {
       ),
     );
     return records.map(restoreOriginal);
+  }
+
+  /** Only delete a photo after verifying its workspace and exact point association. */
+  async deletePointPhoto(
+    blobId: string,
+    link: { projectId: string; layerId: string; featureId: string },
+  ): Promise<void> {
+    if (!validPointPhotoLink(link)) throw new Error("Referência de ponto inválida.");
+    const workspaceId = await this.workspaceId();
+    await this.db.transact(["originals"], "readwrite", async (tx) => {
+      const key = originalKey(workspaceId, blobId);
+      const record = await read<StoredOriginal | undefined>(tx.store("originals").get(key));
+      if (!record || !isPhotoMediaType(record.mediaType) ||
+          JSON.stringify(record.pointPhoto ?? null) !== JSON.stringify(link))
+        throw new Error("Foto não pertence ao ponto deste workspace.");
+      tx.store("originals").delete(key);
+    });
   }
 
   async saveConflict(conflict: SyncConflict): Promise<void> {

@@ -1,6 +1,7 @@
 import { LOCAL_DB_NAME, LOCAL_DB_VERSION } from '../local-db/types';
 import { digestHex } from './crypto';
 import { readBlobBytes } from '../blob-bytes';
+import { isPhotoMediaType, isSupportedBackupOriginalMediaType, validatePhotoBytes, validatePhotoOriginalMetadata } from '../photo/point-photo-policy.mjs';
 
 /** T3a is deliberately memory-bounded. T3b will add cross-database streaming. */
 export const MAX_LOCAL_FIRST_SNAPSHOT_BYTES = 16 * 1024 * 1024;
@@ -87,7 +88,7 @@ function storedSize(value: unknown, store: DataStore): number {
   const rawBytes = toUint8Array(value.originalBytes);
   const legacyBlob = value.blob instanceof Blob ? value.blob : null;
   const size = rawBytes ? rawBytes.byteLength : legacyBlob ? legacyBlob.size : -1;
-  if (size < 1) throw new Error('PDF original sem bytes recuperaveis.');
+  if (size < 1) throw new Error('Arquivo original sem bytes recuperaveis.');
   const { originalBytes: _originalBytes, blob: _blob, ...metadata } = value;
   return size * 2 + JSON.stringify(metadata).length * 3;
 }
@@ -202,11 +203,13 @@ async function portableOriginal(value: Record<string, unknown>): Promise<Record<
   const raw = toUint8Array(originalBytes);
   if ((blob !== undefined && !legacyBlob) || (originalBytes !== undefined && !raw))
     throw new Error('Original com armazenamento binario desconhecido.');
-  if (!legacyBlob && !raw) throw new Error('PDF original sem bytes recuperaveis.');
+  if (!legacyBlob && !raw) throw new Error('Arquivo original sem bytes recuperaveis.');
   const bytes = raw ?? Uint8Array.from(new Uint8Array(await readBlobBytes(legacyBlob!)));
-  if (bytes.byteLength !== metadata.bytes || metadata.mediaType !== 'application/pdf' ||
+  if (bytes.byteLength !== metadata.bytes || !isSupportedBackupOriginalMediaType(metadata.mediaType) ||
       typeof metadata.sha256 !== 'string' || !/^[a-f0-9]{64}$/i.test(metadata.sha256))
-    throw new Error('PDF original com metadados inconsistentes.');
+    throw new Error('Arquivo original com metadados inconsistentes.');
+  validatePhotoOriginalMetadata(metadata);
+  if (isPhotoMediaType(metadata.mediaType)) validatePhotoBytes(metadata.mediaType, bytes);
   if (legacyBlob && legacyBlob.size !== bytes.byteLength)
     throw new Error('Representacoes do PDF original divergem.');
   const hash = await digestHex(bytes);

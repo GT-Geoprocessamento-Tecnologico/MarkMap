@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ProjectPointPhotos } from "../../lib/photo/ProjectPointPhotos";
 import type { ProjectMapFeature } from "../../pages/workspace/map-data";
 import {
   deleteLocalFeature,
@@ -108,7 +109,7 @@ export function ProjectPointsPanel({
       setSelectedId(null);
       setOpenedSnapshot(null);
       setConfirmDelete(false);
-      setNotice("Ponto excluído; alteração registrada para sincronização.");
+      setNotice("Ponto excluído; alteração registrada para sincronização. Fotos já anexadas permanecem armazenadas para evitar perda involuntária.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Não foi possível excluir o ponto.");
     } finally {
@@ -189,6 +190,11 @@ export function ProjectPointsPanel({
                   </>
                 )}
               </div>
+              <ProjectPointPhotos
+                key={String(selected.id)}
+                link={{ projectId, layerId: selected.layerId, featureId: String(selected.id) }}
+                onVerify={async () => { await latestPoint(); }}
+              />
             </div>
           )}
           {notice && <p role="status" className="break-words text-sm text-secondary">{notice}</p>}
