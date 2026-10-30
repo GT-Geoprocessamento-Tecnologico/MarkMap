@@ -817,6 +817,19 @@ export class LocalRepository {
               current.bytes !== row.bytes || !samePhotoLink(current.pointPhoto, row.pointPhoto) ||
               current.mediaType !== row.mediaType)
             throw new Error("Foto local com o mesmo ID e conteúdo diferente. Restauração cancelada.");
+          // Metadata alone is not proof that bytes remain intact on device.
+          // Compare the immutable local binary synchronously *inside* the
+          // IndexedDB transaction; do not await crypto here (WebKit auto-commits).
+          const stored = current.originalBytes;
+          const incoming = row.originalBytes;
+          if (!(stored instanceof ArrayBuffer) || !(incoming instanceof ArrayBuffer)) {
+            throw new Error("Foto existente sem bytes verificáveis; restauração cancelada para evitar perda.");
+          }
+          const left = new Uint8Array(stored);
+          const right = new Uint8Array(incoming);
+          if (left.byteLength !== right.byteLength || left.some((byte, i) => byte !== right[i])) {
+            throw new Error("Foto existente com bytes diferentes dos metadados; restauração cancelada.");
+          }
           unchanged++;
         } else added.push(row);
       }

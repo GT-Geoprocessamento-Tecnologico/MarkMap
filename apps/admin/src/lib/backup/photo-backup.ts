@@ -237,7 +237,7 @@ export async function inspectFullPointPhotoBackup(
 
 export async function restoreFullPointPhotoBackup(
   archiveBytes: Uint8Array, passphrase: string, repo: LocalRepository = localRepository,
-): Promise<{ added: number; unchanged: number; count: number }> {
+): Promise<{ added: number; unchanged: number; orphaned: number; count: number }> {
   const inspected = await inspectFullPointPhotoBackup(archiveBytes, passphrase);
   const result = await repo.restorePointPhotosAtomically(inspected.workspaceId, inspected.originals);
   return { ...result, count: inspected.count };

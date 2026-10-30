@@ -74,6 +74,22 @@ describe("backup integral de fotos por workspace", () => {
       new LocalRepository(new MemoryLocalDb()))).rejects.toThrow(/Workspace/);
   });
 
+  it("recusa imagem local com mesmos metadados mas bytes divergentes, sem sobrescrever", async () => {
+    const { db, repository, workspaceId } = await fixture();
+    const exported = await exportFullPointPhotoBackup(PASSWORD, repository);
+    await db.transact(["originals"], "readwrite", (tx) => {
+      const store = tx.store("originals");
+      const key = `${workspaceId}:photo-1`;
+      const request = store.get(key);
+      request.onsuccess = () => {
+        const record = request.result as Record<string, unknown>;
+        store.put({ ...record, originalBytes: new Uint8Array([255, 216, 255, 224, 9, 8, 7, 6]).buffer });
+      };
+    });
+    await expect(restoreFullPointPhotoBackup(exported.bytes, PASSWORD, repository))
+      .rejects.toThrow(/bytes diferentes/);
+  });
+
   it("preserva a foto como órfã quando o ponto foi excluído, sem reatribuir vínculo", async () => {
     const { db, repository, workspaceId, link } = await fixture();
     const exported = await exportFullPointPhotoBackup(PASSWORD, repository);
