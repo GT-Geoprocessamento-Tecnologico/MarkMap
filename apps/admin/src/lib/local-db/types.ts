@@ -1,4 +1,4 @@
-import type { SyncConflict, SyncEntity, SyncEntityPayload, SyncOperation } from "@markmap/contracts";
+import type { GeoReference, SyncConflict, SyncEntity, SyncEntityPayload, SyncOperation } from "@markmap/contracts";
 
 export const LOCAL_DB_NAME = "GeoNexoLocalFirstDB";
 export const LOCAL_DB_VERSION = 2;
@@ -26,6 +26,9 @@ export type OriginalRecord = {
   originalName?: string;
   /** Local-only point attachment; kept with bytes in encrypted workspace backups. */
   pointPhoto?: { projectId: string; layerId: string; featureId: string };
+  /** Project associations are stored with PDF bytes so encrypted backups preserve them. */
+  projectGeoPdfIds?: string[];
+  geoPdfReference?: GeoReference;
   createdAt: string;
 };
 

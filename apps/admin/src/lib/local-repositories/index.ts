@@ -20,6 +20,8 @@ import {
   type OutboxRecord,
 } from "../local-db";
 import { readBlobBytes } from "../blob-bytes";
+import { geoReferenceSchema, type GeoReference } from "@markmap/contracts";
+import { assignedProjectGeoPdf, assertGeoPdfProjectIds, reassignProjectGeoPdf } from "../pdf/project-geopdf-link.mjs";
 import {
   MAX_POINT_PHOTOS, MAX_WORKSPACE_POINT_PHOTO_BYTES,
   isPhotoMediaType, isSupportedBackupOriginalMediaType,
@@ -622,6 +624,12 @@ export class LocalRepository {
     if (!isSupportedBackupOriginalMediaType(input.mediaType))
       throw new Error("O original local deve ser PDF, GeoTIFF ou foto JPEG/PNG/WebP.");
     validatePhotoOriginalMetadata(input);
+    if (input.projectGeoPdfIds !== undefined || input.geoPdfReference !== undefined) {
+      if (input.mediaType !== "application/pdf")
+        throw new Error("Associações ou georreferência exigem PDF.");
+      assertGeoPdfProjectIds(input.projectGeoPdfIds);
+      if (input.geoPdfReference !== undefined) geoReferenceSchema.parse(input.geoPdfReference);
+    }
     if (
       !(blob instanceof Blob) ||
       blob.size < 1 ||
@@ -721,6 +729,41 @@ export class LocalRepository {
       ),
     );
     return records.map(restoreOriginal);
+  }
+
+  /** Link project overlays in the PDF original metadata so encrypted backups
+   * restore the association and original binary without relying on meta keys. */
+  async getProjectGeoPdf(projectId: string): Promise<OriginalRecord | null> {
+    return assignedProjectGeoPdf(await this.listOriginals(), projectId);
+  }
+
+  async assignProjectGeoPdf(projectId: string, blobId: string | null): Promise<void> {
+    const workspaceId = await this.workspaceId();
+    await this.db.transact(["entities", "originals"], "readwrite", async (tx) => {
+      const project = await read<EntityRecord | undefined>(
+        tx.store("entities").get(entityKey(workspaceId, "project", projectId)),
+      );
+      if (!project || project.deleted || project.payload?.entity !== "project")
+        throw new Error("Projeto local não encontrado neste workspace.");
+      const originals = tx.store("originals");
+      const rows = await read<StoredOriginal[]>(originals.index("workspace").getAll(workspaceId));
+      const updated = reassignProjectGeoPdf(rows, projectId, blobId);
+      for (let i = 0; i < rows.length; i++) {
+        if (updated[i] !== rows[i]) originals.put(updated[i]!);
+      }
+    });
+  }
+
+  async saveGeoPdfReference(blobId: string, reference: GeoReference): Promise<void> {
+    const parsed = geoReferenceSchema.parse(reference);
+    const workspaceId = await this.workspaceId();
+    await this.db.transact(["originals"], "readwrite", async (tx) => {
+      const store = tx.store("originals");
+      const record = await read<StoredOriginal | undefined>(store.get(originalKey(workspaceId, blobId)));
+      if (!record || record.mediaType !== "application/pdf")
+        throw new Error("GeoPDF original não encontrado.");
+      store.put({ ...record, geoPdfReference: parsed });
+    });
   }
 
   /** Only delete a photo after verifying its workspace and exact point association. */

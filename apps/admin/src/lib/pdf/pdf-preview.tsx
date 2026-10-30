@@ -264,9 +264,9 @@ export function PdfPreview({ record }: { record: OriginalRecord }) {
     ])
       .then(([stored, source, embedded]) => {
         if (disposed) return;
-        setStoredReference(stored ?? null);
+        setStoredReference(record.geoPdfReference ?? stored ?? null);
         setStoredReferenceSource(
-          source ?? (stored ? { method: "manual" } : null),
+          source ?? (record.geoPdfReference || stored ? { method: "manual" } : null),
         );
         setEmbeddedReference(embedded.reference);
       })
@@ -350,7 +350,7 @@ export function PdfPreview({ record }: { record: OriginalRecord }) {
             );
           const hasEmbeddedMetadata =
             (inspectionResult?.pages[0]?.viewports.length ?? 0) > 0;
-          if (!existingReference && !hasEmbeddedMetadata) {
+          if (!existingReference && !record.geoPdfReference && !hasEmbeddedMetadata) {
             const samples = await textSamplesForPage(page);
             const automatic = autoCalibrateFromText(samples, {
               pageIndex: 0,
@@ -363,6 +363,7 @@ export function PdfPreview({ record }: { record: OriginalRecord }) {
                 variant: automatic.method!,
                 confidence: automatic.confidence,
               };
+              await localRepository.saveGeoPdfReference(record.blobId, automatic.reference);
               await localRepository.setMeta(
                 referenceKey(record.blobId),
                 automatic.reference,
@@ -514,6 +515,7 @@ export function PdfPreview({ record }: { record: OriginalRecord }) {
     }
     try {
       const reference = createManualReference(calibration, geometry);
+      await localRepository.saveGeoPdfReference(record.blobId, reference);
       await localRepository.setMeta(referenceKey(record.blobId), reference);
       await localRepository.setMeta(referenceSourceKey(record.blobId), {
         method: "manual",
