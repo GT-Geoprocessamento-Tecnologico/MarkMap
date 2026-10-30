@@ -374,6 +374,37 @@ describe("GeoPDF vinculado ao projeto no IndexedDB", () => {
     await expect(repo.assignProjectGeoPdf("sem-projeto", "a")).rejects.toThrow();
   });
 
+  it("lê GeoPDF associado mesmo quando um GeoTIFF não relacionado está sem bytes", async () => {
+    const db = new MemoryLocalDb();
+    const repo = new LocalRepository(db);
+    const workspaceId = await repo.workspaceId();
+    await db.transact(["entities"], "readwrite", (tx) => {
+      tx.store("entities").put({
+        key: `${workspaceId}:project:${id}`, workspaceId,
+        entity: "project", entityId: id, deleted: false,
+        payload: { entity: "project", data: { id, name: "Campo" } },
+      });
+    });
+    const bytes = new TextEncoder().encode("%PDF-1.4\\n%%EOF");
+    const hash = [...new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))]
+      .map((n) => n.toString(16).padStart(2, "0")).join("");
+    await repo.saveOriginal({
+      blobId: "valid-pdf", mediaType: "application/pdf",
+      blob: new Blob([bytes], { type: "application/pdf" }),
+      bytes: bytes.length, sha256: hash,
+    });
+    await repo.assignProjectGeoPdf(id, "valid-pdf");
+    await db.transact(["originals"], "readwrite", (tx) => {
+      tx.store("originals").put({
+        key: `${workspaceId}:corrupt-tiff`, workspaceId,
+        blobId: "corrupt-tiff", mediaType: "image/tiff", bytes: 50,
+        sha256: "0".repeat(64), createdAt: new Date().toISOString(),
+      });
+    });
+    await expect(repo.listOriginals()).rejects.toThrow(/bytes/);
+    expect((await repo.getProjectGeoPdf(id))?.blobId).toBe("valid-pdf");
+  });
+
   it("mantém o vínculo após reimportação idempotente do PDF original", async () => {
     const db = new MemoryLocalDb();
     const repo = new LocalRepository(db);

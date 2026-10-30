@@ -749,10 +749,23 @@ export class LocalRepository {
       .map(restoreOriginal);
   }
 
+  /**
+   * Read only PDF originals for map selection. Corrupt unrelated GeoTIFFs or
+   * photos must not prevent opening a georeferenced project PDF.
+   */
+  async listGeoPdfOriginals(): Promise<OriginalRecord[]> {
+    const workspaceId = await this.workspaceId();
+    const rows = await this.db.transact(["originals"], "readonly", (tx) =>
+      read<StoredOriginal[]>(tx.store("originals").index("workspace").getAll(workspaceId)),
+    );
+    return rows.filter((record) => record.mediaType === "application/pdf")
+      .map(restoreOriginal);
+  }
+
   /** Link project overlays in the PDF original metadata so encrypted backups
    * restore the association and original binary without relying on meta keys. */
   async getProjectGeoPdf(projectId: string): Promise<OriginalRecord | null> {
-    return assignedProjectGeoPdf(await this.listOriginals(), projectId);
+    return assignedProjectGeoPdf(await this.listGeoPdfOriginals(), projectId);
   }
 
   async assignProjectGeoPdf(projectId: string, blobId: string | null): Promise<void> {

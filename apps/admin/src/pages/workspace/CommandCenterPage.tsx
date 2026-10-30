@@ -212,7 +212,7 @@ export default function CommandCenterPage() {
     setProjectPdfVisible(true);
     setProjectPdfError(null);
     if (!params.projectId) return;
-    void Promise.all([localRepository.getProjectGeoPdf(params.projectId), localRepository.listOriginals()])
+    void Promise.all([localRepository.getProjectGeoPdf(params.projectId), localRepository.listGeoPdfOriginals()])
       .then(([association, originals]) => {
         if (disposed) return;
         setProjectPdfId(association?.blobId ?? null);
