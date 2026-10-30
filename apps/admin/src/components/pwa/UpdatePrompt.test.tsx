@@ -1,247 +1,141 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
-import { requestAppUpdate } from "../../lib/pwa-update-request";
-import userEvent from "@testing-library/user-event";
-import UpdatePrompt from "./UpdatePrompt";
+import { act, fireEvent, render, screen, waitFor, cleanup } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import UpdatePrompt from './UpdatePrompt';
+import { requestAppUpdate } from '../../lib/pwa-update-request';
 
-type NavigatorWithServiceWorker = Omit<Navigator, "serviceWorker"> & {
-  serviceWorker?: unknown;
-};
-
-type WaitingMock = { state: 'installed'; postMessage: ReturnType<typeof vi.fn> };
-
-interface MockRegistration {
-  scope: string;
-  waiting: WaitingMock | null;
-  controller: unknown;
-  installing: null;
-  update: ReturnType<typeof vi.fn>;
-  addEventListener: ReturnType<typeof vi.fn>;
-  removeEventListener: ReturnType<typeof vi.fn>;
-  dispatchEvent: ReturnType<typeof vi.fn>;
+class MockMessageChannel {
+  port1 = { onmessage: null as ((event: MessageEvent) => void) | null, close() {} };
+  port2 = { postMessage: (data: unknown) => this.port1.onmessage?.({ data } as MessageEvent), close() {} };
 }
 
-beforeEach(() => {
-  delete (navigator as NavigatorWithServiceWorker).serviceWorker;
-  vi.restoreAllMocks();
-  // jsdom does not consistently provide MessageChannel; emulate the real handshake.
-  class TestMessageChannel {
-    port1 = { onmessage: null as ((event: MessageEvent) => void) | null, close() {} };
-    port2 = {
-      postMessage: (data: unknown) => this.port1.onmessage?.({ data } as MessageEvent),
-      close() {},
-    };
-  }
-  vi.stubGlobal('MessageChannel', TestMessageChannel);
-});
-
-afterEach(() => {
-  vi.unstubAllGlobals();
-});
-
-const createServiceWorkerMock = (overrides: {
-  waiting: { postMessage: (message: unknown) => void } | null;
-  controller: unknown;
-}) => {
-  const readyObj: MockRegistration = {
-    scope: `${window.location.origin}/`,
-    waiting: overrides.waiting ? {
-      state: 'installed',
-      postMessage: vi.fn((message: unknown, ports?: Array<{ postMessage: (data: unknown) => void }>) => {
-        if ((message as { type?: string })?.type === 'CHECK_COMPATIBILITY') {
-          ports?.[0]?.postMessage({
-            type: 'MARKMAP_COMPATIBILITY', shellProtocolVersion: 1,
-            localSchemaVersion: 1, regionPackageSchemaVersion: 2,
-          });
-        }
-        overrides.waiting?.postMessage(message);
-      }),
-    } : null,
-    controller: overrides.controller ?? null,
+function setup(mode: 'current' | 'active-update' | 'waiting-update') {
+  const listeners = new Map<string, Set<() => void>>();
+  const on = (event: string, fn: () => void) => {
+    const set = listeners.get(event) || new Set<() => void>();
+    set.add(fn);
+    listeners.set(event, set);
+  };
+  const off = (event: string, fn: () => void) => { listeners.get(event)?.delete(fn); };
+  const dispatch = (event: string) => { for (const fn of listeners.get(event) || []) fn(); };
+  let approved = mode === 'current';
+  const events: string[] = [];
+  const status = () => ({
+    type: 'MARKMAP_SHELL_STATUS', protocol: 1,
+    approvedShell: approved ? 'markmap-cache-new' : 'markmap-cache-old',
+    approvedVersion: approved ? '0.5.19' : '0.5.18',
+    availableShell: 'markmap-cache-new',
+    availableVersion: '0.5.19', updateAvailable: !approved, candidateReady: true,
+  });
+  const worker = {
+    state: 'installed',
+    postMessage: vi.fn((message: {type: string}, ports?: Array<{postMessage(data: unknown): void}>) => {
+      events.push(message.type);
+      if (message.type === 'GET_SHELL_STATUS') ports?.[0]?.postMessage(status());
+      if (message.type === 'CHECK_COMPATIBILITY') ports?.[0]?.postMessage({
+        type: 'MARKMAP_COMPATIBILITY', shellProtocolVersion: 1,
+        localSchemaVersion: 1, regionPackageSchemaVersion: 2,
+      });
+      if (message.type === 'APPROVE_SHELL') {
+        approved = true;
+        ports?.[0]?.postMessage({type:'MARKMAP_SHELL_APPROVAL',approved:true});
+      }
+      if (message.type === 'SKIP_WAITING') {
+        registration.waiting = null;
+        registration.active = worker;
+        sw.controller = worker;
+        dispatch('controllerchange');
+      }
+    }),
+  };
+  const oldWorker = { state: 'activated', postMessage: vi.fn() };
+  const registration = {
+    scope: window.location.origin+'/',
+    waiting: mode === 'waiting-update' ? worker : null as typeof worker | null,
     installing: null,
+    active: mode === 'waiting-update' ? oldWorker : worker,
     update: vi.fn(async () => undefined),
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
-    dispatchEvent: vi.fn(),
   };
-
-  const listeners = new Map<string, Set<EventListener>>();
-
   const sw = {
-    ready: Promise.resolve(readyObj),
-    addEventListener: (type: string, handler: EventListener) => {
-      const handlers = listeners.get(type) ?? new Set<EventListener>();
-      handlers.add(handler);
-      listeners.set(type, handlers);
-    },
-    removeEventListener: (type: string, handler: EventListener) => {
-      listeners.get(type)?.delete(handler);
-    },
-    dispatch: (type: string) => {
-      for (const handler of listeners.get(type) ?? []) handler(new Event(type));
-    },
-    controller: overrides.controller ?? null,
-    oncontrollerchange: null,
-    postMessage: null,
+    ready: Promise.resolve(registration),
+    controller: mode === 'waiting-update' ? oldWorker : worker,
+    addEventListener: vi.fn(on),
+    removeEventListener: vi.fn(off),
   };
+  Object.defineProperty(navigator,'serviceWorker',{configurable:true,value:sw});
+  return { worker, registration, sw, events, get approved() {return approved;} };
+}
 
-  Object.defineProperty(navigator, "serviceWorker", {
-    value: sw,
-    configurable: true,
-    writable: true,
-  });
-  return { readyObj, sw };
-};
+beforeEach(() => {
+  vi.stubGlobal('MessageChannel', MockMessageChannel);
+  window.localStorage.removeItem('markmap:pwa-update-deferred');
+});
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
 
-describe("UpdatePrompt", () => {
-  it("should show prompt when waiting registration exists", async () => {
-    createServiceWorkerMock({
-      waiting: { postMessage: vi.fn() },
-      controller: null,
-    });
-
+describe('explicit PWA upgrade consent', () => {
+  it('shows no prompt when the currently approved version is installed', async () => {
+    const mock=setup('current');
     render(<UpdatePrompt />);
-
-    await waitFor(() =>
-      expect(screen.getByRole("status")).toBeInTheDocument()
-    );
-    expect(screen.getByText("MarkMap tem novidades")).toBeInTheDocument();
-    expect(screen.getByText(/dados locais antes de atualizar/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Atualizar agora" })).toHaveClass("pwa-update-prompt__primary");
-    expect(screen.getByRole("button", { name: "Depois" })).toHaveClass("pwa-update-prompt__secondary");
+    await waitFor(() => expect(mock.registration.update).toHaveBeenCalled());
+    expect(screen.queryByRole('button',{name:'Atualizar agora'})).toBeNull();
   });
 
-  it("should not show prompt when no waiting registration", () => {
-    createServiceWorkerMock({
-      waiting: null,
-      controller: null,
-    });
-
-    const result = render(<UpdatePrompt />);
-    expect(result.container.querySelector(".pwa-update-prompt")).toBeNull();
-  });
-
-  it("should enable Atualizar when both durableWritesReady and compatibilityReady pass", async () => {
-    const { readyObj } = createServiceWorkerMock({
-      waiting: { postMessage: vi.fn() },
-      controller: true,
-    });
-
-    render(
-      <UpdatePrompt
-        durableWritesReady={() => true}
-        compatibilityReady={() => true}
-      />
-    );
-
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Atualizar agora" })).not.toBeDisabled()
-    );
-
-    const button = screen.getByRole("button", { name: "Atualizar agora" });
-    await userEvent.click(button);
-
-    expect(readyObj.waiting?.postMessage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: "SKIP_WAITING",
-        durableWritesReady: true,
-        compatibilityVersion: 1,
-      })
-    );
-  });
-
-  it("should not send SKIP_WAITING when durableWritesReady fails", async () => {
-    const { readyObj } = createServiceWorkerMock({
-      waiting: { postMessage: vi.fn() },
-      controller: true,
-    });
-
-    render(
-      <UpdatePrompt
-        durableWritesReady={() => false}
-        compatibilityReady={() => true}
-      />
-    );
-
-    const button = await screen.findByRole("button", { name: "Atualizar agora" });
-    expect(button).not.toBeDisabled();
-
-    await userEvent.click(button);
-
-    // Falha fechada: o fluxo termina sem nunca acionar o skip-waiting
-    await waitFor(() => expect(button).toBeEnabled());
-    // Compatibility handshake may post a message, but activation must not.
-    expect(readyObj.waiting?.postMessage).not.toHaveBeenCalledWith(
-      expect.objectContaining({ type: "SKIP_WAITING" })
-    );
-  });
-
-  it("ignores a waiting worker outside the active service-worker scope", async () => {
-    const { readyObj } = createServiceWorkerMock({
-      waiting: { postMessage: vi.fn() },
-      controller: {},
-    });
-    readyObj.scope = "https://unrelated.example/";
+  it('shows update even if the new SW activated naturally (waiting=null)', async () => {
+    const mock=setup('active-update');
     render(<UpdatePrompt />);
-    await waitFor(() => expect(screen.queryByRole("status")).toBeNull());
+    expect(await screen.findByRole('button',{name:'Atualizar agora'})).toBeVisible();
+    expect(screen.getByText(/MarkMap 0\.5\.19/)).toBeVisible();
+    expect(mock.events).not.toContain('APPROVE_SHELL');
   });
 
-  it("should persist version check across focus/online events", async () => {
-    createServiceWorkerMock({
-      waiting: { postMessage: vi.fn() },
-      controller: true,
-    });
-
-    render(<UpdatePrompt />);
-
-    window.dispatchEvent(new Event("online"));
-
-    const prompt = await screen.findByRole("status");
-    expect(prompt).toBeInTheDocument();
-  });
-  it("checks and activates an installed PWA from Settings using the existing safeguards", async () => {
-    const { readyObj } = createServiceWorkerMock({
-      waiting: { postMessage: vi.fn() },
-      controller: true,
-    });
-    render(
-      <UpdatePrompt durableWritesReady={() => true} compatibilityReady={() => true} />
-    );
-
-    let result: Awaited<ReturnType<typeof requestAppUpdate>> | undefined;
-    await act(async () => { result = await requestAppUpdate(); });
-    expect(result).toEqual({ status: "updating" });
-    expect(readyObj.update).toHaveBeenCalled();
-    expect(readyObj.waiting?.postMessage).toHaveBeenCalledWith(
-      expect.objectContaining({ type: "SKIP_WAITING", durableWritesReady: true })
-    );
-  });
-
-  it("reports current when Settings checks and no new version exists", async () => {
-    const { readyObj } = createServiceWorkerMock({
-      waiting: null,
-      controller: true,
-    });
-    render(<UpdatePrompt />);
-
-    let result: Awaited<ReturnType<typeof requestAppUpdate>> | undefined;
-    await act(async () => { result = await requestAppUpdate(); });
-    expect(result).toEqual({ status: "current" });
-    expect(readyObj.update).toHaveBeenCalled();
-  });
-
-  it("refuses Settings activation when outbox safety check fails", async () => {
-    const { readyObj } = createServiceWorkerMock({
-      waiting: { postMessage: vi.fn() },
-      controller: true,
-    });
+  it('does not approve update if the durability check fails', async () => {
+    const mock=setup('active-update');
     render(<UpdatePrompt durableWritesReady={() => false} compatibilityReady={() => true} />);
-
-    let result: Awaited<ReturnType<typeof requestAppUpdate>> | undefined;
-    await act(async () => { result = await requestAppUpdate(); });
-    expect(result?.status).toBe("error");
-    expect(readyObj.waiting?.postMessage).not.toHaveBeenCalledWith(
-      expect.objectContaining({ type: "SKIP_WAITING" })
-    );
+    fireEvent.click(await screen.findByRole('button',{name:'Atualizar agora'}));
+    await screen.findByText(/Salve as alterações/);
+    expect(mock.events).not.toContain('APPROVE_SHELL');
+    expect(mock.approved).toBe(false);
   });
 
+  it('saves Later and never approves by itself', async () => {
+    const mock=setup('active-update');
+    render(<UpdatePrompt />);
+    fireEvent.click(await screen.findByRole('button',{name:'Depois'}));
+    await waitFor(() => expect(screen.queryByRole('button',{name:'Atualizar agora'})).toBeNull());
+    const saved=JSON.parse(window.localStorage.getItem('markmap:pwa-update-deferred')||'{}');
+    expect(saved.shell).toBe('markmap-cache-new');
+    expect(mock.approved).toBe(false);
+  });
+
+  it('approves active candidate only after explicit click, then requests a reload', async () => {
+    const mock=setup('active-update');
+    render(<UpdatePrompt durableWritesReady={() => true} compatibilityReady={() => true} />);
+    fireEvent.click(await screen.findByRole('button',{name:'Atualizar agora'}));
+    await waitFor(() => expect(mock.events).toContain('APPROVE_SHELL'));
+    expect(mock.approved).toBe(true);
+    expect(mock.events.filter(x=>x==='CHECK_COMPATIBILITY').length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('activates waiting SW first but persists approval only after handshake', async () => {
+    const mock=setup('waiting-update');
+    render(<UpdatePrompt durableWritesReady={() => true} compatibilityReady={() => true} />);
+    fireEvent.click(await screen.findByRole('button',{name:'Atualizar agora'}));
+    await waitFor(() => expect(mock.events).toContain('APPROVE_SHELL'));
+    expect(mock.events.indexOf('SKIP_WAITING')).toBeLessThan(mock.events.indexOf('APPROVE_SHELL'));
+    expect(mock.approved).toBe(true);
+  });
+
+  it('lets the Settings action approve even after choosing Later', async () => {
+    const mock=setup('active-update');
+    render(<UpdatePrompt durableWritesReady={() => true} compatibilityReady={() => true} />);
+    fireEvent.click(await screen.findByRole('button',{name:'Depois'}));
+    await act(async () => { await requestAppUpdate(); });
+    expect(mock.events).toContain('APPROVE_SHELL');
+    expect(mock.approved).toBe(true);
+  });
 });

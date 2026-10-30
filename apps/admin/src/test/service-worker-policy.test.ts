@@ -126,7 +126,7 @@ function createWorker(fetchImpl: (request: TestRequest) => Promise<Response>) {
 }
 
 describe('service worker cache policy', () => {
-  it('waits for install work and removes only owned old caches', async () => {
+  it('waits for install work and retains approved and user caches', async () => {
     const worker = createWorker(async () => new Response('network', { status: 200 }));
     const install = worker.dispatch('install');
     expect(install.waited).toHaveLength(1);
@@ -141,9 +141,9 @@ describe('service worker cache policy', () => {
     expect(activate.waited).toHaveLength(1);
     await Promise.all(activate.waited);
 
-    expect(worker.caches.deleted).toHaveLength(2);
+    expect(worker.caches.deleted).toHaveLength(1);
     expect(worker.caches.deleted.some((name) => name.startsWith('markmap-cache-v2-installing-'))).toBe(true);
-    expect(worker.caches.deleted).toContain('geonexo-cache-v1');
+    expect(worker.caches.stores.has('geonexo-cache-v1')).toBe(true);
     expect(worker.caches.stores.has('other-application-cache')).toBe(true);
     expect(worker.caches.stores.has('geonexo-user-files-v1')).toBe(true);
     expect(worker.caches.stores.has('markmap-offline-regions-v1')).toBe(true);
@@ -177,7 +177,7 @@ describe('service worker cache policy', () => {
     for (const path of ['/workspace', '/projects', '/projects/project-1/map']) {
       const navigation = worker.dispatch('fetch', new TestRequest(path, { mode: 'navigate' }));
       const navigationResponse = await navigation.responsePromise;
-      expect(await navigationResponse?.text()).toBe('precache:/');
+      expect(await navigationResponse?.text()).toBe('precache:/index.html');
     }
 
     const asset = worker.dispatch('fetch', new TestRequest('/assets/app.js'));
@@ -186,14 +186,13 @@ describe('service worker cache policy', () => {
     expect(assetResponse?.headers.get('content-type')).toBeNull();
   });
 
-  it('tracks background cache writes with waitUntil', async () => {
+  it('never writes unlisted network assets into the approved shell', async () => {
     const worker = createWorker(async () => new Response('asset', { status: 200 }));
     const event = worker.dispatch('fetch', new TestRequest('/assets/app.js'));
     expect(event.responsePromise).toBeDefined();
     expect(await (await event.responsePromise!).text()).toBe('asset');
-    expect(event.waited).toHaveLength(1);
-    await Promise.all(event.waited);
-    expect(await (await worker.caches.open('markmap-cache-v2')).match('/assets/app.js')).toBeDefined();
+    expect(event.waited).toHaveLength(0);
+    expect(await (await worker.caches.open('markmap-cache-v2')).match('/assets/app.js')).toBeUndefined();
   });
 
   it('does not activate an update until the user handshake is complete', async () => {

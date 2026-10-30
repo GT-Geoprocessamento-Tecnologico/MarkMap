@@ -2,6 +2,31 @@
 
 Fonte da versão do aplicativo: `apps/admin/package.json`. Todos os agentes seguem [a política de versionamento](docs/versioning.md). O [histórico documental anterior](docs/changelog.md) permanece preservado.
 
+## [0.5.18] - 2026-10-29
+
+### Alterações
+
+- Gestão de pontos no mapa por projeto: lista, pesquisa, renomeação/observações, localização e exclusão confirmada, com gravação offline.
+- Seleção regional separada do mapa visual: OpenFreeMap continua o fundo principal, pacotes baixados preservados para pesquisas locais e recursos offline.
+- Identificação do projeto ativo no mapa e exportação usando nome legível.
+- Service worker mantém a aprovação explícita da versão operacional; documentação nova não muda mais o hash do shell por alterar buildSha/buildTime em version.json.
+
+- Separar o deploy automático do servidor da atualização aprovada no dispositivo: o PWA fixa o app shell autorizado em CacheStorage e continua servindo a versão anterior mesmo após ativação natural de novo service worker.
+- Exigir clique em **Atualizar agora**, handshake de compatibilidade, barreira de transações IndexedDB e ausência de outras janelas antes de autorizar a troca do app shell.
+- Exibir a versão disponível mesmo com service worker já ativo, persistir a escolha **Depois** e nunca apagar mapas, backups, outbox ou caches de shell ainda aprovados durante a ativação.
+- Consultar `version.json` diretamente na rede, excluí-lo do precache e embutir versão/SHA no worker, preservando os assets estáticos aprovados.
+
+### Validação
+
+- 15/15 testes isolados em Node.js do service worker e do gerador de manifesto PASS.
+- 6/6 simulações isoladas dos estados da interface React PASS; checagem TypeScript estrita isolada do componente PASS.
+- `node --check` e transpile TSX isolado PASS.
+
+### QA para liberação pública
+
+- A migração inicial de um worker legado para esta nova política pode carregar o código de transição antes de seu próprio fluxo de aceite; subsequentemente o app shell permanece fixado por versão.
+- CI do monorepo, Vitest com bibliotecas reais, Playwright cross-release, WebKit e teste físico na PWA instalada ainda não executados neste ambiente. A candidata deve permanecer fora da main até homologação integral.
+
 ## [0.5.17] - 2026-10-28
 
 ### Alterações

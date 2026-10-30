@@ -5,6 +5,7 @@ import { ToastProvider } from "@markmap/ui";
 import { router } from "./router";
 import { isClientError } from "./lib/errors";
 import { localRepository } from "./lib/local-repositories";
+import { localDb } from "./lib/local-db";
 import { SyncController } from "./lib/sync/SyncController";
 import { SyncStatus } from "./lib/sync/SyncStatus";
 import { UpdatePrompt } from "./components/pwa/UpdatePrompt";
@@ -77,6 +78,13 @@ export default function App() {
         <PwaInstallPrompt />
         <UpdatePrompt
           durableWritesReady={async () => {
+            // Wait for earlier IndexedDB write transactions to commit before
+            // approving a shell change. The durable outbox remains intact.
+            await localDb.transact(
+              ["meta", "entities", "originals", "outbox", "conflicts", "acks"],
+              "readwrite",
+              () => true,
+            );
             await localRepository.listOutbox();
             return true;
           }}

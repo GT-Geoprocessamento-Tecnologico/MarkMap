@@ -5,7 +5,7 @@ import { join, relative, sep, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HASHED_FILE = /(?:[-.])[a-z0-9_-]{8,}\.(?:js|mjs|css|woff2?|ttf|otf|png|jpg|jpeg|webp|svg)$/i;
-const ALWAYS_SHELL = new Set(['index.html', 'manifest.json', 'version.json', 'icons/icon-192x192.png', 'icons/icon-512x512.png']);
+const ALWAYS_SHELL = new Set(['index.html', 'manifest.json', 'icons/icon-192x192.png', 'icons/icon-512x512.png']);
 const EXCLUDED_PREFIXES = ['map/', 'maps/', 'api/'];
 
 function resolveGitSha() {
@@ -63,6 +63,9 @@ export async function generateShellManifest(distDirectory) {
   if (!assets.includes('/index.html')) throw new Error('shell manifest requires index.html');
   // Hash real content, including non-fingerprinted index.html and manifest.json.
   const digest = createHash('sha256');
+  // A release can change its version without changing a bundle's contents.
+  digest.update(appVersion);
+  digest.update('\0');
   for (const asset of assets) {
     digest.update(asset);
     digest.update('\0');
@@ -76,7 +79,8 @@ export async function generateShellManifest(distDirectory) {
     const worker = await readFile(workerPath, 'utf8');
     await writeFile(workerPath, worker
       .replaceAll('__MARKMAP_SHELL_MANIFEST__', JSON.stringify(assets))
-      .replaceAll('__MARKMAP_SHELL_VERSION__', JSON.stringify(JSON.parse(payload).version)), 'utf8');
+      .replaceAll('__MARKMAP_SHELL_VERSION__', JSON.stringify(JSON.parse(payload).version))
+      .replaceAll('__MARKMAP_APP_VERSION__', JSON.stringify(appVersion)), 'utf8');
   } catch (error) {
     if (error?.code !== 'ENOENT') throw error;
   }

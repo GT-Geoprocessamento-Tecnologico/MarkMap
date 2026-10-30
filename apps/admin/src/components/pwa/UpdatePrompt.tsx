@@ -2,114 +2,229 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { PWA_UPDATE_REQUEST, type AppUpdateRequest, type AppUpdateResult } from "../../lib/pwa-update-request";
 import { AppIcon } from "../AppIcon";
 
-/** Ask the WAITING worker for protocol information; do not infer it from network status. */
-async function waitingWorkerCompatible(waiting: ServiceWorker): Promise<boolean> {
-  if (typeof MessageChannel === 'undefined') return false;
-  return new Promise((resolve) => {
+type ShellStatus = {
+  type: "MARKMAP_SHELL_STATUS";
+  protocol: number;
+  approvedShell: string | null;
+  approvedVersion: string | null;
+  availableShell: string;
+  availableVersion: string;
+  updateAvailable: boolean;
+  candidateReady: boolean;
+  error?: string;
+};
+type AvailableUpdate = {
+  registration: ServiceWorkerRegistration;
+  worker: ServiceWorker;
+  status: ShellStatus;
+  waiting: boolean;
+};
+
+const MESSAGE_TIMEOUT_MS = 5000;
+const APPROVAL_TIMEOUT_MS = 15000;
+const REMIND_LATER_MS = 24 * 60 * 60 * 1000;
+const DISMISSED_KEY = "markmap:pwa-update-deferred";
+const NOT_READY = () => false;
+
+function isValidStatus(value: unknown): value is ShellStatus {
+  if (!value || typeof value !== "object") return false;
+  const data = value as Partial<ShellStatus>;
+  return data.type === "MARKMAP_SHELL_STATUS" && data.protocol === 1 &&
+    typeof data.availableShell === "string" &&
+    typeof data.availableVersion === "string" &&
+    data.updateAvailable === true && data.candidateReady === true &&
+    typeof data.approvedShell === "string" && data.approvedShell !== data.availableShell;
+}
+
+/** MessageChannel is shared by active and waiting workers; never infer readiness from online status. */
+async function messageWorker<T>(worker: ServiceWorker, message: unknown): Promise<T | null> {
+  if (typeof MessageChannel === "undefined") return null;
+  return new Promise<T | null>((resolve) => {
     const channel = new MessageChannel();
     let settled = false;
-    const finish = (ok: boolean) => {
+    const finish = (result: T | null) => {
       if (settled) return;
       settled = true;
       clearTimeout(timeout);
-      try { channel.port1.close(); channel.port2.close(); }
-      finally { resolve(ok); }
+      channel.port1.close();
+      channel.port2.close();
+      resolve(result);
     };
-    const timeout = setTimeout(() => finish(false), 4000);
-    channel.port1.onmessage = (event: MessageEvent<{
-      type?: string; shellProtocolVersion?: number; localSchemaVersion?: number;
-      regionPackageSchemaVersion?: number;
-    }>) => {
-      const data = event.data;
-      finish(data?.type === 'MARKMAP_COMPATIBILITY' &&
-        data.shellProtocolVersion === 1 && data.localSchemaVersion === 1 &&
-        data.regionPackageSchemaVersion === 2);
-    };
-    try { waiting.postMessage({ type: 'CHECK_COMPATIBILITY' }, [channel.port2]); }
-    catch { finish(false); }
+    const timeout = setTimeout(() => finish(null), MESSAGE_TIMEOUT_MS);
+    channel.port1.onmessage = (event: MessageEvent<T>) => finish(event.data);
+    try { worker.postMessage(message, [channel.port2]); }
+    catch { finish(null); }
   });
 }
 
+async function compatible(worker: ServiceWorker): Promise<boolean> {
+  const result = await messageWorker<{
+    type?: string; shellProtocolVersion?: number; localSchemaVersion?: number;
+    regionPackageSchemaVersion?: number;
+  }>(worker, { type: "CHECK_COMPATIBILITY" });
+  return result?.type === "MARKMAP_COMPATIBILITY" &&
+    result.shellProtocolVersion === 1 && result.localSchemaVersion === 1 &&
+    result.regionPackageSchemaVersion === 2;
+}
 
-/** Wait for an in-progress installation before deciding whether an update exists. */
+async function shellStatus(worker: ServiceWorker): Promise<ShellStatus | null> {
+  const data = await messageWorker<ShellStatus>(worker, { type: "GET_SHELL_STATUS" });
+  return isValidStatus(data) ? data : null;
+}
+
 async function waitForInstallation(registration: ServiceWorkerRegistration): Promise<void> {
-  const installing = registration.installing;
-  if (!installing || ["installed", "activated", "redundant"].includes(installing.state)) return;
+  const worker = registration.installing;
+  if (!worker || ["installed", "activated", "redundant"].includes(worker.state)) return;
   await new Promise<void>((resolve) => {
     let finished = false;
     const done = () => {
       if (finished) return;
       finished = true;
       clearTimeout(timeout);
-      installing.removeEventListener("statechange", onStateChange);
+      worker.removeEventListener("statechange", onStateChange);
       resolve();
     };
     const onStateChange = () => {
-      if (["installed", "activated", "redundant"].includes(installing.state)) done();
+      if (["installed", "activated", "redundant"].includes(worker.state)) done();
     };
-    const timeout = setTimeout(done, 15000);
-    installing.addEventListener("statechange", onStateChange);
+    const timeout = setTimeout(done, APPROVAL_TIMEOUT_MS);
+    worker.addEventListener("statechange", onStateChange);
     onStateChange();
   });
 }
 
+async function findCandidate(registration: ServiceWorkerRegistration): Promise<AvailableUpdate | null> {
+  if (registration.waiting) {
+    const status = await shellStatus(registration.waiting);
+    if (status) return { registration, worker: registration.waiting, status, waiting: true };
+  }
+  if (registration.active) {
+    const status = await shellStatus(registration.active);
+    if (status) return { registration, worker: registration.active, status, waiting: false };
+  }
+  return null;
+}
+
+function isDeferred(shell: string): boolean {
+  try {
+    const saved = JSON.parse(window.localStorage.getItem(DISMISSED_KEY) || "null") as {
+      shell?: string; timestamp?: number;
+    } | null;
+    return saved?.shell === shell && typeof saved.timestamp === "number" &&
+      Date.now() - saved.timestamp < REMIND_LATER_MS;
+  } catch { return false; }
+}
+function defer(shell: string): void {
+  try { window.localStorage.setItem(DISMISSED_KEY, JSON.stringify({ shell, timestamp: Date.now() })); }
+  catch { /* Storage can be unavailable in private browsing. */ }
+}
+
+/** Wait for the new controller before authorizing the new app shell. */
+async function activateWaiting(registration: ServiceWorkerRegistration, worker: ServiceWorker): Promise<ServiceWorker> {
+  if (!('serviceWorker' in navigator)) throw new Error("Service worker indisponível.");
+  if (registration.waiting !== worker) throw new Error("A atualização disponível mudou.");
+  const serviceWorker = navigator.serviceWorker;
+  return new Promise<ServiceWorker>((resolve, reject) => {
+    let finished = false;
+    const done = (value: ServiceWorker | null, cause?: Error) => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timeout);
+      serviceWorker.removeEventListener("controllerchange", onChange);
+      if (value) resolve(value);
+      else reject(cause ?? new Error("A versão ainda não assumiu o controle."));
+    };
+    const onChange = () => {
+      const controller = serviceWorker.controller;
+      if (controller && controller !== previous) done(controller);
+    };
+    const previous = serviceWorker.controller;
+    const timeout = setTimeout(() => done(null), APPROVAL_TIMEOUT_MS);
+    serviceWorker.addEventListener("controllerchange", onChange);
+    try {
+      worker.postMessage({ type: "SKIP_WAITING", durableWritesReady: true, compatibilityVersion: 1 });
+      onChange();
+    } catch { done(null, new Error("Não foi possível ativar o service worker com segurança.")); }
+  });
+}
+
+async function approveShell(worker: ServiceWorker, targetShell: string): Promise<boolean> {
+  if (!(await compatible(worker))) return false;
+  const response = await messageWorker<{ type?: string; approved?: boolean; reason?: string }>(worker, {
+    type: "APPROVE_SHELL", targetShell, durableWritesReady: true, compatibilityVersion: 1,
+  });
+  if (response?.type !== "MARKMAP_SHELL_APPROVAL" || response.approved !== true) {
+    if (response?.reason === "other-tabs") {
+      throw new Error("Feche as outras janelas do MarkMap antes de atualizar.");
+    }
+    throw new Error("Não foi possível aprovar a versão sem arriscar os dados locais.");
+  }
+  return true;
+}
+
 export interface UpdatePromptProps {
-  /** Return true only after IndexedDB transactions and outbox writes are durable. */
+  /** Must confirm that IndexedDB/outbox writes are durable before approval. */
   durableWritesReady?: () => boolean | Promise<boolean>;
-  /** Return true only when this tab can read the new shell protocol safely. */
+  /** Must confirm that the approved data schema is compatible with the new shell. */
   compatibilityReady?: () => boolean | Promise<boolean>;
 }
 
-/** Controlled PWA update prompt. The app must explicitly opt into activation. */
 export function UpdatePrompt({
-  durableWritesReady = () => false,
-  compatibilityReady = () => false,
+  durableWritesReady = NOT_READY,
+  compatibilityReady = NOT_READY,
 }: UpdatePromptProps) {
-  const [registration, setRegistration] = useState<ServiceWorkerRegistration | null>(null);
+  const [available, setAvailable] = useState<AvailableUpdate | null>(null);
   const [busy, setBusy] = useState(false);
-  const activationApproved = useRef(false);
-  const reloadStarted = useRef(false);
   const [error, setError] = useState<string | null>(null);
-  const [dismissedVersion, setDismissedVersion] = useState<ServiceWorker | null>(null);
+  const [dismissedShell, setDismissedShell] = useState<string | null>(null);
+  const disposed = useRef(false);
+  const reloading = useRef(false);
 
-  const accept = useCallback(async (target: ServiceWorkerRegistration): Promise<AppUpdateResult> => {
-    const waiting = target.waiting;
-    if (!waiting) return { status: "current" };
+  const checkForUpdate = useCallback(async (updateRegistration: boolean): Promise<AvailableUpdate | null> => {
+    if (!("serviceWorker" in navigator)) return null;
+    try {
+      const sw = navigator.serviceWorker;
+      const registration = await sw.ready;
+      if (!navigator.serviceWorker.controller || !window.location.href.startsWith(registration.scope)) return null;
+      if (updateRegistration && navigator.onLine && typeof registration.update === "function") {
+        try { await registration.update(); } catch { /* An already cached candidate may still be approved. */ }
+        await waitForInstallation(registration);
+      }
+      const candidate = await findCandidate(registration);
+      if (!disposed.current) setAvailable(candidate);
+      return candidate;
+    } catch {
+      return null; // Keep the installed app operational while disconnected.
+    }
+  }, []);
+
+  const accept = useCallback(async (candidate: AvailableUpdate): Promise<AppUpdateResult> => {
     setBusy(true);
     setError(null);
     try {
-      const [writesReady, appCompatible, workerCompatible] = await Promise.all([
-        durableWritesReady(), compatibilityReady(), waitingWorkerCompatible(waiting),
+      const ready = await Promise.all([
+        durableWritesReady(), compatibilityReady(), compatible(candidate.worker),
       ]);
-      if (!writesReady || !appCompatible) {
-        const message = "Os dados locais ainda não estão prontos. Salve as alterações antes de atualizar.";
-        setError(message);
-        return { status: "error", message };
+      if (!ready.every(Boolean)) throw new Error("Salve as alterações e confira a compatibilidade dos dados antes de atualizar.");
+      if (!candidate.status.candidateReady || !(await shellStatus(candidate.worker))) {
+        throw new Error("Esta versão ainda não foi baixada completamente.");
       }
-      if (!workerCompatible) {
-        const message = "Esta versão não confirmou compatibilidade dos dados locais. Atualização bloqueada por segurança.";
-        setError(message);
-        return { status: "error", message };
+      let target = candidate.worker;
+      if (candidate.waiting) {
+        if (candidate.registration.waiting !== target) throw new Error("A atualização disponível mudou.");
+        // Handshake above authorizes SKIP_WAITING, but NOT a shell change.
+        target = await activateWaiting(candidate.registration, target);
       }
-      if (target.waiting !== waiting || waiting.state !== "installed") {
-        const message = "A versão disponível mudou. Verifique novamente antes de atualizar.";
-        setError(message);
-        return { status: "error", message };
-      }
-      activationApproved.current = true;
-      try {
-        waiting.postMessage({
-          type: "SKIP_WAITING",
-          durableWritesReady: true,
-          compatibilityVersion: 1,
-        });
-      } catch (cause) {
-        activationApproved.current = false;
-        throw cause;
+      // A new SW can also activate naturally while the app was closed. In
+      // either case the persisted shell is updated only by this explicit call.
+      await approveShell(target, candidate.status.availableShell);
+      if (!reloading.current) {
+        reloading.current = true;
+        window.location.reload();
       }
       return { status: "updating" };
     } catch (cause) {
-      const message = cause instanceof Error ? cause.message : "Não foi possível ativar a atualização com segurança.";
+      const message = cause instanceof Error ? cause.message : "Não foi possível atualizar com segurança.";
       setError(message);
       return { status: "error", message };
     } finally {
@@ -118,182 +233,89 @@ export function UpdatePrompt({
   }, [durableWritesReady, compatibilityReady]);
 
   useEffect(() => {
-    if (!("serviceWorker" in navigator)) return undefined;
-
-    let disposed = false;
-    let updateInterval: NodeJS.Timeout | null = null;
-
-    const onControllerChange = () => {
-      // A different tab may activate a worker. Never force-reload unsaved local UI
-      // unless THIS tab approved an update and finished its durable write check.
-      if (activationApproved.current && !reloadStarted.current) {
-        reloadStarted.current = true;
-        window.location.reload();
-      }
-    };
-
-    const checkForUpdate = async () => {
-      if (!("serviceWorker" in navigator)) return;
-      const sw = navigator.serviceWorker;
-      if (!sw.controller) return;
-
-      try {
-        const registration = await sw.ready;
-        if (disposed) return;
-        if (navigator.onLine && typeof registration.update === "function") {
-          await registration.update();
-        }
-
-        if (registration.waiting && registration.waiting !== dismissedVersion) {
-          setRegistration(registration);
-        } else if (!registration.waiting) {
-          setRegistration(null);
-        }
-      } catch {
-        // service worker not ready yet
-      }
-    };
-
-    const goOnline = async () => {
-      if (!("onLine" in navigator)) return;
-      await checkForUpdate();
-    };
-
-    const onVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        goOnline();
-      }
-    };
-
-    const startPeriodicCheck = () => {
-      if (updateInterval) clearInterval(updateInterval);
-      updateInterval = setInterval(() => {
-        if (!navigator.onLine) return;
-        goOnline();
-      }, 300000);
-    };
-
-    navigator.serviceWorker.addEventListener("controllerchange", onControllerChange);
-    void navigator.serviceWorker.ready.then((ready) => {
-      if (disposed) return;
-      // Only a worker registered for this document's scope can prompt activation.
-      if (!window.location.href.startsWith(ready.scope)) return;
-      if (ready.waiting && ready.waiting !== dismissedVersion) setRegistration(ready);
-      ready.addEventListener("updatefound", () => {
-        const worker = ready.installing;
-        if (!worker) return;
-        worker.addEventListener("statechange", () => {
-          if (!disposed && worker.state === "installed" && navigator.serviceWorker.controller) {
-            setRegistration(ready);
-          }
-        });
+    disposed.current = false;
+    if (!("serviceWorker" in navigator)) return;
+    let interval: ReturnType<typeof setInterval> | null = null;
+    let currentRegistration: ServiceWorkerRegistration | null = null;
+    const check = () => { void checkForUpdate(true); };
+    const onVisibility = () => { if (document.visibilityState === "visible") check(); };
+    const onControllerChange = () => { void checkForUpdate(false); };
+    const onUpdateFound = () => {
+      const installing = currentRegistration?.installing;
+      if (!installing) return;
+      installing.addEventListener("statechange", () => {
+        if (installing.state === "installed") void checkForUpdate(false);
       });
-      void checkForUpdate();
-    });
-
-    // Settings delegates to this single guarded activation flow, not a second updater.
+    };
     const onManualUpdate = (rawEvent: Event) => {
       const event = rawEvent as CustomEvent<AppUpdateRequest>;
       if (typeof event.detail?.respond !== "function") return;
       event.preventDefault();
       void (async (): Promise<AppUpdateResult> => {
-        if (!("serviceWorker" in navigator) || !navigator.serviceWorker.controller) {
-          return { status: "unavailable" };
-        }
-        if (!navigator.onLine) return { status: "offline" };
-        const ready = await navigator.serviceWorker.ready;
-        if (disposed || !window.location.href.startsWith(ready.scope) || typeof ready.update !== "function") {
-          return { status: "unavailable" };
-        }
-        try {
-          await ready.update();
-        } catch (cause) {
-          // An already downloaded version can still be activated when another
-          // update check fails; otherwise surface the real network error.
-          if (!ready.waiting) throw cause;
-        }
-        await waitForInstallation(ready);
-        if (disposed) return { status: "unavailable" };
-        if (!ready.waiting) return { status: ready.installing ? "pending" : "current" };
-        setRegistration(ready);
-        return accept(ready);
+        const next = await checkForUpdate(true);
+        if (!next) return { status: navigator.onLine ? "current" : "offline" };
+        return accept(next);
       })().then(event.detail.respond, (cause: unknown) => {
-        event.detail.respond({
-          status: "error",
-          message: cause instanceof Error ? cause.message : "Falha ao verificar atualização.",
-        });
+        event.detail.respond({ status: "error", message: String(cause) });
       });
     };
+    navigator.serviceWorker.addEventListener("controllerchange", onControllerChange);
     window.addEventListener(PWA_UPDATE_REQUEST, onManualUpdate);
-    window.addEventListener("online", goOnline);
-    document.addEventListener("visibilitychange", onVisibilityChange);
-    startPeriodicCheck();
-
+    window.addEventListener("online", check);
+    document.addEventListener("visibilitychange", onVisibility);
+    void navigator.serviceWorker.ready.then((registration) => {
+      if (disposed.current) return;
+      currentRegistration = registration;
+      registration.addEventListener("updatefound", onUpdateFound);
+      void checkForUpdate(true);
+    }).catch(() => undefined);
+    interval = setInterval(() => { if (navigator.onLine) check(); }, 300000);
     return () => {
-      disposed = true;
+      disposed.current = true;
+      if (interval) clearInterval(interval);
+      currentRegistration?.removeEventListener("updatefound", onUpdateFound);
       navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange);
       window.removeEventListener(PWA_UPDATE_REQUEST, onManualUpdate);
-      window.removeEventListener("online", goOnline);
-      document.removeEventListener("visibilitychange", onVisibilityChange);
-      if (updateInterval) clearInterval(updateInterval);
+      window.removeEventListener("online", check);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [dismissedVersion, accept]);
+  }, [accept, checkForUpdate]);
 
   const handleLater = () => {
-    if (registration?.waiting) {
-      activationApproved.current = false;
-      setDismissedVersion(registration.waiting);
+    if (available) {
+      defer(available.status.availableShell);
+      setDismissedShell(available.status.availableShell);
     }
-    setRegistration(null);
+    setAvailable(null);
   };
 
-  if (!registration?.waiting) return null;
+  if (!available || available.status.availableShell === dismissedShell ||
+      isDeferred(available.status.availableShell)) return null;
 
-  // Desenvolvido por MtsFerreira. Apenas a apresentação muda; o aceite continua seguro.
   return (
-    <aside
-      role="status"
-      aria-live="polite"
-      aria-busy={busy}
-      aria-label="Nova versão do MarkMap disponível."
-      className="pwa-update-prompt"
-    >
+    <aside role="status" aria-live="polite" aria-busy={busy}
+      aria-label="Nova versão do MarkMap disponível." className="pwa-update-prompt">
       <div className="pwa-update-prompt__heading">
-        <span className="pwa-update-prompt__icon">
-          <AppIcon name="sync" size="lg" />
-        </span>
+        <span className="pwa-update-prompt__icon"><AppIcon name="sync" size="lg" /></span>
         <div>
           <span className="pwa-update-prompt__eyebrow">ATUALIZAÇÃO DISPONÍVEL</span>
-          <strong className="pwa-update-prompt__title">MarkMap tem novidades</strong>
+          <strong className="pwa-update-prompt__title">MarkMap {available.status.availableVersion}</strong>
         </div>
       </div>
       <p className="pwa-update-prompt__description">
-        Uma nova versão está pronta. Verificamos seus dados locais antes de atualizar.
+        A nova versão está pronta. Ela só será aplicada depois da sua confirmação.
       </p>
-      {error && (
-        <p role="alert" className="pwa-update-prompt__error">
-          <AppIcon name="info" size="sm" />
-          <span>{error}</span>
-        </p>
-      )}
+      {error && <p role="alert" className="pwa-update-prompt__error">
+        <AppIcon name="info" size="sm" /><span>{error}</span>
+      </p>}
       <div className="pwa-update-prompt__actions">
-        <button
-          type="button"
-          className="pwa-update-prompt__primary"
-          onClick={() => void accept(registration)}
-          disabled={busy}
-        >
+        <button type="button" className="pwa-update-prompt__primary"
+          onClick={() => { void accept(available); }} disabled={busy}>
           <AppIcon name={busy ? "loading" : "download"} size="sm" />
           {busy ? "Verificando…" : "Atualizar agora"}
         </button>
-        <button
-          type="button"
-          className="pwa-update-prompt__secondary"
-          onClick={handleLater}
-          disabled={busy}
-        >
-          Depois
-        </button>
+        <button type="button" className="pwa-update-prompt__secondary"
+          onClick={handleLater} disabled={busy}>Depois</button>
       </div>
       <span className="pwa-update-prompt__note">Você escolhe quando atualizar.</span>
     </aside>
