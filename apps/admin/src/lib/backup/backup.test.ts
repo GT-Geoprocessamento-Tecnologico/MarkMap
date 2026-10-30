@@ -140,11 +140,11 @@ describe('T3a: exportacao criptografada do workspace (sem escrita local)', () =>
       key: `${data.workspaceId}:photo2`, workspaceId: data.workspaceId,
       blobId: 'photo2', mediaType: 'image/jpeg', bytes: jpeg.byteLength,
       sha256: await digestHex(jpeg), originalBytes: jpeg.buffer,
-      pointPhoto: { projectId: data.workspaceId, layerId: '33333333-3333-4333-8333-333333333333' },
+      pointPhoto: { projectId: data.workspaceId, layerId: '33333333-3333-4333-8333-333333333333', featureId: '' },
     };
     data.stores.originals.push(record);
     await expect(exportTest(data)).rejects.toThrow(/vínculo/i);
-    record.pointPhoto = { projectId: data.workspaceId, layerId: '33333333-3333-4333-8333-333333333333', featureId: '22222222-2222-4222-8222-222222222222' };
+    record.pointPhoto.featureId = '22222222-2222-4222-8222-222222222222';
     record.originalBytes = new Uint8Array([0, 1, 2, 3, 4]).buffer;
     record.sha256 = await digestHex(new Uint8Array(record.originalBytes));
     await expect(exportTest(data)).rejects.toThrow(/JPEG inválida/i);
