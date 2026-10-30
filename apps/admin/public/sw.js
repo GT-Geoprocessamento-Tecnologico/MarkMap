@@ -22,7 +22,45 @@ const SAME_ORIGIN_SHELL_VERSION = 1;
 const RECOVERY_PATH = '/__markmap_recover_shell__';
 const LOCAL_FIRST_DB = 'GeoNexoLocalFirstDB';
 const LOCAL_FIRST_DB_VERSION = 2;
-let recoveryChallenge = null;
+// SW processes are ephemeral: recovery consent must survive worker termination.
+const RECOVERY_TOKEN_KEY = `/__markmap_recovery_challenge_v1__/${CACHE_NAME}`;
+let recoverySequence = Promise.resolve();
+async function withRecoveryLock(action) {
+  const previous = recoverySequence;
+  let release;
+  recoverySequence = new Promise((resolve) => { release = resolve; });
+  await previous;
+  try { return await action(); }
+  finally { release(); }
+}
+async function issueRecoveryToken() {
+  return withRecoveryLock(async () => {
+    const token = crypto.randomUUID();
+    const cache = await caches.open(APPROVAL_CACHE);
+    await cache.put(RECOVERY_TOKEN_KEY, new Response(JSON.stringify({
+      token, shell: CACHE_NAME, expires: Date.now() + 5 * 60 * 1000,
+    }), { headers: { 'Content-Type': 'application/json' } }));
+    return token;
+  });
+}
+async function consumeRecoveryToken(token) {
+  return withRecoveryLock(async () => {
+    const cache = await caches.open(APPROVAL_CACHE);
+    const response = await cache.match(RECOVERY_TOKEN_KEY);
+    if (!response) return false;
+    let value;
+    try { value = await response.json(); } catch { await cache.delete(RECOVERY_TOKEN_KEY); return false; }
+    if (value?.shell !== CACHE_NAME || typeof value.token !== 'string' ||
+        typeof value.expires !== 'number' || Date.now() > value.expires) {
+      await cache.delete(RECOVERY_TOKEN_KEY);
+      return false;
+    }
+    if (token !== value.token) return false;
+    // Consume before IndexedDB verification. A denied consent requires a fresh click.
+    await cache.delete(RECOVERY_TOKEN_KEY);
+    return true;
+  });
+}
 
 function isSameOrigin(request) {
   return new URL(request.url).origin === self.location.origin;
@@ -122,8 +160,7 @@ function escapeRecoveryHtml(value) {
 }
 async function recoveryPage(reason = '') {
   const candidateReady = await isComplete(CACHE_NAME);
-  const token = crypto.randomUUID();
-  recoveryChallenge = { token, expires: Date.now() + 5 * 60 * 1000 };
+  const token = candidateReady ? await issueRecoveryToken() : '';
   const body = `<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>Recuperar MarkMap</title></head>
 <body><main><h1>Versão local indisponível</h1>
@@ -177,10 +214,9 @@ async function verifyRecoveryLocalData() {
 async function handleRecoveryRequest(request) {
   const data = await request.formData().catch(() => null);
   const token = data?.get('token');
-  if (!recoveryChallenge || token !== recoveryChallenge.token ||
-      Date.now() > recoveryChallenge.expires) return recoveryPage('Solicitação expirada. Tente novamente.');
-  // A token is one-use; never authorize retries via back-button or another tab.
-  recoveryChallenge = null;
+  // The one-time challenge is stored in CacheStorage, not volatile SW memory.
+  if (typeof token !== 'string' || !(await consumeRecoveryToken(token)))
+    return recoveryPage('Solicitação expirada. Tente novamente.');
   if (!(await isComplete(CACHE_NAME))) return recoveryPage('A atualização ainda não está pronta.');
   const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
   if (windows.filter((client) => {

@@ -286,3 +286,33 @@ test('new worker can install with corrupted approval metadata, requiring explici
   const response=await b.fetchRequest('/workspace');assert.equal(response.status,503);
   assert.match(await response.text(),/Verificar dados e aprovar recuperação/);
 });
+
+test('recovery approval survives service worker termination between form and click', async () => {
+  const { b, caches, makeWorker } = await upgrade();
+  await caches.delete('markmap-cache-release-A');
+  const response = await b.fetchRequest('/workspace');
+  const html = await response.text();
+  assert.match(html, /name="token"/);
+  // A browser can terminate a worker at any time after serving the recovery page.
+  const restarted = makeWorker('B');
+  await restarted.run('activate');
+  const result = await recoveryClick(restarted, html);
+  assert.equal(result.status, 303);
+  assert.equal((await restarted.msg('GET_SHELL_STATUS')).approvedVersion, '0.5.19');
+  const replay = await recoveryClick(restarted, html);
+  assert.equal(replay.status, 503);
+});
+
+test('failed recovery consent cannot be reused after a worker restart', async () => {
+  const { b, caches, makeWorker, env } = await upgrade();
+  await caches.delete('markmap-cache-release-A');
+  const html = await (await b.fetchRequest('/workspace')).text();
+  env.syncBusy = true;
+  const failed = await recoveryClick(b, html);
+  assert.equal(failed.status, 503);
+  const restarted = makeWorker('B');
+  env.syncBusy = false;
+  const replay = await recoveryClick(restarted, html);
+  assert.equal(replay.status, 503);
+  assert.equal((await restarted.msg('GET_SHELL_STATUS')).approvedVersion, '0.5.18');
+});
