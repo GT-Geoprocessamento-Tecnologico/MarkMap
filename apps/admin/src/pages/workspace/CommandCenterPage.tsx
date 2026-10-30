@@ -142,6 +142,7 @@ export default function CommandCenterPage() {
   };
   const params = useParams({ strict: false }) as { projectId?: string };
   const [projectPdfId, setProjectPdfId] = useState<string | null>(null);
+  const [projectPdfOwner, setProjectPdfOwner] = useState<string | null>(null);
   const [projectPdfChoices, setProjectPdfChoices] = useState<Array<{ id: string; name: string }>>([]);
   const [projectPdfVisible, setProjectPdfVisible] = useState(true);
   const [projectPdfBusy, setProjectPdfBusy] = useState(false);
@@ -149,7 +150,9 @@ export default function CommandCenterPage() {
   const [projectPdfOpacity, setProjectPdfOpacity] = useState(0.85);
   const pdfOpacityRef = useRef(projectPdfOpacity);
   pdfOpacityRef.current = projectPdfOpacity;
-  const effectivePdfId = search.pdfId ?? (projectPdfVisible ? projectPdfId : null);
+  const effectivePdfId = search.pdfId ?? (
+    !search.geotiffId && projectPdfVisible && projectPdfOwner === params.projectId ? projectPdfId : null
+  );
   // Check explicit deep links at GPS callback time without remounting MapLibre.
   const requestedDatasetRef = useRef(search.datasetId);
   requestedDatasetRef.current = search.datasetId;
@@ -204,6 +207,7 @@ export default function CommandCenterPage() {
   useEffect(() => {
     let disposed = false;
     setProjectPdfId(null);
+    setProjectPdfOwner(null);
     setProjectPdfChoices([]);
     setProjectPdfVisible(true);
     setProjectPdfError(null);
@@ -212,6 +216,7 @@ export default function CommandCenterPage() {
       .then(([association, originals]) => {
         if (disposed) return;
         setProjectPdfId(association?.blobId ?? null);
+        setProjectPdfOwner(params.projectId ?? null);
         setProjectPdfChoices(originals.filter((record) => record.mediaType === "application/pdf")
           .map((record) => ({ id: record.blobId, name: record.originalName ?? "GeoPDF importado" })));
       }).catch(() => {
@@ -237,6 +242,7 @@ export default function CommandCenterPage() {
       }
       await localRepository.assignProjectGeoPdf(params.projectId, blobId);
       setProjectPdfId(blobId);
+      setProjectPdfOwner(params.projectId);
       setProjectPdfVisible(Boolean(blobId));
       toast({ title: blobId ? "GeoPDF associado ao projeto" : "GeoPDF desvinculado", variant: "success" });
     } catch (cause) {
@@ -1763,13 +1769,16 @@ export default function CommandCenterPage() {
           className="absolute left-3 right-3 top-[calc(4rem+env(safe-area-inset-top))] z-20 mx-auto max-w-sm min-w-0 rounded-xl border border-outline-variant bg-surface-container/95 p-2 text-on-surface shadow-md">
           <label htmlFor="project-geopdf-choice" className="block text-xs font-semibold">GeoPDF do projeto</label>
           <div className="mt-1 flex min-w-0 flex-wrap items-center gap-2">
-            <select id="project-geopdf-choice" value={projectPdfId ?? ""} disabled={projectPdfBusy}
+            <select id="project-geopdf-choice"
+              value={projectPdfOwner === params.projectId ? projectPdfId ?? "" : ""}
+              disabled={projectPdfBusy || projectPdfOwner !== params.projectId}
               onChange={(event) => { void chooseProjectGeoPdf(event.target.value || null); }}
               className="min-h-[44px] min-w-0 flex-1 rounded-md border border-outline-variant bg-surface px-2 text-xs text-on-surface">
               <option value="">Sem GeoPDF associado</option>
-              {projectPdfChoices.map((pdf) => <option key={pdf.id} value={pdf.id}>{pdf.name}</option>)}
+              {projectPdfOwner === params.projectId && projectPdfChoices.map((pdf) =>
+                <option key={pdf.id} value={pdf.id}>{pdf.name}</option>)}
             </select>
-            {projectPdfId && (
+            {projectPdfOwner === params.projectId && projectPdfId && (
               <button type="button" aria-pressed={projectPdfVisible}
                 onClick={() => setProjectPdfVisible((value) => !value)}
                 className="min-h-[44px] rounded-md border border-outline-variant px-2 text-xs">
@@ -1777,7 +1786,7 @@ export default function CommandCenterPage() {
               </button>
             )}
           </div>
-          {projectPdfId && projectPdfVisible && (
+          {projectPdfOwner === params.projectId && projectPdfId && projectPdfVisible && (
             <label className="mt-1 flex items-center gap-2 text-xs">
               Opacidade
               <input aria-label="Opacidade GeoPDF" type="range" min="0.2" max="1" step="0.1"
@@ -1785,7 +1794,7 @@ export default function CommandCenterPage() {
                 className="min-w-0 flex-1" />
             </label>
           )}
-          {projectPdfChoices.length === 0 &&
+          {projectPdfOwner === params.projectId && projectPdfChoices.length === 0 &&
             <p className="text-xs text-on-surface-variant">Importe e georreferencie um PDF em Importações.</p>}
           {projectPdfError && <p role="alert" className="break-words text-xs text-error">{projectPdfError}</p>}
           {geoPdfMessage && <p role="status" className="mt-1 break-words text-xs text-on-surface-variant">{geoPdfMessage}</p>}
