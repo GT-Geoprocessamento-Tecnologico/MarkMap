@@ -19,6 +19,7 @@ import {
   type DryRunRestoreResult,
 } from "../../lib/backup/restore";
 import { localDb } from "../../lib/local-db";
+import { FullPhotoBackupCard } from "./FullPhotoBackupCard";
 import { version as appVersion } from "../../../package.json";
 
 // Keep this pre-read limit aligned with dryRunRestore's archive limit.
@@ -255,6 +256,8 @@ export function BackupRestoreCard({ showRecoveryLink = true }: { showRecoveryLin
         Esta cópia é parcial: inclui apenas os dados do workspace e tem limite
         de 16 MiB. Mapas offline e dados de outros bancos não estão incluídos.
       </p>
+
+      <FullPhotoBackupCard />
 
       {showRecoveryLink && (
         <p className="my-2 text-sm text-on-surface-variant">
