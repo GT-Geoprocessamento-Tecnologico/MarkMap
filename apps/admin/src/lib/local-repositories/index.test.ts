@@ -34,6 +34,75 @@ describe("local-first repository", () => {
     expect(await reopened.listOriginals()).toHaveLength(1);
   });
 
+  it("saves photos only for live project points, retains bytes offline and deletes only with matching link", async () => {
+    const db = new MemoryLocalDb();
+    const repo = new LocalRepository(db);
+    const workspaceId = await repo.workspaceId();
+    const link = {
+      projectId: id,
+      layerId: "33333333-3333-4333-8333-333333333333",
+      featureId: "22222222-2222-4222-8222-222222222222",
+    };
+    const jpeg = new Uint8Array([255, 216, 255, 224, 1, 2, 3]);
+    const blob = new Blob([jpeg], { type: "image/jpeg" });
+    const digest = await crypto.subtle.digest("SHA-256", jpeg);
+    const sha256 = [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+    const input = { blobId: "foto-1", blob, mediaType: "image/jpeg", bytes: jpeg.length, sha256, pointPhoto: link };
+
+    await expect(repo.saveOriginal(input)).rejects.toThrow(/não pertence/);
+    await db.transact(["entities"], "readwrite", (tx) => {
+      tx.store("entities").put({
+        key: `${workspaceId}:feature:${link.featureId}`, workspaceId,
+        entity: "feature", entityId: link.featureId, deleted: false,
+        payload: { entity: "feature", data: { id: link.featureId, layerId: link.layerId } },
+      });
+      tx.store("entities").put({
+        key: `${workspaceId}:layer:${link.layerId}`, workspaceId,
+        entity: "layer", entityId: link.layerId, deleted: false,
+        payload: { entity: "layer", data: { id: link.layerId, projectId: link.projectId } },
+      });
+    });
+    await repo.saveOriginal(input);
+    const stored = await repo.getOriginal(input.blobId);
+    expect(stored?.pointPhoto).toEqual(link);
+    expect(new Uint8Array(await readBlobBytes(stored!.blob))).toEqual(jpeg);
+    expect(await repo.listOutbox()).toHaveLength(0); // Binary images never leak into the feature sync payload.
+    await expect(repo.deletePointPhoto(input.blobId, { ...link, projectId: "44444444-4444-4444-8444-444444444444" }))
+      .rejects.toThrow(/não pertence/);
+    expect(await repo.getOriginal(input.blobId)).not.toBeNull();
+    await repo.deletePointPhoto(input.blobId, link);
+    expect(await repo.getOriginal(input.blobId)).toBeNull();
+  });
+
+  it("enforces maximum photos per point inside the originals transaction", async () => {
+    const db = new MemoryLocalDb();
+    const repo = new LocalRepository(db);
+    const workspaceId = await repo.workspaceId();
+    const link = {
+      projectId: id, layerId: "33333333-3333-4333-8333-333333333333",
+      featureId: "22222222-2222-4222-8222-222222222222",
+    };
+    await db.transact(["entities"], "readwrite", (tx) => {
+      tx.store("entities").put({ key: `${workspaceId}:feature:${link.featureId}`,
+        workspaceId, entity: "feature", entityId: link.featureId, deleted: false,
+        payload: { entity: "feature", data: { layerId: link.layerId } } });
+      tx.store("entities").put({ key: `${workspaceId}:layer:${link.layerId}`,
+        workspaceId, entity: "layer", entityId: link.layerId, deleted: false,
+        payload: { entity: "layer", data: { projectId: link.projectId } } });
+    });
+    const jpeg = new Uint8Array([255, 216, 255, 224, 1]);
+    const sha = [...new Uint8Array(await crypto.subtle.digest("SHA-256", jpeg))]
+      .map((byte) => byte.toString(16).padStart(2, "0")).join("");
+    const blob = new Blob([jpeg], { type: "image/jpeg" });
+    for (let i = 0; i < 5; i++) {
+      await repo.saveOriginal({ blobId: `p-${i}`, blob, mediaType: "image/jpeg",
+        bytes: jpeg.length, sha256: sha, pointPhoto: link });
+    }
+    await expect(repo.saveOriginal({ blobId: "p-5", blob, mediaType: "image/jpeg",
+      bytes: jpeg.length, sha256: sha, pointPhoto: link })).rejects.toThrow(/máxima/);
+    expect((await repo.listOriginals()).filter((row) => row.pointPhoto?.featureId === link.featureId)).toHaveLength(5);
+  });
+
   it("persists and restores a GeoTIFF original through the same local store", async () => {
     const db = new MemoryLocalDb();
     const repo = new LocalRepository(db);
