@@ -18,6 +18,8 @@ import { validateBackupManifest } from "./manifest";
 import { LOCAL_FIRST_DATA_STORES, type PortableLocalFirstSnapshot } from "./snapshot";
 import { inspectPendingSnapshot } from "./validation";
 import { isPhotoMediaType, isSupportedBackupOriginalMediaType, validatePhotoBytes, validatePhotoOriginalMetadata } from "../photo/point-photo-policy.mjs";
+import { geoReferenceSchema } from "@markmap/contracts";
+import { assertGeoPdfProjectIds } from "../pdf/project-geopdf-link.mjs";
 
 export function fromBase64(encoded: string): Uint8Array {
   const decoded = atob(encoded);
@@ -95,6 +97,12 @@ async function prepareOriginals(
       throw new Error("Original com metadados binários inconsistentes.");
     }
     validatePhotoOriginalMetadata(metadata);
+    if (metadata.geoPdfReference !== undefined || metadata.projectGeoPdfIds !== undefined) {
+      if (metadata.mediaType !== "application/pdf")
+        throw new Error("Metadados geográficos em original não PDF.");
+      assertGeoPdfProjectIds(metadata.projectGeoPdfIds);
+      if (metadata.geoPdfReference !== undefined) geoReferenceSchema.parse(metadata.geoPdfReference);
+    }
     if (isPhotoMediaType(metadata.mediaType)) validatePhotoBytes(metadata.mediaType, bytes);
     if (await digestHex(bytes) !== metadata.sha256.toLowerCase()) {
       throw new Error(`SHA-256 do original "${String(metadata.blobId)}" corrompido no snapshot.`);

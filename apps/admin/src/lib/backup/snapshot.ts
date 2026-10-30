@@ -1,6 +1,8 @@
 import { LOCAL_DB_NAME, LOCAL_DB_VERSION } from '../local-db/types';
 import { digestHex } from './crypto';
 import { readBlobBytes } from '../blob-bytes';
+import { geoReferenceSchema } from '@markmap/contracts';
+import { assertGeoPdfProjectIds } from '../pdf/project-geopdf-link.mjs';
 import { isPhotoMediaType, isSupportedBackupOriginalMediaType, validatePhotoBytes, validatePhotoOriginalMetadata } from '../photo/point-photo-policy.mjs';
 
 /** T3a is deliberately memory-bounded. T3b will add cross-database streaming. */
@@ -209,6 +211,12 @@ async function portableOriginal(value: Record<string, unknown>): Promise<Record<
       typeof metadata.sha256 !== 'string' || !/^[a-f0-9]{64}$/i.test(metadata.sha256))
     throw new Error('Arquivo original com metadados inconsistentes.');
   validatePhotoOriginalMetadata(metadata);
+  if (metadata.geoPdfReference !== undefined || metadata.projectGeoPdfIds !== undefined) {
+    if (metadata.mediaType !== 'application/pdf')
+      throw new Error('Georreferência vinculada a arquivo não PDF.');
+    assertGeoPdfProjectIds(metadata.projectGeoPdfIds);
+    if (metadata.geoPdfReference !== undefined) geoReferenceSchema.parse(metadata.geoPdfReference);
+  }
   if (isPhotoMediaType(metadata.mediaType)) validatePhotoBytes(metadata.mediaType, bytes);
   if (legacyBlob && legacyBlob.size !== bytes.byteLength)
     throw new Error('Representacoes do PDF original divergem.');

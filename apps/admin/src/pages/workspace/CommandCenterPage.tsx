@@ -1788,9 +1788,10 @@ export default function CommandCenterPage() {
           {projectPdfChoices.length === 0 &&
             <p className="text-xs text-on-surface-variant">Importe e georreferencie um PDF em Importações.</p>}
           {projectPdfError && <p role="alert" className="break-words text-xs text-error">{projectPdfError}</p>}
+          {geoPdfMessage && <p role="status" className="mt-1 break-words text-xs text-on-surface-variant">{geoPdfMessage}</p>}
         </section>
       )}
-      {geoPdfMessage && (
+      {!params.projectId && geoPdfMessage && (
         <p
           role="status"
           className="absolute left-4 right-16 top-4 z-20 rounded-lg border border-cyan-500/30 bg-surface-container/95 p-3 text-sm text-on-surface shadow-lg backdrop-blur"
