@@ -103,12 +103,19 @@ async function saveApproval(cacheName, appVersion, buildSha) {
     buildSha,
   }), { headers: { 'Content-Type': 'application/json' } }));
 }
-async function isComplete(name) {
-  // Do not trust a cache created before an interrupted shell install.
+async function isComplete(name, verifyAssets = false) {
+  // CacheStorage can evict individual entries: a completion marker alone is
+  // not evidence of a usable offline app shell.
   const names = await caches.keys();
   if (!names.includes(name)) return false;
   const cache = await caches.open(name);
-  return Boolean(await cache.match(COMPLETE_KEY));
+  if (!(await cache.match(COMPLETE_KEY)) || !(await cache.match('/index.html'))) return false;
+  if (verifyAssets) {
+    for (const path of STATIC_ASSETS) {
+      if (!(await cache.match(path))) return false;
+    }
+  }
+  return true;
 }
 
 async function installShell() {
@@ -159,7 +166,7 @@ function escapeRecoveryHtml(value) {
   })[char]);
 }
 async function recoveryPage(reason = '') {
-  const candidateReady = await isComplete(CACHE_NAME);
+  const candidateReady = await isComplete(CACHE_NAME, true);
   const token = candidateReady ? await issueRecoveryToken() : '';
   const body = `<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>Recuperar MarkMap</title></head>
@@ -217,7 +224,7 @@ async function handleRecoveryRequest(request) {
   // The one-time challenge is stored in CacheStorage, not volatile SW memory.
   if (typeof token !== 'string' || !(await consumeRecoveryToken(token)))
     return recoveryPage('Solicitação expirada. Tente novamente.');
-  if (!(await isComplete(CACHE_NAME))) return recoveryPage('A atualização ainda não está pronta.');
+  if (!(await isComplete(CACHE_NAME, true))) return recoveryPage('A atualização ainda não está pronta.');
   const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
   if (windows.filter((client) => {
     try { return new URL(client.url).origin === self.location.origin; } catch { return false; }
@@ -296,7 +303,7 @@ function authorized(clientId) {
 }
 async function getShellStatus() {
   const pinned = await readApproval();
-  const ready = await isComplete(CACHE_NAME);
+  const ready = await isComplete(CACHE_NAME, true);
   return {
     type: 'MARKMAP_SHELL_STATUS', protocol: SAME_ORIGIN_SHELL_VERSION,
     approvedVersion: pinned?.appVersion ?? null,
@@ -324,7 +331,7 @@ async function approveShell(clientId, data, port) {
     port.postMessage({ type: 'MARKMAP_SHELL_APPROVAL', approved: false, reason: 'other-tabs' });
     return;
   }
-  if (!(await isComplete(CACHE_NAME))) {
+  if (!(await isComplete(CACHE_NAME, true))) {
     port.postMessage({ type: 'MARKMAP_SHELL_APPROVAL', approved: false, reason: 'incomplete' });
     return;
   }

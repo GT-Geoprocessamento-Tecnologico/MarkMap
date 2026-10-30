@@ -316,3 +316,27 @@ test('failed recovery consent cannot be reused after a worker restart', async ()
   assert.equal(replay.status, 503);
   assert.equal((await restarted.msg('GET_SHELL_STATUS')).approvedVersion, '0.5.18');
 });
+
+test('candidate with missing JavaScript is never offered for consent after cache eviction', async () => {
+  const { b, caches } = await upgrade();
+  const candidate = await caches.open('markmap-cache-release-B');
+  candidate.items.delete(candidate.key('/assets/main-a1b2c3d4.js'));
+  const status = await b.msg('GET_SHELL_STATUS');
+  assert.equal(status.candidateReady, false);
+  assert.equal(status.updateAvailable, false);
+  const rejected = await approve(b);
+  assert.equal(rejected.approved, false);
+  assert.equal((await b.msg('GET_SHELL_STATUS')).approvedVersion, '0.5.18');
+});
+
+test('recovery never offers an incomplete candidate shell even if its install marker remains', async () => {
+  const { b, caches } = await upgrade();
+  const candidate = await caches.open('markmap-cache-release-B');
+  candidate.items.delete(candidate.key('/assets/main-a1b2c3d4.js'));
+  await caches.delete('markmap-cache-release-A');
+  const response = await b.fetchRequest('/workspace');
+  assert.equal(response.status, 503);
+  const html = await response.text();
+  assert.match(html, /A versão disponível ainda não está pronta/);
+  assert.doesNotMatch(html, /name="token"/);
+});
