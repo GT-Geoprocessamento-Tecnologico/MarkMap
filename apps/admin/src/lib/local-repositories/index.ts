@@ -21,6 +21,7 @@ import {
 } from "../local-db";
 import { readBlobBytes } from "../blob-bytes";
 import {
+  MAX_POINT_PHOTOS, MAX_WORKSPACE_POINT_PHOTO_BYTES,
   isPhotoMediaType, isSupportedBackupOriginalMediaType,
   validPointPhotoLink, validatePhotoBytes, validatePhotoOriginalMetadata,
 } from "../photo/point-photo-policy.mjs";
@@ -30,6 +31,12 @@ type BootstrapIdentity = { installationId: string; bootstrapProof: string };
 // Older installations stored Blob directly. New records use the bytes already
 // validated below, avoiding WebKit's Blob preparation failure without a migration.
 type StoredOriginal = Omit<OriginalRecord, 'blob'> & { blob?: Blob; originalBytes?: ArrayBuffer };
+type PhotoLink = NonNullable<OriginalRecord['pointPhoto']>;
+function samePhotoLink(left?: PhotoLink, right?: PhotoLink): boolean {
+  if (!left || !right) return left === right;
+  return left.projectId === right.projectId &&
+    left.layerId === right.layerId && left.featureId === right.featureId;
+}
 
 function restoreOriginal(record: StoredOriginal): OriginalRecord {
   const { originalBytes, ...metadata } = record;
@@ -667,12 +674,27 @@ export class LocalRepository {
           current.mediaType === record.mediaType &&
           current.bytes === record.bytes &&
           current.sha256.toLowerCase() === record.sha256.toLowerCase() &&
-          JSON.stringify(current.pointPhoto ?? null) === JSON.stringify(record.pointPhoto ?? null)
+          samePhotoLink(current.pointPhoto, record.pointPhoto)
         )
           return;
         throw new Error(
           "Já existe um original com o mesmo blobId e metadados conflitantes.",
         );
+      }
+      // The quota check shares this transaction with add(), preventing two
+      // tabs from racing past the per-point and per-workspace photo limits.
+      if (record.pointPhoto) {
+        const existing = await read<StoredOriginal[]>(
+          tx.store("originals").index("workspace").getAll(workspaceId),
+        );
+        const photoRecords = existing.filter((row) => isPhotoMediaType(row.mediaType));
+        const samePointCount = photoRecords.filter((row) =>
+          samePhotoLink(row.pointPhoto, record.pointPhoto)).length;
+        if (samePointCount >= MAX_POINT_PHOTOS)
+          throw new Error("Quantidade máxima de fotos deste ponto atingida.");
+        if (photoRecords.reduce((sum, row) => sum + row.bytes, 0) +
+            record.bytes > MAX_WORKSPACE_POINT_PHOTO_BYTES)
+          throw new Error("Limite de fotos do workspace atingido para backup parcial.");
       }
       tx.store("originals").add(record);
     });
@@ -712,7 +734,7 @@ export class LocalRepository {
       const key = originalKey(workspaceId, blobId);
       const record = await read<StoredOriginal | undefined>(tx.store("originals").get(key));
       if (!record || !isPhotoMediaType(record.mediaType) ||
-          JSON.stringify(record.pointPhoto ?? null) !== JSON.stringify(link))
+          !samePhotoLink(record.pointPhoto, link))
         throw new Error("Foto não pertence ao ponto deste workspace.");
       tx.store("originals").delete(key);
     });

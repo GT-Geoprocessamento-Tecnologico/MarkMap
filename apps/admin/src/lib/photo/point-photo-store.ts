@@ -4,13 +4,13 @@ import {
   MAX_POINT_PHOTO_SOURCE_BYTES,
   MAX_POINT_PHOTO_STORED_BYTES,
   MAX_POINT_PHOTOS,
+  MAX_WORKSPACE_POINT_PHOTO_BYTES,
   isPhotoMediaType,
   validPointPhotoLink,
   validatePhotoBytes,
   type PointPhotoLink,
 } from './point-photo-policy.mjs';
 
-const MAX_WORKSPACE_PHOTO_BYTES = 6_000_000; // bounded by the existing 16 MiB partial backup
 
 export type SavedPointPhoto = OriginalRecord & { pointPhoto: PointPhotoLink };
 function isPhoto(record: OriginalRecord): record is SavedPointPhoto {
@@ -82,7 +82,7 @@ export async function addPointPhoto(link: PointPhotoLink, file: File): Promise<v
   if (allPhotos.filter((photo) => linked(photo, link)).length >= MAX_POINT_PHOTOS)
     throw new Error(`Limite de ${MAX_POINT_PHOTOS} fotos por ponto neste dispositivo.`);
   const photo = await encodePrivatePointPhoto(file);
-  if (allPhotos.reduce((sum, row) => sum + row.bytes, 0) + photo.size > MAX_WORKSPACE_PHOTO_BYTES)
+  if (allPhotos.reduce((sum, row) => sum + row.bytes, 0) + photo.size > MAX_WORKSPACE_POINT_PHOTO_BYTES)
     throw new Error('Espaço reservado para fotos do workspace atingiu o limite do backup parcial (6 MB).');
   const bytes = await readBlobBytes(photo);
   const digest = await crypto.subtle.digest('SHA-256', new Uint8Array(bytes));

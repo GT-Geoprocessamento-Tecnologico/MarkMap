@@ -1,6 +1,7 @@
 export declare const MAX_POINT_PHOTO_SOURCE_BYTES: number;
 export declare const MAX_POINT_PHOTO_STORED_BYTES: number;
 export declare const MAX_POINT_PHOTOS: number;
+export declare const MAX_WORKSPACE_POINT_PHOTO_BYTES: number;
 export declare const POINT_PHOTO_MIME_TYPES: readonly ['image/jpeg', 'image/png', 'image/webp'];
 export type PointPhotoLink = { projectId: string; featureId: string; layerId: string };
 export declare function isPhotoMediaType(value: unknown): value is 'image/jpeg' | 'image/png' | 'image/webp';

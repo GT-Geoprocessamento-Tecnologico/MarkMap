@@ -2,6 +2,7 @@
 export const MAX_POINT_PHOTO_SOURCE_BYTES = 16 * 1024 * 1024;
 export const MAX_POINT_PHOTO_STORED_BYTES = 1_500_000;
 export const MAX_POINT_PHOTOS = 5;
+export const MAX_WORKSPACE_POINT_PHOTO_BYTES = 6_000_000;
 export const POINT_PHOTO_MIME_TYPES = Object.freeze(['image/jpeg', 'image/png', 'image/webp']);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
