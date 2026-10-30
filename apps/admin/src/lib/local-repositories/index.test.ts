@@ -335,3 +335,71 @@ describe("local-first repository", () => {
     expect(await repo.workspaceId()).toBeDefined();
   });
 });
+
+describe("GeoPDF vinculado ao projeto no IndexedDB", () => {
+  it("associa GeoPDF e troca a seleção sem alterar os bytes ou outros projetos", async () => {
+    const db = new MemoryLocalDb();
+    const repo = new LocalRepository(db);
+    const workspaceId = await repo.workspaceId();
+    const otherProject = "44444444-4444-4444-8444-444444444444";
+    await db.transact(["entities"], "readwrite", (tx) => {
+      for (const projectId of [id, otherProject]) {
+        tx.store("entities").put({
+          key: `${workspaceId}:project:${projectId}`, workspaceId,
+          entity: "project", entityId: projectId, deleted: false,
+          payload: { entity: "project", data: { id: projectId, name: "Projeto" } },
+        });
+      }
+    });
+    const bytes = new TextEncoder().encode("%PDF-1.4\nGeoPDF sintético\n%%EOF");
+    const hash = [...new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))]
+      .map((b) => b.toString(16).padStart(2, "0")).join("");
+    const pdf = (blobId: string) => ({
+      blobId, mediaType: "application/pdf", blob: new Blob([bytes], { type: "application/pdf" }),
+      bytes: bytes.byteLength, sha256: hash, originalName: `${blobId}.pdf`,
+    });
+    await repo.saveOriginal(pdf("a"));
+    await repo.saveOriginal(pdf("b"));
+    await repo.assignProjectGeoPdf(id, "a");
+    await repo.assignProjectGeoPdf(otherProject, "a");
+    expect((await repo.getProjectGeoPdf(id))?.blobId).toBe("a");
+    await repo.assignProjectGeoPdf(id, "b");
+    expect((await repo.getProjectGeoPdf(id))?.blobId).toBe("b");
+    expect((await repo.getProjectGeoPdf(otherProject))?.blobId).toBe("a");
+    expect(new Uint8Array(await readBlobBytes((await repo.getOriginal("a"))!.blob))).toEqual(bytes);
+    await repo.assignProjectGeoPdf(id, null);
+    expect(await repo.getProjectGeoPdf(id)).toBeNull();
+    expect((await repo.getProjectGeoPdf(otherProject))?.blobId).toBe("a");
+    await expect(repo.assignProjectGeoPdf(id, "sem-pdf")).rejects.toThrow(/não encontrado/);
+    await expect(repo.assignProjectGeoPdf("sem-projeto", "a")).rejects.toThrow();
+  });
+
+  it("mantém o vínculo após reimportação idempotente do PDF original", async () => {
+    const db = new MemoryLocalDb();
+    const repo = new LocalRepository(db);
+    const workspaceId = await repo.workspaceId();
+    await db.transact(["entities"], "readwrite", (tx) => {
+      tx.store("entities").put({
+        key: `${workspaceId}:project:${id}`, workspaceId,
+        entity: "project", entityId: id, deleted: false,
+        payload: { entity: "project", data: { id, name: "Campo" } },
+      });
+    });
+    const bytes = new TextEncoder().encode("%PDF-1.4\n%%EOF");
+    const sha256 = [...new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))]
+      .map((n) => n.toString(16).padStart(2, "0")).join("");
+    const input = {
+      blobId: "pdf-original", mediaType: "application/pdf",
+      blob: new Blob([bytes], { type: "application/pdf" }),
+      bytes: bytes.length, sha256,
+    };
+    await repo.saveOriginal(input);
+    await repo.assignProjectGeoPdf(id, input.blobId);
+    await repo.saveOriginal(input);
+    const reopened = new LocalRepository(db);
+    expect((await reopened.getProjectGeoPdf(id))?.projectGeoPdfIds).toEqual([id]);
+    const raw = await db.transact(["originals"], "readonly", (tx) =>
+      requestValue(tx.store("originals").get(originalKey(workspaceId, input.blobId))));
+    expect(raw.projectGeoPdfIds).toEqual([id]);
+  });
+});
