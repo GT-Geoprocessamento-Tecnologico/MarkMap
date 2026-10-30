@@ -775,7 +775,7 @@ export class LocalRepository {
     sourceWorkspaceId: string,
     photos: Array<Pick<OriginalRecord, "blobId" | "blob" | "mediaType" | "bytes" |
       "sha256" | "originalName" | "createdAt" | "pointPhoto">>,
-  ): Promise<{ added: number; unchanged: number }> {
+  ): Promise<{ added: number; unchanged: number; orphaned: number }> {
     const workspaceId = await this.workspaceId();
     if (sourceWorkspaceId !== workspaceId)
       throw new Error("Workspace do backup diferente. Restaure primeiro os projetos correspondentes.");
@@ -842,15 +842,23 @@ export class LocalRepository {
         ]);
         return { link, feature, layer };
       }));
+      let orphaned = 0;
       for (const { link, feature, layer } of links) {
-        if (!feature || feature.deleted || feature.payload?.entity !== "feature" ||
+        // Deleted/missing points must not cause loss of previously archived
+        // photos. Keep them in the same workspace as unlinked originals until
+        // their project/feature is restored, never reassign to a different ID.
+        if (!feature || feature.deleted || !layer || layer.deleted) {
+          orphaned++;
+          continue;
+        }
+        if (feature.payload?.entity !== "feature" ||
             feature.payload.data.layerId !== link.layerId ||
-            !layer || layer.deleted || layer.payload?.entity !== "layer" ||
+            layer.payload?.entity !== "layer" ||
             layer.payload.data.projectId !== link.projectId)
-          throw new Error("O projeto/ponto da foto não existe neste dispositivo. Restaure os projetos primeiro.");
+          throw new Error("Foto vinculada a projeto/camada diferente. Restauração cancelada.");
       }
       for (const row of added) store.add(row);
-      return { added: added.length, unchanged };
+      return { added: added.length, unchanged, orphaned };
     });
   }
 

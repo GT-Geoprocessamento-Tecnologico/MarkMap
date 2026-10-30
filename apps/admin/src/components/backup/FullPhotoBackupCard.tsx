@@ -70,7 +70,8 @@ export function FullPhotoBackupCard() {
       const result = await restoreFullPointPhotoBackup(
         new Uint8Array(await restoreFile.arrayBuffer()), restorePass,
       );
-      setNotice(`Restauração concluída: ${result.added} fotos adicionadas e ${result.unchanged} já existentes preservadas.`);
+      setNotice(`Restauração concluída: ${result.added} fotos adicionadas e ${result.unchanged} já existentes preservadas.` +
+        (result.orphaned ? ` ${result.orphaned} foto(s) de pontos ausentes ficaram guardadas até restaurar esses pontos.` : ""));
       setVerified(null);
       setRestoreFile(null); setRestorePass("");
       if (fileInputRef.current) fileInputRef.current.value = "";

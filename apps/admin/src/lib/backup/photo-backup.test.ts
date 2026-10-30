@@ -74,16 +74,16 @@ describe("backup integral de fotos por workspace", () => {
       new LocalRepository(new MemoryLocalDb()))).rejects.toThrow(/Workspace/);
   });
 
-  it("não restaura parcialmente se o ponto foi excluído", async () => {
+  it("preserva a foto como órfã quando o ponto foi excluído, sem reatribuir vínculo", async () => {
     const { db, repository, workspaceId, link } = await fixture();
     const exported = await exportFullPointPhotoBackup(PASSWORD, repository);
     await repository.deletePointPhoto("photo-1", link);
     await db.transact(["entities"], "readwrite", (tx) => {
       tx.store("entities").delete(`${workspaceId}:feature:${POINT}`);
     });
-    await expect(restoreFullPointPhotoBackup(exported.bytes, PASSWORD, repository))
-      .rejects.toThrow(/projeto\/ponto/);
-    expect(await repository.getOriginal("photo-1")).toBeNull();
+    const outcome = await restoreFullPointPhotoBackup(exported.bytes, PASSWORD, repository);
+    expect(outcome).toMatchObject({ added: 1, unchanged: 0, orphaned: 1, count: 1 });
+    expect((await repository.getOriginal("photo-1"))?.pointPhoto).toEqual(link);
   });
 
   it("mantém nomes opcionais compatíveis com backup parcial sem serializar undefined", async () => {
