@@ -180,7 +180,7 @@ export function RegionDownloadCatalog({
 
   const chooseInstalled = (id: string) => {
     setSelectedOfflineMapId(id);
-    setNotice("Mapa selecionado. Disponível sem internet.");
+    setNotice("Região selecionada para consultas offline. O fundo principal permanece OpenFreeMap.");
     onSelected?.();
   };
   const cancel = () => {
@@ -219,7 +219,7 @@ export function RegionDownloadCatalog({
         rememberRegionSource(result.manifest.id, region.manifestUrl);
         setSelectedOfflineMapId(result.manifest.id);
         await refreshInstalled();
-        setNotice(`${result.manifest.label} baixado e pronto para usar sem internet.`);
+        setNotice(`${result.manifest.label} baixado para pesquisa e recursos locais sem internet.`);
         onInstalled?.();
       }
     } catch (cause) {
@@ -289,7 +289,7 @@ export function RegionDownloadCatalog({
       if (result.status === "completed" && result.installedIds[0]) {
         setSelectedOfflineMapId(result.installedIds[0]);
         await refreshInstalled(); onInstalled?.();
-        setNotice("Mapas selecionados baixados e prontos para uso sem internet.");
+        setNotice("Regiões baixadas para pesquisa e recursos locais sem internet.");
         setSelectedIds(previous => new Set([...previous].filter(id => !result.installedIds.includes(id))));
       } else {
         if (result.installedIds.length) {
@@ -341,7 +341,7 @@ export function RegionDownloadCatalog({
     <div>
       <h3 className="text-base font-semibold">Escolha um mapa para baixar</h3>
       <p className="mt-1 text-xs text-on-surface-variant">
-        Encontre a região desejada e toque em Baixar. Depois, o mapa funciona sem internet.
+        Baixe dados regionais para pesquisa e recursos locais sem internet. Com conexão, o fundo visual continua OpenFreeMap.
       </p>
     </div>
     <details className="space-y-2 rounded-xl border border-outline-variant p-3 text-sm">
@@ -474,7 +474,7 @@ export function RegionDownloadCatalog({
             ? <button type="button" disabled={disabled || busyId !== null}
                 onClick={() => chooseInstalled(region.id)}
                 className="min-h-[44px] w-full rounded-lg border border-outline-variant px-3 text-sm font-semibold disabled:opacity-50">
-                {active ? "Mapa em uso" : "Usar no mapa"}
+                {active ? "Região ativa" : "Usar para buscas"}
               </button>
             : <button type="button" disabled={disabled || busyId !== null}
                 onClick={() => void download(region, confirmId === region.id)}
@@ -504,7 +504,7 @@ export function RegionDownloadCatalog({
             <button type="button" disabled={disabled || busyId !== null}
               className="min-h-[44px] rounded-lg border border-outline-variant px-3 text-xs font-semibold disabled:opacity-50"
               onClick={() => chooseInstalled(manifest.id)}>
-              {selectedId === manifest.id ? "Em uso" : "Usar"}
+              {selectedId === manifest.id ? "Em consultas" : "Selecionar para buscas"}
             </button>
           </li>)}</ul>}
     </div>}
