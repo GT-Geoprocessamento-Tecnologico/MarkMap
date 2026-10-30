@@ -19,6 +19,10 @@ const API_PATH_PREFIXES = [
   '/api', '/projects', '/layers', '/features', '/notifications', '/storage', '/health',
 ];
 const SAME_ORIGIN_SHELL_VERSION = 1;
+const RECOVERY_PATH = '/__markmap_recover_shell__';
+const LOCAL_FIRST_DB = 'GeoNexoLocalFirstDB';
+const LOCAL_FIRST_DB_VERSION = 2;
+let recoveryChallenge = null;
 
 function isSameOrigin(request) {
   return new URL(request.url).origin === self.location.origin;
@@ -87,7 +91,8 @@ async function installShell() {
     await caches.delete(stagingName);
     // One-time migration: legacy workers did not persist an approval protocol.
     // Bootstrap this new protocol on its own shell. Subsequent releases are pinned.
-    if (!(await readApproval())) await saveApproval(CACHE_NAME, APP_VERSION, BUILD_SHA);
+    const approvals = await caches.open(APPROVAL_CACHE);
+    if (!(await approvals.match(APPROVAL_KEY))) await saveApproval(CACHE_NAME, APP_VERSION, BUILD_SHA);
   } catch (error) {
     await caches.delete(stagingName);
     throw error;
@@ -106,10 +111,88 @@ async function handleNavigation() {
                             await cache.match('/', SHELL_MATCH));
     if (shell) return shell;
   } catch { /* A malformed pin never authorizes a new release. */ }
-  // Fail closed rather than serve an unapproved, potentially incompatible release.
-  return new Response('Versão aprovada indisponível neste dispositivo. Preserve seus dados locais.', {
-    status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' },
+  // Preserve the user's IndexedDB, outbox and offline maps. Require explicit
+  // recovery consent and a durable local transaction before changing the pin.
+  return recoveryPage();
+}
+function escapeRecoveryHtml(value) {
+  return String(value).replace(/[&<>"']/g, (char) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  })[char]);
+}
+async function recoveryPage(reason = '') {
+  const candidateReady = await isComplete(CACHE_NAME);
+  const token = crypto.randomUUID();
+  recoveryChallenge = { token, expires: Date.now() + 5 * 60 * 1000 };
+  const body = `<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>Recuperar MarkMap</title></head>
+<body><main><h1>Versão local indisponível</h1>
+<p>A versão do aplicativo previamente aprovada não está mais no cache. Seus dados locais não foram apagados.</p>
+${reason ? `<p role="alert">${escapeRecoveryHtml(reason)}</p>` : ''}
+${candidateReady ? `<p>Se desejar, autorize manualmente a versão ${escapeRecoveryHtml(APP_VERSION)}.
+A recuperação verifica o armazenamento local antes de continuar.</p>
+<form method="POST" action="${RECOVERY_PATH}">
+<input type="hidden" name="token" value="${token}">
+<button type="submit">Verificar dados e aprovar recuperação</button></form>` :
+'<p>A versão disponível ainda não está pronta. Conecte-se à internet e abra o aplicativo novamente.</p>'}
+<p>Não reinstale o aplicativo nem limpe seus dados ou mapas offline.</p>
+</main></body></html>`;
+  return new Response(body, { status: 503, headers: {
+    'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store',
+    'X-Content-Type-Options': 'nosniff',
+  } });
+}
+/**
+ * An explicit recovery click may change only the shell approval record.
+ * Check a readwrite barrier on the existing local DB without creating a new DB.
+ */
+async function verifyRecoveryLocalData() {
+  if (typeof indexedDB === 'undefined') throw new Error('IndexedDB indisponível.');
+  const db = await new Promise((resolve, reject) => {
+    const req = indexedDB.open(LOCAL_FIRST_DB);
+    let settled = false;
+    const fail = () => { if (!settled) { settled = true; reject(new Error('Banco local indisponível.')); } };
+    req.onupgradeneeded = () => { try { req.transaction?.abort(); } catch {} fail(); };
+    req.onerror = fail;
+    req.onblocked = fail;
+    req.onsuccess = () => {
+      if (settled) { req.result.close(); return; }
+      settled = true; resolve(req.result);
+    };
   });
+  try {
+    const required = ['meta', 'entities', 'originals', 'outbox', 'conflicts', 'acks'];
+    if (db.version !== LOCAL_FIRST_DB_VERSION || required.some((name) => !db.objectStoreNames.contains(name)))
+      throw new Error('Banco local em versão incompatível.');
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(required, 'readwrite');
+      const sync = tx.objectStore('meta').get('syncInProgress');
+      tx.oncomplete = () => sync.result === undefined ? resolve() : reject(new Error('Sincronização em andamento.'));
+      tx.onabort = () => reject(tx.error || new Error('Transação local interrompida.'));
+      tx.onerror = () => reject(tx.error || new Error('Falha de transação local.'));
+      sync.onerror = () => reject(sync.error || new Error('Falha ao ler sincronização.'));
+    });
+  } finally { db.close(); }
+}
+async function handleRecoveryRequest(request) {
+  const data = await request.formData().catch(() => null);
+  const token = data?.get('token');
+  if (!recoveryChallenge || token !== recoveryChallenge.token ||
+      Date.now() > recoveryChallenge.expires) return recoveryPage('Solicitação expirada. Tente novamente.');
+  // A token is one-use; never authorize retries via back-button or another tab.
+  recoveryChallenge = null;
+  if (!(await isComplete(CACHE_NAME))) return recoveryPage('A atualização ainda não está pronta.');
+  const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+  if (windows.filter((client) => {
+    try { return new URL(client.url).origin === self.location.origin; } catch { return false; }
+  }).length > 1) return recoveryPage('Feche as outras janelas do MarkMap antes de recuperar.');
+  try {
+    await verifyRecoveryLocalData();
+    await saveApproval(CACHE_NAME, APP_VERSION, BUILD_SHA);
+    return Response.redirect(new URL('/workspace', self.location.origin).href, 303);
+  } catch {
+    return recoveryPage('Não foi possível conferir as gravações locais. Nenhuma atualização foi autorizada.');
+  }
 }
 async function handleStaticAsset(request, event) {
   const cache = await approvedCache();
@@ -134,8 +217,13 @@ self.addEventListener('activate', (event) => {
 });
 self.addEventListener('fetch', (event) => {
   const request = event.request;
-  if (request.method !== 'GET' || !isSameOrigin(request)) return;
+  if (!isSameOrigin(request)) return;
   const url = new URL(request.url);
+  if (request.method === 'POST' && url.pathname === RECOVERY_PATH) {
+    event.respondWith(handleRecoveryRequest(request));
+    return;
+  }
+  if (request.method !== 'GET') return;
   if (request.mode === 'navigate' && url.pathname === '/install') {
     event.respondWith(Promise.resolve(Response.redirect(new URL('/', self.location.origin).href, 302)));
     return;

@@ -28,7 +28,18 @@ class LocalCaches {
   async delete(name) { this.deleted.push(name); return this.stores.delete(name); }
 }
 function setup() {
-  const env={release:'A', network:true, userCaches:[]};
+  const env={release:'A', network:true, userCaches:[], syncBusy:false, dbMissing:false, dbVersion:2};
+  env.indexedDB = { open(){
+    const db = {version:env.dbVersion,objectStoreNames:{contains:()=>true},close(){},
+      transaction(){
+        const tx={error:null,oncomplete:null,onerror:null,onabort:null,objectStore(){return {get(){
+          const req={result:env.syncBusy?{key:'syncInProgress',value:true}:undefined,error:null,onerror:null};
+          queueMicrotask(()=>tx.oncomplete?.()); return req;
+        }}}};return tx;
+      }};
+    const req={result:db,transaction:{abort(){}},onsuccess:null,onerror:null,onupgradeneeded:null};
+    queueMicrotask(()=>{ if(env.dbMissing)req.onupgradeneeded?.();else req.onsuccess?.();}); return req;
+  }};
   env.fetcher = async (request) => {
     if (!env.network) throw new Error('offline');
     const pathname = new URL(request.url).pathname;
@@ -45,7 +56,7 @@ function setup() {
     const listeners=new Map(); let skipCalls=0,claimCalls=0;
     const self={location:{origin:ORIGIN},addEventListener(t,h){listeners.set(t,h);},clients:{claim(){claimCalls++;return Promise.resolve()},async matchAll(){return windows}},skipWaiting(){skipCalls++;return Promise.resolve()}};
     vm.runInNewContext(source,{
-      self,caches,fetch:env.fetcher,Response,URL,Promise,Date,console,
+      self,caches,fetch:env.fetcher,Response,URL,Promise,Date,console,crypto:globalThis.crypto,indexedDB:env.indexedDB,
       Request, __MARKMAP_SHELL_MANIFEST__:assets,
       __MARKMAP_SHELL_VERSION__:'release-'+release,
       __MARKMAP_APP_VERSION__:'0.5.'+(release==='A'?18:19),
@@ -215,4 +226,63 @@ test('missing JS never returns index.html as a fallback',async()=>{
   env.network=false;
   const response=await b.fetchRequest('/assets/unlisted-missing.js','cors');
   assert.equal(response.type,'error');
+});
+
+async function recoveryClick(worker, html, tokenOverride) {
+  const token = tokenOverride ?? html.match(/name="token" value="([^"]+)"/)?.[1];
+  const request = { url: ORIGIN + '/__markmap_recover_shell__', method: 'POST', mode: 'navigate',
+    formData: async () => new Map([['token', token]]) };
+  return worker.run('fetch', { request });
+}
+
+test('pinned-cache eviction offers explicit HTML consent but does not auto-adopt a new shell',async()=>{
+  const {b,caches}=await upgrade();
+  await caches.delete('markmap-cache-release-A');
+  const response=await b.fetchRequest('/workspace');
+  const html=await response.text();
+  assert.equal(response.status,503);
+  assert.match(response.headers.get('content-type'), /text\/html/);
+  assert.match(html,/Verificar dados e aprovar recuperação/);
+  assert.equal((await b.msg('GET_SHELL_STATUS')).approvedVersion,'0.5.18');
+});
+
+test('explicit recovery click waits for local IndexedDB and adopts prepared release only after user consent',async()=>{
+  const {b,caches}=await upgrade();
+  await caches.delete('markmap-cache-release-A');
+  const first=await b.fetchRequest('/workspace');
+  const result=await recoveryClick(b,await first.text());
+  assert.equal(result.status,303);
+  assert.equal((await b.msg('GET_SHELL_STATUS')).approvedVersion,'0.5.19');
+  assert.match(await (await b.fetchRequest('/workspace')).text(),/MarkMap B/);
+});
+
+test('recovery rejects forged or replayed tokens and retains previous approval',async()=>{
+  const {b,caches}=await upgrade();await caches.delete('markmap-cache-release-A');
+  const html=await (await b.fetchRequest('/workspace')).text();
+  const forged=await recoveryClick(b,html,'fake-token');
+  assert.equal(forged.status,503);
+  assert.equal((await b.msg('GET_SHELL_STATUS')).approvedVersion,'0.5.18');
+  const fresh=await recoveryClick(b,await forged.text());
+  assert.equal(fresh.status,303);
+  const replay=await recoveryClick(b,html);
+  assert.equal(replay.status,503);
+});
+
+test('recovery refuses when another tab is open or sync is pending',async()=>{
+  const {b,caches,windows,env}=await upgrade();await caches.delete('markmap-cache-release-A');
+  windows.push({id:'two',url:ORIGIN+'/projects'});
+  let resp=await recoveryClick(b,await (await b.fetchRequest('/workspace')).text());
+  assert.equal(resp.status,503);assert.equal((await b.msg('GET_SHELL_STATUS')).approvedVersion,'0.5.18');
+  windows.pop();env.syncBusy=true;
+  resp=await recoveryClick(b,await (await b.fetchRequest('/workspace')).text());
+  assert.equal(resp.status,503);assert.equal((await b.msg('GET_SHELL_STATUS')).approvedVersion,'0.5.18');
+});
+
+test('new worker can install with corrupted approval metadata, requiring explicit recovery',async()=>{
+  const {a,caches,makeWorker}=await initialized();
+  const approvals=await caches.open('markmap-shell-approval-v1');
+  await approvals.put('/__markmap_approved_shell_v1__',new Response('{bad json'));
+  const b=makeWorker('B'); await b.run('install');
+  const response=await b.fetchRequest('/workspace');assert.equal(response.status,503);
+  assert.match(await response.text(),/Verificar dados e aprovar recuperação/);
 });

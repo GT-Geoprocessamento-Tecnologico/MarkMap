@@ -4,6 +4,12 @@ Fonte da versão do aplicativo: `apps/admin/package.json`. Todos os agentes segu
 
 ## [0.5.18] - 2026-10-29
 
+### Recuperação segura de PWA com perda de cache aprovado
+
+- A ausência do app shell aprovado abre uma página local de recuperação em vez de bloqueio sem saída (HTTP 503 continua até consentimento explícito).
+- A recuperação exige clique, desafio temporário de uso único, shell candidato completo e verificação de transação IndexedDB com prevenção de múltiplas abas e sincronização pendente.
+- Nenhuma limpeza de dados, outbox, mapas ou troca automática de versão é permitida; teste isolado do SW com recuperação inclui fraude/replay de token e metadados corrompidos.
+
 ### Fotos privadas dos pontos — candidata offline-first
 
 - Câmera e galeria no formulário de pontos; imagens convertidas para JPEG sem EXIF, limitadas a 1,5 MB e 5 por ponto, com prévia e exclusão confirmada.
