@@ -906,7 +906,6 @@ export default function CommandCenterPage() {
       let center: [number, number] = [-47.92, -15.785];
       let zoom = 14;
       let offlinePackageSelected = false;
-      let displayedGeneration: string | null = null;
       let offlineBounds: readonly [number, number, number, number] | null = null;
       let offlineMaxZoom = 16;
       let basemap = getDefaultBasemaps()[0];
@@ -991,7 +990,6 @@ export default function CommandCenterPage() {
           }
           throw new Error("O mapa selecionado foi removido ou não está disponível. Selecione outro em Configurações.");
         }
-        displayedGeneration = installed.generation;
         setSearchRegionLabel(installed.manifest.label.replace(/\s*—\s*mapa offline\s*$/i, ""));
         const [archive, styleBlob] = await Promise.all([
           offlineMapStore.assetAtRevision(selectedPackageId, "package.pmtiles", installed.generation),

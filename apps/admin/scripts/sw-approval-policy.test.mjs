@@ -106,7 +106,7 @@ async function approve(worker,opts={}) {
 
 test('first install pins the installed shell and serves its HTML from cache online',async()=>{
   const {a,env,caches}=await initialized();
-  let status=await a.msg('GET_SHELL_STATUS');
+  const status=await a.msg('GET_SHELL_STATUS');
   assert.equal(status.approvedVersion,'0.5.18');
   assert.equal(status.updateAvailable,false);
   env.release='B';
