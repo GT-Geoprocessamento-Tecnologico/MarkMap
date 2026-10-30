@@ -4,6 +4,14 @@ Fonte da versão do aplicativo: `apps/admin/package.json`. Todos os agentes segu
 
 ## [0.5.18] - 2026-10-29
 
+### Continuidade da candidata (sem publicação)
+
+- T06: toque no ponto de campo abre ficha de gerenciamento, com seleção protegida por ID do projeto; marcadores importados mantêm a leitura e pontos salvos continuam visíveis ao ocultar datasets.
+- T10: datasets locais podem ser renomeados com validação da extensão GIS, preservando arquivo original, geometria e identidade; exclusão agora exige confirmação explícita e pode ser cancelada.
+- Regressões isoladas adicionadas: 5 testes de seleção de pontos e 4 testes de nome de dataset; integração real, Playwright e dispositivo físico continuam pendentes.
+
+
+
 ### Alterações
 
 - Gestão de pontos no mapa por projeto: lista, pesquisa, renomeação/observações, localização e exclusão confirmada, com gravação offline.
