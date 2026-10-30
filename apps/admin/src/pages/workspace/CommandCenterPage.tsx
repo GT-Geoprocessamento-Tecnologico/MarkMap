@@ -1104,13 +1104,17 @@ export default function CommandCenterPage() {
           }
         })().catch(() => undefined); // Revoked sensor permission must not break the map.
       }
-      // Keep revision reconciliation for offline search even though MapLibre
-      // intentionally renders OpenFreeMap instead of downloaded PMTiles.
-      const searchRegionGeneration = activeRegionPackageId
-        ? (await offlineMapStore.getActiveRevision(activeRegionPackageId))?.generation ?? null
-        : null;
-      if (cancelled) return;
-      regionReconcilerRef.current?.noteRendered(activeRegionPackageId, searchRegionGeneration);
+      // An unavailable regional search index must not block the OpenFreeMap
+      // canvas or any offline project feature. Reconcile it asynchronously.
+      void (async () => {
+        let generation: string | null = null;
+        try {
+          if (activeRegionPackageId) {
+            generation = (await offlineMapStore.getActiveRevision(activeRegionPackageId))?.generation ?? null;
+          }
+        } catch { /* Region data are optional, never a map startup prerequisite. */ }
+        if (!cancelled) regionReconcilerRef.current?.noteRendered(activeRegionPackageId, generation);
+      })();
       // MapLibre emits these typed events from the underlying WebGL canvas.
       map.on("webglcontextlost", (event) => {
         if (cancelled) return;
