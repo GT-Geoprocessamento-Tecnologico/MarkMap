@@ -24,8 +24,9 @@ describe('production shell manifest', () => {
       '/icons/icon-192x192.png',
       '/index.html',
       '/manifest.json',
-      '/version.json',
     ]);
+    // version.json is network-only: it must not be pinned to the approved app shell.
+    expect(assets).not.toContain('/version.json');
     await generateShellManifest(root);
     expect(JSON.parse(await readFile(join(root, 'shell-manifest.json'), 'utf8')).assets).toEqual(assets);
   });

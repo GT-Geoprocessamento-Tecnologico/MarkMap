@@ -167,7 +167,10 @@ export async function inspectFullPointPhotoBackup(
   archiveBytes: Uint8Array, passphrase: string,
 ): Promise<InspectedPhotoBackup> {
   assertPassphrase(passphrase);
-  if (!(archiveBytes instanceof Uint8Array) || archiveBytes.byteLength < 100 ||
+  // Uint8Array created by Node's TextEncoder may live in a different realm
+  // from jsdom/window. Check its view shape instead of instanceof identity.
+  if (!ArrayBuffer.isView(archiveBytes) || archiveBytes.BYTES_PER_ELEMENT !== 1 ||
+      archiveBytes.byteLength < 100 ||
       archiveBytes.byteLength > MAX_PHOTO_BACKUP_ARCHIVE_BYTES)
     throw new Error("Tamanho do arquivo de fotos inválido.");
   let parsed: unknown;

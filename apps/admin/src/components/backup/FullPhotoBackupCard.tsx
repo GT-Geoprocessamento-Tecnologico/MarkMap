@@ -89,12 +89,12 @@ export function FullPhotoBackupCard() {
       </p>
       <div className="grid min-w-0 gap-2 sm:grid-cols-2">
         <label className="block min-w-0 text-xs font-semibold">
-          Frase de proteção das fotos
+          Senha para arquivo de fotos
           <input type="password" value={exportPass} disabled={busy} onChange={(e) => setExportPass(e.target.value)}
             className="mt-1 min-h-[44px] w-full min-w-0 rounded-lg border border-outline-variant bg-background px-3" />
         </label>
         <label className="block min-w-0 text-xs font-semibold">
-          Confirmar frase de proteção
+          Confirmar senha das fotos
           <input type="password" value={exportConfirm} disabled={busy} onChange={(e) => setExportConfirm(e.target.value)}
             className="mt-1 min-h-[44px] w-full min-w-0 rounded-lg border border-outline-variant bg-background px-3" />
         </label>
@@ -113,7 +113,7 @@ export function FullPhotoBackupCard() {
               className="mt-1 block min-w-0 w-full max-w-full text-xs" />
           </label>
           <label className="block min-w-0 text-xs">
-            Frase de proteção
+            Senha do arquivo de fotos
             <input type="password" value={restorePass} disabled={busy}
               onChange={(e) => {setRestorePass(e.target.value);setVerified(null);}}
               className="mt-1 min-h-[44px] w-full min-w-0 rounded-lg border border-outline-variant bg-background px-3" />

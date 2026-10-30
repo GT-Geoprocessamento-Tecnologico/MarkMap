@@ -366,7 +366,7 @@ describe("GeoPDF vinculado ao projeto no IndexedDB", () => {
     await repo.assignProjectGeoPdf(id, "b");
     expect((await repo.getProjectGeoPdf(id))?.blobId).toBe("b");
     expect((await repo.getProjectGeoPdf(otherProject))?.blobId).toBe("a");
-    expect(new Uint8Array(await readBlobBytes((await repo.getOriginal("a"))!.blob))).toEqual(bytes);
+    expect(Array.from(new Uint8Array(await readBlobBytes((await repo.getOriginal("a"))!.blob)))).toEqual(Array.from(bytes));
     await repo.assignProjectGeoPdf(id, null);
     expect(await repo.getProjectGeoPdf(id)).toBeNull();
     expect((await repo.getProjectGeoPdf(otherProject))?.blobId).toBe("a");
