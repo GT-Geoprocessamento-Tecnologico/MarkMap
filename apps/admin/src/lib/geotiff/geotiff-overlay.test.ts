@@ -94,6 +94,9 @@ describe('GeoTIFF overlay adapter', () => {
     vi.stubGlobal('ImageData', class { constructor(public data: Uint8ClampedArray, public width: number, public height: number) {} });
     vi.useFakeTimers();
     const pending = renderGeoTiffOverlay(new Blob(['tiff']));
+    // Let the async cache-key check finish before advancing the worker timeout.
+    await Promise.resolve();
+    await Promise.resolve();
     await vi.advanceTimersByTimeAsync(90_000);
     const overlay = await pending;
     expect(rasterMock).toHaveBeenCalledTimes(1);
