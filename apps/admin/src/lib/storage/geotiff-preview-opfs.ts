@@ -112,7 +112,11 @@ async function writeDerivedPreview(key: string, image: Blob, preview: Omit<Cache
 // queue serializes writes in this tab; Web Locks coordinates tabs when supported.
 // Browsers without Web Locks retain a best-effort per-tab cap, not a cross-tab one.
 let writeQueue: Promise<void> = Promise.resolve();
+let pendingWrites = 0;
 export function writeGeoTiffPreviewCache(key: string, image: Blob, preview: Omit<CachedGeoTiffPreview, 'image'>): Promise<void> {
+  // Never retain an unbounded number of PNG Blob references in low-memory devices.
+  if (pendingWrites >= MAX_ENTRIES) return Promise.resolve();
+  pendingWrites += 1;
   const task = writeQueue.then(async () => {
     try {
       const locks = typeof navigator === 'undefined' ? undefined : navigator.locks;
@@ -122,7 +126,7 @@ export function writeGeoTiffPreviewCache(key: string, image: Blob, preview: Omit
         await writeDerivedPreview(key, image, preview);
       }
     } catch { /* Derived caches are best effort, including a denied Web Lock. */ }
-  });
+  }).finally(() => { pendingWrites -= 1; });
   writeQueue = task;
   return task;
 }

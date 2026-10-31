@@ -180,3 +180,19 @@ it('fails closed without caching when a Web Lock is denied', async () => {
   expect(files.size).toBe(0);
   expect(await original.text()).toBe('important-original');
 });
+
+it('bounds pending optional PNG writes during a burst of imports', async () => {
+  const files = fakeStorage();
+  const storage = navigator.storage;
+  const request = vi.fn(async (_name: string, callback: () => Promise<void>) => callback());
+  vi.stubGlobal('navigator', { storage, locks: { request } });
+  const keys = Array.from({ length: 60 }, (_ignored, i) => i.toString(16).padStart(64, '0'));
+  await Promise.all(keys.map((key) =>
+    writeGeoTiffPreviewCache(key, png(2, 2), { width: 2, height: 2, coordinates })));
+  // Excess previews may be regenerated later from authoritative originals.
+  expect(request.mock.calls.length).toBeLessThanOrEqual(6);
+  expect([...files.keys()].filter((name) => name.endsWith('.json')).length).toBeLessThanOrEqual(6);
+  // Backpressure must reset after the queue finishes, even when it is full.
+  await writeGeoTiffPreviewCache(keys[0], png(2, 2), { width: 2, height: 2, coordinates });
+  expect(request).toHaveBeenCalledTimes(7);
+});
