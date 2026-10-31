@@ -4,6 +4,7 @@ import type { GeoTiffInputLimits } from '@markmap/maps';
 const DIRECTORY = 'markmap-geotiff-derived-previews-v1';
 const MAX_INPUT_BYTES = 8 * 1024 * 1024;
 const MAX_PREVIEW_BYTES = 12 * 1024 * 1024;
+const MAX_METADATA_BYTES = 4 * 1024;
 const MAX_ENTRIES = 6;
 const PNG_MAGIC = [137, 80, 78, 71, 13, 10, 26, 10];
 
@@ -50,6 +51,7 @@ export async function readGeoTiffPreviewCache(key: string, limits: GeoTiffInputL
     const dir = await directory(false);
     if (!dir) return null;
     const metaFile = await (await dir.getFileHandle(`${key}.json`)).getFile();
+    if (metaFile.size < 32 || metaFile.size > MAX_METADATA_BYTES) return null;
     const meta = JSON.parse(await metaFile.text()) as Partial<Metadata>;
     if (meta.version !== 3 || !validKey(meta.sha256 ?? '') || !validKey(meta.metadataSha256 ?? '') ||
         !Number.isSafeInteger(meta.storedAt) || !meta.storedAt || meta.storedAt < 1 ||

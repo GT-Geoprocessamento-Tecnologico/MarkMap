@@ -128,3 +128,16 @@ it('binds metadata integrity to the original cache key and timestamp', async () 
   files.set(`${key}.json`, new Blob([JSON.stringify(metadata)]));
   expect(await readGeoTiffPreviewCache(key)).toBeNull();
 });
+
+it('rejects oversized derived-cache metadata before loading the text into memory', async () => {
+  const files = fakeStorage();
+  const key = '5'.repeat(64);
+  await writeGeoTiffPreviewCache(key, png(2, 2), { width: 2, height: 2, coordinates });
+  const originalMetadata = files.get(`${key}.json`)!;
+  const oversized = new Blob([new Uint8Array(8192)]);
+  const read = vi.fn(() => originalMetadata.text());
+  Object.defineProperty(oversized, 'text', { value: read });
+  files.set(`${key}.json`, oversized);
+  expect(await readGeoTiffPreviewCache(key)).toBeNull();
+  expect(read).not.toHaveBeenCalled();
+});
