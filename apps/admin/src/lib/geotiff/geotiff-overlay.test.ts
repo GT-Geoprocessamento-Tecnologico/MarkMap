@@ -8,7 +8,7 @@ vi.mock('@markmap/maps', () => ({
 }));
 
 describe('GeoTIFF overlay adapter', () => {
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
   it('creates MapLibre image coordinates and releases the object URL', async () => {
     vi.stubGlobal('Worker', undefined);
     const revoked: string[] = [];
@@ -43,4 +43,63 @@ describe('GeoTIFF overlay adapter', () => {
       ),
     ).rejects.toThrow('EPSG:4326');
   });
+
+  it('decodes the original when worker construction is blocked', async () => {
+    const { readGeoTiffRasterPreview } = await import('@markmap/maps');
+    const rasterMock = vi.mocked(readGeoTiffRasterPreview);
+    rasterMock.mockClear();
+    vi.stubGlobal('Worker', class { constructor() { throw new Error('Worker blocked'); } });
+    const revoked: string[] = [];
+    const NativeURL = globalThis.URL;
+    vi.stubGlobal('URL', class extends NativeURL {
+      static createObjectURL() { return 'blob:local-fallback'; }
+      static revokeObjectURL(url: string) { revoked.push(url); }
+    });
+    const canvas = {
+      width: 0, height: 0,
+      getContext: () => ({ putImageData: vi.fn() }),
+      toBlob: (callback: (value: Blob | null) => void) => callback(new Blob(['png'])),
+    };
+    vi.stubGlobal('document', { createElement: () => canvas });
+    vi.stubGlobal('ImageData', class { constructor(public data: Uint8ClampedArray, public width: number, public height: number) {} });
+    const overlay = await renderGeoTiffOverlay(new Blob(['tiff']));
+    expect(rasterMock).toHaveBeenCalledTimes(1);
+    expect(overlay.coordinates).toEqual([[-48, -15], [-47, -15], [-47, -16], [-48, -16]]);
+    overlay.release();
+    expect(revoked).toEqual(['blob:local-fallback']);
+  });
+
+  it('falls back if Web Worker starts but stalls, then terminates it', async () => {
+    const { readGeoTiffRasterPreview } = await import('@markmap/maps');
+    const rasterMock = vi.mocked(readGeoTiffRasterPreview);
+    rasterMock.mockClear();
+    const terminate = vi.fn();
+    class HangingWorker {
+      postMessage() { /* Simulates an idle worker in a WebView. */ }
+      terminate() { terminate(); }
+    }
+    vi.stubGlobal('Worker', HangingWorker);
+    const revoked: string[] = [];
+    const NativeURL = globalThis.URL;
+    vi.stubGlobal('URL', class extends NativeURL {
+      static createObjectURL() { return 'blob:local-stalled'; }
+      static revokeObjectURL(url: string) { revoked.push(url); }
+    });
+    const canvas = {
+      width: 0, height: 0,
+      getContext: () => ({ putImageData: vi.fn() }),
+      toBlob: (callback: (value: Blob | null) => void) => callback(new Blob(['png'])),
+    };
+    vi.stubGlobal('document', { createElement: () => canvas });
+    vi.stubGlobal('ImageData', class { constructor(public data: Uint8ClampedArray, public width: number, public height: number) {} });
+    vi.useFakeTimers();
+    const pending = renderGeoTiffOverlay(new Blob(['tiff']));
+    await vi.advanceTimersByTimeAsync(90_000);
+    const overlay = await pending;
+    expect(rasterMock).toHaveBeenCalledTimes(1);
+    expect(terminate).toHaveBeenCalledTimes(1);
+    overlay.release();
+    expect(revoked).toEqual(['blob:local-stalled']);
+  });
+
 });

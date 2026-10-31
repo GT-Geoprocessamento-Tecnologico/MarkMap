@@ -22,7 +22,7 @@ async function decodeRaster(blob: Blob, limits: GeoTiffInputLimits): Promise<Geo
   catch { return readGeoTiffRasterPreview(await readBlobBytes(blob), limits); }
   try {
     return await new Promise<GeoTiffRasterPreview>((resolve, reject) => {
-      const timeout = setTimeout(() => reject(new Error('Tempo limite de processamento GeoTIFF excedido.')), 90_000);
+      const timeout = setTimeout(() => reject(new WorkerUnavailableError('Tempo limite de processamento GeoTIFF excedido.')), 90_000);
       const done = (result: GeoTiffRasterPreview | Error) => {
         clearTimeout(timeout);
         if (result instanceof Error) reject(result);
