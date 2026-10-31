@@ -100,10 +100,20 @@ async function writeDerivedPreview(key: string, image: Blob, preview: Omit<Cache
     // Never delete an original or any unrelated OPFS data. Stop caching at the cap.
     const iterator = (dir as FileSystemDirectoryHandle & { keys?: () => AsyncIterable<string> }).keys;
     if (!iterator) return;
-    let entries = 0;
-    for await (const name of iterator.call(dir)) if (name.endsWith('.json')) entries++;
-    const existing = await dir.getFileHandle(`${key}.json`).then(() => true, () => false);
-    if (!existing && entries >= MAX_ENTRIES) return;
+    // Interrupted writes can leave an orphan PNG without its JSON metadata.
+    // Count distinct keys across both files, not only completed JSON entries,
+    // or repeated failures can silently consume unbounded OPFS storage.
+    const existingPng = await dir.getFileHandle(`${key}.png`).then(() => true, () => false);
+    const existingMetadata = await dir.getFileHandle(`${key}.json`).then(() => true, () => false);
+    if (!existingPng && !existingMetadata) {
+      const occupied = new Set<string>();
+      for await (const name of iterator.call(dir)) {
+        if (/^[a-f0-9]{64}\.(?:png|json)$/.test(name)) {
+          occupied.add(name.slice(0, 64));
+          if (occupied.size >= MAX_ENTRIES) return;
+        }
+      }
+    }
     const sha256 = await sha256Hex(image);
     const markerPayload: Omit<Metadata, 'metadataSha256'> = {
       version: 3, width: preview.width, height: preview.height,

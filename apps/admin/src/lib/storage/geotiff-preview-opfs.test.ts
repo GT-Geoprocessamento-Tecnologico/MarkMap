@@ -4,10 +4,11 @@ import { geoTiffPreviewCacheKey, readGeoTiffPreviewCache, writeGeoTiffPreviewCac
 
 afterEach(() => vi.unstubAllGlobals());
 
-function fakeStorage(freeBytes = 1_000_000_000, failure?: { target: string; aborted: string[] }) {
+function fakeStorage(freeBytes = 1_000_000_000, failure?: { target: string; aborted: string[] }, metadataAccess?: { blocked: boolean }) {
   const files = new Map<string, Blob>();
   const directory = {
     async getFileHandle(name: string, options: { create?: boolean } = {}) {
+      if (options.create && name.endsWith('.json') && metadataAccess?.blocked) throw new Error('metadata creation failed');
       if (!options.create && !files.has(name)) throw new Error('missing');
       return {
         async getFile() { return files.get(name) ?? new Blob([]); },
@@ -228,4 +229,44 @@ it('aborts failed JSON OPFS writable streams and safely reconstructs derived cac
   failure.target = '';
   await writeGeoTiffPreviewCache(key, png(2, 2), { width: 2, height: 2, coordinates });
   expect(await readGeoTiffPreviewCache(key)).not.toBeNull();
+});
+
+it('bounds orphaned derived PNGs when metadata handle creation repeatedly fails', async () => {
+  const metadataAccess = { blocked: true };
+  const files = fakeStorage(1_000_000_000, undefined, metadataAccess);
+  const original = new Blob(['immutable-original-GeoTIFF']);
+  for (let i = 0; i < 20; i++) {
+    const key = i.toString(16).padStart(64, '0');
+    await writeGeoTiffPreviewCache(key, png(2, 2), { width: 2, height: 2, coordinates });
+  }
+  expect([...files.keys()].filter((name) => name.endsWith('.png'))).toHaveLength(6);
+  expect([...files.keys()].filter((name) => name.endsWith('.json'))).toHaveLength(0);
+  expect(await original.text()).toBe('immutable-original-GeoTIFF');
+});
+
+it('repairs existing orphan PNGs even at capacity without creating a seventh preview', async () => {
+  const metadataAccess = { blocked: true };
+  const files = fakeStorage(1_000_000_000, undefined, metadataAccess);
+  for (let i = 0; i < 6; i++) {
+    await writeGeoTiffPreviewCache(i.toString(16).padStart(64, '0'),
+      png(2, 2), { width: 2, height: 2, coordinates });
+  }
+  metadataAccess.blocked = false;
+  await writeGeoTiffPreviewCache('a'.repeat(64), png(2, 2), { width: 2, height: 2, coordinates });
+  expect(await readGeoTiffPreviewCache('a'.repeat(64))).toBeNull();
+  const existing = '5'.padStart(64, '0');
+  await writeGeoTiffPreviewCache(existing, png(2, 2), { width: 2, height: 2, coordinates });
+  expect(await readGeoTiffPreviewCache(existing)).not.toBeNull();
+  expect([...files.keys()].filter((name) => name.endsWith('.png'))).toHaveLength(6);
+});
+
+it('counts PNG and JSON belonging to the same original as one occupied slot', async () => {
+  const files = fakeStorage();
+  for (let i = 0; i < 7; i++) {
+    await writeGeoTiffPreviewCache(i.toString(16).padStart(64, '0'),
+      png(2, 2), { width: 2, height: 2, coordinates });
+  }
+  expect([...files.keys()].filter((name) => name.endsWith('.png'))).toHaveLength(6);
+  expect([...files.keys()].filter((name) => name.endsWith('.json'))).toHaveLength(6);
+  expect(files.size).toBe(12);
 });
