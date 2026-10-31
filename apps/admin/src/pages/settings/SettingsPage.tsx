@@ -231,7 +231,7 @@ export default function SettingsPage() {
       } else if (result.status === "current") {
         toast({ title: "Aplicativo atualizado", description: "Nenhuma atualização disponível no momento." });
       } else if (result.status === "pending") {
-        toast({ title: "Preparando atualização", description: "A nova versão ainda está sendo baixada. Tente novamente quando terminar." });
+        toast({ title: "Confirme a atualização", description: "Escolha Atualizar agora ou Depois na janela de confirmação." });
       } else if (result.status === "offline") {
         toast({ title: "Sem conexão", description: "Conecte-se à internet para procurar atualizações." });
       } else {

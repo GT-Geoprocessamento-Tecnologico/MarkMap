@@ -2,6 +2,25 @@
 
 Fonte da versão do aplicativo: `apps/admin/package.json`. Todos os agentes seguem [a política de versionamento](docs/versioning.md). O [histórico documental anterior](docs/changelog.md) permanece preservado.
 
+## [0.5.19] - 2026-10-30
+
+### Alterações
+
+- Na tela Dados, GeoPDF e GeoTIFF agora podem ser renomeados ou excluídos com confirmação; a exclusão remove bytes e metadados locais, limpa a seleção do mapa e atualiza as abas, sem apagar projetos, fotos ou arquivos originais externos.
+- Exclusão de datasets remove seus bytes da store local, não apenas marca o registro como oculto. Incluídos testes de transação, proteção de arquivos independentes e exclusão idempotente.
+- As atualizações identificadas pela interface **v0.5.19 em diante** aparecem em **popup modal** centralizada e acessível, com opções **Atualizar agora** e **Depois**. O shell instalado e os dados IndexedDB/outbox permanecem intactos até a confirmação explícita.
+- **Transição inicial:** quem ainda usa a interface v0.5.18 verá o aviso antigo ao migrar para v0.5.19; o novo visual só pode aparecer após o primeiro aceite, porque a interface anterior fica fixada em cache até a autorização. Isso não reverte uma atualização passada.
+- O botão de atualização em Configurações agora **abre a popup**; nunca envia aprovação ou `SKIP_WAITING` antes do segundo clique.
+- A primeira instalação do novo service worker preserva uma versão legada em cache quando presente, impedindo que o primeiro bootstrap se autoaprove. Caches incompletos levam ao fluxo de recuperação por consentimento; novos perfis sem shell prévio continuam instalando normalmente.
+- O usuário que escolhe **Depois** pode consultar novamente por Configurações; a escolha automática permanece adiada por até 24 horas.
+
+### Validação
+
+- Verificação comparativa dos service workers publicados 0.5.17/0.5.18 confirmou navegação online network-first no legado e aprovação implícita no primeiro bootstrap.
+- Adicionados testes Node de migração legada, cache incompleto e aprovação já existente; testes React de modal, escolha adiada e ação manual; fluxo E2E deverá verificar atualização instalada e dados preservados antes de publicar.
+- O modelo isolado da política de bootstrap passou em **5/5 testes Node**: instalação inicial, legado completo, legado incompleto, aprovação prévia e cache de staging. Os testes oficiais do repositório, build e E2E físico ainda precisam passar no CI antes de eventual publicação.
+- Nenhum banco local, mapa, foto ou cache real foi apagado neste ajuste.
+
 ## [0.5.18] - 2026-10-29
 
 ### QA estático A166 (candidata não publicada)

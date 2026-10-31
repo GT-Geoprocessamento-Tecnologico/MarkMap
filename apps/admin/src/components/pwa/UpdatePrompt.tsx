@@ -179,6 +179,15 @@ export function UpdatePrompt({
   const [dismissedShell, setDismissedShell] = useState<string | null>(null);
   const disposed = useRef(false);
   const reloading = useRef(false);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const visible = Boolean(available && available.status.availableShell !== dismissedShell &&
+    !isDeferred(available.status.availableShell));
+  useEffect(() => {
+    if (!visible) return;
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    dialogRef.current?.focus();
+    return () => { if (previous?.isConnected) previous.focus(); };
+  }, [visible]);
 
   const checkForUpdate = useCallback(async (updateRegistration: boolean): Promise<AvailableUpdate | null> => {
     if (!("serviceWorker" in navigator)) return null;
@@ -254,7 +263,13 @@ export function UpdatePrompt({
       void (async (): Promise<AppUpdateResult> => {
         const next = await checkForUpdate(true);
         if (!next) return { status: navigator.onLine ? "current" : "offline" };
-        return accept(next);
+        // Settings only opens the consent dialog; it MUST NOT approve
+        // a shell or trigger SKIP_WAITING without a separate user click.
+        try { window.localStorage.removeItem(DISMISSED_KEY); }
+        catch { /* Private browsing can block persistence. */ }
+        setDismissedShell(null);
+        setAvailable(next);
+        return { status: "pending" };
       })().then(event.detail.respond, (cause: unknown) => {
         event.detail.respond({ status: "error", message: String(cause) });
       });
@@ -279,7 +294,7 @@ export function UpdatePrompt({
       window.removeEventListener("online", check);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [accept, checkForUpdate]);
+  }, [checkForUpdate]);
 
   const handleLater = () => {
     if (available) {
@@ -289,12 +304,30 @@ export function UpdatePrompt({
     setAvailable(null);
   };
 
-  if (!available || available.status.availableShell === dismissedShell ||
-      isDeferred(available.status.availableShell)) return null;
+  if (!available || !visible) return null;
 
   return (
-    <aside role="status" aria-live="polite" aria-busy={busy}
-      aria-label="Nova versão do MarkMap disponível." className="pwa-update-prompt">
+    <div className="pwa-update-overlay" data-testid="pwa-update-overlay">
+      <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true"
+        aria-busy={busy} aria-label="Nova versão do MarkMap disponível."
+        className="pwa-update-prompt"
+        onKeyDown={(event) => {
+          if (event.key === "Escape" && !busy) {
+            event.preventDefault();
+            handleLater();
+          }
+          if (event.key !== "Tab") return;
+          const buttons = dialogRef.current?.querySelectorAll<HTMLButtonElement>("button:not(:disabled)");
+          if (!buttons?.length) return;
+          const first = buttons[0], last = buttons[buttons.length - 1];
+          if (event.shiftKey && (document.activeElement === first || document.activeElement === dialogRef.current)) {
+            event.preventDefault();
+            last.focus();
+          } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+          }
+        }}>
       <div className="pwa-update-prompt__heading">
         <span className="pwa-update-prompt__icon"><AppIcon name="sync" size="lg" /></span>
         <div>
@@ -318,7 +351,8 @@ export function UpdatePrompt({
           onClick={handleLater} disabled={busy}>Depois</button>
       </div>
       <span className="pwa-update-prompt__note">Você escolhe quando atualizar.</span>
-    </aside>
+      </div>
+    </div>
   );
 }
 

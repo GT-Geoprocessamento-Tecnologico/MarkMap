@@ -351,7 +351,7 @@ describe("ciclo de vida local GeoPDF/GeoTIFF", () => {
     const after = (await repo.getOriginal("pdf-renomear"))!;
     expect(after.originalName).toBe("Novo.pdf");
     expect(after.sha256).toBe(sha256);
-    expect(new Uint8Array(await readBlobBytes(after.blob))).toEqual(source);
+    expect(Array.from(new Uint8Array(await readBlobBytes(after.blob)))).toEqual(Array.from(source));
     await expect(repo.renameImportedOriginal("pdf-renomear", "Erro", "Antigo.pdf"))
       .rejects.toThrow(/outra aba/);
   });

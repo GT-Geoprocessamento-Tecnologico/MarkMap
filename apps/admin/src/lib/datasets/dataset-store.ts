@@ -10,6 +10,7 @@ import {
   extractKmzKml,
 } from "@markmap/geo";
 import { offlineDB } from "../storage/offline-db";
+import { readBlobBytes } from "../blob-bytes";
 import { notifyImportCatalogChanged } from "../storage/import-catalog-events.mjs";
 import { normalizeDatasetName } from "./dataset-name.mjs";
 import { downloadBlob } from "../file-download";
@@ -250,7 +251,7 @@ export async function exportDatasetGeoJSON(id: string): Promise<void> {
 
 export async function saveDataset(dataset: DatasetRecord): Promise<void> {
   const { originalBlob, ...metadata } = dataset;
-  await offlineDB.save("datasets", dataset.id, { ...metadata, originalBytes: await originalBlob.arrayBuffer(), originalType: originalBlob.type });
+  await offlineDB.save("datasets", dataset.id, { ...metadata, originalBytes: await readBlobBytes(originalBlob), originalType: originalBlob.type });
   notifyImportCatalogChanged({ kind: "dataset", id: dataset.id, action: "saved" });
 }
 

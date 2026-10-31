@@ -118,6 +118,31 @@ async function isComplete(name, verifyAssets = false) {
   return true;
 }
 
+/** Never bootstrap a new release as approved while an older installed shell
+ * still exists. Legacy (v0.5.17) workers had no approval record: keep their
+ * complete cache pinned and require consent for the new app shell.
+ *
+ * A damaged legacy cache must fail closed to recovery, not bypass approval.
+ */
+async function bootstrapShellApproval() {
+  const approvals = await caches.open(APPROVAL_CACHE);
+  if (await approvals.match(APPROVAL_KEY)) return;
+  const previous = (await caches.keys()).filter((name) =>
+    /^markmap-cache-[a-z0-9_-]+$/i.test(name) &&
+    name !== CACHE_NAME && !name.includes('-installing-'));
+  for (const name of previous.reverse()) {
+    if (await isComplete(name)) {
+      await saveApproval(name, 'versão anterior', 'legacy');
+      return;
+    }
+  }
+  // Existing but incomplete previous shell: never silently adopt the new
+  // version; the recovery screen provides an explicit, guarded consent path.
+  if (previous.length) return;
+  // A brand-new installation has no older shell and can pin its first build.
+  await saveApproval(CACHE_NAME, APP_VERSION, BUILD_SHA);
+}
+
 async function installShell() {
   const stagingName = `${CACHE_NAME}-installing-${Date.now()}`;
   const staging = await caches.open(stagingName);
@@ -134,10 +159,9 @@ async function installShell() {
     }
     await target.put(COMPLETE_KEY, new Response('ok'));
     await caches.delete(stagingName);
-    // One-time migration: legacy workers did not persist an approval protocol.
-    // Bootstrap this new protocol on its own shell. Subsequent releases are pinned.
-    const approvals = await caches.open(APPROVAL_CACHE);
-    if (!(await approvals.match(APPROVAL_KEY))) await saveApproval(CACHE_NAME, APP_VERSION, BUILD_SHA);
+    // Legacy installations already have a shell: do not silently approve this
+    // newer one. Only fresh installations can initially pin their own release.
+    await bootstrapShellApproval();
   } catch (error) {
     await caches.delete(stagingName);
     throw error;

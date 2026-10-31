@@ -88,7 +88,8 @@ describe('explicit PWA upgrade consent', () => {
   it('shows update even if the new SW activated naturally (waiting=null)', async () => {
     const mock=setup('active-update');
     render(<UpdatePrompt />);
-    expect(await screen.findByRole('button',{name:'Atualizar agora'})).toBeVisible();
+    expect(await screen.findByRole('dialog',{name:/Nova versão do MarkMap/})).toHaveAttribute('aria-modal','true');
+    expect(screen.getByRole('button',{name:'Atualizar agora'})).toBeVisible();
     expect(screen.getByText(/MarkMap 0\.5\.19/)).toBeVisible();
     expect(mock.events).not.toContain('APPROVE_SHELL');
   });
@@ -130,12 +131,29 @@ describe('explicit PWA upgrade consent', () => {
     expect(mock.approved).toBe(true);
   });
 
-  it('lets the Settings action approve even after choosing Later', async () => {
+  it('Settings reopens the dialog after Later but never approves without a new click', async () => {
     const mock=setup('active-update');
     render(<UpdatePrompt durableWritesReady={() => true} compatibilityReady={() => true} />);
     fireEvent.click(await screen.findByRole('button',{name:'Depois'}));
-    await act(async () => { await requestAppUpdate(); });
-    expect(mock.events).toContain('APPROVE_SHELL');
+    let outcome: unknown;
+    await act(async () => { outcome = await requestAppUpdate(); });
+    expect(outcome).toEqual({ status: 'pending' });
+    expect(await screen.findByRole('dialog',{name:/Nova versão/})).toBeVisible();
+    expect(mock.events).not.toContain('APPROVE_SHELL');
+    expect(mock.approved).toBe(false);
+    fireEvent.click(screen.getByRole('button',{name:'Atualizar agora'}));
+    await waitFor(() => expect(mock.events).toContain('APPROVE_SHELL'));
     expect(mock.approved).toBe(true);
+  });
+
+  it('Escape dismisses the modal without approving the shell', async () => {
+    const mock=setup('active-update');
+    render(<UpdatePrompt />);
+    const dialog = await screen.findByRole('dialog', { name:/Nova versão/ });
+    expect(dialog).toHaveFocus();
+    fireEvent.keyDown(dialog,{key:'Escape'});
+    expect(screen.queryByRole('dialog',{name:/Nova versão/})).toBeNull();
+    expect(mock.approved).toBe(false);
+    expect(mock.events).not.toContain('APPROVE_SHELL');
   });
 });
