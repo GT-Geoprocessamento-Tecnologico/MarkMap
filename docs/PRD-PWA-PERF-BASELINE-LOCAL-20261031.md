@@ -82,3 +82,19 @@ Rollback: retirar apenas `apps/admin/perf/*` e este PRD, sem modificar armazenam
 - `node --check apps/admin/perf/compare-baselines.mjs`: PASS. Codigo e testes versionados no GitHub, conferidos por blob SHA.
 - **Nao executados:** Playwright com app real, comparacao real de releases, lint/typecheck integrado, Vite build, Vitest, Android/iOS fisicos. Falha de provisionamento de runner GitHub Actions registrada na issue #45.
 - Riscos residuais: navegador emulado e monitoramento rAF nao avaliam fielmente GPU, bateria ou WebView; compatibilidade de buckets nao prova mesmo dispositivo. Nenhum ganho de desempenho deve ser anunciado ate observacao nos aparelhos e gates completos.
+
+
+## A200 — Gate de repeticoes minimas no comparador de baselines (31/10/2026)
+
+**Problema reproduzido (RED):** o CLI gerava relatorio de comparacao mesmo com 1 execucao por perfil, ou com 3 execucoes de uma versao e 2 da outra. O proprio procedimento de aceite desta PR determina `--repeat-each=3` antes de comparar.
+
+**Correcao (GREEN):** o CLI `node apps/admin/perf/compare-baselines.mjs baseline-antes.log baseline-depois.log` agora verifica **no minimo tres amostras por perfil e mesma quantidade antes/depois**. Se um teste falhar e faltar uma amostra, o comando encerra com codigo nao-zero, sem imprimir comparacao ou dados brutos. `compareBaselineLogs()` permanece util para testes unitarios com fixtures pequenas, mas o *CLI de homologacao* aplica o requisito minimo.
+
+**Evidencia executada:**
+- Antes da correcao, dois testes novos falharam porque o comando aceitava logs incompletos.
+- Apos a correcao: `node --test apps/admin/perf/baseline-metrics.test.mjs apps/admin/perf/compare-baselines.test.mjs` — **33/33 PASS**, Node 22.16.0.
+- `node --check apps/admin/perf/compare-baselines.mjs` — PASS.
+- Arquivos da PR cotejados por Git blob SHA com os executados localmente.
+- **Nao executados:** Playwright com app real, build, lint/typecheck integrado, Vitest, Android/iOS fisicos, benchmarks v0.5.21 versus v0.5.22. CI segue bloqueado pela issue #45.
+
+**Limites:** tres amostras sao requisito minimo do procedimento, nao constituem significancia estatistica; mesmo hardware/condicoes e resultados do mapa/GPU ainda exigem QA real. Nenhum resultado de desempenho foi inventado. Nenhuma alteracao em runtime, SW, armazenamento offline ou telemetria.
