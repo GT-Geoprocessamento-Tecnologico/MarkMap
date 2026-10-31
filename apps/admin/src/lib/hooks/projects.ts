@@ -6,11 +6,24 @@ import {
   type Project,
 } from "@markmap/contracts";
 import { localRepository } from "../local-repositories";
+import { meshStore } from "../mesh/mesh-store";
 import { ensureDemoWorkspace } from "../local-repositories/demo-workspace";
 import { queryKeys } from "../query-keys";
 
+/** Repair a previous crash between the main DB tombstone commit and the
+ * separate GLB IndexedDB cleanup, without blocking the project list. */
+export async function retryPendingProjectMeshes(): Promise<void> {
+  for (const projectId of await localRepository.pendingProjectMeshCleanupIds()) {
+    try {
+      await meshStore.removeProjectMeshes(projectId);
+      await localRepository.completeProjectMeshCleanup(projectId);
+    } catch { /* Durable cleanup marker remains for the next load. */ }
+  }
+}
+
 async function listLocalProjects(): Promise<Project[]> {
   await ensureDemoWorkspace();
+  await retryPendingProjectMeshes();
   const workspaceId = await localRepository.workspaceId();
   const entities = await localRepository.listEntities("project", workspaceId);
   return entities.map((entity) => {
@@ -102,5 +115,37 @@ export function useCreateProject() {
     },
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: queryKeys.projects() }),
+  });
+}
+
+
+/** A delete is durable offline before any mesh cleanup is attempted. */
+export async function deleteLocalProject(projectId: string, expectedName: string): Promise<{ meshCleanupPending: boolean }> {
+  await localRepository.deleteOwnedTree({ kind: "project", id: projectId, expectedName });
+  try {
+    await meshStore.removeProjectMeshes(projectId);
+    await localRepository.completeProjectMeshCleanup(projectId);
+    return { meshCleanupPending: false };
+  } catch {
+    // Do not claim that the mesh bytes were removed. This marker is retried
+    // when projects are listed again, even after an app restart.
+    return { meshCleanupPending: true };
+  }
+}
+
+export function useDeleteProject() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ projectId, expectedName }: { projectId: string; expectedName: string }) =>
+      deleteLocalProject(projectId, expectedName),
+    onSettled: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.projects() }),
+        queryClient.invalidateQueries({ queryKey: ["layers"] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.features() }),
+        queryClient.invalidateQueries({ queryKey: ["analytics-layers"] }),
+        queryClient.invalidateQueries({ queryKey: ["meshes"] }),
+      ]);
+    },
   });
 }

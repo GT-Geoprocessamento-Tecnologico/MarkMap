@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { featureBounds, loadProjectFeatures, matchesFeature, hasPolygonGeometry, hasPointGeometry, shouldDisplayDatasetPoints, filterDatasetFeatures } from "./map-data";
-import { useParams, useSearch } from "@tanstack/react-router";
+import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { useToast } from "@markmap/ui";
 import type { GeoReference, Route, TransitNetwork } from "@markmap/contracts";
 import {
@@ -40,6 +40,7 @@ import { useCreateLayer, useProjectLayers } from "../../lib/hooks/layers";
 import { useProject } from "../../lib/hooks/projects";
 import { createLocalFeature } from "../../lib/hooks/features";
 import { localRepository } from "../../lib/local-repositories";
+import { subscribeEntityCatalogChanges } from "../../lib/storage/entity-catalog-events.mjs";
 import { subscribeImportCatalogChanges } from "../../lib/storage/import-catalog-events.mjs";
 import {
   renderGeoPdfOverlay,
@@ -136,6 +137,7 @@ function routeAsGeoJSON(route: Route | null): GeoJSON.FeatureCollection {
 
 export default function CommandCenterPage() {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const search = useSearch({ strict: false }) as {
     datasetId?: string;
     pdfId?: string;
@@ -211,6 +213,14 @@ export default function CommandCenterPage() {
   }, [mapSource.neutralActive, neutralRegionId]);
   const activeProjectQuery = useProject(params.projectId ?? "");
   const activeProjectName = activeProjectQuery.data?.name?.trim() || null;
+  useEffect(() => subscribeEntityCatalogChanges((change) => {
+    if (change.kind === "project" && change.id === params.projectId)
+      void navigate({ to: "/projects", replace: true });
+  }), [navigate, params.projectId]);
+  useEffect(() => {
+    if (params.projectId && activeProjectQuery.isSuccess && !activeProjectQuery.data)
+      void navigate({ to: "/projects", replace: true });
+  }, [activeProjectQuery.data, activeProjectQuery.isSuccess, navigate, params.projectId]);
   useEffect(() => {
     let disposed = false;
     setProjectPdfId(null);

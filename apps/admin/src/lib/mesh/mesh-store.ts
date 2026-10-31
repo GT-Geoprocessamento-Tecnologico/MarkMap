@@ -20,6 +20,7 @@ export interface MeshStore {
   saveMesh(input: { file: File; projectId?: string }): Promise<MeshRecord>;
   getMesh(id: string): Promise<{ record: MeshRecord; blob: Blob } | null>;
   removeMesh(id: string): Promise<void>;
+  removeProjectMeshes(projectId: string): Promise<number>;
   saveMeshView(id: string, view: MeshView): Promise<void>;
 }
 
@@ -109,6 +110,15 @@ export const meshStore: MeshStore = {
     request.onsuccess = () => finish(undefined);
     request.onerror = () => fail(request.error);
   }),
+  removeProjectMeshes: (projectId) => transaction<number>("readwrite", (store, finish, fail) => {
+    const request = store.index("projectId").getAllKeys(projectId);
+    request.onsuccess = () => {
+      const keys = request.result;
+      for (const key of keys) store.delete(key);
+      finish(keys.length);
+    };
+    request.onerror = () => fail(request.error ?? new Error("Não foi possível limpar as malhas do projeto."));
+  }),
   saveMeshView: (meshId, view) => transaction<void>("readwrite", (store, finish, fail) => {
     if (!Number.isFinite(view.opacity) || view.opacity < 0 || view.opacity > 1) { fail(new Error("Opacidade inválida.")); return; }
     const request = store.get(meshId);
@@ -123,4 +133,4 @@ export const meshStore: MeshStore = {
   }),
 };
 
-export const { listMeshes, saveMesh, getMesh, removeMesh, saveMeshView } = meshStore;
+export const { listMeshes, saveMesh, getMesh, removeMesh, removeProjectMeshes, saveMeshView } = meshStore;
