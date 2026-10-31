@@ -104,11 +104,40 @@ test('CLI compares two local logs and never writes files or uploads reports', as
   try {
     const a = join(dir, 'before.log');
     const b = join(dir, 'after.log');
-    await Promise.all([writeFile(a, log(sample())), writeFile(b, log(sample()))]);
+    const threeRuns = log(sample(), sample(), sample());
+    await Promise.all([writeFile(a, threeRuns), writeFile(b, threeRuns)]);
     const result = spawnSync(process.execPath, [fileURLToPath(new URL('./compare-baselines.mjs', import.meta.url)), a, b], { encoding: 'utf8' });
     assert.equal(result.status, 0, result.stderr);
     const output = JSON.parse(result.stdout);
     assert.equal(output.kind, 'markmap-local-perf-comparison-v1');
     assert.equal(output.profiles.length, 1);
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('CLI rejects a single run per browser, which is not a 3-repeat benchmark', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'markmap-perf-'));
+  try {
+    const a = join(dir, 'before.log');
+    const b = join(dir, 'after.log');
+    await Promise.all([writeFile(a, log(sample())), writeFile(b, log(sample()))]);
+    const result = spawnSync(process.execPath, [fileURLToPath(new URL('./compare-baselines.mjs', import.meta.url)), a, b], { encoding: 'utf8' });
+    assert.equal(result.status, 1);
+    assert.equal(result.stdout, '');
+    assert.doesNotMatch(result.stderr, /before\.log|after\.log|SECRET/);
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('CLI rejects missing repeats for one browser profile even if another has three', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'markmap-perf-'));
+  try {
+    const a = join(dir, 'before.log');
+    const b = join(dir, 'after.log');
+    await Promise.all([
+      writeFile(a, log(...Array.from({ length: 3 }, () => sample()), ...Array.from({ length: 3 }, () => sample('webkit-emulated')))),
+      writeFile(b, log(...Array.from({ length: 3 }, () => sample()), ...Array.from({ length: 2 }, () => sample('webkit-emulated')))),
+    ]);
+    const result = spawnSync(process.execPath, [fileURLToPath(new URL('./compare-baselines.mjs', import.meta.url)), a, b], { encoding: 'utf8' });
+    assert.equal(result.status, 1);
+    assert.equal(result.stdout, '');
   } finally { await rm(dir, { recursive: true, force: true }); }
 });

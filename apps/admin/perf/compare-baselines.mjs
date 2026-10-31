@@ -122,6 +122,16 @@ export function compareBaselineLogs(beforeLog, afterLog) {
   };
 }
 
+/** CLI acceptance gate. Unit-level comparisons with fewer samples remain inspectable. */
+function assertRepeatCount(comparison) {
+  for (const profile of comparison.profiles) {
+    if (profile.beforeSamples < 3 || profile.afterSamples < 3 ||
+        profile.beforeSamples !== profile.afterSamples) {
+      throw new Error('Local performance comparison needs three matched repeats per browser profile.');
+    }
+  }
+}
+
 async function main(args) {
   if (args.length !== 2) {
     console.error('Usage: node apps/admin/perf/compare-baselines.mjs before.log after.log');
@@ -130,7 +140,10 @@ async function main(args) {
   }
   try {
     const [before, after] = await Promise.all(args.map((file) => readFile(file, 'utf8')));
-    console.log(JSON.stringify(compareBaselineLogs(before, after), null, 2));
+    const comparison = compareBaselineLogs(before, after);
+    // Prevent a partially failed --repeat-each=3 benchmark from looking comparable.
+    assertRepeatCount(comparison);
+    console.log(JSON.stringify(comparison, null, 2));
   } catch {
     // Do not echo paths or input logs: they may contain private local details.
     console.error('Unable to compare local performance logs: missing, invalid or incompatible samples.');
