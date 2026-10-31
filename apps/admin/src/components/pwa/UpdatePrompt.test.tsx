@@ -128,6 +128,20 @@ describe('explicit PWA upgrade consent', () => {
     expect(mock.events).not.toContain('SKIP_WAITING');
   });
 
+  it('honors Later for a published-only notice and allows Settings to reopen it', async () => {
+    const mock = setup('current');
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ appVersion: '0.5.21' }) })));
+    render(<UpdatePrompt />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Depois' }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: /Nova versão/ })).toBeNull());
+    expect(JSON.parse(localStorage.getItem('markmap:pwa-update-deferred') || '{}').shell).toBe('published:0.5.21');
+    let result: unknown;
+    await act(async () => { result = await requestAppUpdate(); });
+    expect(result).toEqual({ status: 'pending' });
+    expect(await screen.findByRole('button', { name: 'Verificar download' })).toBeVisible();
+    expect(mock.events).not.toContain('APPROVE_SHELL');
+  });
+
   it('does not announce an older published version as an upgrade', async () => {
     setup('current');
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ appVersion: '0.5.19' }) })));
@@ -151,7 +165,8 @@ describe('explicit PWA upgrade consent', () => {
     fireEvent.click(await screen.findByRole('button',{name:'Depois'}));
     await waitFor(() => expect(screen.queryByRole('button',{name:'Atualizar agora'})).toBeNull());
     const saved=JSON.parse(window.localStorage.getItem('markmap:pwa-update-deferred')||'{}');
-    expect(saved.shell).toBe('markmap-cache-new');
+    // The notice is deferred for this published release, even if SW state changes.
+    expect(saved.shell).toBe('published:0.5.19');
     expect(mock.approved).toBe(false);
   });
 

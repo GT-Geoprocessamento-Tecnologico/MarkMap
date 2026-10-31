@@ -34,7 +34,7 @@ describe("primeira instalação", () => {
   });
   it("Análises exibe o estado vazio sem ficar carregando indefinidamente", () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(<QueryClientProvider client={client}><AnalyticsPage /></QueryClientProvider>);
+    render(<QueryClientProvider client={client}><ToastProvider><AnalyticsPage /></ToastProvider></QueryClientProvider>);
     expect(screen.getByText("Nenhuma camada cadastrada nos projetos consultados.")).toBeInTheDocument();
     expect(screen.queryByText("Carregando dados…")).not.toBeInTheDocument();
     client.clear();

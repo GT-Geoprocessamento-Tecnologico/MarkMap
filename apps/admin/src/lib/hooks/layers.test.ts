@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { listLocalLayersPage, useCreateLayer } from "./layers";
 
 const { localRepository } = vi.hoisted(() => ({
-  localRepository: { listEntities: vi.fn(), mutate: vi.fn() },
+  localRepository: { listEntities: vi.fn(), mutate: vi.fn(), workspaceId: vi.fn(), getEntity: vi.fn() },
 }));
 
 vi.mock("../local-repositories", () => ({ localRepository }));
@@ -55,6 +55,8 @@ describe("local analytics layer reader", () => {
 
   it("invalidates the cached analytics snapshot after creating a local layer", async () => {
     localRepository.mutate.mockResolvedValue(undefined);
+    localRepository.workspaceId.mockResolvedValue("00000000-0000-4000-8000-000000000099");
+    localRepository.getEntity.mockResolvedValue({ entity: "project", entityId: projectId, deleted: false });
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const analyticsKey = ["analytics-layers", [projectId], "bounded", 100];
     queryClient.setQueryData(analyticsKey, {
@@ -77,6 +79,7 @@ describe("local analytics layer reader", () => {
     });
 
     expect(queryClient.getQueryState(analyticsKey)?.isInvalidated).toBe(true);
+    expect(localRepository.getEntity).toHaveBeenCalledWith("00000000-0000-4000-8000-000000000099", "project", projectId);
     expect(localRepository.mutate).toHaveBeenCalledWith(expect.objectContaining({
       entity: "layer",
       entityId: expect.any(String),
