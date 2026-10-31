@@ -76,3 +76,15 @@ Arquivos e SHA, comportamento preservado, classes FUNCIONA/PARCIAL/NÃO IMPLEMEN
 **Evidência realmente executada:** Node 22.16.0 em árvore parcial, `node --experimental-strip-types --test` **97/97 PASS** (64 casos oficiais em MJS disponíveis + 33 casos isolados com mocks/stubs). RED reproduzido de **16>6** e de fila de 60 operações; GREEN após serialização + limite. Simulação cross-context de duas instâncias de módulo com Web Locks verificou exclusão mútua. Três checagens TypeScript isoladas com stubs PASS; GeoTIFF isolado com decoder simulado PASS. Testes Vitest oficiais adicionais versionados, **ainda não executados**.
 
 **Pendente / rollback:** git CI Actions #45 segue sem runner; sem Vitest real, lint/typecheck/build do monorepo, E2E offline ou QA físico. Para rollback, reverter apenas alterações do cache derivado e seus testes/PRD na PR draft; nunca limpar IndexedDB/outbox ou remover dados do usuário. Não homologar até executar os gates.
+
+### A203 — Liberar streams OPFS após erro de escrita derivada (31/10/2026)
+
+**Falha reproduzida (RED):** os streams `FileSystemWritableFileStream` abertos para gravar PNG ou JSON derivados não eram explicitamente cancelados se `write()` falhasse (ex.: quota/IO). Os testes de falha de PNG e JSON registraram **0 abortos**, embora o stream tivesse sido aberto.
+
+**Correção (GREEN):** helper `commitDerivedFile` executa `write()` + `close()` e, em caso de rejeição, tenta `stream.abort()` antes de propagar ao catch best-effort já existente. O próprio abort pode falhar se o stream já estiver encerrado; a exceção não pode bloquear edição offline nem a renderização do GeoTIFF. Metadata continua sendo gravada depois do PNG; original, IndexedDB/outbox e arquivos alheios permanecem intocados. Falha de escrita permite reconstrução posterior do cache opcional.
+
+**Critérios de aceite:** falha simulada na escrita de PNG ou JSON chama abort; não comita payload incompleto; tentativa posterior volta a gravar sem apagar originais; resultado do cache inválido continua `null` até recriação; não realizar limpeza de dados ou novos serviços.
+
+**Evidência realmente executada:** `node --experimental-strip-types --test qa-opfs-stream.test.mjs` — 2/2 testes RED antes do fix (abort esperado 1, observado 0), depois 2/2 PASS; suíte Node completa disponível em árvore parcial `node --experimental-strip-types --test ...` **99/99 PASS** (64 casos originais MJS disponíveis + 35 testes isolados com mocks); 3 `tsc --noEmit` em configurações isoladas (OPFS/GeoTIFF/overlay) PASS com declarações externas simuladas; GeoTIFF mock PASS. Blob do módulo de produção `56fd9b94255a3bcdb6965184f61fb41eeb5145ac` idêntico ao código local testado.
+
+**Bloqueio:** regressões Vitest para stream abort adicionadas à PR, mas **não executadas no Vitest real**; build Vite, lint/typecheck monorepo, E2E/Android/iOS físico também pendentes (GitHub Actions #45 não atribui runner). Sem prova de que browsers reais tratam abort/QuotaExceededError de modo idêntico ao mock. PR DRAFT sem merge/deploy. Rollback: reverter apenas código/testes de cache derivado.
