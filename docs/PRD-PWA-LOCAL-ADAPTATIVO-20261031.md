@@ -8,7 +8,7 @@ Melhorar a fluidez GIS em Web/PWA e Capacitor sem conhecer previamente o modelo 
 ## Escopo
 - Reaproveitar o worker MapLibre existente, configurando concorrência, cache de tiles, DPR e canvas antes do primeiro mapa.
 - GeoTIFF: decodificação em Web Worker com fallback, `readRGB()` redimensionado por orçamento de pixels **e dimensão máxima de cada eixo do canvas**, inclusive GeoTIFF extremamente alongado; preservar original, CRS e georreferenciamento.
-- OPFS: **somente cache limitado de PNG derivado de GeoTIFF pequeno**, chaveado pelo SHA-256 do original e validando SHA-256 integral do PNG derivado, cabeçalho e limites de pixels/dimensão da prévia; se API ausente, cache inválido ou quota insuficiente, decodificar do original.
+- OPFS: **somente cache limitado de PNG derivado de GeoTIFF pequeno**, chaveado pelo SHA-256 do original e validando SHA-256 integral do PNG derivado, integridade do metadado de georreferenciamento, cabeçalho e limites de pixels/dimensão da prévia; se API ausente, cache inválido ou quota insuficiente, decodificar do original.
 - Persistência: manter UI existente em Configurações > Proteger dados, com permissão real do navegador, sem solicitar permissão silenciosamente.
 - Testar limites e fallback, versões do shell e cenários offline; aferir antes/depois em hardware real.
 
@@ -22,7 +22,7 @@ Melhorar a fluidez GIS em Web/PWA e Capacitor sem conhecer previamente o modelo 
 
 ## Regras de negócio e segurança
 - Fonte de verdade continua IndexedDB/outbox; backup não confunde cache derivado OPFS com dado preservado.
-- Cache é opcional e de capacidade fixa: até seis prévias de entradas até 8 MiB; cada PNG até 12 MiB; não tocar arquivos OPFS de outras funcionalidades.
+- Cache é opcional e de capacidade fixa: até seis prévias de entradas até 8 MiB; cada PNG até 12 MiB e JSON de metadados até 4 KiB; não tocar arquivos OPFS de outras funcionalidades.
 - Sem descarte automático de original, cache de mapa, objeto local, identidade, outbox, preferências, shell aprovado nem metadados de sync.
 - Não alterar o protocolo `sw.js` de consentimento/recuperação; se uma API falhar, caminho anterior continua funcionando.
 - Não utilizar user-agent, fabricante ou modelo para decisões; `navigator.deviceMemory` é um indício opcional, não um valor garantido.
@@ -54,3 +54,13 @@ Melhorar a fluidez GIS em Web/PWA e Capacitor sem conhecer previamente o modelo 
 
 ## Relatório final esperado / handoff
 Arquivos e SHA, comportamento preservado, classes FUNCIONA/PARCIAL/NÃO IMPLEMENTADO, gates PASS/FAIL/BLOCKED e comandos executados, QA físico restante, riscos e próximo responsável. Registrar em Obsidian `02-PROJECTS/MARKMAP/`, Notion e PR; não declarar concluído sem evidência.
+
+
+### A201 — Auditoria preventiva de integridade offline (31/10/2026)
+
+- **FALHA reproduzida (RED):** metadados OPFS em versão 2 aceitavam `coordinates` geografica e sintaticamente válidas modificadas sem alteração do PNG ou de seu SHA-256. Assim a prévia poderia ser exibida em um local incorreto.
+- **CORREÇÃO (GREEN):** cache derivado usa metadados **v3** e digest SHA-256 do conjunto `chave original + versão + dimensões + coordenadas + SHA do PNG + timestamp`. O hash detecta alteração acidental de metadata ou arquivos cruzados, mas **não é assinatura contra adversário que controla a gravação OPFS**. Entradas v2 deixam de ser reutilizadas e são regeneradas do original, sem excluir arquivos derivados anteriores nem tocar IndexedDB/outbox.
+- **FALHA adicional (RED):** leitura de JSON derivado corrompido sem teto podia carregar metadados muito grandes na memória antes da validação. **GREEN:** recusar arquivo JSON de metadados fora de 32 B a 4 KiB **antes** de `text()`.
+- **Evidências executadas:** 93/93 testes Node PASS em árvore parcial (64 testes originais de repositório + 29 casos de harness isolado com mocks), incluindo RED/GREEN das duas falhas e testes para metadata v2, troca de chave, alteração de timestamp, reserva de quota, GeoTIFF Worker e regressões de shell PWA. `tsc --noEmit` para OPFS, overlay e GeoTIFF em configs isoladas com stubs PASS. `qa-geotiff.mjs` com decoder simulado PASS.
+- **Auditoria do diff PR:** mudanças concentradas em MapLibre/GeoTIFF/OPFS/shell tests/version docs, **sem modificações de código IndexedDB/outbox, sync engine ou do próprio `apps/admin/public/sw.js`**. Isso comprova ausência de alterações nesses arquivos, **não** a execução de todos fluxos fim a fim.
+- **PENDENTE:** versão 3 de metadados no Vitest oficial, lint, typecheck monorepo, Vite build, E2E offline instalado, Android/iOS reais, zero perda de dados em teste end-to-end; GitHub Actions #45 sem runner continua bloqueado. Não liberar PR enquanto faltem.
