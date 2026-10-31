@@ -12,7 +12,13 @@ export interface GeoTiffMetadata {
   geoKeys: Record<string, unknown>;
 }
 
-export interface GeoTiffInputLimits { maxBytes?: number; maxPixels?: number; maxPreviewPixels?: number }
+export interface GeoTiffInputLimits {
+  maxBytes?: number;
+  maxPixels?: number;
+  maxPreviewPixels?: number;
+  /** Maximum width or height of a rendered preview canvas (device-dependent). */
+  maxPreviewDimension?: number;
+}
 
 export interface GeoTiffRasterPreview extends GeoTiffMetadata {
   /** Interleaved RGBA bytes, suitable for a browser ImageData/canvas. */
@@ -35,7 +41,10 @@ async function openImage(input: ArrayBuffer | Uint8Array, limits: GeoTiffInputLi
   const width = image.getWidth();
   const height = image.getHeight();
   const pixels = width * height;
-  if (!Number.isSafeInteger(pixels) || pixels > (limits.maxPixels ?? MAX_GEOTIFF_PIXELS)) throw new RangeError('GeoTIFF exceeds the local pixel limit.');
+  if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width < 1 || height < 1 ||
+      !Number.isSafeInteger(pixels) || pixels > (limits.maxPixels ?? MAX_GEOTIFF_PIXELS)) {
+    throw new RangeError('GeoTIFF exceeds the local pixel limit.');
+  }
   return image;
 }
 
@@ -65,6 +74,12 @@ export async function readGeoTiffRasterPreview(input: ArrayBuffer | Uint8Array, 
       (!Number.isSafeInteger(limits.maxPreviewPixels) || limits.maxPreviewPixels < 1)) {
     throw new RangeError('Invalid GeoTIFF preview pixel limit.');
   }
+  if (limits.maxPreviewDimension !== undefined &&
+      (!Number.isSafeInteger(limits.maxPreviewDimension) || limits.maxPreviewDimension < 1)) {
+    throw new RangeError('Invalid GeoTIFF preview dimension limit.');
+  }
+  // A safe library default even when called outside the device-adaptive overlay.
+  const maxDimension = limits.maxPreviewDimension ?? 4096;
   const maximum = limits.maxPreviewPixels ?? metadata.width * metadata.height;
   // Preserve full-resolution source/CRS while bounding the pixels drawn on the map.
   // A one-pixel-thick GeoTIFF also needs an axis cap: sqrt(area) alone can exceed the pixel budget.
@@ -74,6 +89,8 @@ export async function readGeoTiffRasterPreview(input: ArrayBuffer | Uint8Array, 
         Math.sqrt(maximum / (metadata.width * metadata.height)),
         maximum / metadata.width,
         maximum / metadata.height,
+        maxDimension / metadata.width,
+        maxDimension / metadata.height,
       )
     : 1;
   const width = Math.max(1, Math.floor(metadata.width * scale));

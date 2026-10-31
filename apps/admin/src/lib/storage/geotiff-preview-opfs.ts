@@ -47,7 +47,10 @@ export async function readGeoTiffPreviewCache(key: string, limits: GeoTiffInputL
     const meta = JSON.parse(await metaFile.text()) as Partial<Metadata>;
     if (meta.version !== 2 || !validKey(meta.sha256 ?? '') ||
         !Number.isSafeInteger(meta.width) || !Number.isSafeInteger(meta.height) ||
-        !meta.width || !meta.height || meta.width <= 0 || meta.height <= 0 || meta.width * meta.height > (limits.maxPreviewPixels ?? limits.maxPixels ?? 100_000_000) ||
+        !meta.width || !meta.height || meta.width <= 0 || meta.height <= 0 ||
+        meta.width * meta.height > (limits.maxPreviewPixels ?? limits.maxPixels ?? 100_000_000) ||
+        (limits.maxPreviewDimension !== undefined &&
+          (meta.width > limits.maxPreviewDimension || meta.height > limits.maxPreviewDimension)) ||
         !validCoordinates(meta.coordinates)) return null;
     const image = await (await dir.getFileHandle(`${key}.png`)).getFile();
     if (image.size < 8 || image.size > MAX_PREVIEW_BYTES) return null;

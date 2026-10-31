@@ -45,9 +45,18 @@ async function decodeRaster(blob: Blob, limits: GeoTiffInputLimits): Promise<Geo
 
 export async function renderGeoTiffOverlay(blob: Blob, limits: GeoTiffInputLimits = {}): Promise<GeoTiffOverlay> {
   if (blob.size > (limits.maxBytes ?? 128 * 1024 * 1024)) throw new RangeError('GeoTIFF excede o limite local.');
-  const tier = adaptiveMapBudget(readMapDeviceHints()).tier;
-  const devicePreviewLimit = tier === 'constrained' ? 2_000_000 : tier === 'capable' ? 12_000_000 : 6_000_000;
-  const adaptedLimits = { ...limits, maxPreviewPixels: Math.min(limits.maxPreviewPixels ?? devicePreviewLimit, devicePreviewLimit) };
+  if (limits.maxPreviewDimension !== undefined &&
+      (!Number.isSafeInteger(limits.maxPreviewDimension) || limits.maxPreviewDimension < 1)) {
+    throw new RangeError('Limite inválido de dimensão da prévia GeoTIFF.');
+  }
+  const budget = adaptiveMapBudget(readMapDeviceHints());
+  const devicePreviewLimit = budget.tier === 'constrained' ? 2_000_000 : budget.tier === 'capable' ? 12_000_000 : 6_000_000;
+  const deviceCanvasLimit = Math.min(...budget.maxCanvasSize);
+  const adaptedLimits = {
+    ...limits,
+    maxPreviewPixels: Math.min(limits.maxPreviewPixels ?? devicePreviewLimit, devicePreviewLimit),
+    maxPreviewDimension: Math.min(limits.maxPreviewDimension ?? deviceCanvasLimit, deviceCanvasLimit),
+  };
   const cacheKey = await geoTiffPreviewCacheKey(blob);
   const cached = cacheKey ? await readGeoTiffPreviewCache(cacheKey, adaptedLimits) : null;
   if (cached) {
@@ -55,6 +64,14 @@ export async function renderGeoTiffOverlay(blob: Blob, limits: GeoTiffInputLimit
     return { url, width: cached.width, height: cached.height, coordinates: cached.coordinates, release: () => URL.revokeObjectURL(url) };
   }
   const preview = await decodeRaster(blob, adaptedLimits);
+  // Guard against a faulty decoder/worker before allocating a device canvas.
+  if (!Number.isSafeInteger(preview.width) || !Number.isSafeInteger(preview.height) ||
+      preview.width < 1 || preview.height < 1 ||
+      preview.width > adaptedLimits.maxPreviewDimension || preview.height > adaptedLimits.maxPreviewDimension ||
+      preview.width * preview.height > adaptedLimits.maxPreviewPixels ||
+      preview.rgba?.byteLength !== preview.width * preview.height * 4) {
+    throw new RangeError('Prévia GeoTIFF excede os limites do dispositivo.');
+  }
   if (preview.crs !== 4326) throw new Error('A prévia GeoTIFF exige CRS geográfico EPSG:4326 neste MVP.');
   if (!preview.bounds) throw new Error('O GeoTIFF não possui bounds geográficos utilizáveis.');
   const [west, south, east, north] = preview.bounds;

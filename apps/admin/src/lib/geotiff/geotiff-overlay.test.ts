@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { renderGeoTiffOverlay } from './geotiff-overlay';
 
 vi.mock('@markmap/maps', () => ({
-  adaptiveMapBudget: vi.fn(() => ({ tier: 'constrained' })),
+  adaptiveMapBudget: vi.fn(() => ({ tier: 'constrained', maxCanvasSize: [2048, 2048] })),
   readMapDeviceHints: vi.fn(() => ({})),
   readGeoTiffRasterPreview: vi.fn().mockResolvedValue({ width: 2, height: 2, samplesPerPixel: 1, crs: 4326, bounds: [-48, -16, -47, -15], geoKeys: {}, rgba: new Uint8Array(16) }),
 }));
@@ -17,9 +17,29 @@ describe('GeoTIFF overlay adapter', () => {
     vi.stubGlobal('document', { createElement: () => canvas });
     vi.stubGlobal('ImageData', class { constructor(public data: Uint8ClampedArray, public width: number, public height: number) {} });
     const overlay = await renderGeoTiffOverlay(Object.assign(new Blob(['tiff']), { arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)) }) as Blob);
+    const { readGeoTiffRasterPreview } = await import('@markmap/maps');
+    expect(vi.mocked(readGeoTiffRasterPreview)).toHaveBeenCalledWith(
+      expect.anything(), expect.objectContaining({ maxPreviewDimension: 2048, maxPreviewPixels: 2_000_000 }),
+    );
     expect(overlay.coordinates).toEqual([[-48, -15], [-47, -15], [-47, -16], [-48, -16]]);
     overlay.release();
     expect(revoked).toEqual(['blob:local-tiff']);
+  });
+
+  it('rejects invalid per-axis limits before decoding or creating a canvas', async () => {
+    await expect(renderGeoTiffOverlay(new Blob(['tiff']), { maxPreviewDimension: -1 }))
+      .rejects.toThrow('Limite inválido de dimensão');
+  });
+
+  it('fails closed for an oversized or inconsistent worker/decoder preview', async () => {
+    vi.stubGlobal('Worker', undefined);
+    const { readGeoTiffRasterPreview } = await import('@markmap/maps');
+    vi.mocked(readGeoTiffRasterPreview).mockResolvedValueOnce({
+      width: 3000, height: 1, samplesPerPixel: 1, crs: 4326,
+      bounds: [-48, -16, -47, -15], geoKeys: {}, rgba: new Uint8Array(12_000),
+    });
+    await expect(renderGeoTiffOverlay(new Blob(['tiff'])))
+      .rejects.toThrow('Prévia GeoTIFF excede os limites');
   });
 
   it('rejects projected CRS instead of misplacing it', async () => {

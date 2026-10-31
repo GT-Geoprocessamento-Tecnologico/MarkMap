@@ -55,6 +55,8 @@ it('reads only valid derived PNG and respects memory-adaptive pixel limits', asy
   await writeGeoTiffPreviewCache(key, png(400, 200), { width: 400, height: 200, coordinates });
   expect(files.size).toBe(2);
   expect((await readGeoTiffPreviewCache(key, { maxPreviewPixels: 100_000 }))?.width).toBe(400);
+  expect(await readGeoTiffPreviewCache(key, { maxPreviewDimension: 200 })).toBeNull();
+  expect((await readGeoTiffPreviewCache(key, { maxPreviewDimension: 400 }))?.width).toBe(400);
   expect(await readGeoTiffPreviewCache(key, { maxPreviewPixels: 10_000 })).toBeNull();
   files.set(`${key}.png`, new Blob(['damaged']));
   expect(await readGeoTiffPreviewCache(key)).toBeNull();

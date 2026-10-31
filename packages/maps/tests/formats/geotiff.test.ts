@@ -48,6 +48,29 @@ describe('bounded GeoTIFF input', () => {
   });
 
 
+  it('limits each preview canvas axis even when pixel budget is not exhausted', async () => {
+    for (const [width, height] of [[8192, 1], [1, 8192]] as const) {
+      const input = writeArrayBuffer(Array.from({ length: width * height }, (_, i) => i % 256), {
+        width, height, SamplesPerPixel: 1,
+        ModelPixelScale: [1, 1, 0], ModelTiepoint: [0, 0, 0, -48, -16, 0],
+        GeographicTypeGeoKey: 4326,
+      });
+      const source = await readGeoTiffMetadata(input);
+      const preview = await readGeoTiffRasterPreview(input, {
+        maxPreviewPixels: 20_000, maxPreviewDimension: 1024,
+      });
+      expect(Math.max(preview.width, preview.height)).toBeLessThanOrEqual(1024);
+      expect(preview.width * preview.height).toBeLessThanOrEqual(20_000);
+      expect(preview.bounds).toEqual(source.bounds);
+      expect(source).toMatchObject({ width, height, crs: 4326 });
+    }
+    const small = writeArrayBuffer([1, 2, 3, 4], { width: 2, height: 2, SamplesPerPixel: 1 });
+    await expect(readGeoTiffRasterPreview(small, { maxPreviewDimension: 0 }))
+      .rejects.toThrow('preview dimension limit');
+    await expect(readGeoTiffRasterPreview(small, { maxPreviewDimension: NaN }))
+      .rejects.toThrow('preview dimension limit');
+  });
+
   it('bounds previews of extremely elongated rasters without altering source metadata', async () => {
     for (const [width, height] of [[4096, 1], [1, 4096]] as const) {
       const input = writeArrayBuffer(Array.from({ length: width * height }, (_, i) => i % 256), {
