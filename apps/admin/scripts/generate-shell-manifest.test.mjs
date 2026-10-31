@@ -97,3 +97,15 @@ test('documentation-only Cloudflare commits keep identical shell and worker byte
     await rm(secondDir, { recursive: true, force: true });
   }
 });
+test('new hashed GeoTIFF worker is part of approved offline shell', async () => {
+  const dir = await fixture();
+  try {
+    await writeFile(join(dir, 'assets/geotiff-overlay.worker-a1b2c3d4.js'), 'worker-code');
+    const manifest = await generateShellManifest(dir);
+    assert.ok(manifest.assets.includes('/assets/geotiff-overlay.worker-a1b2c3d4.js'));
+    const sw = await readFile(join(dir, 'sw.js'), 'utf8');
+    assert.ok(sw.includes('/assets/geotiff-overlay.worker-a1b2c3d4.js'));
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});

@@ -32,7 +32,7 @@ function fakeStorage(freeBytes = 1_000_000_000) {
 const coordinates: [[number, number], [number, number], [number, number], [number, number]] =
   [[-48, 0], [-47, 0], [-47, -1], [-48, -1]];
 function png(width: number, height: number): Blob {
-  const bytes = new Uint8Array(24);
+  const bytes = new Uint8Array(40);
   bytes.set([137, 80, 78, 71, 13, 10, 26, 10]);
   const view = new DataView(bytes.buffer);
   view.setUint32(16, width);
@@ -64,4 +64,25 @@ it('does not allocate optional OPFS cache when storage reserve is low', async ()
   const files = fakeStorage(1);
   await writeGeoTiffPreviewCache('b'.repeat(64), png(10, 10), { width: 10, height: 10, coordinates });
   expect(files.size).toBe(0);
+});
+
+it('rejects an intact-header PNG with corrupted body bytes', async () => {
+  const files = fakeStorage();
+  const key = 'e'.repeat(64);
+  await writeGeoTiffPreviewCache(key, png(2, 2), { width: 2, height: 2, coordinates });
+  expect(await readGeoTiffPreviewCache(key)).not.toBeNull();
+  const corrupted = new Uint8Array(await files.get(`${key}.png`)!.arrayBuffer());
+  corrupted[30] ^= 0xff;
+  files.set(`${key}.png`, new Blob([corrupted], { type: 'image/png' }));
+  expect(await readGeoTiffPreviewCache(key)).toBeNull();
+});
+
+it('rejects incomplete metadata without integrity digest', async () => {
+  const files = fakeStorage();
+  const key = 'f'.repeat(64);
+  await writeGeoTiffPreviewCache(key, png(2, 2), { width: 2, height: 2, coordinates });
+  const metadata = JSON.parse(await files.get(`${key}.json`)!.text());
+  delete metadata.sha256;
+  files.set(`${key}.json`, new Blob([JSON.stringify(metadata)]));
+  expect(await readGeoTiffPreviewCache(key)).toBeNull();
 });

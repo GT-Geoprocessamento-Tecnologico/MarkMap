@@ -1,12 +1,16 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { renderGeoTiffOverlay } from './geotiff-overlay';
 
 vi.mock('@markmap/maps', () => ({
+  adaptiveMapBudget: vi.fn(() => ({ tier: 'constrained' })),
+  readMapDeviceHints: vi.fn(() => ({})),
   readGeoTiffRasterPreview: vi.fn().mockResolvedValue({ width: 2, height: 2, samplesPerPixel: 1, crs: 4326, bounds: [-48, -16, -47, -15], geoKeys: {}, rgba: new Uint8Array(16) }),
 }));
 
 describe('GeoTIFF overlay adapter', () => {
+  afterEach(() => vi.unstubAllGlobals());
   it('creates MapLibre image coordinates and releases the object URL', async () => {
+    vi.stubGlobal('Worker', undefined);
     const revoked: string[] = [];
     vi.stubGlobal('URL', { createObjectURL: vi.fn(() => 'blob:local-tiff'), revokeObjectURL: vi.fn((url: string) => revoked.push(url)) });
     const canvas = { width: 0, height: 0, getContext: () => ({ putImageData: vi.fn() }), toBlob: (callback: (blob: Blob) => void) => callback(new Blob(['png'])) };
@@ -19,6 +23,7 @@ describe('GeoTIFF overlay adapter', () => {
   });
 
   it('rejects projected CRS instead of misplacing it', async () => {
+    vi.stubGlobal('Worker', undefined);
     const { readGeoTiffRasterPreview } = await import('@markmap/maps');
     vi.mocked(readGeoTiffRasterPreview).mockResolvedValueOnce({
       width: 1,

@@ -61,6 +61,10 @@ export async function readGeoTiffMetadataFromBlob(blob: Blob, limits: GeoTiffInp
 export async function readGeoTiffRasterPreview(input: ArrayBuffer | Uint8Array, limits: GeoTiffInputLimits = {}): Promise<GeoTiffRasterPreview> {
   const image = await openImage(input, limits);
   const metadata = metadataFromImage(image);
+  if (limits.maxPreviewPixels !== undefined &&
+      (!Number.isSafeInteger(limits.maxPreviewPixels) || limits.maxPreviewPixels < 1)) {
+    throw new RangeError('Invalid GeoTIFF preview pixel limit.');
+  }
   const maximum = limits.maxPreviewPixels ?? metadata.width * metadata.height;
   // Preserve full-resolution source/CRS while bounding the pixels drawn on the map.
   // readRGB resamples during decode; never materialize a full-sized RGBA preview.
