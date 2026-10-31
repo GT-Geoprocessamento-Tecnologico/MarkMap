@@ -1,0 +1,67 @@
+// @vitest-environment node
+import { afterEach, expect, it, vi } from 'vitest';
+import { geoTiffPreviewCacheKey, readGeoTiffPreviewCache, writeGeoTiffPreviewCache } from './geotiff-preview-opfs';
+
+afterEach(() => vi.unstubAllGlobals());
+
+function fakeStorage(freeBytes = 1_000_000_000) {
+  const files = new Map<string, Blob>();
+  const directory = {
+    async getFileHandle(name: string, options: { create?: boolean } = {}) {
+      if (!options.create && !files.has(name)) throw new Error('missing');
+      return {
+        async getFile() { return files.get(name) ?? new Blob([]); },
+        async createWritable() {
+          let payload: Blob = new Blob([]);
+          return {
+            async write(value: Blob | string) { payload = value instanceof Blob ? value : new Blob([value]); },
+            async close() { files.set(name, payload); },
+          };
+        },
+      };
+    },
+    async *keys() { yield* files.keys(); },
+  };
+  vi.stubGlobal('navigator', { storage: {
+    estimate: async () => ({ quota: 1_000_000_000, usage: 1_000_000_000 - freeBytes }),
+    getDirectory: async () => ({ getDirectoryHandle: async () => directory }),
+  } });
+  return files;
+}
+
+const coordinates: [[number, number], [number, number], [number, number], [number, number]] =
+  [[-48, 0], [-47, 0], [-47, -1], [-48, -1]];
+function png(width: number, height: number): Blob {
+  const bytes = new Uint8Array(24);
+  bytes.set([137, 80, 78, 71, 13, 10, 26, 10]);
+  const view = new DataView(bytes.buffer);
+  view.setUint32(16, width);
+  view.setUint32(20, height);
+  return new Blob([bytes], { type: 'image/png' });
+}
+
+it('works without OPFS and never changes original inputs', async () => {
+  vi.stubGlobal('navigator', {});
+  const original = new Blob(['original-payload']);
+  const key = await geoTiffPreviewCacheKey(original);
+  expect(key).toMatch(/^[a-f0-9]{64}$/);
+  expect(await readGeoTiffPreviewCache(key!)).toBeNull();
+  expect(await original.text()).toBe('original-payload');
+});
+
+it('reads only valid derived PNG and respects memory-adaptive pixel limits', async () => {
+  const files = fakeStorage();
+  const key = 'a'.repeat(64);
+  await writeGeoTiffPreviewCache(key, png(400, 200), { width: 400, height: 200, coordinates });
+  expect(files.size).toBe(2);
+  expect((await readGeoTiffPreviewCache(key, { maxPreviewPixels: 100_000 }))?.width).toBe(400);
+  expect(await readGeoTiffPreviewCache(key, { maxPreviewPixels: 10_000 })).toBeNull();
+  files.set(`${key}.png`, new Blob(['damaged']));
+  expect(await readGeoTiffPreviewCache(key)).toBeNull();
+});
+
+it('does not allocate optional OPFS cache when storage reserve is low', async () => {
+  const files = fakeStorage(1);
+  await writeGeoTiffPreviewCache('b'.repeat(64), png(10, 10), { width: 10, height: 10, coordinates });
+  expect(files.size).toBe(0);
+});

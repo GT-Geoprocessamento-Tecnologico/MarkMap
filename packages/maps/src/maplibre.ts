@@ -12,15 +12,18 @@ import {
   NavigationControl,
   ScaleControl,
   setWorkerUrl,
+  setWorkerCount,
 } from 'maplibre-gl';
 import mapLibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import { sanitizeKnownBasemapFilter, shouldProvideMissingStyleImage } from './style-safety.js';
 import { configureMapWithRollback } from './maplibre-setup.mjs';
+import { adaptiveMapBudget, readMapDeviceHints } from './maplibre-performance.mjs';
 
 // MapLibre's ESM build does not discover its worker automatically in Vite.
 // Pin the worker emitted by Vite so production builds do not fall back to a
 // missing relative URL.
 setWorkerUrl(mapLibreWorkerUrl);
+let workerCountConfigured = false;
 
 type LegacyGeolocateOptions = ConstructorParameters<
   typeof MapLibreGeolocateControl
@@ -43,7 +46,17 @@ export interface MapWithControls {
 
 /** Cria instância MapLibre + controles. Retorna map E geolocate juntos. */
 export async function createMapLibreMap(args: CreateMapArgs): Promise<MapWithControls> {
+  const budget = adaptiveMapBudget(readMapDeviceHints());
+  if (!workerCountConfigured) {
+    // MapLibre worker concurrency must be set before the first map exists.
+    setWorkerCount(budget.workerCount);
+    workerCountConfigured = true;
+  }
   const options: MapOptions = {
+    pixelRatio: budget.pixelRatio,
+    maxCanvasSize: budget.maxCanvasSize,
+    maxTileCacheZoomLevels: budget.tileCacheZoomLevels,
+    fadeDuration: budget.fadeDuration,
     container: args.container,
     style: args.basemap.styleUrl,
     center: args.center ?? [-47.9292, -15.7801],

@@ -12,7 +12,7 @@ export interface GeoTiffMetadata {
   geoKeys: Record<string, unknown>;
 }
 
-export interface GeoTiffInputLimits { maxBytes?: number; maxPixels?: number }
+export interface GeoTiffInputLimits { maxBytes?: number; maxPixels?: number; maxPreviewPixels?: number }
 
 export interface GeoTiffRasterPreview extends GeoTiffMetadata {
   /** Interleaved RGBA bytes, suitable for a browser ImageData/canvas. */
@@ -61,16 +61,23 @@ export async function readGeoTiffMetadataFromBlob(blob: Blob, limits: GeoTiffInp
 export async function readGeoTiffRasterPreview(input: ArrayBuffer | Uint8Array, limits: GeoTiffInputLimits = {}): Promise<GeoTiffRasterPreview> {
   const image = await openImage(input, limits);
   const metadata = metadataFromImage(image);
-  const raster = await image.readRGB({ interleave: true });
-  const rgba = new Uint8Array(metadata.width * metadata.height * 4);
-  for (let pixel = 0; pixel < metadata.width * metadata.height; pixel += 1) {
+  const maximum = limits.maxPreviewPixels ?? metadata.width * metadata.height;
+  // Preserve full-resolution source/CRS while bounding the pixels drawn on the map.
+  // readRGB resamples during decode; never materialize a full-sized RGBA preview.
+  const scale = Number.isFinite(maximum) && maximum > 0
+    ? Math.min(1, Math.sqrt(maximum / (metadata.width * metadata.height))) : 1;
+  const width = Math.max(1, Math.floor(metadata.width * scale));
+  const height = Math.max(1, Math.floor(metadata.height * scale));
+  const raster = await image.readRGB({ interleave: true, width, height });
+  const rgba = new Uint8Array(width * height * 4);
+  for (let pixel = 0; pixel < width * height; pixel += 1) {
     const red = raster[pixel * 3] ?? 0;
     rgba[pixel * 4] = red;
     rgba[pixel * 4 + 1] = raster[pixel * 3 + 1] ?? red;
     rgba[pixel * 4 + 2] = raster[pixel * 3 + 2] ?? red;
     rgba[pixel * 4 + 3] = 255;
   }
-  return { ...metadata, rgba };
+  return { ...metadata, width, height, rgba };
 }
 
 export function isGeoTiffSignature(input: ArrayBuffer | Uint8Array): boolean {

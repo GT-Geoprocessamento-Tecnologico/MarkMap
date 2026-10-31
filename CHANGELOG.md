@@ -2,6 +2,22 @@
 
 Fonte da versão do aplicativo: `apps/admin/package.json`. Todos os agentes seguem [a política de versionamento](docs/versioning.md). O [histórico documental anterior](docs/changelog.md) permanece preservado.
 
+## [0.5.22] - 2026-10-31
+
+### Alterações
+
+- Renderização MapLibre adaptada à capacidade observável do dispositivo: número limitado de workers, pixel ratio, tamanho do canvas, tile cache e animação, com fallback conservador.
+- Prévia GeoTIFF decodificada em Web Worker quando disponível, com reamostragem e limite de pixels dependente da capacidade; preservar arquivo original, bounds e CRS.
+- Cache opcional OPFS de PNG **derivado e regenerável**, até 6 prévias pequenas, SHA-256, validação e reserva de quota; o IndexedDB/outbox permanece como fonte operacional.
+- Preservada a opção existente de proteção de dados em Configurações, sem permissão silenciosa, sem mudança de esquema nem de protocolo do Service Worker.
+
+### Validação
+
+- Regras adaptativas: 5/5 testes Node isolados PASS.
+- Mock de cache OPFS: 4/4 testes Node isolados PASS.
+- Checagens TypeScript isoladas de cache e worker e análise de sintaxe TypeScript dos módulos: PASS.
+- Testes Vitest integrados, lint, typecheck monorepo, build, E2E e dispositivos físicos PENDENTES; candidata em PR DRAFT sem autorização de publicação.
+
 ## [0.5.21] - 2026-10-31
 
 ### Alterações
