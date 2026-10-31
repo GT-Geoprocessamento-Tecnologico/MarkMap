@@ -73,7 +73,7 @@ export async function readGeoTiffPreviewCache(key: string, limits: GeoTiffInputL
   } catch { return null; }
 }
 
-export async function writeGeoTiffPreviewCache(key: string, image: Blob, preview: Omit<CachedGeoTiffPreview, 'image'>): Promise<void> {
+async function writeDerivedPreview(key: string, image: Blob, preview: Omit<CachedGeoTiffPreview, 'image'>): Promise<void> {
   if (!validKey(key) || image.size < 24 || image.size > MAX_PREVIEW_BYTES ||
       !validCoordinates(preview.coordinates) || !Number.isSafeInteger(preview.width) || !Number.isSafeInteger(preview.height) ||
       preview.width <= 0 || preview.height <= 0) return;
@@ -106,4 +106,23 @@ export async function writeGeoTiffPreviewCache(key: string, image: Blob, preview
     await marker.write(JSON.stringify({ ...markerPayload, metadataSha256: integrity }));
     await marker.close();
   } catch { /* OPFS is best effort and never a source of domain data. */ }
+}
+
+// Optional previews must not race past the six-entry disk cap. A module-local
+// queue serializes writes in this tab; Web Locks coordinates tabs when supported.
+// Browsers without Web Locks retain a best-effort per-tab cap, not a cross-tab one.
+let writeQueue: Promise<void> = Promise.resolve();
+export function writeGeoTiffPreviewCache(key: string, image: Blob, preview: Omit<CachedGeoTiffPreview, 'image'>): Promise<void> {
+  const task = writeQueue.then(async () => {
+    try {
+      const locks = typeof navigator === 'undefined' ? undefined : navigator.locks;
+      if (typeof locks?.request === 'function') {
+        await locks.request(`${DIRECTORY}-write`, () => writeDerivedPreview(key, image, preview));
+      } else {
+        await writeDerivedPreview(key, image, preview);
+      }
+    } catch { /* Derived caches are best effort, including a denied Web Lock. */ }
+  });
+  writeQueue = task;
+  return task;
 }

@@ -141,3 +141,42 @@ it('rejects oversized derived-cache metadata before loading the text into memory
   expect(await readGeoTiffPreviewCache(key)).toBeNull();
   expect(read).not.toHaveBeenCalled();
 });
+
+it('serializes concurrent cache writes before counting the six-entry limit', async () => {
+  const files = fakeStorage();
+  const keys = '0123456789abcdef'.split('').map((letter) => letter.repeat(64));
+  await Promise.all(keys.map((key) =>
+    writeGeoTiffPreviewCache(key, png(2, 2), { width: 2, height: 2, coordinates })));
+  expect([...files.keys()].filter((name) => name.endsWith('.json'))).toHaveLength(6);
+  expect(files.size).toBe(12);
+});
+
+it('coordinates cache writes with the browser Web Locks API when supported', async () => {
+  const files = fakeStorage();
+  const storage = navigator.storage;
+  const names: string[] = [];
+  const request = vi.fn(async (name: string, callback: () => Promise<void>) => {
+    names.push(name);
+    await callback();
+  });
+  vi.stubGlobal('navigator', { storage, locks: { request } });
+  const keys = 'abc'.split('').map((letter) => letter.repeat(64));
+  await Promise.all(keys.map((key) =>
+    writeGeoTiffPreviewCache(key, png(2, 2), { width: 2, height: 2, coordinates })));
+  expect(request).toHaveBeenCalledTimes(keys.length);
+  expect(names).toEqual(Array(keys.length).fill('markmap-geotiff-derived-previews-v1-write'));
+  expect([...files.keys()].filter((name) => name.endsWith('.json'))).toHaveLength(3);
+});
+
+it('fails closed without caching when a Web Lock is denied', async () => {
+  const files = fakeStorage();
+  const storage = navigator.storage;
+  const request = vi.fn(async () => { throw new Error('Web Lock denied'); });
+  vi.stubGlobal('navigator', { storage, locks: { request } });
+  const original = new Blob(['important-original']);
+  await expect(writeGeoTiffPreviewCache('a'.repeat(64), png(2, 2),
+    { width: 2, height: 2, coordinates })).resolves.toBeUndefined();
+  expect(request).toHaveBeenCalledOnce();
+  expect(files.size).toBe(0);
+  expect(await original.text()).toBe('important-original');
+});
