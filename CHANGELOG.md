@@ -14,6 +14,7 @@ Fonte da versão do aplicativo: `apps/admin/package.json`. Todos os agentes segu
 ### Validação
 
 - Teste SW reproduziu falha de shell aprovado com JS perdido: antes 200 e tela quebrada; após a correção, página de recuperação protegida (HTTP 503). 27/27 testes Node da política de atualização e compatibilidade de shell legado aprovados em ambiente isolado.
+- Testes React do aviso PWA parametrizados com versão superior à do pacote, evitando 2 falsos negativos na mudança para 0.5.21; o preview integral decidirá a homologação.
 - Parser TypeScript/TSX: componentes e testes de exclusão sem erros de sintaxe; verificação estrutural do diálogo e da passagem de `expectedName` (execução local). Testes Vitest do repositório e QA em dispositivo não executados neste ambiente.
 
 ## [0.5.20] - 2026-10-30

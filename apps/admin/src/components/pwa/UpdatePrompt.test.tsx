@@ -2,6 +2,10 @@ import { act, fireEvent, render, screen, waitFor, cleanup } from '@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import UpdatePrompt from './UpdatePrompt';
 import { requestAppUpdate } from '../../lib/pwa-update-request';
+import { appCredits } from '../../lib/app-credits';
+
+// Use the next version relative to this build, never a hard-coded release.
+const NEXT_PUBLISHED_VERSION = appCredits.version.replace(/^v/, '').replace(/(\d+)$/, patch => String(Number(patch) + 1));
 
 class MockMessageChannel {
   port1 = { onmessage: null as ((event: MessageEvent) => void) | null, close() {} };
@@ -114,11 +118,11 @@ describe('explicit PWA upgrade consent', () => {
 
   it('shows a published update without approving an incomplete SW candidate', async () => {
     const mock = setup('current');
-    const net = vi.fn(async () => ({ ok: true, json: async () => ({ appVersion: '0.5.21' }) }));
+    const net = vi.fn(async () => ({ ok: true, json: async () => ({ appVersion: NEXT_PUBLISHED_VERSION }) }));
     vi.stubGlobal('fetch', net);
     render(<UpdatePrompt />);
     expect(await screen.findByRole('dialog', { name: /Nova versão do MarkMap/ })).toBeVisible();
-    expect(screen.getByText(/MarkMap 0\.5\.21/)).toBeVisible();
+    expect(screen.getByText(`MarkMap ${NEXT_PUBLISHED_VERSION}`)).toBeVisible();
     expect(screen.getByRole('button', { name: 'Verificar download' })).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Atualizar agora' })).toBeNull();
     expect(net).toHaveBeenCalledWith('/version.json', expect.objectContaining({ cache: 'no-store' }));
@@ -130,11 +134,11 @@ describe('explicit PWA upgrade consent', () => {
 
   it('honors Later for a published-only notice and allows Settings to reopen it', async () => {
     const mock = setup('current');
-    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ appVersion: '0.5.21' }) })));
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ appVersion: NEXT_PUBLISHED_VERSION }) })));
     render(<UpdatePrompt />);
     fireEvent.click(await screen.findByRole('button', { name: 'Depois' }));
     await waitFor(() => expect(screen.queryByRole('dialog', { name: /Nova versão/ })).toBeNull());
-    expect(JSON.parse(localStorage.getItem('markmap:pwa-update-deferred') || '{}').shell).toBe('published:0.5.21');
+    expect(JSON.parse(localStorage.getItem('markmap:pwa-update-deferred') || '{}').shell).toBe(`published:${NEXT_PUBLISHED_VERSION}`);
     let result: unknown;
     await act(async () => { result = await requestAppUpdate(); });
     expect(result).toEqual({ status: 'pending' });
