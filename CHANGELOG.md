@@ -9,9 +9,11 @@ Fonte da versão do aplicativo: `apps/admin/package.json`. Todos os agentes segu
 - A exclusão de projetos na tela Projetos agora pede apenas uma confirmação em janela com **Cancelar** e **Excluir definitivamente**, sem digitar o nome do projeto.
 - O diálogo identifica o projeto, informa a exclusão dos dados vinculados e alerta que a ação não pode ser desfeita. A proteção de nome esperado em IndexedDB permanece ativa contra alterações de outra aba.
 - Nenhuma mudança no armazenamento offline, na cascata de remoção, nos tombstones/outbox ou na exclusão de camadas em Análises e Métricas.
+- SW do app instalado confere os JS/CSS realmente referenciados pelo HTML previamente aprovado antes da navegação; se houver perda parcial do shell, oferece recuperação com consentimento, sem trocar versão automaticamente nem limpar dados.
 
 ### Validação
 
+- Teste SW reproduziu falha de shell aprovado com JS perdido: antes 200 e tela quebrada; após a correção, página de recuperação protegida (HTTP 503). 27/27 testes Node da política de atualização e compatibilidade de shell legado aprovados em ambiente isolado.
 - Parser TypeScript/TSX: componentes e testes de exclusão sem erros de sintaxe; verificação estrutural do diálogo e da passagem de `expectedName` (execução local). Testes Vitest do repositório e QA em dispositivo não executados neste ambiente.
 
 ## [0.5.20] - 2026-10-30

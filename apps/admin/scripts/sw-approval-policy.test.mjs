@@ -386,3 +386,26 @@ test('legacy shell never replaces a previously approved version', async () => {
   assert.equal(status.approvedShell, 'markmap-cache-release-A');
   assert.equal(status.approvedVersion, '0.5.18');
 });
+
+test('approved HTML never opens when a referenced offline asset is missing', async()=>{
+  const {b,caches,env}=await upgrade();
+  const pinned=await caches.open('markmap-cache-release-A');
+  await pinned.put('/index.html', new Response('<html>MarkMap A<script type="module" src="/assets/main-a1b2c3d4.js"></script></html>'));
+  assert.equal(await pinned.delete('/assets/main-a1b2c3d4.js'),true);
+  env.network=false;
+  const response=await b.fetchRequest('/workspace');
+  assert.equal(response.status,503);
+  assert.match(await response.text(),/Versão local indisponível/);
+  assert.equal((await b.msg('GET_SHELL_STATUS')).approvedVersion,'0.5.18');
+  assert.equal((await b.msg('GET_SHELL_STATUS')).updateAvailable,true);
+});
+
+test('approved older shell still opens when its own referenced assets exist', async()=>{
+  const {b,caches}=await upgrade();
+  const pinned=await caches.open('markmap-cache-release-A');
+  await pinned.put('/index.html', new Response('<html>MarkMap A<link rel="stylesheet" href="/assets/main-a1b2c3d4.js"><script type="module" src="/assets/main-a1b2c3d4.js"></script></html>'));
+  const html=await b.fetchRequest('/workspace');
+  assert.equal(html.status,200);
+  assert.match(await html.text(),/MarkMap A/);
+  assert.equal((await b.msg('GET_SHELL_STATUS')).approvedVersion,'0.5.18');
+});
