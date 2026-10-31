@@ -7,14 +7,14 @@ Fonte da versão do aplicativo: `apps/admin/package.json`. Todos os agentes segu
 ### Alterações
 
 - Renderização MapLibre adaptada à capacidade observável do dispositivo: número limitado de workers, pixel ratio, tamanho do canvas, tile cache e animação, com fallback conservador.
-- Prévia GeoTIFF decodificada em Web Worker quando disponível, com reamostragem e limite de pixels dependente da capacidade; preservar arquivo original, bounds e CRS.
+- Prévia GeoTIFF decodificada em Web Worker quando disponível, com reamostragem e limite de pixels **e de largura/altura do canvas** adaptados ao dispositivo, inclusive rasters extremamente alongados; preservar arquivo original, bounds e CRS.
 - Cache opcional OPFS de PNG **derivado e regenerável**, até 6 prévias pequenas, SHA-256, validação e reserva de quota; o IndexedDB/outbox permanece como fonte operacional.
 - Preservada a opção existente de proteção de dados em Configurações, sem permissão silenciosa, sem mudança de esquema nem de protocolo do Service Worker.
 
 ### Validação
 
-- Testes Node **isolados com mocks/stubs**: 26/26 PASS para regras adaptativas, cache OPFS, overlay/fallback e shell offline; 468 combinações simuladas adicionais de dimensões/limites GeoTIFF PASS.
-- Checagens TypeScript isoladas com dependências externas simuladas: PASS. Regressão Vitest real para GeoTIFF alongado adicionada, **não executada no monorepo**.
+- QA Node em árvore parcial: **89/89 PASS** (64 casos oficiais disponíveis + 25 isolados com mocks/stubs), incluindo orçamento CPU/OPFS, overlay/fallback e shell offline; simulações adicionais de limites de pixels e de ambos os eixos do canvas PASS. Vitest completo não executado.
+- Três checagens TypeScript isoladas (dependências externas simuladas) PASS. Casos Vitest para eixo longo, cache OPFS e preview Worker inconsistente adicionados, **ainda não executados no monorepo**.
 - **Não homologado:** Vitest integrado, lint, typecheck monorepo, build Vite, E2E, QA físico e benchmarks pendentes; GitHub Actions sem steps executados. PR DRAFT, sem merge/publicação.
 
 ## [0.5.21] - 2026-10-31
