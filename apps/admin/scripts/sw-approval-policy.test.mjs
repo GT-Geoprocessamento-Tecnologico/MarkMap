@@ -342,3 +342,47 @@ test('recovery never offers an incomplete candidate shell even if its install ma
   assert.match(html, /A versão disponível ainda não está pronta/);
   assert.doesNotMatch(html, /name="token"/);
 });
+
+test('legacy installation retains old HTML and requires consent before new shell', async () => {
+  const { caches, makeWorker } = setup();
+  const legacy = await caches.open('markmap-cache-legacy-old');
+  await legacy.put('/index.html', new Response('<html>Legacy MarkMap</html>'));
+  await legacy.put('/__geonexo_install_complete__', new Response('ok'));
+  const latest = makeWorker('B');
+  await latest.run('install');
+  await latest.run('activate');
+  const status = await latest.msg('GET_SHELL_STATUS');
+  assert.equal(status.approvedShell, 'markmap-cache-legacy-old');
+  assert.equal(status.updateAvailable, true);
+  const page = await latest.fetchRequest('/workspace');
+  assert.match(await page.text(), /Legacy MarkMap/);
+  assert.equal(latest.skipCalls, 0);
+});
+
+test('corrupt legacy shell requires explicit recovery instead of auto approval', async () => {
+  const { caches, makeWorker } = setup();
+  const broken = await caches.open('markmap-cache-legacy-broken');
+  await broken.put('/index.html', new Response('Broken old shell'));
+  // Install-complete marker missing: not a valid approved release.
+  const latest = makeWorker('B');
+  await latest.run('install');
+  const status = await latest.msg('GET_SHELL_STATUS');
+  assert.equal(status.approvedShell, null);
+  assert.equal(status.updateAvailable, false);
+  assert.equal(status.candidateReady, true);
+  const response = await latest.fetchRequest('/workspace');
+  assert.equal(response.status, 503);
+  assert.match(await response.text(), /Versão local indisponível/);
+});
+
+test('legacy shell never replaces a previously approved version', async () => {
+  const { caches, makeWorker } = await initialized();
+  const legacy = await caches.open('markmap-cache-legacy-other');
+  await legacy.put('/index.html', new Response('Stale old shell'));
+  await legacy.put('/__geonexo_install_complete__', new Response('ok'));
+  const latest = makeWorker('B');
+  await latest.run('install');
+  const status = await latest.msg('GET_SHELL_STATUS');
+  assert.equal(status.approvedShell, 'markmap-cache-release-A');
+  assert.equal(status.approvedVersion, '0.5.18');
+});

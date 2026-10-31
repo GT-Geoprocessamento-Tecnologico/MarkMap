@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import type { ReactNode } from 'react';
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ImportsPage from './ImportsPage';
@@ -29,10 +30,10 @@ vi.mock('@markmap/ui', () => ({
 }));
 vi.mock('../../components/AppIcon', () => ({ AppIcon: () => <span aria-hidden="true" /> }));
 vi.mock('../../components/elevation/TrackElevationProfile', () => ({ TrackElevationProfile: () => null }));
-vi.mock('../../lib/pdf/pdf-preview', () => ({ PdfPreview: () => null, sha256Blob: sha256 }));
+vi.mock('../../lib/pdf/pdf-preview', () => ({ PdfPreview: ({ actions }: { actions?: ReactNode }) => <section>{actions}</section>, sha256Blob: sha256 }));
 vi.mock('../../lib/mesh/mesh-store', () => ({ listMeshes: vi.fn().mockResolvedValue([]), removeMesh: vi.fn(), saveMesh: vi.fn() }));
 vi.mock('../../lib/local-repositories', () => ({
-  localRepository: { listOriginals: vi.fn().mockResolvedValue([]), saveOriginal: vi.fn() },
+  localRepository: { listOriginals: vi.fn().mockResolvedValue([]), saveOriginal: vi.fn(), renameImportedOriginal: vi.fn(), deleteImportedOriginal: vi.fn() },
 }));
 vi.mock('../../lib/datasets/dataset-store', async () => ({
   ...(await vi.importActual<typeof import('../../lib/datasets/dataset-store')>('../../lib/datasets/dataset-store')),
@@ -58,6 +59,7 @@ describe('ImportsPage mobile file selection', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(listDatasets).mockResolvedValue([]);
+    vi.mocked(localRepository.listOriginals).mockResolvedValue([]);
   });
 
   it('leaves OS file filtering open and validates unsupported files through the parser', async () => {
@@ -86,6 +88,37 @@ describe('ImportsPage mobile file selection', () => {
     const input = screen.getByLabelText('Selecionar GeoJSON, GPX, KML, KMZ, GeoTIFF, PDF ou GLB');
     fireEvent.change(input, { target: { files: [file('route.kml')] } });
     await waitFor(() => expect(saveDataset).toHaveBeenCalledWith(validDataset));
+  });
+
+  const importedPdf = {
+    key: 'w:pdf-1', workspaceId: 'w', blobId: 'pdf-1',
+    blob: new Blob(['%PDF']), mediaType: 'application/pdf', bytes: 4,
+    sha256: 'a'.repeat(64), originalName: 'Carta.pdf', createdAt: '2026-10-30T00:00:00Z',
+    projectGeoPdfIds: ['11111111-1111-4111-8111-111111111111'],
+  };
+
+  it('renomeia o GeoPDF sem alterar a copia binaria ou a georreferencia', async () => {
+    vi.mocked(localRepository.listOriginals).mockResolvedValue([importedPdf]);
+    vi.mocked(localRepository.renameImportedOriginal).mockResolvedValue('Carta nova.pdf');
+    render(<ImportsPage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Renomear Carta.pdf' }));
+    fireEvent.change(screen.getByLabelText('Novo nome do arquivo'), { target: { value: 'Carta nova' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar nome' }));
+    await waitFor(() => expect(localRepository.renameImportedOriginal).toHaveBeenCalledWith('pdf-1', 'Carta nova', 'Carta.pdf', importedPdf.createdAt));
+  });
+
+  it('exige confirmacao e exclui GeoPDF incluindo referencias', async () => {
+    vi.mocked(localRepository.listOriginals).mockResolvedValue([importedPdf]);
+    vi.mocked(localRepository.deleteImportedOriginal).mockResolvedValue(true);
+    render(<ImportsPage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Excluir Carta.pdf' }));
+    expect(screen.getByText(/1 projeto\(s\) perderão a associação/)).toBeInTheDocument();
+    expect(localRepository.deleteImportedOriginal).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar exclusão de Carta.pdf' }));
+    await waitFor(() => expect(localRepository.deleteImportedOriginal).toHaveBeenCalledWith('pdf-1', {
+      sha256: importedPdf.sha256, originalName: importedPdf.originalName,
+      projectGeoPdfIds: importedPdf.projectGeoPdfIds, createdAt: importedPdf.createdAt,
+    }));
   });
 
   it.each([

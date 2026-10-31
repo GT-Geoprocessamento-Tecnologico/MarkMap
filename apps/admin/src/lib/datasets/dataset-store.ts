@@ -10,6 +10,8 @@ import {
   extractKmzKml,
 } from "@markmap/geo";
 import { offlineDB } from "../storage/offline-db";
+import { readBlobBytes } from "../blob-bytes";
+import { notifyImportCatalogChanged } from "../storage/import-catalog-events.mjs";
 import { normalizeDatasetName } from "./dataset-name.mjs";
 import { downloadBlob } from "../file-download";
 
@@ -249,7 +251,8 @@ export async function exportDatasetGeoJSON(id: string): Promise<void> {
 
 export async function saveDataset(dataset: DatasetRecord): Promise<void> {
   const { originalBlob, ...metadata } = dataset;
-  await offlineDB.save("datasets", dataset.id, { ...metadata, originalBytes: await originalBlob.arrayBuffer(), originalType: originalBlob.type });
+  await offlineDB.save("datasets", dataset.id, { ...metadata, originalBytes: await readBlobBytes(originalBlob), originalType: originalBlob.type });
+  notifyImportCatalogChanged({ kind: "dataset", id: dataset.id, action: "saved" });
 }
 
 type StoredDataset = Omit<DatasetRecord, 'originalBlob'> & { originalBlob?: Blob; originalBytes?: ArrayBuffer; originalType?: string };
@@ -287,10 +290,13 @@ export async function renameDataset(id: string, rawName: string, expectedName: s
   return renamed;
 }
 
+/** Datasets are device-only. Delete the complete record, including bytes and geometry,
+ * rather than hiding a soft-deleted record that still consumes local storage. */
 export async function removeDataset(id: string): Promise<void> {
-  const current = (await offlineDB.get("datasets", id)) as DatasetRecord | null;
-  if (current)
-    await offlineDB.save("datasets", id, { ...current, deleted: true });
+  const current = await offlineDB.get("datasets", id);
+  if (!current) return; // Idempotent if a second tab already removed it.
+  await offlineDB.delete("datasets", id);
+  notifyImportCatalogChanged({ kind: "dataset", id, action: "deleted" });
 }
 
 export async function exportDataset(id: string): Promise<void> {
