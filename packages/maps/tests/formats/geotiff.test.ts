@@ -47,4 +47,21 @@ describe('bounded GeoTIFF input', () => {
     await expect(readGeoTiffRasterPreview(input, { maxPreviewPixels: 0 })).rejects.toThrow('preview pixel limit');
   });
 
+
+  it('bounds previews of extremely elongated rasters without altering source metadata', async () => {
+    for (const [width, height] of [[4096, 1], [1, 4096]] as const) {
+      const input = writeArrayBuffer(Array.from({ length: width * height }, (_, i) => i % 256), {
+        width, height, SamplesPerPixel: 1,
+        ModelPixelScale: [1, 1, 0], ModelTiepoint: [0, 0, 0, -48, -16, 0],
+        GeographicTypeGeoKey: 4326,
+      });
+      const metadata = await readGeoTiffMetadata(input);
+      const preview = await readGeoTiffRasterPreview(input, { maxPreviewPixels: 16 });
+      expect(metadata).toMatchObject({ width, height, crs: 4326 });
+      expect(preview.width * preview.height).toBeLessThanOrEqual(16);
+      expect(preview.rgba).toHaveLength(preview.width * preview.height * 4);
+      expect(preview.bounds).toEqual(metadata.bounds);
+    }
+  });
+
 });

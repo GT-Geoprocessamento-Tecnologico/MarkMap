@@ -67,9 +67,15 @@ export async function readGeoTiffRasterPreview(input: ArrayBuffer | Uint8Array, 
   }
   const maximum = limits.maxPreviewPixels ?? metadata.width * metadata.height;
   // Preserve full-resolution source/CRS while bounding the pixels drawn on the map.
-  // readRGB resamples during decode; never materialize a full-sized RGBA preview.
+  // A one-pixel-thick GeoTIFF also needs an axis cap: sqrt(area) alone can exceed the pixel budget.
   const scale = Number.isFinite(maximum) && maximum > 0
-    ? Math.min(1, Math.sqrt(maximum / (metadata.width * metadata.height))) : 1;
+    ? Math.min(
+        1,
+        Math.sqrt(maximum / (metadata.width * metadata.height)),
+        maximum / metadata.width,
+        maximum / metadata.height,
+      )
+    : 1;
   const width = Math.max(1, Math.floor(metadata.width * scale));
   const height = Math.max(1, Math.floor(metadata.height * scale));
   const raster = await image.readRGB({ interleave: true, width, height });
