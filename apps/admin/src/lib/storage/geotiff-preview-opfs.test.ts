@@ -88,3 +88,43 @@ it('rejects incomplete metadata without integrity digest', async () => {
   files.set(`${key}.json`, new Blob([JSON.stringify(metadata)]));
   expect(await readGeoTiffPreviewCache(key)).toBeNull();
 });
+
+it('rejects otherwise-valid geographical coordinates changed independently from the original preview', async () => {
+  const files = fakeStorage();
+  const key = '9'.repeat(64);
+  const original = new Blob(['immutable-original-geotiff']);
+  await writeGeoTiffPreviewCache(key, png(2, 2), { width: 2, height: 2, coordinates });
+  expect((await readGeoTiffPreviewCache(key))?.coordinates).toEqual(coordinates);
+  const metadata = JSON.parse(await files.get(`${key}.json`)!.text());
+  expect(metadata.version).toBe(3);
+  expect(metadata.metadataSha256).toMatch(/^[a-f0-9]{64}$/);
+  metadata.coordinates = [[-49, 0], [-47, 0], [-47, -1], [-49, -1]];
+  files.set(`${key}.json`, new Blob([JSON.stringify(metadata)]));
+  expect(await readGeoTiffPreviewCache(key)).toBeNull();
+  expect(await original.text()).toBe('immutable-original-geotiff');
+});
+
+it('ignores legacy derived metadata without deleting cached files or touching domain data', async () => {
+  const files = fakeStorage();
+  const key = '8'.repeat(64);
+  await writeGeoTiffPreviewCache(key, png(2, 2), { width: 2, height: 2, coordinates });
+  const metadata = JSON.parse(await files.get(`${key}.json`)!.text());
+  metadata.version = 2;
+  files.set(`${key}.json`, new Blob([JSON.stringify(metadata)]));
+  expect(await readGeoTiffPreviewCache(key)).toBeNull();
+  expect([...files.keys()].sort()).toEqual([`${key}.json`, `${key}.png`]);
+});
+
+it('binds metadata integrity to the original cache key and timestamp', async () => {
+  const files = fakeStorage();
+  const key = '7'.repeat(64);
+  const anotherKey = '6'.repeat(64);
+  await writeGeoTiffPreviewCache(key, png(2, 2), { width: 2, height: 2, coordinates });
+  files.set(`${anotherKey}.png`, files.get(`${key}.png`)!);
+  files.set(`${anotherKey}.json`, files.get(`${key}.json`)!);
+  expect(await readGeoTiffPreviewCache(anotherKey)).toBeNull();
+  const metadata = JSON.parse(await files.get(`${key}.json`)!.text());
+  metadata.storedAt += 1;
+  files.set(`${key}.json`, new Blob([JSON.stringify(metadata)]));
+  expect(await readGeoTiffPreviewCache(key)).toBeNull();
+});
