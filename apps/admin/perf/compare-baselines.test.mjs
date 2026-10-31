@@ -19,7 +19,7 @@ function sample(profile = 'chromium-emulated', changes = {}) {
   };
 }
 function log(...reports) {
-  return \`Unrelated console line\n\${reports.map((report) => \`  MARKMAP_LOCAL_PERF_BASELINE \${JSON.stringify(report)}\`).join('\n')}\n\`;
+  return `Unrelated console line\n${reports.map((report) => `  MARKMAP_LOCAL_PERF_BASELINE ${JSON.stringify(report)}`).join('\n')}\n`;
 }
 
 test('extracts known baseline records while ignoring unrelated application logs', () => {
@@ -35,7 +35,7 @@ test('fails closed when no measured data are present', () => {
 });
 test('rejects malformed JSON without echoing private input', () => {
   const secret = 'https://private.example/?token=SECRET';
-  assert.throws(() => parseBaselineLog(\`MARKMAP_LOCAL_PERF_BASELINE {\${secret}\`), (err) => {
+  assert.throws(() => parseBaselineLog(`MARKMAP_LOCAL_PERF_BASELINE {${secret}`), (err) => {
     assert.doesNotMatch(err.message, /SECRET|private/);
     return true;
   });
