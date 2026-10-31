@@ -1,7 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { percentile } from './baseline-metrics.mjs';
 
 const MARKER = 'MARKMAP_LOCAL_PERF_BASELINE ';
 const PROFILES = new Set(['chromium-emulated', 'webkit-emulated']);
@@ -74,7 +73,11 @@ function byProfile(samples) {
 
 function median(values) {
   if (values.some((value) => value === null)) return null;
-  return Math.round(percentile(values, 0.5) * 100) / 100;
+  const ordered = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(ordered.length / 2);
+  const value = ordered.length % 2 === 1
+    ? ordered[middle] : (ordered[middle - 1] + ordered[middle]) / 2;
+  return Math.round(value * 100) / 100;
 }
 
 function difference(before, after) {

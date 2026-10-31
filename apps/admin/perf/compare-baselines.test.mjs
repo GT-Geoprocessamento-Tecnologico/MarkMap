@@ -61,6 +61,13 @@ test('compares median of repeated samples and preserves before-after direction',
   assert.deepEqual(group.metrics.mapReadyMs, { before: 500, after: 300, deltaPercent: -40 });
   assert.deepEqual(group.metrics.rafCadenceFps, { before: 40, after: 55, deltaPercent: 37.5 });
 });
+test('uses arithmetic median for an even number of repeated runs', () => {
+  const before = log(sample('chromium-emulated', { mapReadyMs: 300 }), sample('chromium-emulated', { mapReadyMs: 700 }));
+  const after = log(sample('chromium-emulated', { mapReadyMs: 200 }), sample('chromium-emulated', { mapReadyMs: 400 }));
+  assert.deepEqual(compareBaselineLogs(before, after).profiles[0].metrics.mapReadyMs, {
+    before: 500, after: 300, deltaPercent: -40,
+  });
+});
 test('missing heap is reported as null, never as zero', () => {
   const comparison = compareBaselineLogs(log(sample()), log(sample()));
   assert.deepEqual(comparison.profiles[0].metrics.heapMiB, { before: null, after: null, deltaPercent: null });
