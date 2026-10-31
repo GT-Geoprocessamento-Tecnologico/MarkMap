@@ -4,7 +4,7 @@ import { geoTiffPreviewCacheKey, readGeoTiffPreviewCache, writeGeoTiffPreviewCac
 
 afterEach(() => vi.unstubAllGlobals());
 
-function fakeStorage(freeBytes = 1_000_000_000) {
+function fakeStorage(freeBytes = 1_000_000_000, failure?: { target: string; aborted: string[] }) {
   const files = new Map<string, Blob>();
   const directory = {
     async getFileHandle(name: string, options: { create?: boolean } = {}) {
@@ -14,8 +14,12 @@ function fakeStorage(freeBytes = 1_000_000_000) {
         async createWritable() {
           let payload: Blob = new Blob([]);
           return {
-            async write(value: Blob | string) { payload = value instanceof Blob ? value : new Blob([value]); },
+            async write(value: Blob | string) {
+              if (name === failure?.target) throw new Error('Simulated quota/IO failure');
+              payload = value instanceof Blob ? value : new Blob([value]);
+            },
             async close() { files.set(name, payload); },
+            async abort() { failure?.aborted.push(name); },
           };
         },
       };
@@ -195,4 +199,33 @@ it('bounds pending optional PNG writes during a burst of imports', async () => {
   // Backpressure must reset after the queue finishes, even when it is full.
   await writeGeoTiffPreviewCache(keys[0], png(2, 2), { width: 2, height: 2, coordinates });
   expect(request).toHaveBeenCalledTimes(7);
+});
+
+it('aborts failed PNG OPFS writable streams and recovers without altering the original', async () => {
+  const key = 'c'.repeat(64);
+  const failure = { target: `${key}.png`, aborted: [] as string[] };
+  const files = fakeStorage(1_000_000_000, failure);
+  const original = new Blob(['immutable-GIS-original']);
+  await expect(writeGeoTiffPreviewCache(key, png(2, 2), { width: 2, height: 2, coordinates }))
+    .resolves.toBeUndefined();
+  expect(failure.aborted).toEqual([`${key}.png`]);
+  expect(files.size).toBe(0);
+  expect(await original.text()).toBe('immutable-GIS-original');
+  failure.target = '';
+  await writeGeoTiffPreviewCache(key, png(2, 2), { width: 2, height: 2, coordinates });
+  expect(await readGeoTiffPreviewCache(key)).not.toBeNull();
+});
+
+it('aborts failed JSON OPFS writable streams and safely reconstructs derived cache', async () => {
+  const key = 'd'.repeat(64);
+  const failure = { target: `${key}.json`, aborted: [] as string[] };
+  const files = fakeStorage(1_000_000_000, failure);
+  await expect(writeGeoTiffPreviewCache(key, png(2, 2), { width: 2, height: 2, coordinates }))
+    .resolves.toBeUndefined();
+  expect(failure.aborted).toEqual([`${key}.json`]);
+  expect(files.has(`${key}.json`)).toBe(false);
+  expect(await readGeoTiffPreviewCache(key)).toBeNull();
+  failure.target = '';
+  await writeGeoTiffPreviewCache(key, png(2, 2), { width: 2, height: 2, coordinates });
+  expect(await readGeoTiffPreviewCache(key)).not.toBeNull();
 });

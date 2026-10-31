@@ -73,6 +73,18 @@ export async function readGeoTiffPreviewCache(key: string, limits: GeoTiffInputL
   } catch { return null; }
 }
 
+/** Release aborted OPFS writable streams on quota/IO failures; originals live in IndexedDB. */
+async function commitDerivedFile(dir: FileSystemDirectoryHandle, name: string, value: Blob | string): Promise<void> {
+  const stream = await (await dir.getFileHandle(name, { create: true })).createWritable();
+  try {
+    await stream.write(value);
+    await stream.close();
+  } catch (error) {
+    try { await stream.abort(); } catch { /* The stream may already be closed/errored. */ }
+    throw error;
+  }
+}
+
 async function writeDerivedPreview(key: string, image: Blob, preview: Omit<CachedGeoTiffPreview, 'image'>): Promise<void> {
   if (!validKey(key) || image.size < 24 || image.size > MAX_PREVIEW_BYTES ||
       !validCoordinates(preview.coordinates) || !Number.isSafeInteger(preview.width) || !Number.isSafeInteger(preview.height) ||
@@ -98,13 +110,9 @@ async function writeDerivedPreview(key: string, image: Blob, preview: Omit<Cache
       coordinates: preview.coordinates, storedAt: Date.now(), sha256,
     };
     const integrity = await metadataSha256(key, markerPayload);
-    const output = await (await dir.getFileHandle(`${key}.png`, { create: true })).createWritable();
-    await output.write(image);
-    await output.close();
+    await commitDerivedFile(dir, `${key}.png`, image);
     // Metadata is written last so readers never use a partially staged PNG.
-    const marker = await (await dir.getFileHandle(`${key}.json`, { create: true })).createWritable();
-    await marker.write(JSON.stringify({ ...markerPayload, metadataSha256: integrity }));
-    await marker.close();
+    await commitDerivedFile(dir, `${key}.json`, JSON.stringify({ ...markerPayload, metadataSha256: integrity }));
   } catch { /* OPFS is best effort and never a source of domain data. */ }
 }
 
