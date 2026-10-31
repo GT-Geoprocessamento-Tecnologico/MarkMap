@@ -8,7 +8,7 @@ Melhorar a fluidez GIS em Web/PWA e Capacitor sem conhecer previamente o modelo 
 ## Escopo
 - Reaproveitar o worker MapLibre existente, configurando concorrência, cache de tiles, DPR e canvas antes do primeiro mapa.
 - GeoTIFF: decodificação em Web Worker com fallback, `readRGB()` redimensionado de acordo com limite do dispositivo, preservação do original, CRS e georreferenciamento.
-- OPFS: **somente cache limitado de PNG derivado de GeoTIFF pequeno**, chaveado por SHA-256, verificando integridade mínima do cabeçalho; se API ausente, cache inválido ou quota insuficiente, decodificar do original.
+- OPFS: **somente cache limitado de PNG derivado de GeoTIFF pequeno**, chaveado pelo SHA-256 do original e validando SHA-256 integral do PNG derivado, além do cabeçalho; se API ausente, cache inválido ou quota insuficiente, decodificar do original.
 - Persistência: manter UI existente em Configurações > Proteger dados, com permissão real do navegador, sem solicitar permissão silenciosamente.
 - Testar limites e fallback, versões do shell e cenários offline; aferir antes/depois em hardware real.
 
@@ -29,7 +29,7 @@ Melhorar a fluidez GIS em Web/PWA e Capacitor sem conhecer previamente o modelo 
 
 ## Critérios de aceite
 1. CPU/GPU de aparelho com sinais fracos usa limites conservadores; alto desempenho usa limites maiores; sinais ausentes têm fallback.
-2. GeoTIFF pequeno EPSG:4326 mantém bounds/CRS e original; preview grande produz menor raster sem provocar RGBA de 100 MP.
+2. GeoTIFF pequeno EPSG:4326 mantém bounds/CRS e original; preview grande (inclusive com apenas 1 pixel em um eixo) respeita `maxPreviewPixels` sem materializar RGBA de 100 MP.
 3. Falha de Worker e ausência de OPFS não bloqueiam renderização; cache corrompido não é considerado válido.
 4. Abrir app em modo avião não solicita rede, não substitui shell aprovado nem remove dados existentes.
 5. Publicação posterior só após versão, SHA e deploy verificados e consentimento de atualização.

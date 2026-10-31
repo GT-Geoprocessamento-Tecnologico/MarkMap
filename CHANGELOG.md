@@ -13,10 +13,9 @@ Fonte da versão do aplicativo: `apps/admin/package.json`. Todos os agentes segu
 
 ### Validação
 
-- Regras adaptativas: 5/5 testes Node isolados PASS.
-- Mock de cache OPFS: 4/4 testes Node isolados PASS.
-- Checagens TypeScript isoladas de cache e worker e análise de sintaxe TypeScript dos módulos: PASS.
-- Testes Vitest integrados, lint, typecheck monorepo, build, E2E e dispositivos físicos PENDENTES; candidata em PR DRAFT sem autorização de publicação.
+- Testes Node **isolados com mocks/stubs**: 26/26 PASS para regras adaptativas, cache OPFS, overlay/fallback e shell offline; 468 combinações simuladas adicionais de dimensões/limites GeoTIFF PASS.
+- Checagens TypeScript isoladas com dependências externas simuladas: PASS. Regressão Vitest real para GeoTIFF alongado adicionada, **não executada no monorepo**.
+- **Não homologado:** Vitest integrado, lint, typecheck monorepo, build Vite, E2E, QA físico e benchmarks pendentes; GitHub Actions sem steps executados. PR DRAFT, sem merge/publicação.
 
 ## [0.5.21] - 2026-10-31
 
