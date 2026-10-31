@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { PWA_UPDATE_REQUEST, type AppUpdateRequest, type AppUpdateResult } from "../../lib/pwa-update-request";
 import { AppIcon } from "../AppIcon";
+import { appCredits } from "../../lib/app-credits";
+import { newerPublishedVersion } from "../../lib/pwa/published-release.mjs";
 
 type ShellStatus = {
   type: "MARKMAP_SHELL_STATUS";
@@ -25,6 +27,22 @@ const APPROVAL_TIMEOUT_MS = 15000;
 const REMIND_LATER_MS = 24 * 60 * 60 * 1000;
 const DISMISSED_KEY = "markmap:pwa-update-deferred";
 const NOT_READY = () => false;
+const PUBLISHED_PREFIX = "published:";
+
+async function fetchPublishedVersion(): Promise<string | null> {
+  if (typeof fetch !== "function" || navigator.onLine === false) return null;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), MESSAGE_TIMEOUT_MS);
+  try {
+    const response = await fetch("/version.json", {
+      cache: "no-store", signal: controller.signal,
+      headers: { Accept: "application/json" },
+    });
+    if (!response.ok) return null;
+    return newerPublishedVersion(await response.json(), appCredits.version);
+  } catch { return null; }
+  finally { clearTimeout(timeout); }
+}
 
 function isValidStatus(value: unknown): value is ShellStatus {
   if (!value || typeof value !== "object") return false;
@@ -174,14 +192,20 @@ export function UpdatePrompt({
   compatibilityReady = NOT_READY,
 }: UpdatePromptProps) {
   const [available, setAvailable] = useState<AvailableUpdate | null>(null);
+  const [publishedVersion, setPublishedVersion] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dismissedShell, setDismissedShell] = useState<string | null>(null);
   const disposed = useRef(false);
   const reloading = useRef(false);
   const dialogRef = useRef<HTMLDivElement | null>(null);
-  const visible = Boolean(available && available.status.availableShell !== dismissedShell &&
-    !isDeferred(available.status.availableShell));
+  const publishedKey = publishedVersion ? `${PUBLISHED_PREFIX}${publishedVersion}` : null;
+  const candidateVisible = Boolean(available && available.status.availableShell !== dismissedShell &&
+    !isDeferred(available.status.availableShell) &&
+    !isDeferred(`${PUBLISHED_PREFIX}${available.status.availableVersion}`));
+  const publishedVisible = Boolean(!available && publishedKey && publishedKey !== dismissedShell &&
+    !isDeferred(publishedKey));
+  const visible = candidateVisible || publishedVisible;
   useEffect(() => {
     if (!visible) return;
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -189,12 +213,23 @@ export function UpdatePrompt({
     return () => { if (previous?.isConnected) previous.focus(); };
   }, [visible]);
 
+  const checkPublished = useCallback(async (): Promise<string | null> => {
+    const version = await fetchPublishedVersion();
+    if (!disposed.current && version) setPublishedVersion(version);
+    return version;
+  }, []);
+
   const checkForUpdate = useCallback(async (updateRegistration: boolean): Promise<AvailableUpdate | null> => {
+    // The network-only manifest can expose a release before its SW is ready.
+    // Never treat this hint as authorization to replace the approved cache.
+    void checkPublished();
     if (!("serviceWorker" in navigator)) return null;
     try {
       const sw = navigator.serviceWorker;
       const registration = await sw.ready;
-      if (!navigator.serviceWorker.controller || !window.location.href.startsWith(registration.scope)) return null;
+      // First-controlled-navigation and BFCache resumes may have no controller.
+      // The active/waiting worker can still answer status messages safely.
+      if (!window.location.href.startsWith(registration.scope)) return null;
       if (updateRegistration && navigator.onLine && typeof registration.update === "function") {
         try { await registration.update(); } catch { /* An already cached candidate may still be approved. */ }
         await waitForInstallation(registration);
@@ -205,7 +240,7 @@ export function UpdatePrompt({
     } catch {
       return null; // Keep the installed app operational while disconnected.
     }
-  }, []);
+  }, [checkPublished]);
 
   const accept = useCallback(async (candidate: AvailableUpdate): Promise<AppUpdateResult> => {
     setBusy(true);
@@ -248,6 +283,8 @@ export function UpdatePrompt({
     let currentRegistration: ServiceWorkerRegistration | null = null;
     const check = () => { void checkForUpdate(true); };
     const onVisibility = () => { if (document.visibilityState === "visible") check(); };
+    const onFocus = () => { if (document.visibilityState === "visible") check(); };
+    const onPageShow = () => { if (document.visibilityState === "visible") check(); };
     const onControllerChange = () => { void checkForUpdate(false); };
     const onUpdateFound = () => {
       const installing = currentRegistration?.installing;
@@ -262,7 +299,15 @@ export function UpdatePrompt({
       event.preventDefault();
       void (async (): Promise<AppUpdateResult> => {
         const next = await checkForUpdate(true);
-        if (!next) return { status: navigator.onLine ? "current" : "offline" };
+        if (!next) {
+          const published = await checkPublished();
+          if (published) {
+            try { window.localStorage.removeItem(DISMISSED_KEY); } catch { /* optional */ }
+            setDismissedShell(null);
+            return { status: "pending" };
+          }
+          return { status: navigator.onLine ? "current" : "offline" };
+        }
         // Settings only opens the consent dialog; it MUST NOT approve
         // a shell or trigger SKIP_WAITING without a separate user click.
         try { window.localStorage.removeItem(DISMISSED_KEY); }
@@ -277,6 +322,8 @@ export function UpdatePrompt({
     navigator.serviceWorker.addEventListener("controllerchange", onControllerChange);
     window.addEventListener(PWA_UPDATE_REQUEST, onManualUpdate);
     window.addEventListener("online", check);
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("pageshow", onPageShow);
     document.addEventListener("visibilitychange", onVisibility);
     void navigator.serviceWorker.ready.then((registration) => {
       if (disposed.current) return;
@@ -292,19 +339,32 @@ export function UpdatePrompt({
       navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange);
       window.removeEventListener(PWA_UPDATE_REQUEST, onManualUpdate);
       window.removeEventListener("online", check);
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("pageshow", onPageShow);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [checkForUpdate]);
+  }, [checkForUpdate, checkPublished]);
 
   const handleLater = () => {
-    if (available) {
-      defer(available.status.availableShell);
-      setDismissedShell(available.status.availableShell);
+    const key = available?.status.availableShell ?? publishedKey;
+    if (key) {
+      defer(key);
+      if (available) defer(`${PUBLISHED_PREFIX}${available.status.availableVersion}`);
+      setDismissedShell(key);
     }
     setAvailable(null);
   };
 
-  if (!available || !visible) return null;
+  if (!visible) return null;
+  const displayVersion = available?.status.availableVersion ?? publishedVersion;
+  const retryDownload = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const candidate = await checkForUpdate(true);
+      if (!candidate) setError("A nova versão foi publicada, mas o navegador ainda não terminou o download. Verifique a conexão e tente novamente.");
+    } finally { setBusy(false); }
+  };
 
   return (
     <div className="pwa-update-overlay" data-testid="pwa-update-overlay">
@@ -332,20 +392,22 @@ export function UpdatePrompt({
         <span className="pwa-update-prompt__icon"><AppIcon name="sync" size="lg" /></span>
         <div>
           <span className="pwa-update-prompt__eyebrow">ATUALIZAÇÃO DISPONÍVEL</span>
-          <strong className="pwa-update-prompt__title">MarkMap {available.status.availableVersion}</strong>
+          <strong className="pwa-update-prompt__title">MarkMap {displayVersion}</strong>
         </div>
       </div>
       <p className="pwa-update-prompt__description">
-        A nova versão está pronta. Ela só será aplicada depois da sua confirmação.
+        {available
+          ? "A nova versão está pronta. Ela só será aplicada depois da sua confirmação."
+          : "Há uma versão publicada. O download seguro ainda não foi confirmado neste dispositivo."}
       </p>
       {error && <p role="alert" className="pwa-update-prompt__error">
         <AppIcon name="info" size="sm" /><span>{error}</span>
       </p>}
       <div className="pwa-update-prompt__actions">
         <button type="button" className="pwa-update-prompt__primary"
-          onClick={() => { void accept(available); }} disabled={busy}>
-          <AppIcon name={busy ? "loading" : "download"} size="sm" />
-          {busy ? "Verificando…" : "Atualizar agora"}
+          onClick={() => { if (available) void accept(available); else void retryDownload(); }} disabled={busy}>
+          <AppIcon name={busy ? "loading" : available ? "download" : "sync"} size="sm" />
+          {busy ? "Verificando…" : available ? "Atualizar agora" : "Verificar download"}
         </button>
         <button type="button" className="pwa-update-prompt__secondary"
           onClick={handleLater} disabled={busy}>Depois</button>

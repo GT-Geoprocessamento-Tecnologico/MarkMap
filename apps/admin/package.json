@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "verify:version": "node ../../scripts/version-release-guard.mjs",
-    "test": "vitest run && node --test scripts/sw-approval-policy.test.mjs scripts/generate-shell-manifest.test.mjs scripts/sw-update-protocol.test.mjs src/components/map/project-point-model.test.mjs src/components/map/project-point-selection.test.mjs src/lib/map/project-basemap-policy.test.mjs src/lib/datasets/dataset-name.test.mjs src/lib/photo/point-photo-policy.test.mjs src/lib/pdf/project-geopdf-link.test.mjs",
+    "test": "vitest run && node --test scripts/sw-approval-policy.test.mjs scripts/generate-shell-manifest.test.mjs scripts/sw-update-protocol.test.mjs src/components/map/project-point-model.test.mjs src/components/map/project-point-selection.test.mjs src/lib/map/project-basemap-policy.test.mjs src/lib/datasets/dataset-name.test.mjs src/lib/photo/point-photo-policy.test.mjs src/lib/pdf/project-geopdf-link.test.mjs src/lib/storage/entity-catalog-events.test.mjs src/lib/pwa/published-release.test.mjs",
     "lint": "eslint .",
     "test:e2e": "playwright test"
   },

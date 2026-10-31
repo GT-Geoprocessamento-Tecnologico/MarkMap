@@ -2,11 +2,11 @@ import { expect, test, type Page } from "@playwright/test";
 
 /**
  * Simulate an already installed shell and a new worker. Unlike the retired
- * waiting-only fixture, this mock implements GET_SHELL_STATUS and starts with
- * a controller, exactly as the consent protocol requires. No production data.
+ * waiting-only fixture, this mock implements GET_SHELL_STATUS even when the
+ * first navigation has not acquired a controller. No production data.
  */
-async function mockInstalledUpdate(page: Page, mode: "waiting" | "active") {
-  await page.addInitScript(({ mode }) => {
+async function mockInstalledUpdate(page: Page, mode: "waiting" | "active", noController = false) {
+  await page.addInitScript(({ mode, noController }) => {
     const events: string[] = [];
     const listeners = new Map<string, Set<() => void>>();
     const addEventListener = (event: string, fn: () => void) => {
@@ -65,7 +65,7 @@ async function mockInstalledUpdate(page: Page, mode: "waiting" | "active") {
     };
     const container = {
       ready: Promise.resolve(registration),
-      controller: mode === "waiting" ? oldWorker : newWorker,
+      controller: noController ? null : mode === "waiting" ? oldWorker : newWorker,
       register: async () => registration,
       addEventListener,
       removeEventListener,
@@ -74,7 +74,7 @@ async function mockInstalledUpdate(page: Page, mode: "waiting" | "active") {
     Object.defineProperty(navigator, "serviceWorker", {
       configurable: true, value: container,
     });
-  }, { mode });
+  }, { mode, noController });
   await page.goto("/");
 }
 
@@ -119,6 +119,17 @@ test.describe("PWA — consentimento antes de atualizar", () => {
       window.localStorage.getItem("markmap-qa-upgrade-approved"))).toBe("yes");
     expect(await page.evaluate(() =>
       window.localStorage.getItem("markmap-qa-upgrade-approved"))).toBe("yes");
+  });
+
+  test("avisa atualização no primeiro acesso mesmo sem controller ativo", async ({ page }) => {
+    await mockInstalledUpdate(page, "active", true);
+    const dialog = page.getByRole("dialog", { name: /Nova versão do MarkMap/ });
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText("0.5.19");
+    const messages = await page.evaluate(() =>
+      (window as unknown as { __markmapPwaEvents: string[] }).__markmapPwaEvents);
+    expect(messages).not.toContain("APPROVE_SHELL");
+    expect(messages).not.toContain("SKIP_WAITING");
   });
 
   test("worker já ativado naturalmente também exige aceite", async ({ page }) => {

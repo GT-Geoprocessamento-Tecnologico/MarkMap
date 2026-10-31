@@ -94,6 +94,48 @@ describe('explicit PWA upgrade consent', () => {
     expect(mock.events).not.toContain('APPROVE_SHELL');
   });
 
+  it('detects a ready candidate on initial navigation without a controller', async () => {
+    const mock = setup('active-update');
+    Object.defineProperty(mock.sw, 'controller', { value: null, configurable: true });
+    render(<UpdatePrompt />);
+    expect(await screen.findByRole('dialog', { name: /Nova versão do MarkMap/ })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Atualizar agora' })).toBeVisible();
+    expect(mock.events).not.toContain('APPROVE_SHELL');
+  });
+
+  it('rechecks updates when a mobile PWA returns to focus', async () => {
+    const mock = setup('current');
+    render(<UpdatePrompt />);
+    await waitFor(() => expect(mock.registration.update).toHaveBeenCalledTimes(1));
+    fireEvent.focus(window);
+    await waitFor(() => expect(mock.registration.update).toHaveBeenCalledTimes(2));
+    expect(mock.events).not.toContain('APPROVE_SHELL');
+  });
+
+  it('shows a published update without approving an incomplete SW candidate', async () => {
+    const mock = setup('current');
+    const net = vi.fn(async () => ({ ok: true, json: async () => ({ appVersion: '0.5.21' }) }));
+    vi.stubGlobal('fetch', net);
+    render(<UpdatePrompt />);
+    expect(await screen.findByRole('dialog', { name: /Nova versão do MarkMap/ })).toBeVisible();
+    expect(screen.getByText(/MarkMap 0\.5\.21/)).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Verificar download' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Atualizar agora' })).toBeNull();
+    expect(net).toHaveBeenCalledWith('/version.json', expect.objectContaining({ cache: 'no-store' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Verificar download' }));
+    await screen.findByText(/ainda não terminou o download/);
+    expect(mock.events).not.toContain('APPROVE_SHELL');
+    expect(mock.events).not.toContain('SKIP_WAITING');
+  });
+
+  it('does not announce an older published version as an upgrade', async () => {
+    setup('current');
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ appVersion: '0.5.19' }) })));
+    render(<UpdatePrompt />);
+    await waitFor(() => expect(fetch).toHaveBeenCalled());
+    expect(screen.queryByRole('dialog', { name: /Nova versão do MarkMap/ })).toBeNull();
+  });
+
   it('does not approve update if the durability check fails', async () => {
     const mock=setup('active-update');
     render(<UpdatePrompt durableWritesReady={() => false} compatibilityReady={() => true} />);
