@@ -2,6 +2,18 @@
 
 Fonte da versão do aplicativo: `apps/admin/package.json`. Todos os agentes seguem [a política de versionamento](docs/versioning.md). O [histórico documental anterior](docs/changelog.md) permanece preservado.
 
+## [0.5.21] - 2026-10-31
+
+### Alterações
+
+- A exclusão de projetos na tela Projetos agora pede apenas uma confirmação em janela com **Cancelar** e **Excluir definitivamente**, sem digitar o nome do projeto.
+- O diálogo identifica o projeto, informa a exclusão dos dados vinculados e alerta que a ação não pode ser desfeita. A proteção de nome esperado em IndexedDB permanece ativa contra alterações de outra aba.
+- Nenhuma mudança no armazenamento offline, na cascata de remoção, nos tombstones/outbox ou na exclusão de camadas em Análises e Métricas.
+
+### Validação
+
+- Parser TypeScript/TSX: componentes e testes de exclusão sem erros de sintaxe; verificação estrutural do diálogo e da passagem de `expectedName` (execução local). Testes Vitest do repositório e QA em dispositivo não executados neste ambiente.
+
 ## [0.5.20] - 2026-10-30
 
 ### Alterações

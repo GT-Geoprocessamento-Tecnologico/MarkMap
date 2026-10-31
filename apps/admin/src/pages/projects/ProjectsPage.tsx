@@ -30,10 +30,9 @@ export default function ProjectsPage() {
   const deleteProjectMutation = useDeleteProject();
   const { toast } = useToast();
   const [deleteTarget, setDeleteTarget] = useState<Project | null>(null);
-  const [deleteConfirmation, setDeleteConfirmation] = useState("");
 
   const confirmDeleteProject = async () => {
-    if (!deleteTarget || deleteConfirmation !== deleteTarget.name) return;
+    if (!deleteTarget) return;
     try {
       const outcome = await deleteProjectMutation.mutateAsync({
         projectId: deleteTarget.id, expectedName: deleteTarget.name,
@@ -42,7 +41,6 @@ export default function ProjectsPage() {
         ? { title: "Projeto excluído; limpeza de malhas pendente", description: "O aplicativo tentará finalizar a limpeza local ao abrir Projetos novamente.", variant: "error" }
         : { title: "Projeto excluído", description: "Camadas, pontos e métricas vinculadas foram removidos deste dispositivo.", variant: "success" });
       setDeleteTarget(null);
-      setDeleteConfirmation("");
     } catch (cause) {
       toast({ title: "Não foi possível excluir o projeto", description: cause instanceof Error ? cause.message : "Verifique os dados locais e tente novamente.", variant: "error" });
     }
@@ -282,7 +280,7 @@ export default function ProjectsPage() {
                 <button
                   type="button"
                   aria-label={`Excluir projeto ${project.name}`}
-                  onClick={() => { setDeleteTarget(project); setDeleteConfirmation(""); }}
+                  onClick={() => setDeleteTarget(project)}
                   className="min-h-[44px] rounded-lg border border-error/40 px-3 py-2 text-sm font-semibold text-error hover:bg-error/10"
                 >
                   Excluir projeto
@@ -293,7 +291,7 @@ export default function ProjectsPage() {
         </div>
       )}
       <Dialog open={Boolean(deleteTarget)} onOpenChange={(open) => {
-        if (!open && !deleteProjectMutation.isPending) { setDeleteTarget(null); setDeleteConfirmation(""); }
+        if (!open && !deleteProjectMutation.isPending) setDeleteTarget(null);
       }}>
         <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto bg-surface-container text-on-surface">
           <DialogHeader>
@@ -303,19 +301,14 @@ export default function ProjectsPage() {
               fotos vinculadas, malhas 3D e métricas derivadas serão excluídos deste
               dispositivo e as exclusões serão sincronizadas quando houver conexão.
               GeoPDFs compartilhados e outros projetos serão preservados.
+              Esta ação não poderá ser desfeita.
             </DialogDescription>
           </DialogHeader>
-          <div className="my-5 space-y-2">
-            <label htmlFor="confirm-delete-project" className="text-sm font-medium">Digite o nome do projeto para confirmar</label>
-            <Input id="confirm-delete-project" value={deleteConfirmation}
-              onChange={(event) => setDeleteConfirmation(event.target.value)}
-              autoComplete="off" aria-label="Confirmar nome do projeto" />
-          </div>
           <DialogFooter className="gap-2">
             <Button variant="secondary" type="button" disabled={deleteProjectMutation.isPending}
-              onClick={() => { setDeleteTarget(null); setDeleteConfirmation(""); }}>Cancelar</Button>
+              onClick={() => setDeleteTarget(null)}>Cancelar</Button>
             <Button variant="primary" type="button" loading={deleteProjectMutation.isPending}
-              disabled={!deleteTarget || deleteConfirmation !== deleteTarget.name || deleteProjectMutation.isPending}
+              disabled={!deleteTarget || deleteProjectMutation.isPending}
               className="bg-error text-on-error"
               onClick={() => void confirmDeleteProject()}>Excluir definitivamente</Button>
           </DialogFooter>

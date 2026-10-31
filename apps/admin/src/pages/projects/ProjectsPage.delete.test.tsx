@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import ProjectsPage from "./ProjectsPage";
 
 const mocks = vi.hoisted(() => ({
@@ -32,20 +32,37 @@ vi.mock("../../lib/hooks/projects", () => ({
 }));
 
 describe("exclusão confirmada em Projetos", () => {
-  it("não exclui sem digitar o nome exato, e permite cancelar", async () => {
-    mocks.remove.mockClear();
+  beforeEach(() => {
+    mocks.remove.mockReset().mockResolvedValue({ meshCleanupPending: false });
+    mocks.toast.mockClear();
+  });
+  it("permite cancelar ou confirmar com dois cliques, sem digitar o nome", async () => {
     render(<ProjectsPage />);
     fireEvent.click(screen.getByRole("button", { name: "Excluir projeto Campo A" }));
+    expect(screen.getByText(/Esta ação não poderá ser desfeita/)).toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Confirmar nome do projeto" })).not.toBeInTheDocument();
     const confirm = screen.getByRole("button", { name: "Excluir definitivamente" });
-    expect(confirm).toBeDisabled();
-    const input = screen.getByRole("textbox", { name: "Confirmar nome do projeto" });
-    fireEvent.change(input, { target: { value: "Errado" } });
-    expect(confirm).toBeDisabled();
+    expect(confirm).toBeEnabled();
+    expect(mocks.remove).not.toHaveBeenCalled();
+
     fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
     expect(mocks.remove).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "Excluir definitivamente" })).not.toBeInTheDocument();
+
     fireEvent.click(screen.getByRole("button", { name: "Excluir projeto Campo A" }));
-    fireEvent.change(screen.getByRole("textbox", { name: "Confirmar nome do projeto" }), { target: { value: "Campo A" } });
     fireEvent.click(screen.getByRole("button", { name: "Excluir definitivamente" }));
-    await waitFor(() => expect(mocks.remove).toHaveBeenCalledWith({ projectId: "project-1", expectedName: "Campo A" }));
+    await waitFor(() => expect(mocks.remove).toHaveBeenCalledTimes(1));
+    expect(mocks.remove).toHaveBeenCalledWith({ projectId: "project-1", expectedName: "Campo A" });
+  });
+
+  it("mantém a confirmação aberta quando a exclusão falha", async () => {
+    mocks.remove.mockRejectedValueOnce(new Error("O registro mudou em outra aba."));
+    render(<ProjectsPage />);
+    fireEvent.click(screen.getByRole("button", { name: "Excluir projeto Campo A" }));
+    fireEvent.click(screen.getByRole("button", { name: "Excluir definitivamente" }));
+    await waitFor(() => expect(mocks.toast).toHaveBeenCalledWith(expect.objectContaining({
+      title: "Não foi possível excluir o projeto", variant: "error",
+    })));
+    expect(screen.getByRole("button", { name: "Excluir definitivamente" })).toBeInTheDocument();
   });
 });
