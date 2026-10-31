@@ -173,12 +173,33 @@ async function approvedCache() {
   if (!approved || !(await isComplete(approved.cache))) return null;
   return caches.open(approved.cache);
 }
+
+// The approved HTML can belong to an older release with different asset names.
+// Do not use this worker's STATIC_ASSETS manifest to validate an older shell.
+// Inspect only the JS/CSS actually referenced by the approved entrypoint.
+async function hasEntrypointAssets(cache, shell) {
+  let html;
+  try { html = await shell.clone().text(); } catch { return false; }
+  const references = /\b(?:src|href)\s*=\s*(["'])([^"']+)\1/gi;
+  const checked = new Set();
+  for (const match of html.matchAll(references)) {
+    let url;
+    try { url = new URL(match[2], self.location.origin); } catch { continue; }
+    if (url.origin !== self.location.origin || !url.pathname.startsWith('/assets/') ||
+        !/\.(?:js|css)$/.test(url.pathname) || checked.has(url.pathname)) continue;
+    checked.add(url.pathname);
+    if (!(await cache.match(url.pathname, SHELL_MATCH))) return false;
+  }
+  return true;
+}
 async function handleNavigation() {
   try {
     const cache = await approvedCache();
     const shell = cache && (await cache.match('/index.html', SHELL_MATCH) ||
                             await cache.match('/', SHELL_MATCH));
-    if (shell) return shell;
+    // Never open approved HTML if an associated bundle was evicted: the page
+    // would fail with ERR_FAILED/blank screen. Show consent-gated recovery.
+    if (shell && await hasEntrypointAssets(cache, shell)) return shell;
   } catch { /* A malformed pin never authorizes a new release. */ }
   // Preserve the user's IndexedDB, outbox and offline maps. Require explicit
   // recovery consent and a durable local transaction before changing the pin.
