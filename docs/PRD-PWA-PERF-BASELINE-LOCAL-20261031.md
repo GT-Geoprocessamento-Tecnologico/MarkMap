@@ -49,3 +49,11 @@ O Playwright usa o build e preview descritos no `apps/admin/playwright.config.ts
 Branch própria a partir da main, PR Draft; não tocar os mesmos arquivos do #104 nem alterar versão do app. Não merge, force push, deploy, tags, billing, secrets ou limpeza de dados sem autorização. Documentar SHA, testes PASS/FAIL/BLOCKED e próximos passos no Obsidian/Notion/PR.
 Riscos: FPS headless e heap opcional diferem de dispositivos físicos; `map-ready` é sinal de interface, **não** primeiro frame GPU comprovado; preservar nome das métricas. Qualquer erro na suíte é FAIL, não excluir casos para verde artificial.
 Rollback: retirar apenas `apps/admin/perf/*` e este PRD, sem modificar armazenamento local. Handoff esperado: branch/SHA, dados de comparação pendentes, condições de aceite, riscos e relatório ao agente futuro.
+
+
+## A198 — Correção do coletor manual antes da homologação (31/10/2026)
+- O `playwright.config.ts` agora fixa explicitamente `webServer.cwd` na raiz `apps/admin`, preservando o comando `pnpm build && pnpm preview` original. Sem esse ajuste, a configuração em `perf/` poderia executar o build na pasta errada.
+- A captura `requestAnimationFrame` agora inicia em `pointerdown` e termina em `pointerup`, amostrando apenas o arrasto do mapa (aproximadamente 2 s). Rejeita canvas invisível, página ocultada, ausência de frames, duração < 1 s ou timeout; listeners e timers são liberados.
+- A instalação dos listeners é confirmada com `evaluateHandle` **antes** de enviar eventos do mouse; emulaçāo de navegador não equivale a medição em dispositivo físico.
+- **QA executado em ambiente isolado:** 15/15 testes Node originais do PR PASS; 5/5 verificações da configuração mesclada com stub PASS; 3/3 caminhos do coletor simulados (drag válido, página oculta e drag curto) PASS; checagem sintática TS sem erros e typecheck isolado com declarações Playwright simuladas PASS. Nenhum benchmark de desempenho real foi produzido.
+- **Gates pendentes:** Playwright real com app compilado, lint, typecheck completo, Vitest, build, QA Android/iOS físico e dados de bateria/memória. PR permanece DRAFT, sem merge/deploy.

@@ -22,31 +22,77 @@ test('collects a local shell/map interaction baseline without user data', async 
   const x = box!.x + box!.width * 0.5;
   const y = box!.y + box!.height * 0.5;
 
-  const framesPromise = page.evaluate(() => new Promise<number[]>((resolve, reject) => {
-    if (document.visibilityState !== 'visible') {
-      reject(new Error('Performance sampling requires a visible page.'));
-      return;
+  // Measure only the actual drag gesture, not 2.5s of mostly idle rAF frames.
+  // Capture is bounded, fails on page hiding and removes all event listeners.
+  // A JSHandle is returned only after the event listeners are installed.
+  // A pending page.evaluate() promise could race with Playwright mouse events.
+  const sampler = await page.evaluateHandle(() => {
+    const target = document.querySelector('.maplibregl-canvas');
+    if (!target || document.visibilityState !== 'visible') {
+      throw new Error('A visible map canvas is required for frame sampling.');
     }
-    const start = performance.now();
-    const samples: number[] = [];
-    function onFrame(now: number) {
-      if (document.visibilityState !== 'visible') {
-        reject(new Error('Page became hidden during performance sampling.'));
-        return;
+    const promise = new Promise<number[]>((resolve, reject) => {
+      const samples: number[] = [];
+      let started = false;
+      let finished = false;
+      let rafId: number | undefined;
+      let timeoutId: number | undefined;
+
+      const cleanup = () => {
+        target.removeEventListener('pointerdown', onDown);
+        window.removeEventListener('pointerup', onUp);
+        document.removeEventListener('visibilitychange', onVisibility);
+        if (rafId !== undefined) cancelAnimationFrame(rafId);
+        if (timeoutId !== undefined) clearTimeout(timeoutId);
+      };
+      const fail = (reason: string) => {
+        if (finished) return;
+        finished = true;
+        cleanup();
+        reject(new Error(reason));
+      };
+      function frame(now: number) {
+        if (!started || finished) return;
+        samples.push(now);
+        rafId = requestAnimationFrame(frame);
       }
-      samples.push(now);
-      if (now - start >= 2_500) resolve(samples);
-      else requestAnimationFrame(onFrame);
-    }
-    requestAnimationFrame(onFrame);
-  }));
+      const onDown = () => {
+        if (started || finished) return;
+        started = true;
+        rafId = requestAnimationFrame(frame);
+      };
+      const onUp = () => {
+        if (!started || finished) return;
+        finished = true;
+        cleanup();
+        if (samples.length < 2 || samples[samples.length - 1] - samples[0] < 1_000) {
+          reject(new Error('Map drag was too short for a meaningful frame sample.'));
+        } else resolve(samples);
+      };
+      const onVisibility = () => {
+        if (document.visibilityState !== 'visible') fail('Page hidden during drag benchmark.');
+      };
+
+      target.addEventListener('pointerdown', onDown);
+      window.addEventListener('pointerup', onUp);
+      document.addEventListener('visibilitychange', onVisibility);
+      timeoutId = window.setTimeout(() => fail('Timed out waiting for a map drag sample.'), 20_000);
+    });
+    return { promise };
+  });
+  const framesPromise = sampler.evaluate((recording) => recording.promise);
   await page.mouse.move(x, y);
   await page.mouse.down();
-  for (let i = 0; i < 10; i++) {
-    await page.mouse.move(x + 50 + i * 5, y + 30 + i * 3, { steps: 2 });
+  const travelX = Math.min(box!.width / 4, 120);
+  const travelY = Math.min(box!.height / 5, 60);
+  for (let i = 1; i <= 50; i++) {
+    await page.mouse.move(x + travelX * i / 50, y + travelY * i / 50);
+    // Intentional pacing: keep the map actively dragging for a comparable window.
+    await page.waitForTimeout(40);
   }
   await page.mouse.up();
   const frames = await framesPromise;
+  await sampler.dispose();
 
   const environment = await page.evaluate(() => {
     const memory = (performance as Performance & { memory?: { usedJSHeapSize?: number } }).memory;
