@@ -21,6 +21,7 @@ import {
 } from "../local-db";
 import { readBlobBytes } from "../blob-bytes";
 import { notifyImportCatalogChanged } from "../storage/import-catalog-events.mjs";
+import { notifyEntityCatalogChanged } from "../storage/entity-catalog-events.mjs";
 import { normalizeImportedOriginalName } from "../storage/original-file-name.mjs";
 import { geoReferenceSchema, type GeoReference } from "@markmap/contracts";
 import { assignedProjectGeoPdf, assertGeoPdfProjectIds, reassignProjectGeoPdf } from "../pdf/project-geopdf-link.mjs";
@@ -215,6 +216,159 @@ export class LocalRepository {
     if (typeof window !== "undefined")
       window.dispatchEvent(new Event("markmap-local-mutation"));
     return operation;
+  }
+
+  /**
+   * Delete a project or a layer, including all of its known descendants, in
+   * one durable IndexedDB transaction. Deletions are tombstones with immutable
+   * sync outbox operations; only point photos are removed as local binaries.
+   * GeoPDFs remain shared files, with only the deleted project link removed.
+   */
+  async deleteOwnedTree(input: {
+    kind: "project" | "layer";
+    id: string;
+    expectedName: string;
+  }): Promise<{
+    deleted: boolean;
+    projectId: string;
+    layers: number;
+    features: number;
+    photos: number;
+    pdfLinks: number;
+  }> {
+    const workspaceId = await this.workspaceId();
+    const completed = await this.db.transact(
+      ["meta", "entities", "originals", "outbox"],
+      "readwrite",
+      async (tx) => {
+        const entities = tx.store("entities");
+        const all = await read<EntityRecord[]>(entities.index("workspace").getAll(workspaceId));
+        const target = all.find((row) => row.entity === input.kind && row.entityId === input.id);
+        if (!target) throw new Error("Registro não encontrado neste dispositivo.");
+        if (target.deleted) return {
+          result: { deleted: false, projectId: input.id, layers: 0, features: 0, photos: 0, pdfLinks: 0 },
+          changedPdfIds: [] as string[],
+        };
+        const targetName = target.payload?.entity === "project" || target.payload?.entity === "layer"
+          ? target.payload.data.name : undefined;
+        if (targetName === undefined) throw new Error("Dados locais inválidos; exclusão cancelada.");
+        if (targetName !== input.expectedName)
+          throw new Error("O registro mudou em outra aba. Recarregue antes de excluir.");
+        if (input.kind === "layer" && target.payload?.entity !== "layer")
+          throw new Error("Camada inválida; exclusão cancelada.");
+        if (input.kind === "project" && target.payload?.entity !== "project")
+          throw new Error("Projeto inválido; exclusão cancelada.");
+        const projectId = input.kind === "project" ? input.id :
+          target.payload?.entity === "layer" ? target.payload.data.projectId : "";
+        if (input.kind === "layer") {
+          const owner = all.find((row) => row.entity === "project" && row.entityId === projectId);
+          if (!owner || owner.deleted)
+            throw new Error("O projeto desta camada já foi excluído.");
+        }
+        const layerIds = new Set(all.filter((row) => row.entity === "layer" &&
+          row.payload?.entity === "layer" && (input.kind === "project"
+            ? row.payload.data.projectId === projectId : row.entityId === input.id))
+          .map((row) => row.entityId));
+        if (input.kind === "layer") layerIds.add(input.id);
+        const belongsToProject = (row: EntityRecord): boolean => {
+          const payload = row.payload;
+          return (payload?.entity === "layer" || payload?.entity === "map" || payload?.entity === "import") &&
+            payload.data.projectId === projectId;
+        };
+        const removed = all.filter((row) => {
+          if (row.deleted) return false;
+          if (row.entity === "feature" && row.payload?.entity === "feature")
+            return layerIds.has(row.payload.data.layerId);
+          if (input.kind === "layer") return row.entity === "layer" && row.entityId === input.id;
+          return (row.entity === "project" && row.entityId === projectId) || belongsToProject(row);
+        });
+        // Child operations must reach the sync server before their parents.
+        const rank = (entity: SyncEntity) => entity === "feature" ? 0 :
+          entity === "import" || entity === "map" ? 1 : entity === "layer" ? 2 : 3;
+        removed.sort((a, b) => rank(a.entity) - rank(b.entity) || a.entityId.localeCompare(b.entityId));
+        const meta = tx.store("meta");
+        const current = await read<{ value: number } | undefined>(meta.get("outboxSequence"));
+        let sequence = current?.value ?? 0;
+        const createdAt = now();
+        for (const row of removed) {
+          const operationId = crypto.randomUUID();
+          const operation = syncOperationSchema.parse({
+            operationId, workspaceId, entity: row.entity, entityId: row.entityId,
+            operation: "delete", baseVersion: row.version ?? 0,
+            ...(row.predecessorOperationId ? { predecessorOperationId: row.predecessorOperationId } : {}),
+            createdAt,
+          });
+          entities.put({
+            ...row, payload: undefined, deleted: true, updatedAt: createdAt,
+            predecessorOperationId: operationId,
+          } satisfies EntityRecord);
+          tx.store("outbox").add({
+            ...operation, key: operationId, immutable: true, localSequence: ++sequence,
+          } satisfies OutboxRecord);
+        }
+        meta.put({ key: "outboxSequence", value: sequence });
+        const originals = tx.store("originals");
+        const allOriginals = await read<StoredOriginal[]>(originals.index("workspace").getAll(workspaceId));
+        let photos = 0;
+        const changedPdfIds: string[] = [];
+        for (const record of allOriginals) {
+          const photo = record.pointPhoto;
+          const removePhoto = photo && (input.kind === "project"
+            ? photo.projectId === projectId
+            : photo.projectId === projectId && photo.layerId === input.id);
+          if (removePhoto) {
+            if (!isPhotoMediaType(record.mediaType))
+              throw new Error("Vínculo de foto inválido. Nenhum dado foi excluído.");
+            originals.delete(record.key);
+            photos++;
+            continue;
+          }
+          if (input.kind === "project" && record.projectGeoPdfIds?.includes(projectId)) {
+            originals.put({ ...record,
+              projectGeoPdfIds: record.projectGeoPdfIds.filter((id) => id !== projectId) });
+            changedPdfIds.push(record.blobId);
+          }
+        }
+        // Mesh binaries live in a different database. This durable marker lets
+        // startup/retry finish that cleanup after an interruption.
+        if (input.kind === "project")
+          meta.put({ key: `pendingProjectMeshCleanup:${workspaceId}:${projectId}`, value: true });
+        return {
+          result: {
+            deleted: true, projectId,
+            layers: removed.filter((row) => row.entity === "layer").length,
+            features: removed.filter((row) => row.entity === "feature").length,
+            photos, pdfLinks: changedPdfIds.length,
+          }, changedPdfIds,
+        };
+      },
+    );
+    if (completed.result.deleted) {
+      for (const id of completed.changedPdfIds)
+        notifyImportCatalogChanged({ kind: "original", id, action: "updated" });
+      notifyEntityCatalogChanged({ kind: input.kind, id: input.id, action: "deleted" });
+      if (typeof window !== "undefined")
+        window.dispatchEvent(new Event("markmap-local-mutation"));
+    }
+    return completed.result;
+  }
+
+  /** Recover mesh cleanup across separate IndexedDB databases after a crash. */
+  async pendingProjectMeshCleanupIds(): Promise<string[]> {
+    const workspaceId = await this.workspaceId();
+    const prefix = `pendingProjectMeshCleanup:${workspaceId}:`;
+    return this.db.transact(["meta"], "readonly", async (tx) => {
+      const rows = await read<Array<{ key: string; value: unknown }>>(tx.store("meta").getAll());
+      return rows.filter((row) => row.key.startsWith(prefix) && row.value === true)
+        .map((row) => row.key.slice(prefix.length));
+    });
+  }
+
+  async completeProjectMeshCleanup(projectId: string): Promise<void> {
+    const workspaceId = await this.workspaceId();
+    await this.db.transact(["meta"], "readwrite", (tx) => {
+      tx.store("meta").delete(`pendingProjectMeshCleanup:${workspaceId}:${projectId}`);
+    });
   }
 
   async getEntity(

@@ -14,6 +14,7 @@ const localRepository = vi.hoisted(() => ({
   listEntities: vi.fn(),
   getEntity: vi.fn(),
   mutate: vi.fn(),
+  pendingProjectMeshCleanupIds: vi.fn(),
 }));
 
 vi.mock("../lib/api-client", () => ({ listProjects: vi.fn() }));
@@ -60,6 +61,7 @@ beforeEach(() => {
   localRepository.listEntities.mockResolvedValue([]);
   localRepository.getEntity.mockResolvedValue(null);
   localRepository.mutate.mockResolvedValue({});
+  localRepository.pendingProjectMeshCleanupIds.mockResolvedValue([]);
 });
 
 describe("projetos locais", () => {

@@ -42,6 +42,10 @@ class MemoryStore {
     return new Request(this.rows.size) as unknown as RequestLike<number>;
   }
 
+  getAll(): RequestLike<Row[]> {
+    return new Request([...this.rows.values()].map((row) => clone(row))) as unknown as RequestLike<Row[]>;
+  }
+
   get(key: string): RequestLike<Row | undefined> {
     return new Request(this.rows.get(key)) as unknown as RequestLike<
       Row | undefined

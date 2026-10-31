@@ -2,6 +2,21 @@
 
 Fonte da versão do aplicativo: `apps/admin/package.json`. Todos os agentes seguem [a política de versionamento](docs/versioning.md). O [histórico documental anterior](docs/changelog.md) permanece preservado.
 
+## [0.5.20] - 2026-10-30
+
+### Alterações
+
+- Exclusão de projetos locais com confirmação por nome e tombstones/outbox atômicos de camadas, feições, mapas e importações vinculadas.
+- Remoção das fotos privadas associadas, preservando GeoPDF compartilhado e demais workspaces. Malhas 3D são limpas com marcador de retomada após interrupção.
+- Na tela Análises e Métricas, opção Excluir camada remove dados associados e recalcula indicadores/CSV a partir dos registros restantes.
+- Eventos locais e entre abas atualizam projetos, mapa e métricas sem depender de rede.
+- Aviso de atualização PWA revalidado: detecta candidato mesmo no primeiro acesso sem `serviceWorker.controller`, verifica ao voltar ao foco/retomar a PWA e consulta `/version.json` pela rede para informar quando a nova versão foi publicada, mas ainda não foi baixada. Nenhuma ativação ou troca de cache ocorre sem aceite do usuário.
+
+### Validação
+
+- Testes de regressão adicionados para exclusão de projeto/camada, vínculo de fotos/GeoPDF, transações abortadas e isolamento de dados. O build de prévia executará TypeScript, Vitest e ESLint antes da liberação.
+- Regressões PWA adicionais: detecção com controle inicial ausente, retorno ao foco, aviso de versão publicada sem download e verificação de versão segura. Testes Node do comparador passaram 3/3; testes Vitest/E2E e build Cloudflare ainda pendentes.
+
 ## [0.5.19] - 2026-10-30
 
 ### Alterações

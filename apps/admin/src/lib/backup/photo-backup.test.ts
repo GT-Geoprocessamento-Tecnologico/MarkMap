@@ -84,7 +84,9 @@ describe("backup integral de fotos por workspace", () => {
     await expect(inspectFullPointPhotoBackup(exported.bytes, "SenhaDiferente123456"))
       .rejects.toThrow();
     const corrupted = exported.bytes.slice();
-    corrupted[corrupted.length - 8] = corrupted[corrupted.length - 8] === 65 ? 66 : 65;
+    // Use numeric hex digits: changing hex letter case is normalized and is not corruption.
+    const altered = corrupted.length - 8;
+    corrupted[altered] = corrupted[altered] === 48 ? 49 : 48;
     await expect(inspectFullPointPhotoBackup(corrupted, PASSWORD)).rejects.toThrow();
     await expect(restoreFullPointPhotoBackup(exported.bytes, PASSWORD,
       new LocalRepository(new MemoryLocalDb()))).rejects.toThrow(/Workspace/);

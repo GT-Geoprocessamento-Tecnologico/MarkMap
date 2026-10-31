@@ -95,6 +95,10 @@ export async function createLocalLayer(
   input: CreateLayerInput,
 ): Promise<Layer> {
   const parsed = createLayerSchema.parse({ ...input, projectId });
+  const workspaceId = await localRepository.workspaceId();
+  const owner = await localRepository.getEntity(workspaceId, "project", projectId);
+  if (!owner || owner.deleted)
+    throw new Error("O projeto não existe mais neste dispositivo.");
   const timestamp = new Date().toISOString();
   const layer = layerSchema.parse({
     id: crypto.randomUUID(),
@@ -127,6 +131,22 @@ export function useCreateLayer(projectId: string) {
           queryKey: queryKeys.layersByProject(projectId),
         }),
         queryClient.invalidateQueries({ queryKey: ["analytics-layers"] }),
+      ]);
+    },
+  });
+}
+
+
+export function useDeleteLayer() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ layerId, expectedName }: { layerId: string; expectedName: string }) =>
+      localRepository.deleteOwnedTree({ kind: "layer", id: layerId, expectedName }),
+    onSettled: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["analytics-layers"] }),
+        queryClient.invalidateQueries({ queryKey: ["layers"] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.features() }),
       ]);
     },
   });

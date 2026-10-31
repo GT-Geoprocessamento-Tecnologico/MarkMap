@@ -1,15 +1,32 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { layerSchema } from "@markmap/contracts";
+import { layerSchema, type Layer } from "@markmap/contracts";
 import { useProjects } from "../../lib/hooks/projects";
 import { localRepository } from "../../lib/local-repositories";
 import { AppIcon } from "../../components/AppIcon";
+import { useDeleteLayer } from "../../lib/hooks/layers";
+import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, useToast } from "@markmap/ui";
 
 const csvCell = (value: string) =>
   `"${(/^[=+@-]/.test(value) ? "'" + value : value).replaceAll('"', '""')}"`;
 export default function AnalyticsPage() {
   const projects = useProjects({ limit: 100 });
+  const deleteLayer = useDeleteLayer();
+  const { toast } = useToast();
+  const [deleteTarget, setDeleteTarget] = useState<Layer | null>(null);
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  const confirmDeleteLayer = async () => {
+    if (!deleteTarget || deleteConfirmation !== deleteTarget.name) return;
+    try {
+      await deleteLayer.mutateAsync({ layerId: deleteTarget.id, expectedName: deleteTarget.name });
+      toast({ title: "Camada excluída", description: "Pontos vinculados removidos. Métricas recalculadas com os dados restantes.", variant: "success" });
+      setDeleteTarget(null);
+      setDeleteConfirmation("");
+    } catch (cause) {
+      toast({ title: "Não foi possível excluir a camada", description: cause instanceof Error ? cause.message : "Tente novamente.", variant: "error" });
+    }
+  };
   const ids = useMemo(
     () => (projects.data?.items ?? []).map((project) => project.id),
     [projects.data],
@@ -127,12 +144,13 @@ export default function AnalyticsPage() {
             tabIndex={0}
             className="overflow-x-auto rounded-xl border border-outline-variant"
           >
-            <table className="w-full min-w-[480px] text-left text-sm">
+            <table className="w-full min-w-[640px] text-left text-sm">
               <thead>
                 <tr>
                   <th className="p-4">Camada</th>
                   <th className="p-4">Geometria</th>
                   <th className="p-4">Criação</th>
+                  <th className="p-4">Ações</th>
                 </tr>
               </thead>
               <tbody>
@@ -142,6 +160,13 @@ export default function AnalyticsPage() {
                     <td className="p-4">{row.geometryType ?? row.kind}</td>
                     <td className="p-4">
                       {new Date(row.createdAt).toLocaleDateString("pt-BR")}
+                    </td>
+                    <td className="p-4">
+                      <button type="button" aria-label={`Excluir camada ${row.name}`}
+                        onClick={() => { setDeleteTarget(row); setDeleteConfirmation(""); }}
+                        className="min-h-[44px] rounded-lg border border-error/40 px-3 text-sm font-semibold text-error hover:bg-error/10">
+                        Excluir
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -155,6 +180,34 @@ export default function AnalyticsPage() {
           </div>
         </>
       )}
+      <Dialog open={Boolean(deleteTarget)} onOpenChange={(open) => {
+        if (!open && !deleteLayer.isPending) { setDeleteTarget(null); setDeleteConfirmation(""); }
+      }}>
+        <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto bg-surface-container text-on-surface">
+          <DialogHeader>
+            <DialogTitle>Excluir camada das análises?</DialogTitle>
+            <DialogDescription>
+              A camada <strong>{deleteTarget?.name}</strong>, seus pontos e fotos vinculadas
+              serão removidos. Os indicadores exibidos aqui são calculados a partir dos
+              dados restantes — não são arquivos independentes. A exclusão será
+              sincronizada quando houver conexão.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="my-5 space-y-2">
+            <label htmlFor="confirm-delete-layer" className="text-sm font-medium">Digite o nome da camada para confirmar</label>
+            <Input id="confirm-delete-layer" aria-label="Confirmar nome da camada"
+              value={deleteConfirmation} onChange={(event) => setDeleteConfirmation(event.target.value)} autoComplete="off" />
+          </div>
+          <DialogFooter className="gap-2">
+            <Button type="button" variant="secondary" disabled={deleteLayer.isPending}
+              onClick={() => { setDeleteTarget(null); setDeleteConfirmation(""); }}>Cancelar</Button>
+            <Button type="button" variant="primary" className="bg-error text-on-error"
+              loading={deleteLayer.isPending}
+              disabled={!deleteTarget || deleteConfirmation !== deleteTarget.name || deleteLayer.isPending}
+              onClick={() => void confirmDeleteLayer()}>Excluir definitivamente</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { RouterProvider } from "@tanstack/react-router";
 import { ToastProvider } from "@markmap/ui";
 import { router } from "./router";
@@ -13,6 +13,8 @@ import { BackupRestoreCard } from "./components/backup/BackupRestoreCard";
 import { PwaInstallPrompt } from "./components/pwa/PwaInstallPrompt";
 import { NetworkStatusBanner } from "./components/pwa/NetworkStatusBanner";
 import { isPwaStandalone, shouldShowPwaInstallFlow } from "./lib/pwa-install";
+import { subscribeEntityCatalogChanges } from "./lib/storage/entity-catalog-events.mjs";
+import { queryKeys } from "./lib/query-keys";
 
 function createQueryClient(): QueryClient {
   return new QueryClient({
@@ -27,6 +29,20 @@ function createQueryClient(): QueryClient {
       mutations: { retry: false, networkMode: "offlineFirst" },
     },
   });
+}
+
+function EntityCatalogRefresh() {
+  const client = useQueryClient();
+  useEffect(() => subscribeEntityCatalogChanges(() => {
+    void Promise.all([
+      client.invalidateQueries({ queryKey: queryKeys.projects() }),
+      client.invalidateQueries({ queryKey: ["layers"] }),
+      client.invalidateQueries({ queryKey: queryKeys.features() }),
+      client.invalidateQueries({ queryKey: ["analytics-layers"] }),
+      client.invalidateQueries({ queryKey: ["meshes"] }),
+    ]);
+  }), [client]);
+  return null;
 }
 
 export default function App() {
@@ -72,6 +88,7 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ToastProvider>
+        <EntityCatalogRefresh />
         <SyncController />
         <SyncStatus />
         <NetworkStatusBanner />
