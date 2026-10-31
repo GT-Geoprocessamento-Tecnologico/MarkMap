@@ -19,17 +19,17 @@ test('collects a local shell/map interaction baseline without user data', async 
 
   const box = await canvas.boundingBox();
   expect(box).not.toBeNull();
-  const x = box.x + box.width * 0.5;
-  const y = box.y + box.height * 0.5;
+  const x = box!.x + box!.width * 0.5;
+  const y = box!.y + box!.height * 0.5;
 
-  const framesPromise = page.evaluate(() => new Promise((resolve, reject) => {
+  const framesPromise = page.evaluate(() => new Promise<number[]>((resolve, reject) => {
     if (document.visibilityState !== 'visible') {
       reject(new Error('Performance sampling requires a visible page.'));
       return;
     }
     const start = performance.now();
-    const samples = [];
-    function onFrame(now) {
+    const samples: number[] = [];
+    function onFrame(now: number) {
       if (document.visibilityState !== 'visible') {
         reject(new Error('Page became hidden during performance sampling.'));
         return;
@@ -49,8 +49,8 @@ test('collects a local shell/map interaction baseline without user data', async 
   const frames = await framesPromise;
 
   const environment = await page.evaluate(() => {
-    const memory = performance.memory;
-    const nav = navigator;
+    const memory = (performance as Performance & { memory?: { usedJSHeapSize?: number } }).memory;
+    const nav = navigator as Navigator & { deviceMemory?: number };
     return {
       usedHeapBytes: memory?.usedJSHeapSize ?? null,
       hints: {
