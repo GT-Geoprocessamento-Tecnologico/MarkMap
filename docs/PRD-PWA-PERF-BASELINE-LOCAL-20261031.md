@@ -57,3 +57,28 @@ Rollback: retirar apenas `apps/admin/perf/*` e este PRD, sem modificar armazenam
 - A instalação dos listeners é confirmada com `evaluateHandle` **antes** de enviar eventos do mouse; emulaçāo de navegador não equivale a medição em dispositivo físico.
 - **QA executado em ambiente isolado:** 15/15 testes Node originais do PR PASS; 5/5 verificações da configuração mesclada com stub PASS; 3/3 caminhos do coletor simulados (drag válido, página oculta e drag curto) PASS; checagem sintática TS sem erros e typecheck isolado com declarações Playwright simuladas PASS. Nenhum benchmark de desempenho real foi produzido.
 - **Gates pendentes:** Playwright real com app compilado, lint, typecheck completo, Vitest, build, QA Android/iOS físico e dados de bateria/memória. PR permanece DRAFT, sem merge/deploy.
+
+
+## A199 — Comparador reproduzivel de antes/depois (31/10/2026)
+
+**Escopo:** somente scripts manuais de QA na PR #105, sem alteracao em codigo do aplicativo, telemetria, storage ou rede. A PR #104 permanece isolada.
+
+### Procedimento com checkout e runner disponiveis
+1. Obter o codigo da instrumentacao `apps/admin/perf/` **da mesma PR #105** em ambos os worktrees de teste (v0.5.21 e v0.5.22), sem commit e sem publicar. Essa instrumentacao nao existe originalmente nas branches de release; nao executar benchmarks com versoes diferentes dos scripts.
+2. Em cada worktree, instalar com `pnpm install --frozen-lockfile` e executar a mesma suite manual (na pasta `apps/admin`):
+   ```bash
+   pnpm exec playwright test --config perf/playwright.config.ts --repeat-each=3 > baseline-local.log 2>&1
+   ```
+3. Manter os dois logs localmente (um por versao, **sem anexar dados pessoais**) e comparar com o mesmo script da PR #105:
+   ```bash
+   node apps/admin/perf/compare-baselines.mjs baseline-antes.log baseline-depois.log
+   ```
+4. Conferir manualmente os SHAs dos dois worktrees e o navegador/dispositivo de cada execucao; o comparador **nao infere versao nem identidade do hardware**.
+5. A saida apresenta medianas aritmeticas (inclusive para quantidade par de amostras), diferencas percentuais de tempos e cadencia de `requestAnimationFrame`, memoria somente quando ambos os lados a reportam; nenhum veredito automatico de otimizacao.
+6. Rejeitar logs ausentes, dados invalidos, perfis de browser diferentes, hints de capacidade incompatíveis e alegacoes de aparelho fisico nao verificadas. A cadencia de `requestAnimationFrame` **nao demonstra FPS de GPU/MapLibre**.
+
+### Evidencia executada e riscos
+- `node --test apps/admin/perf/baseline-metrics.test.mjs apps/admin/perf/compare-baselines.test.mjs`: **31/31 PASS** em Node 22.16.0, incluindo RED -> GREEN para mediana aritmetica par, CLI real com entradas artificiais, rejeicao de comparacoes incompatíveis e nao vazamento de logs nos erros.
+- `node --check apps/admin/perf/compare-baselines.mjs`: PASS. Codigo e testes versionados no GitHub, conferidos por blob SHA.
+- **Nao executados:** Playwright com app real, comparacao real de releases, lint/typecheck integrado, Vite build, Vitest, Android/iOS fisicos. Falha de provisionamento de runner GitHub Actions registrada na issue #45.
+- Riscos residuais: navegador emulado e monitoramento rAF nao avaliam fielmente GPU, bateria ou WebView; compatibilidade de buckets nao prova mesmo dispositivo. Nenhum ganho de desempenho deve ser anunciado ate observacao nos aparelhos e gates completos.
