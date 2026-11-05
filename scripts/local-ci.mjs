@@ -296,8 +296,30 @@ async function main() {
     console.log(
       `[${formatTimestamp()}] ${c.bold}[3/5] Testes Unitários (Concorrência Controlada - Windows Safe):${c.reset}`,
     );
-    let allTestsOk = true;
-    let totalTestsDuration = 0;
+    // The map fixture loads compiled shared contracts. Build them before tests.
+    // A failed prerequisite remains a failed gate, never a skipped test.
+    const preflightStart = Date.now();
+    const preflight = await runCommand("pnpm", [
+      "--filter",
+      "@markmap/contracts",
+      "build",
+    ]);
+    const preflightDuration = Date.now() - preflightStart;
+    results.push({
+      name: "Pre-requisito: build de contratos offline",
+      status: preflight.ok ? "PASS" : "FAIL",
+      durationMs: preflightDuration,
+    });
+    console.log(
+      "  - Build de contratos offline... " +
+        (preflight.ok ? c.green + "PASS" : c.red + "FAIL") +
+        c.reset,
+    );
+    if (!preflight.ok && !VERBOSE) {
+      console.error(preflight.stderr || preflight.stdout);
+    }
+    let allTestsOk = preflight.ok;
+    let totalTestsDuration = preflightDuration;
 
     for (const pkg of TARGET_TEST_PACKAGES) {
       const t0 = Date.now();
