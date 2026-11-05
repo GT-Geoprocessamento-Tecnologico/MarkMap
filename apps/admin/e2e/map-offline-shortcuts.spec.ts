@@ -1,5 +1,5 @@
 // Desenvolvido por MtsFerreira. Offline services stay mounted; only panels toggle.
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 const offlineTools = [
   "Buscar locais neste mapa",

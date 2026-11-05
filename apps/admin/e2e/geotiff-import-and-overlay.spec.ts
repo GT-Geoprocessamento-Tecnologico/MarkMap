@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { Buffer } from "buffer";
 
 // Note: admin e2e runtime doesn’t depend on `geotiff`.

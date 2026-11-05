@@ -1,11 +1,11 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./fixtures";
 import { fileURLToPath } from "node:url";
 import { readFile } from "node:fs/promises";
 import { generateGeoPdfFixture } from "../../../packages/geo/tests/pdf/fixtures/generate-geopdf";
 
 /** No Safari o prompt de instalação fica fixo sobre o conteúdo e intercepta cliques. */
 async function dismissInstallPrompt(page: Page): Promise<void> {
-  const prompt = page.getByRole("status", { name: "Adicionar MarkMap à Tela de Início" });
+  const prompt = page.locator("section.pwa-install-prompt");
   try {
     await prompt.waitFor({ state: "visible", timeout: 3_000 });
   } catch {

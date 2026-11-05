@@ -1,5 +1,5 @@
 // Georeferenced PDF gets GPS priority only when the sensor is precise.
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { generateGeoPdfFixture } from "../../../packages/geo/tests/pdf/fixtures/generate-geopdf";
 
 async function openGeoPdf(page: import("@playwright/test").Page) {

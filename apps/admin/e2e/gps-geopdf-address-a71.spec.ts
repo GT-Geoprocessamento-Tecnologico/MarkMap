@@ -1,5 +1,5 @@
 // Desenvolvido por MtsFerreira. Real-device layout and location regressions.
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { generateGeoPdfFixture } from "../../../packages/geo/tests/pdf/fixtures/generate-geopdf";
 
 const regions = { version: 1, regions: [
@@ -16,7 +16,7 @@ test("GPS granted suggests the smallest published area without downloading", asy
   await context.setGeolocation({ latitude: -7.19, longitude: -48.21, accuracy: 20 });
   let manifestRequests = 0;
   await page.route("**/maps/catalog.json", route => route.fulfill({ json: regions }));
-  await page.route("**/manifest.json", route => {
+  await page.route("https://maps.example.org/**/manifest.json", route => {
     manifestRequests++;
     return route.abort();
   });

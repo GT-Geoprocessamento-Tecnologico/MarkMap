@@ -1,5 +1,5 @@
 // Desenvolvido por MtsFerreira — regression for light/dark PWA surfaces.
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./fixtures";
 const surfaces = async (page: Page) => {
   // Reload can finish before React mounts the shell, particularly in WebKit.
   for (const selector of [".markmap-shell-header", ".markmap-shell-sidebar", ".markmap-app-main"]) {

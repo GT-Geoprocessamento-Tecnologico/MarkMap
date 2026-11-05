@@ -1,5 +1,5 @@
 // Desenvolvido por MtsFerreira. GPS is from the device; only consent stays in IndexedDB.
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 test.describe("GPS on map startup", () => {
   test.skip(({ browserName }) => browserName !== "chromium", "Chromium PWA/Android regression");

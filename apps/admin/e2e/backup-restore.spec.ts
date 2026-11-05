@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 test("restores a partial encrypted workspace with its pending work in an isolated profile", async ({ page, browser }) => {
   const passphrase = "senha-sintetica-para-backup-2026";
