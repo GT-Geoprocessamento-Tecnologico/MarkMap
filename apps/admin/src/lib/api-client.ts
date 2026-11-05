@@ -55,7 +55,7 @@ const search = (params: URLSearchParams): string => {
  * *input* do schema (campos com `.default()` opcionais) e o parse de resposta
  * fica com campos opcionais que o contrato nao tem.
  */
-type ResponseSchema<T> = z.ZodType<T, z.ZodTypeDef, unknown>;
+type ResponseSchema<T> = z.ZodType<T, unknown>;
 
 const pageOf = <T>(itemSchema: ResponseSchema<T>): ResponseSchema<{ items: T[]; nextCursor: string | null }> =>
   z.object({ items: z.array(itemSchema), nextCursor: z.string().nullable() });

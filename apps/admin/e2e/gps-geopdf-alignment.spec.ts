@@ -4,7 +4,7 @@ import { generateGeoPdfFixture } from "../../../packages/geo/tests/pdf/fixtures/
 
 async function openGeoPdf(page: import("@playwright/test").Page) {
   await page.goto("/imports");
-  await page.getByLabel("Selecionar GeoJSON, GPX, KML, KMZ, PDF ou GLB").setInputFiles({
+  await page.getByLabel("Selecionar GeoJSON, GPX, KML, KMZ, GeoTIFF, PDF ou GLB").setInputFiles({
     name: "gps-location-geopdf.pdf",
     mimeType: "application/pdf",
     buffer: Buffer.from(generateGeoPdfFixture({ includeLgiDict: false })),

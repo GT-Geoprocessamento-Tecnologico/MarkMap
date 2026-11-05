@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { deflateRawSync } from "node:zlib";
 import { readFile } from "node:fs/promises";
 
-const pickerLabel = "Selecionar GeoJSON, GPX, KML, KMZ, PDF ou GLB";
+const pickerLabel = "Selecionar GeoJSON, GPX, KML, KMZ, GeoTIFF, PDF ou GLB";
 
 // Synthetic coordinates/properties model the structure of the reported KML
 // while keeping this regression fixture independent of the private user file.
