@@ -230,9 +230,24 @@ describe("shared local-first contracts", () => {
       sources: { osm: "OpenStreetMap", attributions: [] },
       minimumCompatibleVersion: "1.0.0",
     };
-    expect(offlineMapPackageManifestSchema.safeParse(manifest).success).toBe(
-      true,
-    );
+    const parsed = offlineMapPackageManifestSchema.safeParse(manifest);
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.optionalComponents).toEqual({
+        search: {},
+        routing: { walk: true, bicycle: true, car: false },
+        elevation: true,
+        contours: true,
+      });
+    }
+    // Zod 4 .default() bypasses nested validation; source attribution must
+    // remain mandatory as in the legacy wire contract.
+    expect(
+      offlineMapPackageManifestSchema.safeParse({
+        ...manifest,
+        sources: undefined,
+      }).success,
+    ).toBe(false);
     expect(
       offlineMapPackageManifestSchema.safeParse({
         ...manifest,

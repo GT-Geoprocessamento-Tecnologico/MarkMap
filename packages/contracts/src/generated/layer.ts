@@ -63,7 +63,7 @@ const layerNameSchema = z
 const layerSridSchema = z.number().int().positive().default(STORAGE_SRID);
 
 /** jsonb NOT NULL DEFAULT '{}' columns. */
-const jsonbObjectSchema = z.record(z.unknown()).default({});
+const jsonbObjectSchema = z.record(z.string(), z.unknown()).default({});
 
 export const layerSchema = z
   .object({

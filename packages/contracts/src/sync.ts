@@ -30,12 +30,12 @@ const boundedJsonValueSchema: z.ZodType<
     z.boolean(),
     z.null(),
     z.array(boundedJsonValueSchema).max(100),
-    z.record(boundedJsonValueSchema).superRefine((value, ctx) => {
+    z.record(z.string(), boundedJsonValueSchema).superRefine((value, ctx) => {
       if (Object.keys(value).length > 100)
         ctx.addIssue({
           code: z.ZodIssueCode.too_big,
           maximum: 100,
-          type: "array",
+          origin: "array",
           inclusive: true,
           message: "object has too many keys",
         });
@@ -43,13 +43,13 @@ const boundedJsonValueSchema: z.ZodType<
   ]),
 );
 const boundedJsonObjectSchema = z
-  .record(boundedJsonValueSchema)
+  .record(z.string(), boundedJsonValueSchema)
   .superRefine((value, ctx) => {
     if (Object.keys(value).length > 100)
       ctx.addIssue({
         code: z.ZodIssueCode.too_big,
         maximum: 100,
-        type: "array",
+        origin: "array",
         inclusive: true,
         message: "object has too many keys",
       });
