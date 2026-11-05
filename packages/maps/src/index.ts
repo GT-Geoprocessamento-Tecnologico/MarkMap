@@ -55,3 +55,7 @@ export * from './tracks/kalman.js';
 export * from './geofencing/boundary-guard.js';
 export * from './geofencing/engine.js';
 
+
+// Shared capability policy, without device-model detection.
+export { adaptiveMapBudget, readMapDeviceHints } from './maplibre-performance.mjs';
+export type { MapDeviceHints, MapPerformanceBudget } from './maplibre-performance.mjs';

@@ -2,6 +2,21 @@
 
 Fonte da versão do aplicativo: `apps/admin/package.json`. Todos os agentes seguem [a política de versionamento](docs/versioning.md). O [histórico documental anterior](docs/changelog.md) permanece preservado.
 
+## [0.5.22] - 2026-10-31
+
+### Alterações
+
+- Renderização MapLibre adaptada à capacidade observável do dispositivo: número limitado de workers, pixel ratio, tamanho do canvas, tile cache e animação, com fallback conservador.
+- Prévia GeoTIFF decodificada em Web Worker quando disponível, com reamostragem e limite de pixels **e de largura/altura do canvas** adaptados ao dispositivo, inclusive rasters extremamente alongados; preservar arquivo original, bounds e CRS.
+- Cache opcional OPFS de PNG **derivado e regenerável**, até 6 prévias pequenas, SHA-256 do PNG e do metadado de georreferenciamento (v3), cota de 4 KiB para JSON e reserva de quota. Cada chave ocupa uma vaga mesmo com PNG órfão de gravação interrompida; PNG+JSON da mesma chave contam uma vez, e órfãos existentes podem ser reconstruídos sem criar uma sétima vaga. Escrita serializada, fila limitada a 6 tarefas, Web Locks entre abas quando disponível e tentativa de abortar streams em falhas; sem apagar originais nem alterar IndexedDB/outbox.
+- Preservada a opção existente de proteção de dados em Configurações, sem permissão silenciosa, sem mudança de esquema nem de protocolo do Service Worker.
+
+### Validação
+
+- QA Node em árvore parcial: **102/102 PASS** (64 casos oficiais MJS disponíveis + 38 isolados com mocks/stubs), incluindo limite de 6 chaves mesmo após 20 falhas de metadata, recuperação de PNG órfão, escrita/abort de streams, Web Locks simulados, limite de fila, integridade geográfica, Worker/fallback e shell offline. Vitest completo não executado.
+- Três checagens TypeScript isoladas (dependências externas simuladas) PASS. Casos Vitest para eixo longo, cache OPFS e preview Worker inconsistente adicionados, **ainda não executados no monorepo**.
+- **Não homologado:** Vitest integrado, lint, typecheck monorepo, build Vite, E2E, QA físico e benchmarks pendentes; GitHub Actions sem steps executados. PR DRAFT, sem merge/publicação.
+
 ## [0.5.21] - 2026-10-31
 
 ### Alterações

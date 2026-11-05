@@ -1,10 +1,10 @@
 // Georeferenced PDF gets GPS priority only when the sensor is precise.
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { generateGeoPdfFixture } from "../../../packages/geo/tests/pdf/fixtures/generate-geopdf";
 
 async function openGeoPdf(page: import("@playwright/test").Page) {
   await page.goto("/imports");
-  await page.getByLabel("Selecionar GeoJSON, GPX, KML, KMZ, PDF ou GLB").setInputFiles({
+  await page.getByLabel("Selecionar GeoJSON, GPX, KML, KMZ, GeoTIFF, PDF ou GLB").setInputFiles({
     name: "gps-location-geopdf.pdf",
     mimeType: "application/pdf",
     buffer: Buffer.from(generateGeoPdfFixture({ includeLgiDict: false })),

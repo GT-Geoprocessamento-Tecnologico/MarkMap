@@ -68,7 +68,7 @@ export const featureRoutes = (app: Hono<any, any, any>) => {
 
   app.post("/layers/:layerId/features", async (c: Context) => {
     const layerId = uuidSchema.parse(c.req.param("layerId"));
-    const body = z.record(z.unknown()).parse(await c.req.json());
+    const body = z.record(z.string(), z.unknown()).parse(await c.req.json());
     if (body.layerId !== undefined) z.literal(layerId).parse(body.layerId);
     const data = createFeatureSchema.parse({ ...body, layerId });
     const feature = await createFeature(getDb(), data);
@@ -127,7 +127,7 @@ export const featureRoutes = (app: Hono<any, any, any>) => {
 
   app.patch("/features/:id", async (c: Context) => {
     const id = featureIdSchema.parse(c.req.param("id"));
-    const body = z.record(z.unknown()).parse(await c.req.json());
+    const body = z.record(z.string(), z.unknown()).parse(await c.req.json());
     // Expect version field for optimistic concurrency
     const input = updateFeatureSchema.parse({ ...body, id });
     const db = getDb();

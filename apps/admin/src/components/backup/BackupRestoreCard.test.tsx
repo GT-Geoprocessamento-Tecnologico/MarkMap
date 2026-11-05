@@ -12,6 +12,13 @@ const { toast, dryRunRestore, restoreWorkspaceSnapshot, exportEncryptedWorkspace
 }));
 vi.mock('../../lib/backup/restore', () => ({ dryRunRestore, restoreWorkspaceSnapshot }));
 vi.mock('../../lib/backup/export', () => ({ exportEncryptedWorkspace }));
+const { readLocalEngineSnapshot, readMeshesSnapshot, readLargeBlobsSnapshot, readOfflineMapsSnapshot } = vi.hoisted(() => ({
+  readLocalEngineSnapshot: vi.fn(), readMeshesSnapshot: vi.fn(),
+  readLargeBlobsSnapshot: vi.fn(), readOfflineMapsSnapshot: vi.fn(),
+}));
+vi.mock('../../lib/backup/multi-db', () => ({
+  readLocalEngineSnapshot, readMeshesSnapshot, readLargeBlobsSnapshot, readOfflineMapsSnapshot,
+}));
 vi.mock('@markmap/ui', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@markmap/ui')>()),
   useToast: () => ({ toast }),
@@ -29,6 +36,10 @@ describe('BackupRestoreCard (T5)', () => {
     dryRunRestore.mockReset();
     restoreWorkspaceSnapshot.mockReset();
     exportEncryptedWorkspace.mockReset();
+    for (const read of [readLocalEngineSnapshot, readMeshesSnapshot, readLargeBlobsSnapshot, readOfflineMapsSnapshot]) {
+      read.mockReset();
+      read.mockResolvedValue({ records: [], coverage: { status: 'absent', recordCount: 0 } });
+    }
   });
 
   it('renderiza a secao com botoes de exportacao e restauracao', () => {
@@ -44,6 +55,36 @@ describe('BackupRestoreCard (T5)', () => {
     ).toBeEnabled();
     expect(screen.getByText(/Esta cópia é parcial/)).toHaveTextContent(/16 MiB/);
     expect(screen.getByText(/Esta cópia é parcial/)).toHaveTextContent(/Mapas offline/);
+  });
+
+  it('mostra dados presentes em outros bancos como fora do backup parcial, apenas por clique', async () => {
+    readLocalEngineSnapshot.mockResolvedValue({ records: [], coverage: {
+      status: 'pending', recordCount: null, reason: 'dados ainda nao exportados',
+    } });
+    renderCard();
+    expect(readLocalEngineSnapshot).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Verificar outros bancos locais' }));
+    expect(await screen.findByText(/Dados encontrados, fora desta cópia parcial/)).toBeInTheDocument();
+    expect(screen.getByText(/este backup continua/)).toHaveTextContent(/parcial/);
+    for (const read of [readLocalEngineSnapshot, readMeshesSnapshot, readLargeBlobsSnapshot, readOfflineMapsSnapshot]) {
+      expect(read).toHaveBeenCalledTimes(1);
+    }
+    expect(screen.getAllByText(/Nenhum registro detectado nesta verificação/)).toHaveLength(3);
+  });
+
+  it('trata falha de um banco como inconclusiva e jamais como banco vazio', async () => {
+    readLargeBlobsSnapshot.mockRejectedValue(new Error('private-workspace-location'));
+    renderCard();
+    fireEvent.click(screen.getByRole('button', { name: 'Verificar outros bancos locais' }));
+    expect(await screen.findByText(/Verificação inconclusiva; podem existir dados não copiados/)).toBeInTheDocument();
+    expect(screen.queryByText(/private-workspace-location/)).not.toBeInTheDocument();
+  });
+
+  it('nao afirma backup integral mesmo quando os quatro bancos estao vazios', async () => {
+    renderCard();
+    fireEvent.click(screen.getByRole('button', { name: 'Verificar outros bancos locais' }));
+    await screen.findByText(/este backup continua/);
+    expect(screen.getByText(/este backup continua/)).toHaveTextContent(/parcial/);
   });
 
   it('abre modal de exportacao e valida tamanho minimo de senha', () => {

@@ -190,7 +190,7 @@ export const offlineMapPackageManifestSchema = z
           .array(z.object({ name: z.string(), url: z.string().url() }))
           .default([]),
       })
-      .default({ osm: "", attributions: [] }),
+      .prefault({ osm: "", attributions: [] }),
     /** Componentes opcionais do pacote */
     optionalComponents: z
       .object({
@@ -201,11 +201,11 @@ export const offlineMapPackageManifestSchema = z
             bicycle: z.boolean().default(true),
             car: z.boolean().default(false),
           })
-          .default({}),
+          .prefault({}),
         elevation: z.boolean().default(true),
         contours: z.boolean().default(true),
       })
-      .default({}),
+      .prefault({}),
     /** Compatibilidade */
     minimumCompatibleVersion: z.string().trim().min(1).max(64),
   })
@@ -313,7 +313,7 @@ export const offlineMapPackageManifestSchema = z
       ctx.addIssue({
         code: z.ZodIssueCode.too_big,
         maximum: 250 * 1024 * 1024,
-        type: "number",
+        origin: "number",
         inclusive: true,
         path: ["archive", "bytes"],
         message: "map manifest exceeds 250 MiB",

@@ -4,7 +4,7 @@ import { afterEach } from 'vitest';
 import { resetMockDb } from '../lib/mock';
 
 // jsdom nao implementa scrollTo e o router do TanStack chama na navegacao.
-window.scrollTo = () => undefined;
+if (typeof window !== "undefined") window.scrollTo = () => undefined;
 
 afterEach(() => {
   cleanup();

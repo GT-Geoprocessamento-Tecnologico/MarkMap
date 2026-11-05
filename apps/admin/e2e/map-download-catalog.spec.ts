@@ -1,5 +1,8 @@
 // Desenvolvido por MtsFerreira. Map downloads must be usable without technical URLs.
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
+
+// These tests route a synthetic catalog; a real service worker can bypass page.route.
+test.use({ serviceWorkers: "block" });
 
 const published = {
   version: 1,

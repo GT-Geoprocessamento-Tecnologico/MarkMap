@@ -108,8 +108,15 @@ jobs:
       - name: Install Playwright Chromium
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: Build live-mode admin
+      - name: Validate admin and dependencies
         run: pnpm turbo run build --filter=admin...
+        env:
+          TURBO_TELEMETRY_DISABLED: 1
+
+      # Admin build runs unit tests expecting the default mock configuration.
+      # Only compile the browser bundle in live mode for synthetic sync E2E.
+      - name: Build live-mode admin
+        run: pnpm --filter admin exec vite build
         env:
           VITE_API_MODE: live
           VITE_API_URL: /api/v1

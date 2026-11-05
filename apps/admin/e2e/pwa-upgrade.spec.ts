@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 const DB_NAME = "GeoNexoLocalFirstDB";
 const WORKSPACE_ID = "11111111-1111-4111-8111-111111111111";

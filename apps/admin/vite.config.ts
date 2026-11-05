@@ -35,6 +35,8 @@ function shellManifestPlugin() {
 }
 
 export default defineConfig({
+  // GeoTIFF worker imports shared chunks; IIFE cannot code-split.
+  worker: { format: "es" },
   optimizeDeps: {
     exclude: ["maplibre-gl"],
     include: [

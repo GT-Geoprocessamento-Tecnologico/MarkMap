@@ -37,7 +37,7 @@ export const layerRoutes = (app: Hono<any, any, any>) => {
 
   app.post("/projects/:projectId/layers", async (c: Context) => {
     const projectId = uuidSchema.parse(c.req.param("projectId"));
-    const body = z.record(z.unknown()).parse(await c.req.json());
+    const body = z.record(z.string(), z.unknown()).parse(await c.req.json());
     if (body.projectId !== undefined)
       z.literal(projectId).parse(body.projectId);
     const data = createLayerSchema.parse({ ...body, projectId });

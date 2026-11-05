@@ -11,7 +11,7 @@ const MAX_PROPERTY_DEPTH = 3;
 const MAX_PROPERTY_VALUE_BYTES = 2048;
 
 export const featurePropertiesSchema = z
-  .record(z.unknown())
+  .record(z.string(), z.unknown())
   .superRefine((value, ctx) => {
     let keyCount = 0;
     const addInvalid = (path: (string | number)[], message: string) =>
@@ -51,7 +51,7 @@ export const featurePropertiesSchema = z
         ctx.addIssue({
           code: z.ZodIssueCode.too_big,
           maximum: MAX_PROPERTY_VALUE_BYTES,
-          type: "string",
+          origin: "string",
           inclusive: true,
           path,
           message: "Property values must be at most 2 KB",
@@ -83,7 +83,7 @@ export const featurePropertiesSchema = z
       ctx.addIssue({
         code: z.ZodIssueCode.too_big,
         maximum: MAX_PROPERTY_KEYS,
-        type: "array",
+        origin: "array",
         inclusive: true,
         path: [],
         message: "Properties must contain at most 50 keys",

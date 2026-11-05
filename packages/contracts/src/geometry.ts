@@ -118,7 +118,7 @@ export const geometrySchema = geometryWithoutBudget.superRefine(
       ctx.addIssue({
         code: z.ZodIssueCode.too_big,
         maximum: 10_000,
-        type: "array",
+        origin: "array",
         inclusive: true,
         message: "geometry cannot contain more than 10,000 positions",
       });

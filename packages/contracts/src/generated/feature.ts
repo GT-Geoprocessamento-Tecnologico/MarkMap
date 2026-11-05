@@ -6,7 +6,7 @@ import { geometryTypeSchema } from "./layer.js";
 import { timestampSchema, uuidSchema } from "./project.js";
 
 /** GeoJSON properties travel as a real JSON object, never as a JSON string. */
-export const featurePropertiesSchema = z.record(z.unknown());
+export const featurePropertiesSchema = z.record(z.string(), z.unknown());
 
 /**
  * GET /layers/:id/features?bbox=minLng,minLat,maxLng,maxLat

@@ -19,6 +19,12 @@ import {
   type DryRunRestoreResult,
 } from "../../lib/backup/restore";
 import { localDb } from "../../lib/local-db";
+import {
+  readLocalEngineSnapshot, readMeshesSnapshot, readLargeBlobsSnapshot, readOfflineMapsSnapshot,
+} from "../../lib/backup/multi-db";
+import {
+  summarizeDeviceBackupCoverage, type DevicePreflightReport,
+} from "../../lib/backup/device-preflight.mjs";
 import { FullPhotoBackupCard } from "./FullPhotoBackupCard";
 import { version as appVersion } from "../../../package.json";
 
@@ -42,6 +48,30 @@ export function BackupRestoreCard({ showRecoveryLink = true }: { showRecoveryLin
   const [exportConfirm, setExportConfirm] = useState("");
   const [exportBusy, setExportBusy] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+
+  const [deviceCoverage, setDeviceCoverage] = useState<DevicePreflightReport | null>(null);
+  const [coverageBusy, setCoverageBusy] = useState(false);
+  const [coverageError, setCoverageError] = useState(false);
+
+  const inspectOtherLocalData = async () => {
+    if (coverageBusy) return;
+    setCoverageBusy(true);
+    setCoverageError(false);
+    setDeviceCoverage(null);
+    try {
+      // Read-only counts; neither backup files nor workspace data are touched.
+      const results = await Promise.allSettled([
+        readLocalEngineSnapshot(), readMeshesSnapshot(),
+        readLargeBlobsSnapshot(), readOfflineMapsSnapshot(),
+      ]);
+      setDeviceCoverage(summarizeDeviceBackupCoverage(results));
+    } catch {
+      // Do not surface IndexedDB exceptions containing identifiers or filenames.
+      setCoverageError(true);
+    } finally {
+      setCoverageBusy(false);
+    }
+  };
 
   // Estados de Restauração
   const [restoreOpen, setRestoreOpen] = useState(false);
@@ -256,6 +286,32 @@ export function BackupRestoreCard({ showRecoveryLink = true }: { showRecoveryLin
         Esta cópia é parcial: inclui apenas os dados do workspace e tem limite
         de 16 MiB. Mapas offline e dados de outros bancos não estão incluídos.
       </p>
+
+      <section aria-label="Cobertura do backup neste dispositivo" className="my-3 space-y-2 rounded-xl border border-outline-variant p-3">
+        <p className="text-sm font-semibold">O que fica fora da cópia parcial?</p>
+        <p className="text-xs text-on-surface-variant">
+          Esta inspeção usa apenas contagens locais, sem rede nem leitura de arquivos grandes.
+          Não cria backup, não verifica a integridade dos dados e não garante restauração.
+        </p>
+        <button type="button" onClick={() => void inspectOtherLocalData()} disabled={coverageBusy}
+          className="min-h-[44px] rounded-lg border border-outline-variant px-3 py-2 text-sm disabled:opacity-50">
+          {coverageBusy ? "Verificando dados locais…" : "Verificar outros bancos locais"}
+        </button>
+        {coverageError && <p role="alert" className="text-xs text-on-surface-variant">
+          Verificação indisponível. Podem existir dados locais não incluídos nesta cópia.
+        </p>}
+        {deviceCoverage && (
+          <div role="status" aria-live="polite" className="space-y-2 text-xs text-on-surface-variant">
+            <p>Resultado somente informativo: este backup continua <strong>parcial</strong>, mesmo que os outros bancos estejam vazios.</p>
+            <ul className="list-disc space-y-1 pl-5">
+              {deviceCoverage.sections.map((section) => (
+                <li key={section.id}><strong>{section.label}:</strong> {section.message}</li>
+              ))}
+            </ul>
+            <p>Os dados podem mudar entre as consultas; não há snapshot atômico entre bancos.</p>
+          </div>
+        )}
+      </section>
 
       <FullPhotoBackupCard />
 

@@ -1,11 +1,11 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./fixtures";
 import { fileURLToPath } from "node:url";
 import { readFile } from "node:fs/promises";
 import { generateGeoPdfFixture } from "../../../packages/geo/tests/pdf/fixtures/generate-geopdf";
 
 /** No Safari o prompt de instalação fica fixo sobre o conteúdo e intercepta cliques. */
 async function dismissInstallPrompt(page: Page): Promise<void> {
-  const prompt = page.getByRole("status", { name: "Adicionar MarkMap à Tela de Início" });
+  const prompt = page.locator("section.pwa-install-prompt");
   try {
     await prompt.waitFor({ state: "visible", timeout: 3_000 });
   } catch {
@@ -201,7 +201,9 @@ test("GeoJSON local: importar, recarregar, visualizar, exportar e excluir", asyn
     "1",
   );
   await page.goto("/imports");
-  await row.getByRole("button", { name: "Excluir dataset" }).click();
+  await row.getByRole("button", { name: "Excluir levantamento.geojson" }).click();
+  await expect(row.getByText(/A cópia local, geometria e visualização serão removidas/)).toBeVisible();
+  await row.getByRole("button", { name: "Confirmar exclusão de levantamento.geojson" }).click();
   await expect(row).toHaveCount(0);
   await page.reload();
   await expect(row).toHaveCount(0);
@@ -291,65 +293,78 @@ test("malha GLB local: importar, restaurar controles e excluir", async ({
   await expect(page.getByText("Nenhum GLB importado.")).toBeVisible();
 });
 
-test("camada real do projeto: enquadramento, popup, visibilidade e filtro", async ({
+test("camada real do projeto: enquadramento, seleção de ponto, visibilidade e filtro", async ({
   page,
 }) => {
   const projectId = "00000000-0000-4000-8000-000000000011";
   const layerId = "00000000-0000-4000-8000-000000000012";
   const timestamp = "2026-09-30T00:00:00.000Z";
-  await page.addInitScript(
-    ({ projectId, layerId, timestamp }) =>
-      localStorage.setItem(
-        "geonexo.admin.mock.v1",
-        JSON.stringify({
-          version: 1,
-          projects: [
-            {
-              id: projectId,
-              name: "Projeto de teste",
-              description: "Projeto para verificar o mapa",
-              status: "active",
-              createdAt: timestamp,
-              updatedAt: timestamp,
-            },
-          ],
-          layers: [
-            {
-              id: layerId,
-              projectId,
-              name: "Pontos do projeto",
-              description: null,
-              kind: "point",
-              geometryType: "Point",
-              createdAt: timestamp,
-              updatedAt: timestamp,
-            },
-          ],
-          features: [
-            {
-              id: "00000000-0000-4000-8000-000000000013",
-              layerId,
-              geometry: { type: "Point", coordinates: [-68, -30] },
-              properties: { name: "Ponto do projeto" },
-              version: 1,
-              createdAt: timestamp,
-              updatedAt: timestamp,
-            },
-          ],
-        }),
-      ),
-    { projectId, layerId, timestamp },
-  );
+  // The app owns projects, layers and features in IndexedDB (not the legacy mock localStorage).
+  // Seed only this disposable browser context, following the backup E2E IDB fixture shape.
+  await page.goto("/projects");
+  await expect(page.getByText("Nenhum projeto encontrado")).toBeVisible();
+  await page.evaluate(async ({ projectId, layerId, timestamp }) => {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open("GeoNexoLocalFirstDB");
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    try {
+      const workspaceId = await new Promise<string>((resolve, reject) => {
+        const request = db.transaction("meta", "readonly").objectStore("meta").get("workspaceId");
+        request.onsuccess = () => {
+          if (typeof request.result?.value === "string") resolve(request.result.value);
+          else reject(new Error("Workspace local não inicializado."));
+        };
+        request.onerror = () => reject(request.error);
+      });
+      const entities = [
+        { entity: "project", id: projectId, data: {
+          id: projectId, name: "Projeto de teste",
+          description: "Projeto para verificar o mapa", status: "active",
+          createdAt: timestamp, updatedAt: timestamp,
+        } },
+        { entity: "layer", id: layerId, data: {
+          id: layerId, projectId, name: "Pontos do projeto", description: null,
+          kind: "point", geometryType: "Point", srid: 4674, style: {},
+          metadata: {}, visibleByDefault: true, sortOrder: 0,
+          createdAt: timestamp, updatedAt: timestamp,
+        } },
+        { entity: "feature", id: "00000000-0000-4000-8000-000000000013", data: {
+          id: "00000000-0000-4000-8000-000000000013", layerId,
+          geometry: { type: "Point", coordinates: [-68, -30] },
+          properties: { name: "Ponto do projeto" }, version: 1,
+          createdAt: timestamp, updatedAt: timestamp,
+        } },
+      ] as const;
+      await new Promise<void>((resolve, reject) => {
+        const tx = db.transaction("entities", "readwrite");
+        const store = tx.objectStore("entities");
+        for (const item of entities) {
+          store.put({
+            key: `${workspaceId}:${item.entity}:${item.id}`, workspaceId,
+            entity: item.entity, entityId: item.id, version: 0, deleted: false,
+            updatedAt: timestamp, payload: { entity: item.entity, data: item.data },
+          });
+        }
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+        tx.onabort = () => reject(tx.error);
+      });
+    } finally { db.close(); }
+  }, { projectId, layerId, timestamp });
   await page.goto(`/projects/${projectId}/map`);
+  await expect(page.getByTestId("active-project-indicator")).toContainText("Projeto de teste");
   const map = page.locator("[data-map-ready]");
   await expect(map).toHaveAttribute("data-map-ready", "true");
   await dismissInstallPrompt(page);
   await expect(page.getByRole("alert")).toHaveCount(0);
   await expect(map).toHaveAttribute("data-feature-count", "1");
   await page.locator(".maplibregl-canvas").click();
-  await expect(
-    page.locator(".maplibregl-popup").getByText("Ponto do projeto"),
-  ).toBeVisible();
+  // Project-owned points open their editable point panel, not a dataset popup.
+  const pointPanel = page.getByRole("region", { name: "Gerenciar pontos do projeto" });
+  await expect(pointPanel).toBeVisible();
+  await expect(pointPanel.getByRole("textbox", { name: "Nome do ponto" })).toHaveValue("Ponto do projeto");
   await page.getByRole("button", { name: "Camadas", exact: true }).click();
   await expect(
     page.getByRole("combobox", { name: "Selecionar dataset local" }),
