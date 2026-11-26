@@ -45,3 +45,19 @@ test('A23 unspecified errors get a safe recovery action, not a false success', (
   assert.equal(describeOfflineMapFailure(new Error('unhandled map exception')).kind,'unknown');
   assert.equal(describeOfflineMapFailure(undefined).kind,'unknown');
 });
+
+test('unavailable WebGL2 is distinct from a temporary context loss or network failure', () => {
+  const issue = describeOfflineMapFailure({
+    name: 'GPUInitializationError',
+    message: 'WebGL2 is required to display this map',
+    statusMessage: 'GPU detail https://private.example/device',
+  });
+  assert.equal(issue.kind, 'webgl-unavailable');
+  assert.match(issue.message, /WebGL 2/);
+  assert.match(issue.message, /arquivos locais continuam/);
+  assert.doesNotMatch(issue.message, /https:\/\//);
+  const wrapped = describeOfflineMapFailure({ error: { message: 'WebGL2 is required to display this map.' } });
+  assert.equal(wrapped.kind, 'webgl-unavailable');
+  assert.equal(describeOfflineMapFailure(new Error('WebGL context lost')).kind, 'rendering');
+  assert.equal(describeOfflineMapFailure(new Error('NetworkError when fetching tiles')).kind, 'network');
+});

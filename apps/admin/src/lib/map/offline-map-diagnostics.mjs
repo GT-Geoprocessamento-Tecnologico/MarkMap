@@ -23,6 +23,10 @@ export function describeOfflineMapFailure(input) {
   if (name === 'QuotaExceededError' || /quotaexceeded|out of memory/.test(detail)) {
     return { kind: 'resources', message: 'O dispositivo não conseguiu carregar o mapa. Confira o espaço e os recursos disponíveis.' };
   }
+  // MapLibre reports a distinct GPUInitializationError for a missing WebGL 2 context.
+  if (name === 'GPUInitializationError' || /webgl2 is required to display this map/.test(detail)) {
+    return { kind: 'webgl-unavailable', message: 'O navegador não conseguiu iniciar o WebGL 2. Tente outro navegador compatível; seus projetos e arquivos locais continuam disponíveis.' };
+  }
   if (/webgl|context lost|failed to create.*context/.test(detail)) {
     return { kind: 'rendering', message: 'O motor gráfico não conseguiu desenhar o mapa. Reabra a visualização ou tente novamente.' };
   }

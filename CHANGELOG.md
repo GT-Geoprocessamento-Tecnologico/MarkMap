@@ -2,6 +2,18 @@
 
 Fonte da versão do aplicativo: `apps/admin/package.json`. Todos os agentes seguem [a política de versionamento](docs/versioning.md). O [histórico documental anterior](docs/changelog.md) permanece preservado.
 
+## [0.5.23] - 2026-11-26
+
+### Alterações
+
+- Se o navegador não consegue iniciar WebGL 2, o workspace explica a limitação e dá acesso direto a Projetos e Importações. O fundo simples ainda depende do motor gráfico e não é oferecido nesse caso.
+- Navegações offline aceitam uma barra final em rotas conhecidas. O roteador mantém a referência do GeoTIFF nas navegações que já aceitam o arquivo local, sem trocar o shell aprovado.
+
+### Validação
+
+- Testes Node direcionados da classificação de erros, navegação offline e preservação da referência. A regressão Playwright de abertura/recarga sem rede ainda exige build e Chromium com WebGL.
+- Candidata em revisão; sem homologação integrada, alteração de domínio ou publicação.
+
 ## [0.5.22] - 2026-10-31
 
 ### Alterações

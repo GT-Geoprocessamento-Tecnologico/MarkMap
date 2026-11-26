@@ -353,6 +353,7 @@ export default function CommandCenterPage() {
   const [localReadError, setLocalReadError] = useState<string | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
   const [mapReady, setMapReady] = useState(false);
+  const [webglUnavailable, setWebglUnavailable] = useState(false);
   const mapErrorRef = useRef<string | null>(null);
   mapErrorRef.current = mapError;
   const webglLostRef = useRef(false);
@@ -966,6 +967,7 @@ export default function CommandCenterPage() {
       release?.();
     };
     const initialize = async () => {
+      setWebglUnavailable(false);
       setMapError(null);
       let center: [number, number] = [-47.92, -15.785];
       let zoom = 14;
@@ -1650,12 +1652,19 @@ export default function CommandCenterPage() {
       // Do not expose raw file paths or remote URLs in UI/toasts.
       mapErrorRef.current = issue.message;
       setMapError(issue.message);
+      setMapReady(false);
+      setGeoPdfReady(false);
+      setGeoTiffReady(false);
+      const missingWebgl = issue.kind === "webgl-unavailable";
+      setWebglUnavailable(missingWebgl);
+      if (!missingWebgl) {
         toast({
           title: "Mapa indisponível",
           description:
             "Confira o pacote offline em Configurações. Os arquivos locais continuam disponíveis na página de importações.",
           variant: "error",
         });
+      }
     });
 
     return () => {
@@ -1900,7 +1909,20 @@ export default function CommandCenterPage() {
               }} className="min-h-[44px] rounded-lg border border-outline-variant px-3 py-2 text-sm font-semibold">
                 Tentar novamente
               </button>
-              {activeRegionPackageId && !mapSource.neutralActive && !explicitPdfId && (
+              {/* The neutral basemap still uses MapLibre and also requires WebGL 2. */}
+              {webglUnavailable && (
+                <>
+                  <button type="button" onClick={() => void navigate({ to: "/projects" })}
+                    className="min-h-[44px] rounded-lg border border-outline-variant px-3 py-2 text-sm font-semibold">
+                    Abrir projetos
+                  </button>
+                  <button type="button" onClick={() => void navigate({ to: "/imports" })}
+                    className="min-h-[44px] rounded-lg border border-outline-variant px-3 py-2 text-sm font-semibold">
+                    Abrir arquivos locais
+                  </button>
+                </>
+              )}
+              {!webglUnavailable && activeRegionPackageId && !mapSource.neutralActive && !explicitPdfId && (
                 <button type="button" onClick={() => {
                   setNeutralFor(`${activeRegionPackageId}:${regionalRenderRevision}`);
                   mapErrorRef.current = null;

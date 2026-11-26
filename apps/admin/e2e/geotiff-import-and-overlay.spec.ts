@@ -1,5 +1,6 @@
 import { expect, test } from "./fixtures";
 import { Buffer } from "buffer";
+import { createHash } from "node:crypto";
 
 // Note: admin e2e runtime doesn’t depend on `geotiff`.
 // We embed tiny GeoTIFF fixtures as base64 strings.
@@ -78,6 +79,58 @@ test("GeoTIFF local import restores its MapLibre raster overlay after page reloa
   await page.waitForTimeout(500);
 
   expect(consoleErrors).toEqual([]);
+});
+
+test("restores an imported GeoTIFF offline after reload and in a new tab", async ({
+  page,
+  context,
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name !== "chromium",
+    "Offline service-worker reopening is checked in Chromium.",
+  );
+  test.setTimeout(120000);
+
+  const bytes = geoTiffFixture4326();
+  const expectedId = createHash("sha256").update(bytes).digest("hex");
+  await importGeoTiffAndOpenWorkspace(page, bytes, "offline-map.tif");
+  const expectedUrl = new URL("/workspace?geotiffId=" + expectedId, page.url()).href;
+  await expect(page).toHaveURL(expectedUrl);
+  await expect(page.locator('[data-geotiff-ready="true"]')).toBeVisible();
+  await expect.poll(
+    () => page.evaluate(() => navigator.serviceWorker?.controller?.state ?? null),
+    { message: "The installed worker must control the app before going offline" },
+  ).toBe("activated");
+
+  async function assertOfflineRaster(
+    view: import("@playwright/test").Page,
+    response: import("@playwright/test").Response | null,
+  ) {
+    expect(response?.status()).toBe(200);
+    expect(response?.fromServiceWorker()).toBe(true);
+    await expect(view).toHaveURL(expectedUrl);
+    expect(await view.evaluate(() => navigator.onLine)).toBe(false);
+    await expect(view.locator('[data-map-ready="true"]')).toBeVisible();
+    await expect(view.locator('[data-geotiff-ready="true"]')).toBeVisible();
+    await expect(view.locator(".maplibregl-canvas")).toBeVisible();
+  }
+
+  let reopened: import("@playwright/test").Page | undefined;
+  try {
+    await context.setOffline(true);
+    await assertOfflineRaster(page, await page.reload({ waitUntil: "domcontentloaded" }));
+    reopened = await context.newPage();
+    await assertOfflineRaster(
+      reopened,
+      await reopened.goto(expectedUrl, { waitUntil: "domcontentloaded" }),
+    );
+  } finally {
+    try {
+      await context.setOffline(false);
+    } finally {
+      await reopened?.close();
+    }
+  }
 });
 
 test("GeoTIFF with projected CRS is rejected and shows an error state", async ({
