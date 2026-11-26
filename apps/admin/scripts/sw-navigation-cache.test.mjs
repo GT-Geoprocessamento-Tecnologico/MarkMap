@@ -94,6 +94,22 @@ test('PWA: offline navigation still opens previously approved local shell', asyn
   assert.equal(sw.writes, 0);
 });
 
+test('PWA: known share URLs tolerate one trailing slash and open the approved shell offline', async () => {
+  const sw = await harness({ offline: true });
+  for (const route of ['/projects/', '/projects/example/map/?source=link',
+    '/app/projects/example/mesh/', '/app/settings/']) {
+    const response = await sw.navigate(route);
+    assert.equal(response?.status, 200, route);
+    assert.match(await response.text(), /approved app shell/, route);
+  }
+  for (const route of ['/projects//', '/app//', '/projects/example/export/', '/api/v1/sync/pull/']) {
+    assert.equal(await sw.navigate(route), null, route);
+  }
+  assert.equal(await sw.navigate('/projects/', { mode: 'cors' }), null);
+  assert.equal(sw.networkReads, 0);
+  assert.equal(sw.writes, 0);
+});
+
 test('PWA: missing approval or evicted JS fails closed to recovery, never adopting network HTML', async () => {
   for (const config of [{ approval: false }, { missingBundle: true }]) {
     const sw = await harness(config);
@@ -118,4 +134,17 @@ test('PWA: non-GET and cross-origin requests are not intercepted', async () => {
   assert.equal(await sw.navigate('/projects', { method: 'POST' }), null);
   assert.equal(await sw.navigate('https://another.example/projects'), null);
   assert.equal(sw.networkReads, 0);
+});
+
+test('PWA: offline GeoTIFF deep link selects only the approved shell without fetching or writing', async () => {
+  const sw = await harness({ offline: true });
+  const id = 'ab'.repeat(32);
+  for (const route of ['/workspace', '/app/workspace', '/projects/example/map/']) {
+    const result = await sw.navigate(route + '?geotiffId=' + id);
+    assert.equal(result?.status, 200, route);
+    assert.match(await result.text(), /approved app shell/, route);
+  }
+  assert.equal(await sw.navigate('/api/v1/sync/pull?geotiffId=' + id), null);
+  assert.equal(sw.networkReads, 0);
+  assert.equal(sw.writes, 0);
 });

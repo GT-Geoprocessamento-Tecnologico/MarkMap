@@ -31,9 +31,10 @@ const isSha256 = (value: unknown): value is string =>
   typeof value === "string" && /^[a-f0-9]{64}$/i.test(value);
 const mapSearch = (
   search: Record<string, unknown>,
-): { datasetId?: string; pdfId?: string } => ({
+): { datasetId?: string; pdfId?: string; geotiffId?: string } => ({
   datasetId: isUuid(search.datasetId) ? search.datasetId : undefined,
   pdfId: isSha256(search.pdfId) ? search.pdfId.toLowerCase() : undefined,
+  geotiffId: isSha256(search.geotiffId) ? search.geotiffId.toLowerCase() : undefined,
 });
 
 const dashboardRoute = createRoute({

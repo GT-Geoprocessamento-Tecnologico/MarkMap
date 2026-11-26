@@ -72,7 +72,10 @@ function isDeclaredStaticPath(pathname) {
   return STATIC_ASSETS.includes(pathname) || STATIC_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 }
 function isAppNavigationPath(pathname) {
-  const route = pathname === '/app' ? '/' : pathname.startsWith('/app/') ? pathname.slice(4) : pathname;
+  const appPath = pathname === '/app' ? '/' : pathname.startsWith('/app/') ? pathname.slice(4) : pathname;
+  // Match the router's trailing-slash normalization without permitting new SPA paths.
+  const route = appPath !== '/' && appPath.endsWith('/') && !appPath.endsWith('//')
+    ? appPath.slice(0, -1) : appPath;
   return [
     /^\/$/, /^\/mesh$/, /^\/imports$/,
     /^\/projects(?:\/[^/]+(?:\/(?:map|mesh))?)?$/,
